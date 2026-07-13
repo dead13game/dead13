@@ -89,27 +89,20 @@ function onTitleClick() {
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: linear-gradient(160deg, #050520 0%, #0d1035 25%, #121844 50%, #0a0f2e 75%, #060920 100%);
-  background-attachment: fixed;
-  min-height: 100vh;
-  color: #333;
-}
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
   background:
     radial-gradient(ellipse at 20% 50%, rgba(25, 40, 120, 0.3) 0%, transparent 60%),
     radial-gradient(ellipse at 80% 30%, rgba(60, 20, 80, 0.2) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 80%, rgba(15, 30, 60, 0.4) 0%, transparent 55%);
-  pointer-events: none;
-  z-index: 0;
+    radial-gradient(ellipse at 50% 80%, rgba(15, 30, 60, 0.4) 0%, transparent 55%),
+    linear-gradient(160deg, #050520 0%, #0d1035 25%, #121844 50%, #0a0f2e 75%, #060920 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+  color: #333;
 }
 #app { min-height: 100vh; }
 </style>
 
 <style scoped>
-.app { min-height: 100vh; }
+.app { min-height: 100vh; position: relative; z-index: 1; }
 .app__header { text-align: center; padding: 24px 16px 8px; }
 .app__title {
   font-size: 32px; font-weight: bold;
