@@ -1,9 +1,6 @@
 <template>
   <div class="game-shell">
-    <!-- PixiJS Canvas 层 -->
-    <div class="game-shell__canvas-layer">
-      <GameCanvas ref="gameCanvasRef" :state="state" />
-    </div>
+    <GameCanvas ref="gameCanvasRef" :state="state" />
 
     <!-- 顶部信息栏 -->
     <div class="game-shell__top-bar">
@@ -204,17 +201,6 @@ function cancelPick() {
 .game-shell {
   height: 100vh;
   overflow: hidden;
-}
-
-/* Canvas 层 — 占据中间所有可用空间 */
-.game-shell__canvas-layer {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  z-index: 1;
-  pointer-events: none;
-}
-.game-shell__canvas-layer canvas {
-  pointer-events: none;
 }
 
 /* 顶部信息栏 — 固定在顶部 */

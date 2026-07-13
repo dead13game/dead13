@@ -1,7 +1,5 @@
 <template>
-  <div class="game-canvas" ref="wrapperRef">
-    <canvas ref="canvasRef"></canvas>
-  </div>
+  <canvas ref="canvasRef" class="pixi-canvas"></canvas>
 </template>
 
 <script setup>
@@ -12,29 +10,31 @@ const props = defineProps({
   state: { type: Object, required: true }
 })
 
-const wrapperRef = ref(null)
 const canvasRef = ref(null)
 const manager = shallowRef(null)
 
 let resizeObserver = null
 
 onMounted(async () => {
+  const canvas = canvasRef.value
+  // 初始尺寸匹配视口
+  const w = window.innerWidth
+  const h = window.innerHeight
+
   const mgr = new PIXIManager()
-  await mgr.init(canvasRef.value)
+  await mgr.init(canvas, { width: w, height: h })
 
   // 初始构建场景
   mgr.buildScene(props.state.players, props.state.deck.length)
 
-  // 窗口大小自适应
+  // 窗口缩放
   resizeObserver = new ResizeObserver(() => {
-    if (wrapperRef.value && mgr) {
-      const rect = wrapperRef.value.getBoundingClientRect()
-      mgr.resize(rect.width, rect.height)
-    }
+    const rw = window.innerWidth
+    const rh = window.innerHeight
+    if (mgr) mgr.resize(rw, rh)
   })
-  resizeObserver.observe(wrapperRef.value)
+  resizeObserver.observe(document.body)
 
-  // 将实例写入 ref，父组件通过 defineExpose 即可访问
   manager.value = mgr
 })
 
@@ -47,13 +47,12 @@ defineExpose({ manager })
 </script>
 
 <style scoped>
-.game-canvas {
-  width: 100%;
-  height: 100%;
-}
-canvas {
+.pixi-canvas {
   display: block;
-  width: 100%;
-  height: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
 }
 </style>
