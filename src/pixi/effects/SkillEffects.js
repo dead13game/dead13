@@ -43,6 +43,30 @@ export const SKILL_EFFECTS = {
   columbina: {
     draw: { color: 0xfff9c4, count: 14, speed: 160, spread: 140, lifetime: 1.0, size: 3, gravity: -10 },
     hit:  { color: 0xffd54f, count: 20, speed: 220, spread: 200, lifetime: 0.7, size: 3, gravity: 20 }
+  },
+
+  // 风堇 — 晴空
+  fenjin: {
+    draw: { color: 0x80deea, count: 20, speed: 200, spread: 180, lifetime: 1.0, size: 4, gravity: -40 },
+    hit:  { color: 0x4dd0e1, count: 25, speed: 250, spread: 200, lifetime: 0.6, size: 4, gravity: 40 }
+  },
+
+  // 莉奈娅 — 青春
+  liniya: {
+    draw: { color: 0xf48fb1, count: 18, speed: 220, spread: 150, lifetime: 0.9, size: 3, gravity: -20 },
+    hit:  { color: 0xec407a, count: 22, speed: 280, spread: 180, lifetime: 0.6, size: 3, gravity: 30 }
+  },
+
+  // 爱蜜莉雅 — 冰结
+  aimiliya: {
+    draw: { color: 0xb3e5fc, count: 16, speed: 180, spread: 200, lifetime: 1.1, size: 4, gravity: -10 },
+    hit:  { color: 0x81d4fa, count: 20, speed: 200, spread: 250, lifetime: 0.7, size: 4, gravity: 10 }
+  },
+
+  // 菜月昴 — 回归
+  caiyueang: {
+    draw: { color: 0x9575cd, count: 24, speed: 250, spread: 300, lifetime: 1.2, size: 3, gravity: -30 },
+    hit:  { color: 0x7e57c2, count: 30, speed: 300, spread: 350, lifetime: 0.8, size: 3, gravity: -50 }
   }
 }
 

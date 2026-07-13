@@ -32,7 +32,15 @@ function createPlayer(index, charData, name) {
     // 纳西妲：已发动技能后可再行动
     extraAction: false,
     // 天气已处理标记
-    weatherProcessed: false
+    weatherProcessed: false,
+    // 莉奈娅：偷取/DoT
+    stealTarget: null,    // { idx, turns }
+    dotTarget: null,      // { idx, turns }
+    damageBonus: {},      // { [targetIdx]: bonus } 永久伤害加成
+    // 爱蜜莉雅：冻结
+    frozenBy: null,       // 被谁冻结（有值=跳过下次行动）
+    // 菜月昴：存档
+    savepoint: null
   }
 }
 
@@ -189,14 +197,54 @@ function nextPlayer(state) {
       }
     }
 
+    // 莉奈娅被动：回合开始处理偷取和DoT
+    for (const p of state.players) {
+      if (!p.alive) continue
+
+      // DoT：每回合5伤害无视陷阱
+      if (p.dotTarget && p.dotTarget.turns > 0) {
+        const target = state.players.find(t => t.index === p.dotTarget.idx)
+        if (target?.alive) {
+          log(state, `${target.name} 受到莉奈娅DoT 5点伤害（无视陷阱）`)
+          applyDamage(state, target, 5)
+          p.dotTarget.turns--
+          if (p.dotTarget.turns <= 0) p.dotTarget = null
+        } else {
+          p.dotTarget = null
+        }
+      }
+
+      // 偷取防御牌
+      if (p.stealTarget && p.stealTarget.turns > 0) {
+        const target = state.players.find(t => t.index === p.stealTarget.idx)
+        if (target?.alive && target.defensePile.length > 0) {
+          const stolen = target.defensePile.pop()
+          stolen.faceUp = true
+          p.defensePile.push(stolen)
+          log(state, `${p.name} 偷取了 ${target.name} 的防御牌`)
+        }
+        p.stealTarget.turns--
+        if (p.stealTarget.turns <= 0) p.stealTarget = null
+      }
+    }
+
     checkGameOver(state)
   }
 
   if (!state.gameOver && state.players[next]?.alive) {
     state.currentPlayerIndex = next
+    const p = currentPlayer(state)
+
+    // 爱蜜莉雅冻结：跳过本次行动
+    if (p.frozenBy !== null) {
+      log(state, `${p.name} 被冻结，跳过行动`)
+      p.frozenBy = null
+      nextPlayer(state)
+      return
+    }
+
     state.step = STEP.PICK_ACTION
     // 重置芙宁娜状态
-    const p = currentPlayer(state)
     p.ignoreTrapThisTurn = false
     log(state, `当前 ${p.name} 行动`)
   }
@@ -367,8 +415,15 @@ export function executeAttack(state, targetIdx) {
     log(state, `斗志 ${attacker.fightingSpirit}层`)
   }
 
+  // 莉奈娅永久伤害加成
+  if (attacker.characterId === 'liniya' && attacker.damageBonus[targetIdx] > 0) {
+    attackValue += attacker.damageBonus[targetIdx]
+    log(state, `永久伤害+${attacker.damageBonus[targetIdx]}`)
+  }
+
   // 陷阱判定
   let trapTriggered = false
+  const hadTrap = !!target.trap  // 风堇被动用
   if (target.trap && !attacker.ignoreTrapThisTurn) {
     target.trap.faceUp = true
     const trapValue = target.trap.value
@@ -423,11 +478,20 @@ export function executeAttack(state, targetIdx) {
   const remainingDmg = applyDamage(state, target, attackValue)
   
   // 玛薇卡：如果击穿了防御
-  if (attacker.characterId === 'mavuika' && target.defensePile.length < beforeDefense && !trapTriggered) {
-    const diff = beforeDefense - target.defensePile.length
-    if (diff > 0) {
-      attacker.fightingSpirit = Math.min(5, attacker.fightingSpirit + diff)
-      log(state, `斗志 ${attacker.fightingSpirit}层`)
+  const defenseConsumed = beforeDefense - target.defensePile.length
+  if (attacker.characterId === 'mavuika' && defenseConsumed > 0 && !trapTriggered) {
+    attacker.fightingSpirit = Math.min(5, attacker.fightingSpirit + defenseConsumed)
+    log(state, `斗志 ${attacker.fightingSpirit}层`)
+  }
+
+  // 风堇被动：每消耗对方陷阱/防御牌回复1点生命
+  if (attacker.characterId === 'fenjin') {
+    let healCount = 0
+    if (hadTrap && !trapTriggered) healCount++  // 陷阱被破（不是反弹/平局）
+    healCount += defenseConsumed
+    if (healCount > 0) {
+      attacker.hp = Math.min(attacker.maxHp, attacker.hp + healCount)
+      log(state, `${attacker.name} 风堇被动回复 ${healCount} 点（当前 HP ${attacker.hp}）`)
     }
   }
 
@@ -548,13 +612,13 @@ export function submitGamble(state, trapIdx, baitIdx) {
 export function canUseSkill(state, player) {
   if (!player.alive) return false
   if (player.skillType !== 'active') return false
+  // 菜月昴存档回溯无限使用
+  if (player.characterId === 'caiyueang') return state.step === STEP.PICK_ACTION
   if (player.skillUses <= 0) return false
 
   // 军备竞赛禁止技能
   if (state.currentWeather === 'arms') return false
 
-  // 温迪：技能使用时需要处于攻击选目标阶段（特殊处理）
-  // 其他技能在PICK_ACTION阶段可用
   return state.step === STEP.PICK_ACTION
 }
 
@@ -565,11 +629,15 @@ export function executeSkill(state) {
   if (!canUseSkill(state, player)) return false
 
   switch (player.characterId) {
-    case 'venti':   return startSkillVenti(state)
-    case 'zhongli': return executeSkillZhongli(state)
-    case 'raiden':  return executeSkillRaiden(state)
-    case 'nahida':  return startSkillNahida(state)
-    case 'furina':  return executeSkillFurina(state)
+    case 'venti':     return startSkillVenti(state)
+    case 'zhongli':   return executeSkillZhongli(state)
+    case 'raiden':    return executeSkillRaiden(state)
+    case 'nahida':    return startSkillNahida(state)
+    case 'furina':    return executeSkillFurina(state)
+    case 'fenjin':    return executeSkillFenjin(state)
+    case 'liniya':    return executeSkillLiniya(state)
+    case 'aimiliya':  return executeSkillAimiliya(state)
+    case 'caiyueang': return executeSkillCaiyueang(state)
     default: return false
   }
 }
@@ -721,6 +789,181 @@ export function executeFurinaSwap(state, targetIdx) {
   player.extraAction = true
   log(state, `${target.name}的陷阱明暗交换`)
   state.step = STEP.PICK_ACTION
+}
+
+// ===== 风堇·重见澄澈晴空 =====
+
+function executeSkillFenjin(state) {
+  const player = currentPlayer(state)
+  if (state.phase === PHASE.PEACE) {
+    log(state, `和平阶段禁止攻击`)
+    return
+  }
+  player.skillUses--
+  state.step = STEP.SKILL_PICK_TARGET
+  state._fenjinHeal = null  // 将在选目标后计算
+  log(state, `${player.name} 释放重见澄澈晴空`)
+}
+
+export function executeFenjinSkill(state, targetIdx) {
+  const player = currentPlayer(state)
+  const target = state.players.find(p => p.index === targetIdx)
+  if (!target?.alive) return
+
+  const oldMaxHp = player.maxHp
+  player.maxHp += 3
+  const healAmount = player.maxHp - player.hp  // 相当于回满的量
+  player.hp = player.maxHp
+  const damage = healAmount * 2
+
+  log(state, `${player.name} 生命上限 ${oldMaxHp}→${player.maxHp}，回复 ${healAmount} 点`)
+  log(state, `对 ${target.name} 造成 ${damage} 点伤害`)
+  applyDamage(state, target, damage)
+  if (!state.gameOver) nextPlayer(state)
+}
+
+// ===== 莉奈娅·青春之力的馈赠 =====
+
+function executeSkillLiniya(state) {
+  const player = currentPlayer(state)
+  if (state.phase === PHASE.PEACE) {
+    log(state, `和平阶段禁止攻击`)
+    return
+  }
+  player.skillUses--
+  state._liniyaSubSkill = true
+  state.step = STEP.LINIYA_PICK
+  log(state, `${player.name} 释放青春之力的馈赠，选择子技能和目标`)
+}
+
+export function executeLiniyaSkill(state, targetIdx, subSkill) {
+  const player = currentPlayer(state)
+  const target = state.players.find(p => p.index === targetIdx)
+  if (!target?.alive) return
+
+  if (subSkill === 1) {
+    // 技能一：偷取防御牌3回合 + 永久伤害+2
+    player.stealTarget = { idx: targetIdx, turns: 3 }
+    player.damageBonus[targetIdx] = (player.damageBonus[targetIdx] || 0) + 2
+    log(state, `${player.name} 偷取 ${target.name} 的防御牌（3回合），对其伤害+2`)
+  } else {
+    // 技能二：每回合5点DoT伤害无视陷阱持续5回合
+    player.dotTarget = { idx: targetIdx, turns: 5 }
+    log(state, `${player.name} 对 ${target.name} 施加5回合DoT（每回合5点无视陷阱）`)
+  }
+
+  state._liniyaSubSkill = null
+  state.step = STEP.PICK_ACTION
+  nextPlayer(state)
+}
+
+// ===== 爱蜜莉雅·冻结 =====
+
+function executeSkillAimiliya(state) {
+  const player = currentPlayer(state)
+  player.skillUses--
+  state.step = STEP.SKILL_PICK_TARGET
+  state._aimiliyaFreeze = true
+  log(state, `${player.name} 释放冻结`)
+}
+
+export function executeAimiliyaSkill(state, targetIdx) {
+  const player = currentPlayer(state)
+  const target = state.players.find(p => p.index === targetIdx)
+  if (!target?.alive) return
+
+  target.frozenBy = player.index
+  log(state, `${target.name} 被冻结，将跳过下一次行动`)
+  state._aimiliyaFreeze = null
+  state.step = STEP.PICK_ACTION
+  nextPlayer(state)
+}
+
+// ===== 菜月昴·死亡回归 =====
+
+function executeSkillCaiyueang(state) {
+  const player = currentPlayer(state)
+  // 直接存档/读档，不需要选目标
+  state._caiyueangMode = true
+  state.step = STEP.CAIYUEANG_PICK
+  log(state, `${player.name} 死亡回归 — 选择存档或读档`)
+}
+
+export function executeCaiyueangSave(state) {
+  const player = currentPlayer(state)
+  // 深拷贝当前游戏状态
+  player.savepoint = deepCloneState(state)
+  state._caiyueangMode = null
+  state.step = STEP.PICK_ACTION
+  log(state, `${player.name} 存档完成`)
+  nextPlayer(state)
+}
+
+export function executeCaiyueangLoad(state) {
+  const player = currentPlayer(state)
+  if (!player.savepoint) {
+    log(state, `没有存档点可以回溯`)
+    state._caiyueangMode = null
+    state.step = STEP.PICK_ACTION
+    return
+  }
+  restoreState(state, player.savepoint)
+  log(state, `${player.name} 死亡回归！回溯到存档点`)
+  state._caiyueangMode = null
+}
+
+// 深拷贝游戏状态（用于存档）
+function deepCloneState(state) {
+  return {
+    players: state.players.map(p => ({
+      index: p.index, name: p.name, characterId: p.characterId,
+      characterName: p.characterName, characterTitle: p.characterTitle,
+      characterIcon: p.characterIcon,
+      hp: p.hp, maxHp: p.maxHp, alive: p.alive,
+      defensePile: p.defensePile.map(c => ({ ...c })),
+      trap: p.trap ? { ...p.trap } : null,
+      bait: p.bait ? { ...p.bait } : null,
+      skillUses: p.skillUses, skillName: p.skillName,
+      skillDesc: p.skillDesc, skillType: p.skillType, maxUses: p.maxUses,
+      fightingSpirit: p.fightingSpirit, moonPhase: p.moonPhase,
+      ignoreTrapThisTurn: p.ignoreTrapThisTurn, extraAction: p.extraAction,
+      weatherProcessed: p.weatherProcessed,
+      stealTarget: p.stealTarget ? { ...p.stealTarget } : null,
+      dotTarget: p.dotTarget ? { ...p.dotTarget } : null,
+      damageBonus: { ...p.damageBonus },
+      frozenBy: p.frozenBy, savepoint: null  // 存档点本身不复刻
+    })),
+    deck: state.deck.map(c => ({ ...c })),
+    grave: state.grave.map(c => ({ ...c })),
+    currentPlayerIndex: state.currentPlayerIndex,
+    phase: state.phase, step: state.step,
+    round: state.round, currentWeather: state.currentWeather,
+    peaceRounds: state.peaceRounds
+  }
+}
+
+// 从存档恢复状态
+function restoreState(state, sp) {
+  // 恢复玩家
+  sp.players.forEach((sp, i) => {
+    Object.assign(state.players[i], sp)
+    // 恢复深层对象
+    state.players[i].defensePile = sp.defensePile.map(c => ({ ...c }))
+    state.players[i].trap = sp.trap ? { ...sp.trap } : null
+    state.players[i].bait = sp.bait ? { ...sp.bait } : null
+    state.players[i].stealTarget = sp.stealTarget ? { ...sp.stealTarget } : null
+    state.players[i].dotTarget = sp.dotTarget ? { ...sp.dotTarget } : null
+    state.players[i].damageBonus = { ...sp.damageBonus }
+  })
+  state.deck = sp.deck.map(c => ({ ...c }))
+  state.grave = sp.grave.map(c => ({ ...c }))
+  state.currentPlayerIndex = sp.currentPlayerIndex
+  state.phase = sp.phase
+  state.step = STEP.PICK_ACTION
+  state.round = sp.round
+  state.currentWeather = sp.currentWeather
+  state.peaceRounds = sp.peaceRounds
+  checkGameOver(state)
 }
 
 // ===== 天气系统 =====

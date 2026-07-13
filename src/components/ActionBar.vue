@@ -38,14 +38,50 @@
       </div>
     </template>
 
-    <!-- 技能选目标（雷电将军/芙宁娜） -->
+    <!-- 技能选目标（雷电/芙宁娜/风堇/爱蜜莉雅） -->
     <template v-else-if="state.step === 'skillPickTarget'">
-      <span class="action-hint">{{ state.pendingFurinaTarget ? '选择要交换陷阱的目标：' : '选择技能目标：' }}</span>
+      <span class="action-hint">{{
+        state.pendingFurinaTarget ? '选择要交换陷阱的目标：' :
+        state._aimiliyaFreeze ? '选择要冻结的目标：' :
+        '选择技能目标：'
+      }}</span>
       <div class="action-row">
-        <button v-for="p in aliveTargets" :key="p.index" class="ab ab--skill-target" @click="$emit('skillTarget', p.index)">
+        <button v-for="p in aliveTargets" :key="p.index" class="ab ab--skill-target" :disabled="disabled" @click="$emit('skillTarget', p.index)">
           {{ p.name }}
         </button>
-        <button class="ab ab--cancel" @click="$emit('cancel')">取消</button>
+        <button class="ab ab--cancel" :disabled="disabled" @click="$emit('cancel')">取消</button>
+      </div>
+    </template>
+
+    <!-- 莉奈娅选择子技能 -->
+    <template v-else-if="state.step === 'liniyaPick'">
+      <span class="action-hint">莉奈娅 — 选择子技能和目标：</span>
+      <div class="action-row">
+        <button
+          v-for="p in aliveTargets"
+          :key="'s1-' + p.index"
+          class="ab ab--gamble"
+          :disabled="disabled"
+          @click="$emit('liniyaSkill', p.index, 1)"
+        >偷取 {{ p.name }} (3回合)</button>
+        <button
+          v-for="p in aliveTargets"
+          :key="'s2-' + p.index"
+          class="ab ab--skill-target"
+          :disabled="disabled"
+          @click="$emit('liniyaSkill', p.index, 2)"
+        >DoT {{ p.name }} (5回合)</button>
+        <button class="ab ab--cancel" :disabled="disabled" @click="$emit('cancel')">取消</button>
+      </div>
+    </template>
+
+    <!-- 菜月昴选择存档/读档 -->
+    <template v-else-if="state.step === 'caiyueangPick'">
+      <span class="action-hint">菜月昴 — 死亡回归：</span>
+      <div class="action-row">
+        <button class="ab ab--def" :disabled="disabled" @click="$emit('caiyueangSave')">存档</button>
+        <button class="ab ab--skill" :disabled="disabled" @click="$emit('caiyueangLoad')">读档</button>
+        <button class="ab ab--cancel" :disabled="disabled" @click="$emit('cancel')">取消</button>
       </div>
     </template>
 
@@ -68,11 +104,13 @@
               <button
                 class="tiny-btn tiny-btn--trap"
                 :class="{ active: gambleTrapIdx === idx }"
+                :disabled="disabled"
                 @click="gambleTrapIdx = idx"
               >陷阱</button>
               <button
                 class="tiny-btn tiny-btn--bait"
                 :class="{ active: gambleBaitIdx === idx }"
+                :disabled="disabled"
                 @click="gambleBaitIdx = idx"
               >诱饵</button>
             </div>
@@ -81,7 +119,7 @@
         <div class="action-row">
           <button
             class="ab ab--confirm"
-            :disabled="gambleTrapIdx < 0 || gambleBaitIdx < 0 || gambleTrapIdx === gambleBaitIdx"
+            :disabled="disabled || gambleTrapIdx < 0 || gambleBaitIdx < 0 || gambleTrapIdx === gambleBaitIdx"
             @click="onGambleConfirm"
           > 确定</button>
         </div>
@@ -112,8 +150,8 @@
           </div>
         </div>
         <div class="action-row">
-          <button class="ab ab--confirm" :disabled="nahidaOrder.length < nahidaTotalCards" @click="onNahidaConfirm">确定顺序</button>
-          <button class="ab ab--cancel" @click="resetNahida">重选</button>
+          <button class="ab ab--confirm" :disabled="disabled || nahidaOrder.length < nahidaTotalCards" @click="onNahidaConfirm">确定顺序</button>
+          <button class="ab ab--cancel" :disabled="disabled" @click="resetNahida">重选</button>
         </div>
       </div>
     </template>

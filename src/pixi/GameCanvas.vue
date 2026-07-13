@@ -5,7 +5,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, watch, inject } from 'vue'
+import { ref, shallowRef, onMounted, onBeforeUnmount } from 'vue'
 import { PIXIManager } from './core/PIXIManager.js'
 
 const props = defineProps({
@@ -14,37 +14,35 @@ const props = defineProps({
 
 const wrapperRef = ref(null)
 const canvasRef = ref(null)
-const pixiKey = Symbol('pixi')
+const manager = shallowRef(null)
 
-let manager = null
 let resizeObserver = null
 
 onMounted(async () => {
-  manager = new PIXIManager()
-  await manager.init(canvasRef.value)
+  const mgr = new PIXIManager()
+  await mgr.init(canvasRef.value)
 
   // 初始构建场景
-  manager.buildScene(props.state.players, props.state.deck.length)
+  mgr.buildScene(props.state.players, props.state.deck.length)
 
   // 窗口大小自适应
   resizeObserver = new ResizeObserver(() => {
-    if (wrapperRef.value && manager) {
+    if (wrapperRef.value && mgr) {
       const rect = wrapperRef.value.getBoundingClientRect()
-      manager.resize(rect.width, rect.height)
+      mgr.resize(rect.width, rect.height)
     }
   })
   resizeObserver.observe(wrapperRef.value)
 
-  // 通过 provide 暴露 manager（需要在 setup 中）
-  // 这里改用 emit 通知父组件
+  // 将实例写入 ref，父组件通过 defineExpose 即可访问
+  manager.value = mgr
 })
 
 onBeforeUnmount(() => {
   if (resizeObserver) resizeObserver.disconnect()
-  if (manager) manager.destroy()
+  if (manager.value) manager.value.destroy()
 })
 
-// 暴露 manager 给父组件使用
 defineExpose({ manager })
 </script>
 

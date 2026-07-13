@@ -23,6 +23,8 @@ export const STEP = {
   GAMBLE_PICK: 'gamblePick',
   SKILL_PICK_TARGET: 'skillPickTarget',
   SKILL_NAHIDA: 'skillNahida',
+  LINIYA_PICK: 'liniyaPick',
+  CAIYUEANG_PICK: 'caiyueangPick',
   ANIMATING: 'animating'
 }
 
@@ -115,6 +117,50 @@ export const CHARACTERS = [
     skillName: '三月交辉之刻',
     skillType: 'passive',
     skillDesc: '每回合自动轮换月相：弦月(+4攻) → 满月(+3防盾) → 新月(赌命抽3)',
+    maxUses: Infinity
+  },
+  {
+    id: 'fenjin',
+    name: '风堇',
+    title: '重见澄澈晴空',
+    icon: '',
+    hp: 11,
+    skillName: '重见澄澈晴空',
+    skillType: 'active',
+    skillDesc: '提高3点生命上限并回满，对一名玩家造成回复量×2的伤害。被动：消耗陷阱/防御牌时回复1点生命',
+    maxUses: 1
+  },
+  {
+    id: 'liniya',
+    name: '莉奈娅',
+    title: '青春之力的馈赠',
+    icon: '',
+    hp: 12,
+    skillName: '青春之力的馈赠',
+    skillType: 'active',
+    skillDesc: '技能一：偷取指定角色防御牌3回合，对其伤害永久+2。技能二：每回合5点DoT伤害无视陷阱持续5回合',
+    maxUses: 1
+  },
+  {
+    id: 'aimiliya',
+    name: '爱蜜莉雅',
+    title: '冻结',
+    icon: '',
+    hp: 12,
+    skillName: '冻结',
+    skillType: 'active',
+    skillDesc: '冻结一名对象，使其跳过下一次行动，一局2次',
+    maxUses: 2
+  },
+  {
+    id: 'caiyueang',
+    name: '菜月昴',
+    title: '死亡回归',
+    icon: '',
+    hp: 11,
+    skillName: '死亡回归',
+    skillType: 'active',
+    skillDesc: '可随时存档，随时回溯到存档点前的全部状态',
     maxUses: Infinity
   }
 ]

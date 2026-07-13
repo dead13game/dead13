@@ -43,7 +43,8 @@
               @click="$emit('selectChar', i - 1, char.id)"
             >
               <div class="char-card__img-wrap">
-                <img :src="char.icon" :alt="char.name" class="char-card__img" />
+                <img v-if="char.icon" :src="char.icon" :alt="char.name" class="char-card__img" />
+                <span v-else class="char-card__placeholder">{{ char.name }}</span>
               </div>
               <div class="char-card__info">
                 <span class="char-card__name">{{ char.name }}</span>
@@ -154,6 +155,11 @@ function charById(id) {
   display: flex; align-items: center; justify-content: center; background: #f0f0f0;
 }
 .char-card__img { width: 100%; height: 100%; object-fit: cover; }
+.char-card__placeholder {
+  font-size: 18px; font-weight: bold; color: #9e9e9e;
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 100%;
+}
 .char-card__info {
   padding: 6px 8px; display: flex; justify-content: space-between;
   align-items: center; border-top: 1px solid #eee;

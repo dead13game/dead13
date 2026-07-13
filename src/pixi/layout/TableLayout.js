@@ -56,6 +56,6 @@ export class TableLayout {
 
   /** 玩家桌面尺寸 */
   get playerTableSize() {
-    return { width: 210, height: 185 }
+    return { width: 260, height: 220 }
   }
 }

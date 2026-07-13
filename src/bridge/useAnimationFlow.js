@@ -1,5 +1,6 @@
 import { watch, ref } from 'vue'
 import gsap from 'gsap'
+import { Graphics } from 'pixi.js'
 
 /**
  * 动画流 — 集中管理所有游戏动画
@@ -127,7 +128,8 @@ export function useAnimationFlow(state, getManager) {
       const s = children[i]
       const delay = i * 0.08
       // 弹出
-      gsap.to(s, { alpha: 1, scaleX: 1, scaleY: 1, duration: 0.35, delay, ease: 'back.out(1.6)' })
+      gsap.to(s, { alpha: 1, duration: 0.35, delay, ease: 'back.out(1.6)' })
+      gsap.to(s.scale, { x: 1, y: 1, duration: 0.35, delay, ease: 'back.out(1.6)' })
       // 翻转（先缩到0换面再展开）
       gsap.to(s.scale, { x: 0, duration: 0.18, delay: delay + 0.4, ease: 'power2.in',
         onComplete() { s.faceUp = true; s._updateDisplay() } })
@@ -142,15 +144,18 @@ export function useAnimationFlow(state, getManager) {
   async function _animToGrave() {
     const m = mgr()
     if (!m) return
+    const children = [...(m.centerContainer?.children || [])]
+    if (children.length === 0) return  // 已被 flyToTarget 清理
     animating.value = true
     await waitFrame(1)
 
     const gp = graveWorld()
     for (const s of [...(m.centerContainer?.children || [])]) {
-      gsap.to(s, { x: gp.x - (m.centerContainer?.x || 0),
-                    y: gp.y - (m.centerContainer?.y || 0),
-                    alpha: 0, scaleX: 0.3, scaleY: 0.3,
-                    duration: 0.4, ease: 'power2.in' })
+      const dx = gp.x - (m.centerContainer?.x || 0)
+      const dy = gp.y - (m.centerContainer?.y || 0)
+      gsap.timeline()
+        .to(s, { x: dx, y: dy, alpha: 0, duration: 0.4, ease: 'power2.in' }, 0)
+        .to(s.scale, { x: 0.3, y: 0.3, duration: 0.4, ease: 'power2.in' }, 0)
     }
     await sleep(420)
     m.centerContainer?.removeChildren()
@@ -239,15 +244,11 @@ export function useAnimationFlow(state, getManager) {
     const sprites = [...(m.centerContainer?.children || [])]
 
     for (const s of sprites) {
-      // 计算世界坐标 → 容器内偏移
-      const wx = (m.centerContainer?.x || 0) + s.x
-      const wy = (m.centerContainer?.y || 0) + s.y
-      gsap.to(s, {
-        x: tp.x - (m.centerContainer?.x || 0),
-        y: tp.y - (m.centerContainer?.y || 0),
-        scaleX: 0.6, scaleY: 0.6,
-        duration: 0.45, ease: 'power2.in'
-      })
+      const dx = tp.x - (m.centerContainer?.x || 0)
+      const dy = tp.y - (m.centerContainer?.y || 0)
+      gsap.timeline()
+        .to(s, { x: dx, y: dy, duration: 0.45, ease: 'power2.in' }, 0)
+        .to(s.scale, { x: 0.6, y: 0.6, duration: 0.45, ease: 'power2.in' }, 0)
     }
 
     await sleep(480)
@@ -271,7 +272,6 @@ export function useAnimationFlow(state, getManager) {
     const tp = playerTopRight(playerIdx)
 
     // 创建临时飞行牌
-    const { Graphics } = await import('pixi.js')
     const temp = new Graphics()
     temp.roundRect(0, 0, 64, 96, 8)
     temp.fill(0x1a237e)
@@ -281,12 +281,9 @@ export function useAnimationFlow(state, getManager) {
     temp.alpha = 0.8
     m.app.stage.addChild(temp)
 
-    gsap.to(temp, {
-      x: tp.x, y: tp.y,
-      scaleX: 0.35, scaleY: 0.35,
-      alpha: 0,
-      duration: 0.45, ease: 'power2.in'
-    })
+    gsap.timeline()
+      .to(temp, { x: tp.x, y: tp.y, alpha: 0, duration: 0.45, ease: 'power2.in' }, 0)
+      .to(temp.scale, { x: 0.35, y: 0.35, duration: 0.45, ease: 'power2.in' }, 0)
 
     await sleep(480)
     m.app.stage.removeChild(temp)
@@ -306,8 +303,6 @@ export function useAnimationFlow(state, getManager) {
 
     const dp = deckWorld()
     const cp = centerWorld()
-    const { Graphics } = await import('pixi.js')
-
     // 2-3张牌依次飞出
     const count = 2 + (state.currentWeather === 'wind' ? 1 : 0)
     for (let i = 0; i < count; i++) {
@@ -320,17 +315,20 @@ export function useAnimationFlow(state, getManager) {
       temp.alpha = 0
       m.app.stage.addChild(temp)
 
-      gsap.to(temp, {
-        x: cp.x + i * 80 - (count - 1) * 40,
-        y: cp.y,
-        scaleX: 1, scaleY: 1,
-        alpha: 1,
-        duration: 0.4, delay: i * 0.1,
-        ease: 'back.out(1.4)',
-        onComplete() {
-          temp.destroy()
-        }
-      })
+      gsap.timeline()
+        .to(temp, {
+          x: cp.x + i * 80 - (count - 1) * 40,
+          y: cp.y, alpha: 1,
+          duration: 0.4, delay: i * 0.1, ease: 'back.out(1.4)'
+        }, 0)
+        .to(temp.scale, {
+          x: 1, y: 1,
+          duration: 0.4, delay: i * 0.1, ease: 'back.out(1.4)',
+          onComplete() {
+            m.app?.stage.removeChild(temp)
+            temp.destroy()
+          }
+        }, 0)
       await sleep(120)
     }
 

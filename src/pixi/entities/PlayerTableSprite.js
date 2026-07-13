@@ -40,10 +40,18 @@ export class PlayerTableSprite extends Container {
     // 角色名 + 技能
     this.charText = new Text({
       text: `${this.playerData.characterName} · ${this.playerData.skillName}`,
-      style: { fontSize: 10, fill: 0x666666, fontFamily: 'sans-serif' }
+      style: { fontSize: 9, fill: 0x666666, fontFamily: 'sans-serif' }
     })
-    this.charText.position.set(8, 22)
+    this.charText.position.set(8, 20)
     this.addChild(this.charText)
+
+    // 状态标签行
+    this.statusText = new Text({
+      text: '',
+      style: { fontSize: 8, fill: 0xe65100, fontWeight: 'bold', fontFamily: 'sans-serif' }
+    })
+    this.statusText.position.set(8, 32)
+    this.addChild(this.statusText)
 
     // HP 条背景
     this.hpBarBg = new Graphics()
@@ -104,6 +112,7 @@ export class PlayerTableSprite extends Container {
     this._syncDefenses(player.defensePile)
     this._syncTrap(player.trap, player.bait)
     this._updateHighlight()
+    this._updateStatus(player)
   }
 
   _updateHP() {
@@ -144,7 +153,7 @@ export class PlayerTableSprite extends Container {
       const sprite = new CardSprite(card, { showValue: true })
       sprite.position.set(0, -i * 16)
       // 缩小防御牌
-      sprite.scale.set(0.55)
+      sprite.scale.set(0.7)
       this.defContainer.addChild(sprite)
       this._defSprites.push(sprite)
     })
@@ -152,7 +161,7 @@ export class PlayerTableSprite extends Container {
     // 空位
     if (defensePile.length === 0) {
       const empty = new CardSprite(null)
-      empty.scale.set(0.55)
+      empty.scale.set(0.7)
       this.defContainer.addChild(empty)
     }
   }
@@ -162,15 +171,15 @@ export class PlayerTableSprite extends Container {
 
     // 暗牌（陷阱）
     const trapCard = new CardSprite(trap, { showValue: false })
-    trapCard.scale.set(0.55)
+    trapCard.scale.set(0.7)
     trapCard.position.set(0, 0)
     if (trap) trapCard.faceUp = false  // 陷阱总是背面
     this.trapContainer.addChild(trapCard)
 
     // 明牌（诱饵）
     const baitCard = new CardSprite(bait, { showValue: false })
-    baitCard.scale.set(0.55)
-    baitCard.position.set(CARD_WIDTH * 0.55 + 4, 0)
+    baitCard.scale.set(0.7)
+    baitCard.position.set(CARD_WIDTH * 0.7 + 4, 0)
     if (bait) baitCard.faceUp = true
     this.trapContainer.addChild(baitCard)
   }
@@ -196,5 +205,18 @@ export class PlayerTableSprite extends Container {
   /** 设置玩家存活状态 */
   setAlive(v) {
     this.alpha = v ? 1 : 0.4
+  }
+
+  /** 状态文本 */
+  _updateStatus(player) {
+    const tags = []
+    if (player.frozenBy !== null) tags.push('冻结')
+    if (player.stealTarget?.turns > 0) tags.push(`偷取中(${player.stealTarget.turns})`)
+    if (player.dotTarget?.turns > 0) tags.push(`DoT(${player.dotTarget.turns})`)
+    if (player.savepoint) tags.push('已存档')
+    if (player.fightingSpirit > 0) tags.push(`斗志${player.fightingSpirit}`)
+    if (player.extraAction) tags.push('+1行动')
+    if (player.ignoreTrapThisTurn) tags.push('无视陷阱')
+    this.statusText.text = tags.join(' · ')
   }
 }

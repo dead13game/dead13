@@ -27,7 +27,7 @@ export class PIXIManager {
       canvas,
       width: options.width || CANVAS_WIDTH,
       height: options.height || CANVAS_HEIGHT,
-      backgroundColor: COLORS.BACKGROUND,
+      backgroundColor: 0x1a1a2e,  // 稍亮的背景，区别于 CSS 背景
       antialias: true,
       resolution: window.devicePixelRatio || 1,
       autoDensity: true
@@ -39,6 +39,7 @@ export class PIXIManager {
     // 粒子系统
     this.particles = new ParticleSystem(this.app.stage, 200)
     this.particles.attach(this.app.ticker)
+
   }
 
   /** 根据当前游戏状态构建场景 */

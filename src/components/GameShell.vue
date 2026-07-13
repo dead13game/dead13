@@ -27,6 +27,9 @@
         @skill="onSkill"
         @target="onTarget"
         @skillTarget="onSkillTarget"
+        @liniyaSkill="onLiniyaSkill"
+        @caiyueangSave="onCaiyueangSave"
+        @caiyueangLoad="onCaiyueangLoad"
         @cancel="cancelPick"
       />
 
@@ -52,7 +55,9 @@ import { useAnimationFlow } from '../bridge/useAnimationFlow.js'
 import {
   startAttack, executeAttack, executeDefense,
   executeGamble, executeSkill, getCurrentWeather,
-  executeRaidenSkill, executeFurinaSwap
+  executeRaidenSkill, executeFurinaSwap,
+  executeFenjinSkill, executeLiniyaSkill,
+  executeAimiliyaSkill, executeCaiyueangSave, executeCaiyueangLoad
 } from '../game/gameState.js'
 
 const props = defineProps({
@@ -135,26 +140,48 @@ async function onTarget(idx) {
 
 async function onSkillTarget(idx) {
   if (animating.value) return
-  // 技能选目标：雷电直接打，芙宁娜交换陷阱
   if (props.state.pendingFurinaTarget) {
     executeFurinaSwap(props.state, idx)
+  } else if (props.state._aimiliyaFreeze) {
+    executeAimiliyaSkill(props.state, idx)
+  } else if (props.state._fenjinHeal !== undefined) {
+    // 风堇技能
+    await flyToTarget(idx)
+    executeFenjinSkill(props.state, idx)
   } else {
-    // 雷电技能 — 先动画飞过去再执行
+    // 雷电技能
     await flyToTarget(idx)
     executeRaidenSkill(props.state, idx)
   }
 }
 
+function onLiniyaSkill(idx, sub) {
+  if (animating.value) return
+  executeLiniyaSkill(props.state, idx, sub)
+}
+
+function onCaiyueangSave() {
+  if (animating.value) return
+  executeCaiyueangSave(props.state)
+}
+
+function onCaiyueangLoad() {
+  if (animating.value) return
+  executeCaiyueangLoad(props.state)
+}
+
 function cancelPick() {
   props.state.step = 'pickAction'
   props.state.pendingFurinaTarget = false
+  props.state._aimiliyaFreeze = null
+  props.state._fenjinHeal = null
+  props.state._liniyaSubSkill = null
+  props.state._caiyueangMode = null
 }
 </script>
 
 <style scoped>
 .game-shell {
-  display: flex;
-  flex-direction: column;
   height: 100vh;
   overflow: hidden;
 }
@@ -170,17 +197,17 @@ function cancelPick() {
   pointer-events: none;
 }
 
-/* 顶部信息栏 — 半透明覆盖 */
+/* 顶部信息栏 — 固定在顶部 */
 .game-shell__top-bar {
-  position: relative;
+  position: fixed;
+  top: 0; left: 0; right: 0;
   z-index: 20;
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 8px 16px;
-  background: rgba(0,0,0,0.4);
+  background: rgba(0,0,0,0.5);
   backdrop-filter: blur(4px);
-  flex-shrink: 0;
 }
 
 .phase-badge {
@@ -195,17 +222,18 @@ function cancelPick() {
 .peace-hint { font-size: 11px; color: #81c784; }
 .weather-tag { font-size: 11px; background: rgba(255,255,255,0.1); color: #ffd54f; padding: 2px 8px; border-radius: 4px; }
 
-/* 底部 UI — 固定于底部 */
+/* 底部 UI — 固定在底部 */
 .game-shell__bottom-bar {
-  position: relative;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
   z-index: 20;
-  margin-top: auto;
   padding: 8px 16px 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: rgba(0,0,0,0.4);
+  background: rgba(0,0,0,0.5);
   backdrop-filter: blur(4px);
-  flex-shrink: 0;
+  max-height: 45vh;
+  overflow-y: auto;
 }
 </style>
