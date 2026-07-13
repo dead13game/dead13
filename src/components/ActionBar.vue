@@ -12,7 +12,7 @@
           :disabled="disabled || !canSkill"
           :title="currentPlayer.skillDesc"
           @click="$emit('skill')"
-        >{{ currentPlayer.skillName }}({{ currentPlayer.skillUses }})</button>
+        >{{ currentPlayer.skillName }}({{ currentPlayer.characterId === 'caiyueang' ? '读档'+currentPlayer.loadUses : currentPlayer.skillUses }})</button>
       </div>
     </template>
 
@@ -80,7 +80,7 @@
       <span class="action-hint">菜月昴 — 死亡回归：</span>
       <div class="action-row">
         <button class="ab ab--def" :disabled="disabled" @click="$emit('caiyueangSave')">存档</button>
-        <button class="ab ab--skill" :disabled="disabled" @click="$emit('caiyueangLoad')">读档</button>
+        <button class="ab ab--skill" :disabled="disabled || (currentPlayer.loadUses <= 0 && !currentPlayer.savepoint)" @click="$emit('caiyueangLoad')">读档({{ currentPlayer.loadUses }})</button>
         <button class="ab ab--cancel" :disabled="disabled" @click="$emit('cancel')">取消</button>
       </div>
     </template>

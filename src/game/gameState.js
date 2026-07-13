@@ -29,10 +29,13 @@ function createPlayer(index, charData, name) {
     moonPhase: 0, // 0=弦月 1=满月 2=新月
     // 芙宁娜：本回合是否已触发无视陷阱
     ignoreTrapThisTurn: false,
-    // 纳西妲：已发动技能后可再行动
+    // 纳西妲/芙宁娜等：已废弃，改用 state.endTurn
     extraAction: false,
     // 天气已处理标记
     weatherProcessed: false,
+    // 菜月昴：读档次数
+    loadUses: 3,
+    loadMaxUses: 3,
     // 莉奈娅：偷取/DoT
     stealTarget: null,    // { idx, turns }
     dotTarget: null,      // { idx, turns }
@@ -59,6 +62,8 @@ export function createGameState() {
     messageLog: [],
     gameOver: false,
     winnerIndex: -1,
+    // 通用：执行完行动后是否推进到下一玩家（false=留在当前玩家）
+    endTurn: true,
     // 用于查看牌库顶（纳西妲）
     scryCards: null,
     pendingAttackCard: null,
@@ -91,6 +96,7 @@ export function initGame(state, playerChars, useWeather = false) {
     scryCards: null,
     pendingAttackCard: null,
     pendingVentiCards: null,
+    endTurn: true,
     useWeather
   })
 
@@ -146,6 +152,22 @@ function drawWeather(state) {
   state.weatherDeck.push(w) // 放回底部
   state.currentWeather = w.id
   return w.id
+}
+
+/**
+ * 统一行动结束出口
+ * endTurn=true  → 进入下一位玩家
+ * endTurn=false → 留在当前玩家，重置行动步骤
+ */
+function endAction(state) {
+  if (state.endTurn) {
+    state.endTurn = true
+    nextPlayer(state)
+  } else {
+    state.endTurn = true
+    state.step = STEP.PICK_ACTION
+    log(state, `${currentPlayer(state).name} 获得额外行动`)
+  }
 }
 
 /** 推进到下一玩家 */
@@ -439,7 +461,7 @@ export function executeAttack(state, targetIdx) {
       trapTriggered = true
       applyDamage(state, attacker, trapValue)
       attackCards.forEach(c => state.grave.push(c))
-      if (!state.gameOver) nextPlayer(state)
+      if (!state.gameOver) endAction(state)
       return
     } else if (attackValue === trapValue) {
       // 平局：双方都受伤
@@ -457,7 +479,7 @@ export function executeAttack(state, targetIdx) {
         log(state, `斗志 ${attacker.fightingSpirit}层`)
       }
       attackCards.forEach(c => state.grave.push(c))
-      if (!state.gameOver) nextPlayer(state)
+      if (!state.gameOver) endAction(state)
       return
     } else {
       log(state, `陷阱被破`)
@@ -500,7 +522,7 @@ export function executeAttack(state, targetIdx) {
     attacker.ignoreTrapThisTurn = false
   }
 
-  if (!state.gameOver) nextPlayer(state)
+  if (!state.gameOver) endAction(state)
 }
 
 
@@ -538,7 +560,7 @@ export function executeDefense(state) {
   log(state, `${player.name} 执行防御`)
 
   state.step = STEP.PICK_ACTION
-  nextPlayer(state)
+  endAction(state)
 }
 
 // ===== 赌命 =====
@@ -603,7 +625,7 @@ export function submitGamble(state, trapIdx, baitIdx) {
 
   state.pendingGamble = null
   state.step = STEP.PICK_ACTION
-  nextPlayer(state)
+  endAction(state)
 }
 
 // ===== 角色技能 =====
@@ -682,7 +704,7 @@ function executeSkillZhongli(state) {
   player.defensePile.push(shield)
   player.skillUses--
   log(state, `${player.name} 释放坚如磐石 护盾${shieldValue}点`)
-  nextPlayer(state)
+  endAction(state)
   return true
 }
 
@@ -720,7 +742,7 @@ export function executeRaidenSkill(state, targetIdx) {
   log(state, `${attacker.name} 无想的一刀 ➜ ${target.name}`)
   applyDamage(state, target, damage)
   attacker.ignoreTrapThisTurn = false
-  if (!state.gameOver) nextPlayer(state)
+  if (!state.gameOver) endAction(state)
 }
 
 /** 纳西妲·智慧之殿堂：查看牌库顶5张并排序 */
@@ -750,8 +772,9 @@ export function submitNahidaScry(state, orderArr) {
   state.scryCards = null
 
   log(state, `${currentPlayer(state).name} 牌库顶重排`)
-  currentPlayer(state).extraAction = true
+  state.endTurn = false
   state.step = STEP.PICK_ACTION
+  endAction(state)
 }
 
 /** 芙宁娜·审判：选择目标交换陷阱明暗，获得无视陷阱buff和额外行动 */
@@ -786,9 +809,9 @@ export function executeFurinaSwap(state, targetIdx) {
   if (target.bait) target.bait.faceUp = true
 
   state.pendingFurinaTarget = false
-  player.extraAction = true
+  state.endTurn = false
   log(state, `${target.name}的陷阱明暗交换`)
-  state.step = STEP.PICK_ACTION
+  endAction(state)
 }
 
 // ===== 风堇·重见澄澈晴空 =====
@@ -819,7 +842,7 @@ export function executeFenjinSkill(state, targetIdx) {
   log(state, `${player.name} 生命上限 ${oldMaxHp}→${player.maxHp}，回复 ${healAmount} 点`)
   log(state, `对 ${target.name} 造成 ${damage} 点伤害`)
   applyDamage(state, target, damage)
-  if (!state.gameOver) nextPlayer(state)
+  if (!state.gameOver) endAction(state)
 }
 
 // ===== 莉奈娅·青春之力的馈赠 =====
@@ -854,7 +877,7 @@ export function executeLiniyaSkill(state, targetIdx, subSkill) {
 
   state._liniyaSubSkill = null
   state.step = STEP.PICK_ACTION
-  nextPlayer(state)
+  endAction(state)
 }
 
 // ===== 爱蜜莉雅·冻结 =====
@@ -876,7 +899,7 @@ export function executeAimiliyaSkill(state, targetIdx) {
   log(state, `${target.name} 被冻结，将跳过下一次行动`)
   state._aimiliyaFreeze = null
   state.step = STEP.PICK_ACTION
-  nextPlayer(state)
+  endAction(state)
 }
 
 // ===== 菜月昴·死亡回归 =====
@@ -894,9 +917,9 @@ export function executeCaiyueangSave(state) {
   // 深拷贝当前游戏状态
   player.savepoint = deepCloneState(state)
   state._caiyueangMode = null
-  state.step = STEP.PICK_ACTION
+  state.endTurn = false  // 存档不结束回合
   log(state, `${player.name} 存档完成`)
-  nextPlayer(state)
+  endAction(state)
 }
 
 export function executeCaiyueangLoad(state) {
@@ -907,9 +930,18 @@ export function executeCaiyueangLoad(state) {
     state.step = STEP.PICK_ACTION
     return
   }
+  if (player.loadUses <= 0) {
+    log(state, `读档次数已用完`)
+    state._caiyueangMode = null
+    state.step = STEP.PICK_ACTION
+    return
+  }
+  player.loadUses--
   restoreState(state, player.savepoint)
-  log(state, `${player.name} 死亡回归！回溯到存档点`)
+  state.endTurn = false  // 读档不结束回合
+  log(state, `${player.name} 死亡回归！回溯到存档点（剩余读档${player.loadUses}次）`)
   state._caiyueangMode = null
+  endAction(state)
 }
 
 // 深拷贝游戏状态（用于存档）
@@ -927,7 +959,7 @@ function deepCloneState(state) {
       skillDesc: p.skillDesc, skillType: p.skillType, maxUses: p.maxUses,
       fightingSpirit: p.fightingSpirit, moonPhase: p.moonPhase,
       ignoreTrapThisTurn: p.ignoreTrapThisTurn, extraAction: p.extraAction,
-      weatherProcessed: p.weatherProcessed,
+      weatherProcessed: p.weatherProcessed, loadUses: p.loadUses, loadMaxUses: p.loadMaxUses,
       stealTarget: p.stealTarget ? { ...p.stealTarget } : null,
       dotTarget: p.dotTarget ? { ...p.dotTarget } : null,
       damageBonus: { ...p.damageBonus },
@@ -954,6 +986,8 @@ function restoreState(state, sp) {
     state.players[i].stealTarget = sp.stealTarget ? { ...sp.stealTarget } : null
     state.players[i].dotTarget = sp.dotTarget ? { ...sp.dotTarget } : null
     state.players[i].damageBonus = { ...sp.damageBonus }
+    state.players[i].loadUses = sp.loadUses
+    state.players[i].loadMaxUses = sp.loadMaxUses
   })
   state.deck = sp.deck.map(c => ({ ...c }))
   state.grave = sp.grave.map(c => ({ ...c }))
