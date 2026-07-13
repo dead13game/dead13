@@ -1,7 +1,7 @@
 <template>
   <div class="game-shell">
     <!-- PixiJS Canvas 层 -->
-    <div class="game-shell__canvas-layer" ref="canvasLayerRef">
+    <div class="game-shell__canvas-layer">
       <GameCanvas ref="gameCanvasRef" :state="state" />
     </div>
 
@@ -71,7 +71,6 @@ const props = defineProps({
 const emit = defineEmits(['restart'])
 
 const gameCanvasRef = ref(null)
-const canvasLayerRef = ref(null)
 
 function getManager() {
   return gameCanvasRef.value?.manager ?? null

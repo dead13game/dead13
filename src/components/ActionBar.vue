@@ -21,7 +21,7 @@
         <button
           v-if="canSkill"
           class="ab ab--skill"
-          :disabled="disabled || !canSkill"
+          :disabled="disabled"
           :title="currentPlayerVal.skillDesc"
           @click="$emit('skill')"
         >{{ currentPlayerVal.skillName }}{{ skillLabel }}</button>

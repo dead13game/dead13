@@ -1,11 +1,7 @@
 // 扑克牌数据
 export const SUITS = ['', '', '', '']
-export const SUIT_NAMES = { '': 'spades', '': 'hearts', '': 'clubs', '': 'diamonds' }
 export const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
 export const RANK_VALUES = { 'A': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13 }
-
-// 花色排序（用于决定同点数先后）
-export const SUIT_ORDER = { '': 0, '': 1, '': 2, '': 3 }
 
 // 游戏阶段
 export const PHASE = {
@@ -29,18 +25,8 @@ export const STEP = {
   ANIMATING: 'animating'
 }
 
-// 行动类型
-export const ACTION = {
-  ATTACK: 'attack',
-  DEFENSE: 'defense',
-  GAMBLE: 'gamble',
-  SKILL: 'skill',
-  ALLY: 'ally'
-}
-
 // 月相
-export const MOON_PHASES = ['waxing', 'full', 'new']
-export const MOON_NAMES = { waxing: '弦月', full: '满月', new: ' 新月' }
+export const MOON_NAMES = { waxing: '弦月', full: '满月', new: '新月' }
 
 // 神明角色卡
 export const CHARACTERS = [
@@ -125,7 +111,7 @@ export const CHARACTERS = [
     id: 'fenjin',
     name: '风堇',
     title: '重见澄澈晴空',
-    icon: '',
+    icon: './images/风堇.jpg',
     hp: 11,
     skillName: '重见澄澈晴空',
     skillType: 'active',
@@ -136,7 +122,7 @@ export const CHARACTERS = [
     id: 'liniya',
     name: '莉奈娅',
     title: '青春之力的馈赠',
-    icon: '',
+    icon: './images/莉奈娅.jpg',
     hp: 12,
     skillName: '青春之力的馈赠',
     skillType: 'active',
@@ -147,7 +133,7 @@ export const CHARACTERS = [
     id: 'aimiliya',
     name: '爱蜜莉雅',
     title: '冻结',
-    icon: '',
+    icon: './images/爱蜜莉雅.png',
     hp: 12,
     skillName: '冻结',
     skillType: 'active',
@@ -158,7 +144,7 @@ export const CHARACTERS = [
     id: 'caiyueang',
     name: '菜月昴',
     title: '死亡回归',
-    icon: '',
+    icon: './images/菜月昴.png',
     hp: 11,
     skillName: '死亡回归',
     skillType: 'active',
@@ -177,16 +163,3 @@ export const WEATHER = [
   { id: 'arms', name: '军备竞赛', desc: '本回合禁止使用角色技能' }
 ]
 
-// 段位（未来扩展）
-export const RANKS_TIER = [
-  { name: '异乡人', min: 0, max: 999 },
-  { name: '冒险家', min: 1000, max: 1999 },
-  { name: '神之眼', min: 2000, max: 2999 },
-  { name: '西风骑士', min: 3000, max: 3999 },
-  { name: '璃月七星', min: 4000, max: 4999 },
-  { name: '愚人众执行官', min: 5000, max: 5999 },
-  { name: '尘世七执政', min: 6000, max: 6999 },
-  { name: '天理维系者', min: 7000, max: 7999 },
-  { name: '原初之人', min: 8000, max: 9999 },
-  { name: '降临者', min: 10000, max: Infinity }
-]

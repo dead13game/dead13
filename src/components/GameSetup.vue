@@ -85,6 +85,7 @@
 </template>
 
 <script setup>
+import { computed } from 'vue'
 import { CHARACTERS } from '../game/constants.js'
 
 defineProps({
@@ -98,9 +99,12 @@ defineProps({
 
 defineEmits(['update:playerCount', 'update:useWeather', 'update:playerName', 'selectChar', 'startGame'])
 
-function charById(id) {
-  return CHARACTERS.find(c => c.id === id)
-}
+const charMap = computed(() => {
+  const map = {}
+  CHARACTERS.forEach(c => { map[c.id] = c })
+  return map
+})
+function charById(id) { return charMap.value[id] }
 </script>
 
 <style scoped>

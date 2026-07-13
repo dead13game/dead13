@@ -1,5 +1,5 @@
 import { Application, Container } from 'pixi.js'
-import { CANVAS_WIDTH, CANVAS_HEIGHT, CARD_WIDTH, COLORS, LAYER } from './constants.js'
+import { CANVAS_WIDTH, CANVAS_HEIGHT } from './constants.js'
 import { TableLayout } from '../layout/TableLayout.js'
 import { DeckSprite } from '../entities/DeckSprite.js'
 import { PlayerTableSprite } from '../entities/PlayerTableSprite.js'
