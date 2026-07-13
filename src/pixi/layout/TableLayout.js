@@ -48,7 +48,7 @@ export class TableLayout {
 
   /** 玩家桌面尺寸 */
   get playerTableSize() {
-    if (this._doubleRow) return { width: 190, height: 200 }
+    if (this._doubleRow) return { width: 230, height: 200 }
     return { width: 260, height: 280 }
   }
 

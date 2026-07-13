@@ -24,7 +24,7 @@
           :disabled="disabled || !canSkill"
           :title="currentPlayer.skillDesc"
           @click="$emit('skill')"
-        >{{ currentPlayer.skillName }}({{ currentPlayer.characterId === 'caiyueang' ? '读档'+currentPlayer.loadUses : currentPlayer.skillUses }})</button>
+        >{{ currentPlayer.skillName }}{{ skillLabel }}</button>
       </div>
     </template>
 
@@ -206,6 +206,13 @@ const nahidaOrder = ref([])
 
 const currentPlayerVal = computed(() => currentPlayer(props.state))
 const canSkill = computed(() => canUseSkill(props.state, currentPlayerVal.value))
+const skillLabel = computed(() => {
+  const p = currentPlayerVal.value
+  if (!p) return ''
+  if (p.characterId === 'caiyueang') return `(读档${p.loadUses})`
+  if (p.skillUses === Infinity) return '被动'
+  return `(${p.skillUses})`
+})
 const canAlly = computed(() => {
   const p = currentPlayerVal.value
   return props.state.players.length >= 4 &&

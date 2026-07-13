@@ -17,7 +17,15 @@ export function usePixiSync(state, getManager) {
     (count) => safeSync(m => m.updateDeckCount(count))
   )
 
-  // 2. 整体状态刷新（玩家列表/HP/防御/陷阱/当前玩家切换等）
+  // 2. 当前玩家切换 → 更新高亮
+  watch(
+    () => state.currentPlayerIndex,
+    () => {
+      safeSync(m => m.updateAllPlayers(state.players, state.currentPlayerIndex))
+    }
+  )
+
+  // 3. 整体状态刷新（玩家列表/HP/防御/陷阱/当前玩家切换等）
   //    使用深度监听，任何玩家相关变化都触发全量刷新
   watch(
     () => {
