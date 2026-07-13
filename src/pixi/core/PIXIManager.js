@@ -1,4 +1,4 @@
-import { Application, Container } from 'pixi.js'
+import { Application, Container, Graphics } from 'pixi.js'
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from './constants.js'
 import { TableLayout } from '../layout/TableLayout.js'
 import { DeckSprite } from '../entities/DeckSprite.js'
