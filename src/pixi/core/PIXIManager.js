@@ -57,6 +57,7 @@ export class PIXIManager {
       stars.circle(x, y, r)
       stars.fill({ color: 0xffffff, alpha })
     }
+    this._stars = stars
     this.app.stage.addChild(stars)
   }
 
@@ -64,8 +65,10 @@ export class PIXIManager {
   buildScene(players, deckCount) {
     if (!this.app) return
 
-    // 清空 stage
+    // 清空 stage（但保留星空背景层）
+    const stars = this._stars
     this.app.stage.removeChildren()
+    if (stars) this.app.stage.addChild(stars)
 
     // 布局
     this.layout = new TableLayout(players.length)
