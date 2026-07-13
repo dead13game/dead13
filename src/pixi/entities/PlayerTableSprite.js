@@ -257,6 +257,8 @@ export class PlayerTableSprite extends Container {
   _updateStatus(player) {
     const tags = []
     if (player.frozenBy !== null) tags.push('冻结')
+    if (player.allyIndex !== null && player.allianceTurns > 0) tags.push(`联盟(${player.allianceTurns})`)
+    if (player.betrayalPenalty > 0) tags.push(`背刺惩罚(${player.betrayalPenalty})`)
     if (player.stealTarget?.turns > 0) tags.push(`偷取中(${player.stealTarget.turns})`)
     if (player.dotTarget?.turns > 0) tags.push(`DoT(${player.dotTarget.turns})`)
     if (player.savepoint) tags.push('已存档')

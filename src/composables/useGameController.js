@@ -10,8 +10,8 @@ export function useGameController() {
   const gameState = createGameState()
   const gameStarted = ref(false)
   const playerCount = ref(2)
-  const playerNames = reactive(['', '', '', ''])
-  const playerChars = reactive(['', '', '', ''])
+  const playerNames = reactive(['', '', '', '', '', '', '', ''])
+  const playerChars = reactive(['', '', '', '', '', '', '', ''])
   const useWeather = ref(false)
 
   // 可用角色（排除已被其他玩家选的）
@@ -45,7 +45,7 @@ export function useGameController() {
 
   function resetGame() {
     gameStarted.value = false
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 8; i++) {
       playerNames[i] = ''
       playerChars[i] = ''
     }

@@ -3,15 +3,13 @@
     <div class="start-card">
       <div class="start-card__icon"></div>
       <h2 class="start-card__title">选角开战</h2>
-      <p class="start-card__desc">2-4人 · 选择神明角色 · 活到最后</p>
+      <p class="start-card__desc">2-8人 · 选择神明角色 · 活到最后</p>
 
       <div class="start-card__setup">
         <div class="setup-row">
           <label>玩家人数：</label>
           <select :value="playerCount" @change="$emit('update:playerCount', Number($event.target.value))" class="setup-select">
-            <option :value="2">2 人</option>
-            <option :value="3">3 人</option>
-            <option :value="4">4 人</option>
+            <option v-for="n in 7" :key="n" :value="n + 1">{{ n + 1 }} 人</option>
           </select>
         </div>
 

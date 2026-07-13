@@ -43,7 +43,12 @@ function createPlayer(index, charData, name) {
     // 爱蜜莉雅：冻结
     frozenBy: null,       // 被谁冻结（有值=跳过下次行动）
     // 菜月昴：存档
-    savepoint: null
+    savepoint: null,
+    // 联盟
+    allyIndex: null,         // 盟友 index
+    allianceTurns: 0,        // 盟约剩余回合
+    betrayalPenalty: 0,      // 背刺惩罚剩余回合
+    allyKillBonus: false     // 盟友击杀奖励待触发
   }
 }
 
@@ -58,6 +63,7 @@ export function createGameState() {
     grave: [],
     weatherDeck: [],
     currentWeather: null,
+    nextWeather: null,
     round: 0,
     messageLog: [],
     gameOver: false,
@@ -89,6 +95,7 @@ export function initGame(state, playerChars, useWeather = false) {
     grave: [],
     weatherDeck: [],
     currentWeather: null,
+    nextWeather: null,
     round: 0,
     messageLog: [],
     gameOver: false,
@@ -143,14 +150,16 @@ function setupWeatherDeck(state) {
   state.weatherDeck = shuffleDeck(weatherCards.map(id => ({ id })))
 }
 
-/** 抽天气（随机抽取） */
+/** 抽天气（顺序翻顶放底） */
 function drawWeather(state) {
   if (!state.useWeather) return null
   if (state.weatherDeck.length === 0) return null
-  const randomIndex = Math.floor(Math.random() * state.weatherDeck.length)
-  const w = state.weatherDeck.splice(randomIndex, 1)[0]
+  // 翻顶部
+  const w = state.weatherDeck.shift()
   state.weatherDeck.push(w) // 放回底部
   state.currentWeather = w.id
+  // 预取下一张
+  state.nextWeather = state.weatherDeck.length > 0 ? state.weatherDeck[0].id : null
   return w.id
 }
 
@@ -216,6 +225,37 @@ function nextPlayer(state) {
       if (p.alive && p.characterId === 'columbina') {
         p.moonPhase = (p.moonPhase + 1) % 3
         log(state, `哥伦比娅月相 ${MOON_NAMES[p.moonPhase]}`)
+      }
+    }
+
+    // 联盟回合处理
+    for (const p of state.players) {
+      if (!p.alive) continue
+      // 盟约递减
+      if (p.allianceTurns > 0) {
+        p.allianceTurns--
+        if (p.allianceTurns <= 0) {
+          // 解除联盟
+          const ally = state.players.find(a => a.index === p.allyIndex)
+          if (ally) { ally.allyIndex = null; ally.allianceTurns = 0 }
+          p.allyIndex = null
+          log(state, `${p.name} 联盟到期`)
+        }
+      }
+      // 背刺惩罚递减
+      if (p.betrayalPenalty > 0) {
+        p.betrayalPenalty--
+        if (p.betrayalPenalty <= 0) {
+          log(state, `${p.name} 背刺惩罚结束`)
+        }
+      }
+      // 盟友击杀奖励
+      if (p.allyKillBonus && p.allyIndex !== null) {
+        p.allyKillBonus = false
+        log(state, `${p.name} 盟友击杀奖励：立即执行一次防御或赌命`)
+        // 给予一次额外操作机会（设为不结束回合的效果）
+        state.endTurn = false
+        // 这里在下一次 endAction 时会让该玩家留在回合
       }
     }
 
@@ -333,11 +373,22 @@ function applyDamage(state, player, damage) {
       player.alive = false
       player.hp = 0
       log(state, `${player.name} 阵亡`)
+
+      // 联盟击杀奖励：告知击杀者的盟友
+      // 注：这里不知道谁是击杀者，需要在调用处处理
+      // 通过 state._lastKiller 追踪
+
       // 丢弃所有牌入墓地（护盾牌除外）
       ;[...player.defensePile, player.trap, player.bait].filter(Boolean).filter(c => !c.isShield).forEach(c => state.grave.push(c))
       player.defensePile = []
       player.trap = null
       player.bait = null
+      // 死亡时解除联盟
+      if (player.allyIndex !== null) {
+        const ally = state.players.find(a => a.index === player.allyIndex)
+        if (ally) { ally.allyIndex = null; ally.allianceTurns = 0 }
+        player.allyIndex = null
+      }
       checkGameOver(state)
     }
   }
@@ -443,6 +494,17 @@ export function executeAttack(state, targetIdx) {
     log(state, `永久伤害+${attacker.damageBonus[targetIdx]}`)
   }
 
+  // 联盟攻击加成（背叛时不享受）
+  if (attacker.allyIndex !== null && attacker.allianceTurns > 0 && attacker.betrayalPenalty <= 0) {
+    attackValue += 2
+    log(state, `联盟攻击+2`)
+  }
+  // 打背刺者伤害+2
+  if (attacker !== target && target.betrayalPenalty > 0) {
+    attackValue += 2
+    log(state, `惩罚背刺者+2`)
+  }
+
   // 陷阱判定
   let trapTriggered = false
   const hadTrap = !!target.trap  // 风堇被动用
@@ -495,6 +557,17 @@ export function executeAttack(state, targetIdx) {
     }
   }
 
+  // 联盟平摊（陷阱未触发时）
+  if (!trapTriggered && target.allyIndex !== null && target.allianceTurns > 0) {
+    const ally = state.players.find(p => p.index === target.allyIndex)
+    if (ally && ally.alive && ally.index !== attacker.index) {
+      const allyDmg = Math.floor(attackValue / 3)
+      attackValue -= allyDmg  // 目标只承受剩余2/3
+      log(state, `联盟平摊：${target.name} ${attackValue}点, ${ally.name} ${allyDmg}点`)
+      applyDamage(state, ally, allyDmg)
+    }
+  }
+
   // 防御判定
   const beforeDefense = target.defensePile.length
   const remainingDmg = applyDamage(state, target, attackValue)
@@ -504,6 +577,15 @@ export function executeAttack(state, targetIdx) {
   if (attacker.characterId === 'mavuika' && defenseConsumed > 0 && !trapTriggered) {
     attacker.fightingSpirit = Math.min(5, attacker.fightingSpirit + defenseConsumed)
     log(state, `斗志 ${attacker.fightingSpirit}层`)
+  }
+
+  // 联盟击杀奖励
+  if (!target.alive && attacker.allyIndex !== null) {
+    const ally = state.players.find(p => p.index === attacker.allyIndex)
+    if (ally?.alive) {
+      ally.allyKillBonus = true
+      log(state, `${ally.name} 获得联盟击杀奖励`)
+    }
   }
 
   // 风堇被动：每消耗对方陷阱/防御牌回复1点生命
@@ -548,10 +630,16 @@ export function executeDefense(state) {
     cardValue += 2
       }
 
-  // 哥伦比娅满月 +2
+  // 哥伦比娅满月 +3
   if (player.characterId === 'columbina' && player.moonPhase === 1) {
     cardValue += 3
-      }
+  }
+
+  // 联盟防御+2
+  if (player.allyIndex !== null && player.allianceTurns > 0 && player.betrayalPenalty <= 0) {
+    cardValue += 2
+    log(state, `联盟防御+2`)
+  }
 
   // 直接修改value（不影响原始卡）
   card.value = cardValue
@@ -960,6 +1048,8 @@ function deepCloneState(state) {
       fightingSpirit: p.fightingSpirit, moonPhase: p.moonPhase,
       ignoreTrapThisTurn: p.ignoreTrapThisTurn, extraAction: p.extraAction,
       weatherProcessed: p.weatherProcessed, loadUses: p.loadUses, loadMaxUses: p.loadMaxUses,
+      allyIndex: p.allyIndex, allianceTurns: p.allianceTurns,
+      betrayalPenalty: p.betrayalPenalty, allyKillBonus: p.allyKillBonus,
       stealTarget: p.stealTarget ? { ...p.stealTarget } : null,
       dotTarget: p.dotTarget ? { ...p.dotTarget } : null,
       damageBonus: { ...p.damageBonus },
@@ -988,6 +1078,10 @@ function restoreState(state, sp) {
     state.players[i].damageBonus = { ...sp.damageBonus }
     state.players[i].loadUses = sp.loadUses
     state.players[i].loadMaxUses = sp.loadMaxUses
+    state.players[i].allyIndex = sp.allyIndex
+    state.players[i].allianceTurns = sp.allianceTurns
+    state.players[i].betrayalPenalty = sp.betrayalPenalty
+    state.players[i].allyKillBonus = sp.allyKillBonus
   })
   state.deck = sp.deck.map(c => ({ ...c }))
   state.grave = sp.grave.map(c => ({ ...c }))
@@ -998,6 +1092,125 @@ function restoreState(state, sp) {
   state.currentWeather = sp.currentWeather
   state.peaceRounds = sp.peaceRounds
   checkGameOver(state)
+}
+
+// ===== 联盟机制 =====
+
+/** 开始结盟：进入选目标阶段 */
+export function startAlly(state) {
+  if (state.phase === PHASE.PEACE) return
+  if (state.players.length < 4) {
+    log(state, `仅4人局及以上可结盟`)
+    return
+  }
+  const player = currentPlayer(state)
+  if (player.allyIndex !== null) {
+    log(state, `已有盟友，不可再结盟`)
+    return
+  }
+  if (player.betrayalPenalty > 0) {
+    log(state, `背刺惩罚中，${player.betrayalPenalty}回合内不可结盟`)
+    return
+  }
+  state.step = STEP.ALLY_PICK
+  log(state, `${player.name} 选择结盟目标`)
+}
+
+/** 执行结盟 */
+export function executeAlly(state, targetIdx) {
+  const player = currentPlayer(state)
+  const target = state.players.find(p => p.index === targetIdx)
+  if (!target?.alive) return
+  if (target.allyIndex !== null) {
+    log(state, `${target.name} 已有盟友`)
+    return
+  }
+  player.allyIndex = targetIdx
+  player.allianceTurns = 5
+  target.allyIndex = player.index
+  target.allianceTurns = 5
+  log(state, `${player.name} 与 ${target.name} 结盟（5回合）`)
+  state.step = STEP.PICK_ACTION
+  endAction(state)
+}
+
+/** 背刺盟友 */
+export function executeBetray(state) {
+  const player = currentPlayer(state)
+  if (player.allyIndex === null) {
+    log(state, `没有盟友可以背刺`)
+    return
+  }
+  const ally = state.players.find(p => p.index === player.allyIndex)
+  if (!ally?.alive) return
+
+  // 抽攻击牌
+  if (state.deck.length === 0) {
+    state.deck = reshuffleFromGrave(state.grave)
+    state.grave = []
+  }
+  const r = drawCards(state.deck, 1)
+  const card = r.drawn[0]
+  state.deck = r.remaining
+  card.faceUp = true
+
+  let dmg = card.value + 4  // 背刺+4
+  log(state, `${player.name} 背刺 ${ally.name}！${cardDisplay(card)} +4 = ${dmg}`)
+
+  // 应用伤害
+  const oldHp = ally.hp
+  applyDamage(state, ally, dmg)
+
+  // 惩罚：防御牌和陷阱全部亮明
+  for (const c of player.defensePile) c.faceUp = true
+  if (player.trap) player.trap.faceUp = true
+  if (player.bait) player.bait.faceUp = true
+  player.betrayalPenalty = 10
+  player.allianceTurns = 0
+
+  // 解除联盟
+  ally.allyIndex = null
+  ally.allianceTurns = 0
+  player.allyIndex = null
+
+  // 击杀奖励
+  if (!ally.alive) {
+    player.hp = player.maxHp
+    // +2防御牌
+    for (let i = 0; i < 2; i++) {
+      if (state.deck.length === 0) {
+        state.deck = reshuffleFromGrave(state.grave)
+        state.grave = []
+      }
+      const rr = drawCards(state.deck, 1)
+      state.deck = rr.remaining
+      rr.drawn[0].faceUp = false
+      player.defensePile.push(rr.drawn[0])
+    }
+    log(state, `${player.name} 击杀盟友！回满血+2防御`)
+  }
+
+  log(state, `${player.name} 背刺惩罚：10回合不可结盟，防御/陷阱全明，被打伤害+2`)
+  state.grave.push(card)
+  state.step = STEP.PICK_ACTION
+  endAction(state)
+}
+
+/** 检查联盟目标是否可选（排除自己、死人、已有盟友者、惩罚中者） */
+export function getAllianceTargets(state) {
+  const player = currentPlayer(state)
+  return state.players.filter(p =>
+    p.alive &&
+    p.index !== player.index &&
+    p.allyIndex === null &&
+    p.betrayalPenalty <= 0
+  )
+}
+
+/** 获取玩家盟友 */
+export function getAlly(state, player) {
+  if (player.allyIndex === null) return null
+  return state.players.find(p => p.index === player.allyIndex) || null
 }
 
 // ===== 天气系统 =====
@@ -1013,4 +1226,16 @@ export function getCurrentWeather(state) {
     arms: { name: '军备竞赛', desc: '禁止使用角色技能', icon: '' }
   }
   return weatherNames[state.currentWeather] || null
+}
+
+export function getNextWeather(state) {
+  const weatherNames = {
+    calm: { name: '风和日丽', desc: '无效果' },
+    wind: { name: '狂风呼啸', desc: '赌命抽牌数+1' },
+    trade: { name: '黑市交易', desc: '防御牌点数+2' },
+    sun: { name: '烈日当空', desc: '攻击牌点数+2' },
+    rain: { name: '暴雨倾盆', desc: '所有玩家防御区减1张' },
+    arms: { name: '军备竞赛', desc: '禁止使用角色技能' }
+  }
+  return weatherNames[state.nextWeather] || null
 }

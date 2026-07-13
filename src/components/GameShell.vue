@@ -13,6 +13,7 @@
       <span class="top-info">牌库 {{ state.deck.length }}</span>
       <span class="top-info top-info--grave">墓地 {{ state.grave.length }}</span>
       <span v-if="state.useWeather && weather" class="weather-tag">{{ weather.name }}</span>
+      <span v-if="state.useWeather && nextWeather" class="weather-next">下回合: {{ nextWeather.name }}</span>
     </div>
 
     <!-- 底部 UI 栏 -->
@@ -30,6 +31,9 @@
         @liniyaSkill="onLiniyaSkill"
         @caiyueangSave="onCaiyueangSave"
         @caiyueangLoad="onCaiyueangLoad"
+        @ally="onAlly"
+        @betray="onBetray"
+        @allyInvite="onAllyInvite"
         @cancel="cancelPick"
       />
 
@@ -57,7 +61,8 @@ import {
   executeGamble, executeSkill, getCurrentWeather,
   executeRaidenSkill, executeFurinaSwap,
   executeFenjinSkill, executeLiniyaSkill,
-  executeAimiliyaSkill, executeCaiyueangSave, executeCaiyueangLoad
+  executeAimiliyaSkill, executeCaiyueangSave, executeCaiyueangLoad,
+  startAlly, executeAlly, executeBetray, getNextWeather
 } from '../game/gameState.js'
 
 const props = defineProps({
@@ -84,6 +89,7 @@ const winner = computed(() =>
 )
 
 const weather = computed(() => getCurrentWeather(props.state))
+const nextWeather = computed(() => getNextWeather(props.state))
 
 // 同步 PixiJS
 usePixiSync(props.state, getManager)
@@ -170,6 +176,21 @@ function onCaiyueangLoad() {
   executeCaiyueangLoad(props.state)
 }
 
+function onAlly() {
+  if (animating.value) return
+  startAlly(props.state)
+}
+
+function onBetray() {
+  if (animating.value) return
+  executeBetray(props.state)
+}
+
+function onAllyInvite(idx) {
+  if (animating.value) return
+  executeAlly(props.state, idx)
+}
+
 function cancelPick() {
   props.state.step = 'pickAction'
   props.state.pendingFurinaTarget = false
@@ -220,7 +241,8 @@ function cancelPick() {
 .top-info { font-size: 12px; color: rgba(255,255,255,0.7); }
 .top-info--grave { color: rgba(255,255,255,0.4); }
 .peace-hint { font-size: 11px; color: #81c784; }
-.weather-tag { font-size: 11px; background: rgba(255,255,255,0.1); color: #ffd54f; padding: 2px 8px; border-radius: 4px; }
+.weather-tag { font-size: 11px; background: rgba(255,213,79,0.15); color: #ffd54f; padding: 2px 8px; border-radius: 4px; }
+.weather-next { font-size: 10px; color: rgba(255,255,255,0.35); }
 
 /* 底部 UI — 固定在底部 */
 .game-shell__bottom-bar {

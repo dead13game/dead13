@@ -7,6 +7,18 @@
         <button class="ab ab--def" :disabled="disabled" @click="$emit('defense')">防御</button>
         <button class="ab ab--gamble" :disabled="disabled" @click="$emit('gamble')">赌命</button>
         <button
+          v-if="canAlly"
+          class="ab ab--ally"
+          :disabled="disabled"
+          @click="$emit('ally')"
+        >结盟</button>
+        <button
+          v-if="canBetray"
+          class="ab ab--betray"
+          :disabled="disabled"
+          @click="$emit('betray')"
+        >背刺</button>
+        <button
           v-if="canSkill"
           class="ab ab--skill"
           :disabled="disabled || !canSkill"
@@ -71,6 +83,17 @@
           :disabled="disabled"
           @click="$emit('liniyaSkill', p.index, 2)"
         >DoT {{ p.name }} (5回合)</button>
+        <button class="ab ab--cancel" :disabled="disabled" @click="$emit('cancel')">取消</button>
+      </div>
+    </template>
+
+    <!-- 结盟选目标 -->
+    <template v-else-if="state.step === 'allyPick'">
+      <span class="action-hint">选择结盟目标：</span>
+      <div class="action-row">
+        <button v-for="p in allianceTargets" :key="p.index" class="ab ab--ally" :disabled="disabled" @click="$emit('allyInvite', p.index)">
+          {{ p.name }}
+        </button>
         <button class="ab ab--cancel" :disabled="disabled" @click="$emit('cancel')">取消</button>
       </div>
     </template>
@@ -161,7 +184,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import Card from './Card.vue'
-import { currentPlayer, canUseSkill, submitGamble, submitNahidaScry } from '../game/gameState.js'
+import { currentPlayer, canUseSkill, submitGamble, submitNahidaScry, getAllianceTargets } from '../game/gameState.js'
 
 const props = defineProps({
   state: { type: Object, required: true },
@@ -170,7 +193,9 @@ const props = defineProps({
 
 const emit = defineEmits([
   'attack', 'defense', 'gamble', 'skill',
-  'target', 'skillTarget', 'cancel'
+  'target', 'skillTarget', 'cancel',
+  'liniyaSkill', 'caiyueangSave', 'caiyueangLoad',
+  'ally', 'betray', 'allyInvite'
 ])
 
 // 赌命选牌
@@ -181,6 +206,19 @@ const nahidaOrder = ref([])
 
 const currentPlayerVal = computed(() => currentPlayer(props.state))
 const canSkill = computed(() => canUseSkill(props.state, currentPlayerVal.value))
+const canAlly = computed(() => {
+  const p = currentPlayerVal.value
+  return props.state.players.length >= 4 &&
+    props.state.phase !== 'peace' &&
+    p.allyIndex === null &&
+    p.betrayalPenalty <= 0
+})
+const canBetray = computed(() => {
+  const p = currentPlayerVal.value
+  return props.state.phase !== 'peace' &&
+    p.allyIndex !== null
+})
+const allianceTargets = computed(() => getAllianceTargets(props.state))
 const pendingGamble = computed(() => props.state.pendingGamble)
 const pendingAttackCard = computed(() => props.state.pendingAttackCard)
 const ventiCards = computed(() => props.state.pendingVentiCards)
@@ -242,6 +280,8 @@ function resetNahida() {
 .ab--atk { background: #e53935; color: #fff; }
 .ab--def { background: #43a047; color: #fff; }
 .ab--gamble { background: #fb8c00; color: #fff; }
+.ab--ally { background: #00acc1; color: #fff; }
+.ab--betray { background: #b71c1c; color: #fff; }
 .ab--skill { background: linear-gradient(135deg, #7b1fa2, #6a1b9a); color: #fff; }
 .ab--target { background: #1565C0; color: #fff; }
 .ab--skill-target { background: #e65100; color: #fff; }

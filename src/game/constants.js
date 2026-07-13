@@ -25,6 +25,7 @@ export const STEP = {
   SKILL_NAHIDA: 'skillNahida',
   LINIYA_PICK: 'liniyaPick',
   CAIYUEANG_PICK: 'caiyueangPick',
+  ALLY_PICK: 'allyPick',
   ANIMATING: 'animating'
 }
 
@@ -33,7 +34,8 @@ export const ACTION = {
   ATTACK: 'attack',
   DEFENSE: 'defense',
   GAMBLE: 'gamble',
-  SKILL: 'skill'
+  SKILL: 'skill',
+  ALLY: 'ally'
 }
 
 // 月相
