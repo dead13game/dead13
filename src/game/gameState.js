@@ -129,11 +129,12 @@ function setupWeatherDeck(state) {
   state.weatherDeck = shuffleDeck(weatherCards.map(id => ({ id })))
 }
 
-/** 抽天气 */
+/** 抽天气（随机抽取） */
 function drawWeather(state) {
   if (!state.useWeather) return null
   if (state.weatherDeck.length === 0) return null
-  const w = state.weatherDeck.shift()
+  const randomIndex = Math.floor(Math.random() * state.weatherDeck.length)
+  const w = state.weatherDeck.splice(randomIndex, 1)[0]
   state.weatherDeck.push(w) // 放回底部
   state.currentWeather = w.id
   return w.id
@@ -226,52 +227,52 @@ function checkGameOver(state) {
   }
 }
 
-/** 造成伤害 */
-function dealDamage(state, targetIdx, damage, skipTrap = false) {
-  const target = state.players.find(p => p.index === targetIdx)
-  if (!target?.alive) return 0
-
-  let remainingDmg = damage
+/** 对一名玩家造成伤害（处理防御结算、扣血、死亡） */
+function applyDamage(state, player, damage) {
+  let remaining = damage
 
   // 防御判定
-  while (remainingDmg > 0 && target.defensePile.length > 0) {
-    const topCard = target.defensePile[target.defensePile.length - 1]
-    if (!topCard.faceUp) topCard.faceUp = true
+  while (remaining > 0 && player.defensePile.length > 0) {
+    const top = player.defensePile[player.defensePile.length - 1]
+    if (!top.faceUp) top.faceUp = true
 
-    if (topCard.value >= remainingDmg) {
-      topCard.value -= remainingDmg
-      remainingDmg = 0
-      if (topCard.value === 0) {
-        target.defensePile.pop()
-        log(state, `${target.name} 防御牌抵消`)
+    if (top.value >= remaining) {
+      top.value -= remaining
+      remaining = 0
+      if (top.value === 0) {
+        player.defensePile.pop()
+        if (!top.isShield) state.grave.push(top)
+        log(state, `${player.name} 防御牌抵消`)
       } else {
-        log(state, `${target.name} 残盾 ${topCard.value}点`)
+        log(state, `${player.name} 残盾 ${top.value}点`)
       }
     } else {
-      remainingDmg -= topCard.value
-      log(state, `${target.name} 防御牌 ${cardDisplay(topCard)} 被击穿`)
-      target.defensePile.pop()
+      remaining -= top.value
+      log(state, `${player.name} 防御牌 ${cardDisplay(top)} 被击穿`)
+      player.defensePile.pop()
+      if (!top.isShield) state.grave.push(top)
     }
   }
 
-  if (remainingDmg > 0) {
-    target.hp -= remainingDmg
-    log(state, `${target.name} 剩余 HP ${target.hp}`)
+  // 扣血
+  if (remaining > 0) {
+    player.hp -= remaining
+    log(state, `${player.name} HP ${player.hp}`)
 
-    if (target.hp <= 0) {
-      target.alive = false
-      target.hp = 0
-      log(state, `${target.name} 阵亡`)
-      // 丢弃所有牌
-      ;[...target.defensePile, target.trap, target.bait].filter(Boolean).forEach(c => state.grave.push(c))
-      target.defensePile = []
-      target.trap = null
-      target.bait = null
+    if (player.hp <= 0) {
+      player.alive = false
+      player.hp = 0
+      log(state, `${player.name} 阵亡`)
+      // 丢弃所有牌入墓地（护盾牌除外）
+      ;[...player.defensePile, player.trap, player.bait].filter(Boolean).filter(c => !c.isShield).forEach(c => state.grave.push(c))
+      player.defensePile = []
+      player.trap = null
+      player.bait = null
       checkGameOver(state)
     }
   }
 
-  return remainingDmg
+  return remaining
 }
 
 // ===== 攻击 =====
@@ -279,7 +280,7 @@ function dealDamage(state, targetIdx, damage, skipTrap = false) {
 /** 开始攻击：先抽牌展示，再选目标 */
 export function startAttack(state) {
   if (state.step !== STEP.PICK_ACTION) return
-  if (state.phase === PHASE.PEACE || state.phase === PHASE.PEACE || state.round < 4) {
+  if (state.phase === PHASE.PEACE || state.round < 4) {
     log(state, `第4回合后才能攻击`)
     return
   }
@@ -310,10 +311,15 @@ export function startAttack(state) {
 /** 取消攻击：弃掉已抽到的牌 */
 export function cancelAttack(state) {
   if (state.step !== STEP.ATTACK_SHOW_CARD) return
-  const card = state.pendingAttackCard
-  if (card) state.grave.push(card)
+  // 回收温迪技能抽出的双牌
+  if (state.pendingVentiCards) {
+    state.pendingVentiCards.forEach(c => state.grave.push(c))
+    state.pendingVentiCards = null
+  } else if (state.pendingAttackCard) {
+    // 回收普通攻击牌
+    state.grave.push(state.pendingAttackCard)
+  }
   state.pendingAttackCard = null
-  state.pendingVentiCards = null
   state.step = STEP.PICK_ACTION
 }
 
@@ -349,9 +355,9 @@ export function executeAttack(state, targetIdx) {
     log(state, `烈日当空`)
   }
 
-  // 哥伦比娅弦月 +2
+  // 哥伦比娅弦月 +4
   if (attacker.characterId === 'columbina' && attacker.moonPhase === 0) {
-    attackValue += 3
+    attackValue += 4
     log(state, `弦月加持`)
   }
 
@@ -376,7 +382,7 @@ export function executeAttack(state, targetIdx) {
       target.trap = null
       target.bait = null
       trapTriggered = true
-      dealDamage(state, attacker.index, trapValue)
+      applyDamage(state, attacker, trapValue)
       attackCards.forEach(c => state.grave.push(c))
       if (!state.gameOver) nextPlayer(state)
       return
@@ -388,7 +394,8 @@ export function executeAttack(state, targetIdx) {
       target.trap = null
       target.bait = null
       trapTriggered = true
-      dealDamage(state, attacker.index, trapValue)
+      applyDamage(state, attacker, trapValue)
+      applyDamage(state, target, trapValue)
       // 玛薇卡：即使平局也算击破陷阱
       if (attacker.characterId === 'mavuika') {
         attacker.fightingSpirit = Math.min(5, attacker.fightingSpirit + 1)
@@ -413,7 +420,7 @@ export function executeAttack(state, targetIdx) {
 
   // 防御判定
   const beforeDefense = target.defensePile.length
-  const remainingDmg = dealDamageTarget(state, target, attackValue, attacker)
+  const remainingDmg = applyDamage(state, target, attackValue)
   
   // 玛薇卡：如果击穿了防御
   if (attacker.characterId === 'mavuika' && target.defensePile.length < beforeDefense && !trapTriggered) {
@@ -432,43 +439,6 @@ export function executeAttack(state, targetIdx) {
   if (!state.gameOver) nextPlayer(state)
 }
 
-/** 防御区伤害结算（带日志） */
-function dealDamageTarget(state, target, damage, source) {
-  let remaining = damage
-  while (remaining > 0 && target.defensePile.length > 0) {
-    const top = target.defensePile[target.defensePile.length - 1]
-    if (!top.faceUp) top.faceUp = true
-    if (top.value >= remaining) {
-      top.value -= remaining
-      remaining = 0
-      if (top.value === 0) {
-        target.defensePile.pop()
-        log(state, `${target.name} 防御牌抵消`)
-      } else {
-        log(state, `${target.name} 残盾 ${top.value}点`)
-      }
-    } else {
-      remaining -= top.value
-      log(state, `${target.name} 防御牌 ${cardDisplay(top)} 被击穿`)
-      target.defensePile.pop()
-    }
-  }
-  if (remaining > 0) {
-    target.hp -= remaining
-    log(state, `${target.name} HP ${target.hp}`)
-    if (target.hp <= 0) {
-      target.alive = false
-      target.hp = 0
-      log(state, `${target.name} 阵亡`)
-      ;[...target.defensePile, target.trap, target.bait].filter(Boolean).forEach(c => state.grave.push(c))
-      target.defensePile = []
-      target.trap = null
-      target.bait = null
-      checkGameOver(state)
-    }
-  }
-  return remaining
-}
 
 // ===== 防御 =====
 
@@ -607,12 +577,12 @@ export function executeSkill(state) {
 /** 温迪·千风之诗：转为攻击模式，标记技能触发 */
 function startSkillVenti(state) {
   const player = currentPlayer(state)
-  if (state.phase === PHASE.PEACE || state.phase === PHASE.PEACE) {
+  if (state.phase === PHASE.PEACE) {
     log(state, `和平阶段禁止攻击`)
     return
   }
-  if (state.round < 7) {
-    log(state, `第7回合后才能使用`)
+  if (state.round < 10) {
+    log(state, `第10回合后才能使用`)
     return
   }
 
@@ -635,27 +605,28 @@ function startSkillVenti(state) {
   cards.forEach(c => c.faceUp = true)
 }
 
-/** 钟离·坚如磐石：获得20点护盾 */
+/** 钟离·坚如磐石：获得 18 + 已损失生命值×2 的护盾 */
 function executeSkillZhongli(state) {
   const player = currentPlayer(state)
-  // 创建一个20点护盾作为防御牌
-  const shield = { id: `shield-zhongli-${Date.now()}`, suit: '', rank: '盾', value: 20, faceUp: true }
+  const lostHp = player.maxHp - player.hp
+  const shieldValue = 18 + lostHp * 2
+  const shield = { id: `shield-zhongli-${Date.now()}`, suit: '', rank: '盾', value: shieldValue, faceUp: true, isShield: true }
   player.defensePile.push(shield)
   player.skillUses--
-  log(state, `${player.name} 释放坚如磐石`)
+  log(state, `${player.name} 释放坚如磐石 护盾${shieldValue}点`)
   nextPlayer(state)
   return true
 }
 
-/** 雷电将军·无想的一刀：造成20点伤害 */
+/** 雷电将军·无想的一刀：造成27点伤害 */
 function executeSkillRaiden(state) {
   const player = currentPlayer(state)
   if (state.phase === PHASE.PEACE) {
     log(state, `和平阶段禁止攻击`)
     return
   }
-  if (state.round < 7) {
-    log(state, `第7回合后才能使用`)
+  if (state.round < 10) {
+    log(state, `第10回合后才能使用`)
     return
   }
   state.step = STEP.SKILL_PICK_TARGET
@@ -670,7 +641,7 @@ export function executeRaidenSkill(state, targetIdx) {
 
   attacker.skillUses--
 
-  let damage = 20
+  let damage = 27
   // 天气
   if (state.currentWeather === 'sun') damage += 2
   // 玛薇卡
@@ -679,19 +650,19 @@ export function executeRaidenSkill(state, targetIdx) {
       }
 
   log(state, `${attacker.name} 无想的一刀 ➜ ${target.name}`)
-  dealDamageTarget(state, target, damage, attacker)
+  applyDamage(state, target, damage)
   attacker.ignoreTrapThisTurn = false
   if (!state.gameOver) nextPlayer(state)
 }
 
-/** 纳西妲·智慧之殿堂：查看牌库顶 */
+/** 纳西妲·智慧之殿堂：查看牌库顶5张并排序 */
 function startSkillNahida(state) {
   const player = currentPlayer(state)
-  if (state.deck.length < 3) {
+  if (state.deck.length < 5) {
     state.deck = reshuffleFromGrave(state.grave)
     state.grave = []
   }
-  const r = drawCards(state.deck, 3)
+  const r = drawCards(state.deck, 5)
   state.scryCards = r.drawn.map(c => ({ ...c, faceUp: true }))
   state.deck = r.remaining
 
@@ -715,10 +686,10 @@ export function submitNahidaScry(state, orderArr) {
   state.step = STEP.PICK_ACTION
 }
 
-/** 芙宁娜·审判：无视陷阱并自动攻击 */
+/** 芙宁娜·审判：选择目标交换陷阱明暗，获得无视陷阱buff和额外行动 */
 function executeSkillFurina(state) {
   const player = currentPlayer(state)
-  if (state.phase === PHASE.PEACE || state.phase === PHASE.PEACE) {
+  if (state.phase === PHASE.PEACE) {
     log(state, `和平阶段禁止攻击`)
     return
   }
@@ -728,10 +699,28 @@ function executeSkillFurina(state) {
   }
   player.ignoreTrapThisTurn = true
   player.skillUses--
-  log(state, `${player.name} 释放审判`)
-  // 自动进入攻击流程
-  startAttack(state)
-  return true
+  state.pendingFurinaTarget = true
+  state.step = STEP.SKILL_PICK_TARGET
+  log(state, `${player.name} 释放审判，选择要交换陷阱的目标`)
+}
+
+/** 执行芙宁娜技能：交换目标陷阱明暗，获得额外行动 */
+export function executeFurinaSwap(state, targetIdx) {
+  const player = currentPlayer(state)
+  const target = state.players.find(p => p.index === targetIdx)
+  if (!target?.alive) return
+
+  // 交换陷阱和诱饵的明暗
+  const temp = target.trap
+  target.trap = target.bait
+  target.bait = temp
+  if (target.trap) target.trap.faceUp = false
+  if (target.bait) target.bait.faceUp = true
+
+  state.pendingFurinaTarget = false
+  player.extraAction = true
+  log(state, `${target.name}的陷阱明暗交换`)
+  state.step = STEP.PICK_ACTION
 }
 
 // ===== 天气系统 =====

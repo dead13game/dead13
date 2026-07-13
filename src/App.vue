@@ -14,91 +14,23 @@
     </Transition>
 
     <!-- 开始界面 -->
-    <div v-if="!gameStarted" class="app__start">
-      <div class="start-card">
-        <div class="start-card__icon">🃏</div>
-        <h2 class="start-card__title">选角开战</h2>
-        <p class="start-card__desc">2-4人 · 选择神明角色 · 活到最后</p>
-
-        <div class="start-card__setup">
-          <div class="setup-row">
-            <label>玩家人数：</label>
-            <select v-model.number="playerCount" class="setup-select">
-              <option :value="2">2 人</option>
-              <option :value="3">3 人</option>
-              <option :value="4">4 人</option>
-            </select>
-          </div>
-
-          <!-- 可选天气 -->
-          <div class="setup-row">
-            <label>天气系统：</label>
-            <label class="toggle-label">
-              <input type="checkbox" v-model="useWeather" />
-              启用
-            </label>
-          </div>
-
-          <div v-for="i in playerCount" :key="'setup-' + i" class="setup-player">
-            <div class="setup-player__header">
-              <label>玩家 {{ i }}</label>
-              <input
-                v-model="playerNames[i - 1]"
-                class="setup-input"
-                :placeholder="'玩家 ' + i"
-                maxlength="10"
-              />
-            </div>
-            <div class="setup-player__chars">
-              <div
-                v-for="char in availableChars(i - 1)"
-                :key="char.id"
-                class="char-card"
-                :class="{ 'char-card--selected': playerChars[i - 1] === char.id }"
-                @click="selectChar(i - 1, char.id)"
-              >
-                <div class="char-card__img-wrap">
-                  <img :src="char.icon" :alt="char.name" class="char-card__img" />
-                </div>
-                <div class="char-card__info">
-                  <span class="char-card__name">{{ char.name }}</span>
-                  <span class="char-card__hp">HP {{ char.hp }}</span>
-                </div>
-              </div>
-            </div>
-            <div v-if="playerChars[i - 1]" class="setup-player__skill">
-              技能：{{ CHARACTERS.find(c => c.id === playerChars[i - 1])?.skillName }}
-              （{{ CHARACTERS.find(c => c.id === playerChars[i - 1])?.maxUses }}次）
-            </div>
-          </div>
-        </div>
-
-        <button
-          class="start-btn"
-          :disabled="!allSelected"
-          @click="startGame"
-        >
-           开始游戏
-        </button>
-
-        <div class="start-card__rules">
-          <details>
-            <summary> 快速规则 v2.0</summary>
-            <div class="rules-content">
-              <p><strong>目标</strong>：活到最后一人。</p>
-              <p><strong>角色</strong>：7位神明，固定血量和专属技能。</p>
-              <p><strong>行动</strong>：攻击/防御/赌命/释放技能。</p>
-              <p><strong>和平</strong>：第1-2回合不能攻击。</p>
-              <p><strong>行动顺序</strong>：按当前血量从小到大。</p>
-              <p><strong>段位</strong>：可选积分系统（未来扩展）。</p>
-            </div>
-          </details>
-        </div>
-      </div>
-    </div>
+    <GameSetup
+      v-if="!gameStarted"
+      :playerCount="playerCount"
+      :playerNames="playerNames"
+      :playerChars="playerChars"
+      :useWeather="useWeather"
+      :allSelected="allSelected"
+      :availableChars="availableChars"
+      @update:playerCount="playerCount = $event"
+      @update:useWeather="useWeather = $event"
+      @update:playerName="(idx, name) => playerNames[idx] = name"
+      @selectChar="selectChar"
+      @startGame="startGame"
+    />
 
     <!-- 游戏界面 -->
-    <GameBoard
+    <GameShell
       v-else
       :state="gameState"
       @restart="resetGame"
@@ -107,49 +39,28 @@
 </template>
 
 <script setup>
-import { reactive, ref, computed } from 'vue'
-import GameBoard from './components/GameBoard.vue'
-import { createGameState, initGame } from './game/gameState.js'
-import { CHARACTERS } from './game/constants.js'
+import { ref } from 'vue'
+import GameShell from './components/GameShell.vue'
+import GameSetup from './components/GameSetup.vue'
+import { useGameController } from './composables/useGameController.js'
 
-const gameStarted = ref(false)
-const gameState = createGameState()
+const {
+  gameState,
+  gameStarted,
+  playerCount,
+  playerNames,
+  playerChars,
+  useWeather,
+  allSelected,
+  availableChars,
+  selectChar,
+  startGame,
+  resetGame
+} = useGameController()
+
+// 彩蛋
 const easterEgg = ref(false)
 let titleClickTimer = null
-const playerCount = ref(2)
-const playerNames = reactive(['', '', '', ''])
-const playerChars = reactive(['', '', '', ''])
-const useWeather = ref(false)
-
-// 可用角色（排除已被选的）
-function availableChars(playerIdx) {
-  const selectedOthers = playerChars.filter((c, i) => i !== playerIdx && c)
-  return CHARACTERS.filter(c => !selectedOthers.includes(c.id) || c.id === playerChars[playerIdx])
-}
-
-function selectChar(idx, charId) {
-  playerChars[idx] = charId
-}
-
-// 所有玩家都选好了角色
-const allSelected = computed(() => {
-  for (let i = 0; i < playerCount.value; i++) {
-    if (!playerChars[i]) return false
-  }
-  return true
-})
-
-function startGame() {
-  const names = playerNames.slice(0, playerCount.value)
-    .map((n, i) => n.trim() || `玩家 ${i + 1}`)
-  const chars = playerChars.slice(0, playerCount.value)
-  initGame(gameState, chars, useWeather.value)
-  // 设置名字
-  chars.forEach((charId, i) => {
-    gameState.players[i].name = names[i]
-  })
-  gameStarted.value = true
-}
 
 function onTitleClick() {
   if (titleClickTimer) {
@@ -161,14 +72,6 @@ function onTitleClick() {
     titleClickTimer = setTimeout(() => {
       titleClickTimer = null
     }, 600)
-  }
-}
-
-function resetGame() {
-  gameStarted.value = false
-  for (let i = 0; i < 4; i++) {
-    playerNames[i] = ''
-    playerChars[i] = ''
   }
 }
 </script>
@@ -195,105 +98,6 @@ body {
   background-clip: text;
 }
 .app__subtitle { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 4px; }
-.app__start { display: flex; justify-content: center; padding: 16px; }
-
-.start-card {
-  background: #fff; border-radius: 16px; padding: 24px;
-  max-width: 700px; width: 100%;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-}
-.start-card__icon { font-size: 48px; text-align: center; margin-bottom: 4px; }
-.start-card__title { font-size: 20px; text-align: center; margin-bottom: 4px; }
-.start-card__desc { text-align: center; color: #757575; font-size: 13px; margin-bottom: 16px; }
-
-.setup-row {
-  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
-}
-.setup-row label { font-size: 13px; color: #616161; min-width: 80px; text-align: right; }
-.toggle-label { font-size: 13px; color: #616161; display: flex; align-items: center; gap: 4px; cursor: pointer; }
-.setup-select, .setup-input {
-  padding: 6px 10px; border: 1px solid #e0e0e0; border-radius: 6px;
-  font-size: 13px; outline: none;
-}
-.setup-select:focus, .setup-input:focus { border-color: #1976D2; }
-.setup-select { flex: 0; min-width: 72px; }
-.setup-input { flex: 1; }
-
-/* 玩家选角区 */
-.setup-player {
-  background: #f5f5f5; border-radius: 10px; padding: 10px; margin-bottom: 8px;
-}
-.setup-player__header {
-  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
-}
-.setup-player__header label { font-weight: bold; font-size: 13px; min-width: 60px; }
-.setup-player__chars {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  justify-content: center;
-}
-.char-card {
-  width: 130px;
-  background: #fff;
-  border: 2px solid #e0e0e0;
-  border-radius: 10px;
-  cursor: pointer;
-  overflow: hidden;
-  transition: all 0.2s;
-}
-.char-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  border-color: #90caf9;
-}
-.char-card--selected {
-  border-color: #1976D2;
-  box-shadow: 0 0 0 2px rgba(25,118,210,0.3), 0 4px 12px rgba(0,0,0,0.15);
-  transform: translateY(-3px);
-}
-.char-card__img-wrap {
-  width: 130px;
-  height: 150px;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f0f0f0;
-}
-.char-card__img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.char-card__info {
-  padding: 6px 8px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-top: 1px solid #eee;
-}
-.char-card__name {
-  font-size: 13px;
-  font-weight: bold;
-}
-.char-card__hp {
-  font-size: 12px;
-  color: #e53935;
-  font-weight: bold;
-}
-.setup-player__skill { font-size: 11px; color: #616161; margin-top: 4px; padding-left: 2px; }
-
-.start-btn {
-  display: block; width: 100%; padding: 12px;
-  background: linear-gradient(135deg, #e53935, #d32f2f); color: #fff;
-  border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer;
-  transition: all 0.2s; margin-bottom: 12px;
-}
-.start-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.start-btn:not(:disabled):hover {
-  transform: translateY(-2px); box-shadow: 0 4px 12px rgba(229,57,53,0.4);
-}
 
 .app__easter {
   position: fixed;
@@ -345,9 +149,4 @@ body {
   60% { transform: translate(-50%, -50%) scale(1.15); }
   100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
 }
-
-.start-card__rules { font-size: 13px; }
-.start-card__rules summary { cursor: pointer; color: #1976D2; font-weight: bold; font-size: 13px; }
-.rules-content { margin-top: 8px; padding: 12px; background: #f5f5f5; border-radius: 8px; line-height: 1.7; }
-.rules-content p { color: #616161; font-size: 12px; }
 </style>

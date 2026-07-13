@@ -48,8 +48,8 @@ export const CHARACTERS = [
     hp: 11,
     skillName: '千风之诗',
     skillType: 'active',
-    skillDesc: '攻击时抽2张牌，点数相加作为本次攻击的总伤害（第7回合解锁）',
-    maxUses: 2
+    skillDesc: '攻击时抽2张牌，点数相加作为本次攻击的总伤害（第10回合解锁）',
+    maxUses: 3
   },
   {
     id: 'zhongli',
@@ -59,7 +59,7 @@ export const CHARACTERS = [
     hp: 12,
     skillName: '坚如磐石',
     skillType: 'active',
-    skillDesc: '获得一个20点防御力的护盾',
+    skillDesc: '获得 18+已损失生命值×2 的护盾',
     maxUses: 1
   },
   {
@@ -70,7 +70,7 @@ export const CHARACTERS = [
     hp: 11,
     skillName: '无想的一刀',
     skillType: 'active',
-    skillDesc: '造成20点伤害',
+    skillDesc: '造成27点伤害（第10回合解锁）',
     maxUses: 1
   },
   {
@@ -81,8 +81,8 @@ export const CHARACTERS = [
     hp: 12,
     skillName: '智慧之殿堂',
     skillType: 'active',
-    skillDesc: '查看牌库顶3张牌并按任意顺序放回，随后可再行动一次',
-    maxUses: 2
+    skillDesc: '查看牌库顶5张牌并按任意顺序放回，随后可再行动一次',
+    maxUses: 3
   },
   {
     id: 'furina',
@@ -92,7 +92,7 @@ export const CHARACTERS = [
     hp: 11,
     skillName: '审判',
     skillType: 'active',
-    skillDesc: '本回合攻击无视陷阱（跳过陷阱判定），自动触发攻击',
+    skillDesc: '指定目标令其陷阱明暗交换，本回合攻击无视陷阱，获得额外行动',
     maxUses: 3
   },
   {
@@ -114,7 +114,7 @@ export const CHARACTERS = [
     hp: 11,
     skillName: '三月交辉之刻',
     skillType: 'passive',
-    skillDesc: '每回合自动轮换月相：弦月(+2攻) → 满月(+2防盾) → 新月(赌命抽3)',
+    skillDesc: '每回合自动轮换月相：弦月(+4攻) → 满月(+3防盾) → 新月(赌命抽3)',
     maxUses: Infinity
   }
 ]
