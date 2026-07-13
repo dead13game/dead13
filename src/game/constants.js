@@ -25,8 +25,8 @@ export const STEP = {
   ANIMATING: 'animating'
 }
 
-// 月相
-export const MOON_NAMES = { waxing: '弦月', full: '满月', new: '新月' }
+// 月相（索引：0=弦月, 1=满月, 2=新月）
+export const MOON_NAMES = ['弦月', '满月', '新月']
 
 // 神明角色卡
 export const CHARACTERS = [
