@@ -102,7 +102,7 @@ body {
 </style>
 
 <style scoped>
-.app { min-height: 100vh; position: relative; z-index: 1; }
+.app { min-height: 100vh; }
 .app__header { text-align: center; padding: 24px 16px 8px; }
 .app__title {
   font-size: 32px; font-weight: bold;
