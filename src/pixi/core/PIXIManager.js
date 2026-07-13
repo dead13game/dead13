@@ -22,6 +22,7 @@ export class PIXIManager {
 
   /** 初始化 PIXI Application */
   async init(canvas, options = {}) {
+    this._options = options
     this.app = new Application()
     await this.app.init({
       canvas,
@@ -36,10 +37,27 @@ export class PIXIManager {
     this.app.stage.eventMode = 'static'
     this.app.stage.hitArea = this.app.screen
 
+    // 星空背景
+    this._createStarfield()
+
     // 粒子系统
     this.particles = new ParticleSystem(this.app.stage, 200)
     this.particles.attach(this.app.ticker)
 
+  }
+
+  /** 创建星空背景 */
+  _createStarfield() {
+    const stars = new Graphics()
+    for (let i = 0; i < 80; i++) {
+      const x = Math.random() * (this._options.width || CANVAS_WIDTH)
+      const y = Math.random() * (this._options.height || CANVAS_HEIGHT)
+      const r = Math.random() * 1.5 + 0.5
+      const alpha = Math.random() * 0.4 + 0.1
+      stars.circle(x, y, r)
+      stars.fill({ color: 0xffffff, alpha })
+    }
+    this.app.stage.addChild(stars)
   }
 
   /** 根据当前游戏状态构建场景 */

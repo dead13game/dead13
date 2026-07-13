@@ -1,9 +1,13 @@
 <template>
-  <div class="app">
-    <header class="app__header">
-      <h1 class="app__title" @click="onTitleClick"> 亡命十三街</h1>
-      <p class="app__subtitle">designed by Lynacine&made by myracler </p>
-    </header>
+  <!-- 开场动画 -->
+  <OpeningVideo v-if="showOpening" @done="showOpening = false" />
+
+  <Transition name="app-fade">
+    <div class="app" v-if="!showOpening">
+      <header class="app__header">
+        <h1 class="app__title" @click="onTitleClick"> 亡命十三街</h1>
+        <p class="app__subtitle">designed by Lynacine&made by myracler </p>
+      </header>
 
     <!-- 彩蛋弹窗 -->
     <Transition name="easter">
@@ -35,13 +39,15 @@
       :state="gameState"
       @restart="resetGame"
     />
-  </div>
+    </div>
+  </Transition>
 </template>
 
 <script setup>
 import { ref } from 'vue'
 import GameShell from './components/GameShell.vue'
 import GameSetup from './components/GameSetup.vue'
+import OpeningVideo from './components/OpeningVideo.vue'
 import { useGameController } from './composables/useGameController.js'
 
 const {
@@ -57,6 +63,9 @@ const {
   startGame,
   resetGame
 } = useGameController()
+
+// 开场动画
+const showOpening = ref(true)
 
 // 彩蛋
 const easterEgg = ref(false)
@@ -80,9 +89,21 @@ function onTitleClick() {
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: linear-gradient(135deg, #0a0a2e 0%, #1a1a3e 50%, #0d0d2b 100%);
+  background: linear-gradient(160deg, #050520 0%, #0d1035 25%, #121844 50%, #0a0f2e 75%, #060920 100%);
+  background-attachment: fixed;
   min-height: 100vh;
   color: #333;
+}
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(25, 40, 120, 0.3) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 30%, rgba(60, 20, 80, 0.2) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(15, 30, 60, 0.4) 0%, transparent 55%);
+  pointer-events: none;
+  z-index: 0;
 }
 #app { min-height: 100vh; }
 </style>
@@ -92,10 +113,11 @@ body {
 .app__header { text-align: center; padding: 24px 16px 8px; }
 .app__title {
   font-size: 32px; font-weight: bold;
-  background: linear-gradient(135deg, #ff6f00, #ff3d00);
+  background: linear-gradient(135deg, #ff8f00, #ff3d00, #ff1744);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  filter: drop-shadow(0 0 12px rgba(255,80,0,0.4));
 }
 .app__subtitle { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 4px; }
 
@@ -143,6 +165,10 @@ body {
 .easter-enter-active { animation: easterPop 0.35s ease-out; }
 .easter-leave-active { transition: opacity 0.3s; }
 .easter-leave-to { opacity: 0; }
+
+/* 开场动画后的主界面淡入 */
+.app-fade-enter-active { transition: opacity 0.8s ease; }
+.app-fade-enter-from { opacity: 0; }
 
 @keyframes easterPop {
   0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }

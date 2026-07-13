@@ -226,8 +226,8 @@ function cancelPick() {
   align-items: center;
   gap: 10px;
   padding: 8px 16px;
-  background: rgba(0,0,0,0.5);
-  backdrop-filter: blur(4px);
+  background: rgba(8,8,30,0.7);
+  backdrop-filter: blur(8px);
 }
 
 .phase-badge {
@@ -252,8 +252,8 @@ function cancelPick() {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: rgba(0,0,0,0.5);
-  backdrop-filter: blur(4px);
+  background: rgba(8,8,30,0.75);
+  backdrop-filter: blur(8px);
   max-height: 45vh;
   overflow-y: auto;
 }
