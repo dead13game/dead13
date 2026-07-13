@@ -21,11 +21,11 @@ export class TableLayout {
     this.playerCount = n
   }
 
-  /** 牌库位置（画面中下方） */
+  /** 牌库位置（画面中上部，靠近玩家区） */
   get deckPos() {
     return {
       x: this.width / 2 - CARD_WIDTH / 2,
-      y: this.height * 0.55
+      y: this.height * 0.38
     }
   }
 
@@ -50,12 +50,12 @@ export class TableLayout {
 
     return {
       x: startX + index * (pw + gap),
-      y: Math.max(10, this.height * 0.04)
+      y: Math.max(10, this.height * 0.08)
     }
   }
 
   /** 玩家桌面尺寸 */
   get playerTableSize() {
-    return { width: 260, height: 220 }
+    return { width: 260, height: 280 }
   }
 }

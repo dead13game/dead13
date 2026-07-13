@@ -53,9 +53,9 @@ export class PlayerTableSprite extends Container {
     this.statusText.position.set(8, 32)
     this.addChild(this.statusText)
 
-    // HP 条背景
+    // HP 条背景（右边留空给数字）
     this.hpBarBg = new Graphics()
-    this.hpBarBg.roundRect(8, 38, size.width - 16, 12, 6)
+    this.hpBarBg.roundRect(8, 38, size.width - 50, 12, 6)
     this.hpBarBg.fill(0xe0e0e0)
     this.addChild(this.hpBarBg)
 
@@ -63,14 +63,24 @@ export class PlayerTableSprite extends Container {
     this.hpBarFill = new Graphics()
     this.addChild(this.hpBarFill)
 
-    // HP 文字
+    // HP 文字（放在血条右侧）
     this.hpText = new Text({
       text: '',
-      style: { fontSize: 9, fill: 0xffffff, fontWeight: 'bold', fontFamily: 'sans-serif' }
+      style: { fontSize: 9, fill: 0x333333, fontWeight: 'bold', fontFamily: 'sans-serif' }
     })
-    this.hpText.position.set(size.width / 2, 40)
-    this.hpText.anchor.set(0.5, 0)
+    this.hpText.position.set(size.width - 8, 38)
+    this.hpText.anchor.set(1, 0)
     this.addChild(this.hpText)
+
+    // 阵亡标记
+    this.deadMark = new Text({
+      text: '阵亡',
+      style: { fontSize: 28, fill: 0xc62828, fontWeight: 'bold', fontFamily: 'sans-serif' }
+    })
+    this.deadMark.anchor.set(0.5)
+    this.deadMark.position.set(size.width / 2, size.height / 2)
+    this.deadMark.visible = false
+    this.addChild(this.deadMark)
 
     // 防御区标签
     this.defLabel = new Text({
@@ -85,16 +95,20 @@ export class PlayerTableSprite extends Container {
     this.defContainer.position.set(8, 68)
     this.addChild(this.defContainer)
 
-    // 陷阱/诱饵区
+    // 陷阱/诱饵区（按实际缩放宽度计算位置）
+    const cardScale = 0.7
+    const trapAreaW = CARD_WIDTH * cardScale * 2 + 4  // 两张牌+间距
+    const trapX = size.width - trapAreaW - 14
+
     this.trapLabel = new Text({
       text: '陷阱',
       style: { fontSize: 9, fill: 0x999999, fontFamily: 'sans-serif' }
     })
-    this.trapLabel.position.set(size.width - CARD_WIDTH * 2 - 14, 58)
+    this.trapLabel.position.set(trapX, 58)
     this.addChild(this.trapLabel)
 
     this.trapContainer = new Container()
-    this.trapContainer.position.set(size.width - CARD_WIDTH * 2 - 14, 68)
+    this.trapContainer.position.set(trapX, 68)
     this.addChild(this.trapContainer)
 
     // 选中标识
@@ -118,11 +132,10 @@ export class PlayerTableSprite extends Container {
   _updateHP() {
     const p = this.playerData
     const size = this._layout.playerTableSize
-    const barWidth = size.width - 16
+    const barWidth = size.width - 50  // 右边留空给文字
     const targetRatio = p.maxHp > 0 ? Math.max(0, p.hp / p.maxHp) : 0
     const color = targetRatio < 0.3 ? COLORS.HP_BAR_DAMAGE : COLORS.HP_BAR_FILL
 
-    // GSAP 平滑过渡
     const proxy = { w: this._hpBarWidth ?? barWidth * targetRatio }
     this._hpBarWidth = proxy.w
     gsap.killTweensOf(proxy)
@@ -140,30 +153,36 @@ export class PlayerTableSprite extends Container {
       }
     })
 
-    this.hpText.text = `${p.hp}/${p.maxHp}`
+    this.hpText.text = `HP ${p.hp}/${p.maxHp}`
   }
 
   _syncDefenses(defensePile) {
-    // 清除旧的
     this.defContainer.removeChildren()
     this._defSprites = []
 
-    const offset = this._layout.defenseCardOffset
-    defensePile.forEach((card, i) => {
-      const sprite = new CardSprite(card, { showValue: true })
-      sprite.position.set(0, -i * 16)
-      // 缩小防御牌
-      sprite.scale.set(0.7)
-      this.defContainer.addChild(sprite)
-      this._defSprites.push(sprite)
-    })
-
-    // 空位
     if (defensePile.length === 0) {
       const empty = new CardSprite(null)
       empty.scale.set(0.7)
       this.defContainer.addChild(empty)
+      return
     }
+
+    // 每列最多几张（基于桌面高度和卡牌偏移）
+    const cardH = CARD_HEIGHT * 0.7  // 缩放后卡高
+    const gap = 14                    // 叠放间距
+    const areaH = this._layout.playerTableSize.height - 68 - 10  // 可用高度
+    const perCol = Math.max(1, Math.floor((areaH - cardH) / gap) + 1)
+
+    defensePile.forEach((card, i) => {
+      const col = Math.floor(i / perCol)
+      const row = i % perCol
+      const sprite = new CardSprite(card, { showValue: true })
+      sprite.scale.set(0.7)
+      // 列偏移（每列宽 = 缩放卡宽 + 间距）
+      sprite.position.set(col * (CARD_WIDTH * 0.7 + 6), row * gap)
+      this.defContainer.addChild(sprite)
+      this._defSprites.push(sprite)
+    })
   }
 
   _syncTrap(trap, bait) {
@@ -188,8 +207,12 @@ export class PlayerTableSprite extends Container {
     const size = this._layout.playerTableSize
     this.highlight.clear()
     if (this._isCurrent) {
+      // 外层发光
+      this.highlight.roundRect(-4, -4, size.width + 8, size.height + 8, 14)
+      this.highlight.stroke({ width: 6, color: 0x1976d2, alpha: 0.3 })
+      // 内层边框
       this.highlight.roundRect(-2, -2, size.width + 4, size.height + 4, 12)
-      this.highlight.stroke({ width: 3, color: COLORS.CURRENT_PLAYER_GLOW })
+      this.highlight.stroke({ width: 2, color: 0x42a5f5 })
       this.highlight.visible = true
     } else {
       this.highlight.visible = false
@@ -200,11 +223,34 @@ export class PlayerTableSprite extends Container {
   setCurrent(v) {
     this._isCurrent = v
     this._updateHighlight()
+    // 呼吸动画
+    if (v) {
+      gsap.killTweensOf(this.highlight)
+      this.highlight.alpha = 1
+      gsap.to(this.highlight, {
+        alpha: 0.3,
+        duration: 1.2,
+        repeat: -1,
+        yoyo: true,
+        ease: 'sine.inOut'
+      })
+    } else {
+      gsap.killTweensOf(this.highlight)
+      this.highlight.alpha = 1
+    }
   }
 
   /** 设置玩家存活状态 */
   setAlive(v) {
-    this.alpha = v ? 1 : 0.4
+    this.deadMark.visible = !v
+    if (!v) {
+      this.alpha = 0.55
+      // 背景变灰
+      this.bg.alpha = 0.6
+    } else {
+      this.alpha = 1
+      this.bg.alpha = 1
+    }
   }
 
   /** 状态文本 */
