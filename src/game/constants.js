@@ -160,8 +160,8 @@ export const CHARACTERS = [
     hp: 11,
     skillName: '死亡回归',
     skillType: 'active',
-    skillDesc: '可随时存档，随时回溯到存档点前的全部状态',
-    maxUses: Infinity
+    skillDesc: '存档不限次，读档3次。均不结束回合',
+    maxUses: 3
   }
 ]
 

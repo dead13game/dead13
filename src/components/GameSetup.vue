@@ -54,7 +54,9 @@
           </div>
           <div v-if="playerChars[i - 1]" class="setup-player__skill">
             技能：{{ charById(playerChars[i - 1])?.skillName }}
-            （{{ charById(playerChars[i - 1])?.maxUses }}次）
+            <template v-if="charById(playerChars[i - 1])?.skillType === 'passive'">（被动）</template>
+            <template v-else-if="charById(playerChars[i - 1])?.id === 'caiyueang'">（读档3次）</template>
+            <template v-else>（{{ charById(playerChars[i - 1])?.maxUses }}次）</template>
           </div>
         </div>
       </div>
