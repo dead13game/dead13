@@ -48,17 +48,24 @@ export class PIXIManager {
 
   /** 创建星空背景 */
   _createStarfield() {
+    // 移除旧星空
+    if (this._stars) {
+      this.app.stage.removeChild(this._stars)
+      this._stars.destroy()
+    }
+    const w = this.app.renderer.width
+    const h = this.app.renderer.height
     const stars = new Graphics()
     for (let i = 0; i < 80; i++) {
-      const x = Math.random() * (this._options.width || CANVAS_WIDTH)
-      const y = Math.random() * (this._options.height || CANVAS_HEIGHT)
+      const x = Math.random() * w
+      const y = Math.random() * h
       const r = Math.random() * 1.5 + 0.5
       const alpha = Math.random() * 0.4 + 0.1
       stars.circle(x, y, r)
       stars.fill({ color: 0xffffff, alpha })
     }
     this._stars = stars
-    this.app.stage.addChild(stars)
+    this.app.stage.addChildAt(stars, 0)
   }
 
   /** 根据当前游戏状态构建场景 */

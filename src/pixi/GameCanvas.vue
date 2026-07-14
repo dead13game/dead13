@@ -41,11 +41,12 @@ onMounted(async () => {
 
   // 竖屏内容溢出 → canvas 加高，页面可滚动
   const totalH = mgr.layout?.totalHeight || h
-  const neededH = totalH + h  // 加一整屏高度，最后一行能滚到底部 UI 栏上方
-  if (w < h && neededH > h) {
-    scrollH.value = neededH
+  const neededH = Math.min(totalH + 400, 1000)  // 足够滚出最后一排，不过度
+  if (w < h && totalH > h) {
+    scrollH.value = Math.max(neededH, totalH)
     scrollMode.value = true
-    mgr.resize(w, neededH)
+    mgr.resize(w, scrollH.value)
+    mgr._createStarfield()  // 星空覆盖新高度
   }
 
   // 窗口缩放（保持滚动高度）
