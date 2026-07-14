@@ -28,6 +28,8 @@ defineEmits(['restart'])
 .game-over__icon { font-size: 40px; }
 .game-over__title { font-size: 22px; font-weight: bold; color: #333; }
 .game-over__winner { font-size: 16px; color: #e65100; font-weight: bold; }
-.ab--restart { background: #1565C0; color: #fff; font-size: 15px; padding: 10px 28px; margin-top: 8px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: all 0.15s; }
-.ab--restart:hover { transform: translateY(-2px); box-shadow: 0 3px 8px rgba(0,0,0,0.2); }
+.ab--restart { background: #1565C0; color: #fff; font-size: 15px; padding: 12px 32px; margin-top: 8px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: all 0.15s; min-height: 48px; min-width: 120px; }
+@media (hover: hover) {
+  .ab--restart:hover { transform: translateY(-2px); box-shadow: 0 3px 8px rgba(0,0,0,0.2); }
+}
 </style>

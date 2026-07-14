@@ -8,8 +8,11 @@
         autoplay
         muted
         playsinline
+        webkit-playsinline
+        preload="auto"
         @ended="onEnd"
         @loadeddata="onReady"
+        @error="onEnd"
       />
       <div class="opening__hint" v-if="ready">点击任意位置跳过</div>
     </div>
@@ -68,10 +71,21 @@ onMounted(() => {
 }
 .opening__hint {
   position: absolute;
-  bottom: 40px;
+  bottom: max(40px, env(safe-area-inset-bottom, 40px));
   color: rgba(255,255,255,0.4);
   font-size: 14px;
   animation: hintPulse 2s ease-in-out infinite;
+}
+
+/* 移动端：增大跳过提示，避开底部安全区 */
+@media (max-width: 500px) {
+  .opening__hint {
+    bottom: max(60px, calc(env(safe-area-inset-bottom, 40px) + 20px));
+    font-size: 16px;
+    padding: 12px 24px;
+    background: rgba(0,0,0,0.5);
+    border-radius: 24px;
+  }
 }
 @keyframes hintPulse {
   0%, 100% { opacity: 0.3; }

@@ -150,8 +150,10 @@ function charById(id) { return charMap.value[id] }
   cursor: pointer; overflow: hidden; transition: all 0.2s;
   flex: 1 0 110px; max-width: 150px; min-width: 100px;
 }
-.char-card:hover {
-  transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-color: #90caf9;
+@media (hover: hover) {
+  .char-card:hover {
+    transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-color: #90caf9;
+  }
 }
 .char-card--selected {
   border-color: #1976D2;
@@ -183,12 +185,37 @@ function charById(id) { return charMap.value[id] }
   transition: all 0.2s; margin-bottom: 12px;
 }
 .start-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.start-btn:not(:disabled):hover {
-  transform: translateY(-2px); box-shadow: 0 4px 12px rgba(229,57,53,0.4);
+@media (hover: hover) {
+  .start-btn:not(:disabled):hover {
+    transform: translateY(-2px); box-shadow: 0 4px 12px rgba(229,57,53,0.4);
+  }
 }
 
 .start-card__rules { font-size: 13px; }
 .start-card__rules summary { cursor: pointer; color: #1976D2; font-weight: bold; font-size: 13px; }
 .rules-content { margin-top: 8px; padding: 12px; background: #f5f5f5; border-radius: 8px; line-height: 1.7; }
 .rules-content p { color: #616161; font-size: 12px; }
+
+/* 移动端：角色卡片更紧凑，4 张/行 */
+@media (max-width: 500px) {
+  .app__start { padding: 8px; }
+  .start-card { padding: 12px; border-radius: 12px; }
+  .start-card__title { font-size: 17px; }
+  .start-card__desc { font-size: 11px; margin-bottom: 12px; }
+  .setup-player { padding: 8px; }
+  .setup-player__chars { gap: 6px; }
+  .char-card {
+    flex: 1 0 75px;
+    max-width: 110px;
+    min-width: 70px;
+    border-radius: 8px;
+    border-width: 1.5px;
+  }
+  .char-card__img-wrap { aspect-ratio: 3/4; max-height: 100px; }
+  .char-card__name { font-size: 11px; }
+  .char-card__hp { font-size: 10px; }
+  .char-card__info { padding: 4px 6px; }
+  .char-card__placeholder { font-size: 14px; }
+  .setup-row label { min-width: 60px; font-size: 12px; }
+}
 </style>

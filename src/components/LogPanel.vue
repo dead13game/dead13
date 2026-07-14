@@ -30,4 +30,16 @@ watch(() => props.messages.length, async () => {
 }
 .log-title { font-weight: bold; margin-bottom: 4px; color: rgba(255,255,255,0.5); }
 .log-entry { line-height: 1.5; }
+
+/* 移动端：压缩日志区高度 */
+@media (max-width: 500px) {
+  .log-panel {
+    max-height: 80px;
+    padding: 6px 8px;
+    font-size: 10px;
+  }
+  .log-title { font-size: 10px; }
+  .log-entry { line-height: 1.3; }
+}
+
 </style>

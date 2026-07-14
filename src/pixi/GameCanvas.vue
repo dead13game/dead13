@@ -1,5 +1,5 @@
 <template>
-  <canvas ref="canvasRef" class="pixi-canvas"></canvas>
+  <canvas ref="canvasRef" class="pixi-canvas" :class="{ 'pixi-canvas--scroll': scrollMode }" :style="scrollMode ? { height: scrollH + 'px' } : {}"></canvas>
 </template>
 
 <script setup>
@@ -12,20 +12,29 @@ const props = defineProps({
 
 const canvasRef = ref(null)
 const manager = shallowRef(null)
+const scrollMode = ref(false)
+const scrollH = ref(0)
 
 let resizeObserver = null
 
 onMounted(async () => {
   const canvas = canvasRef.value
-  // 初始尺寸匹配视口
   const w = window.innerWidth
   const h = window.innerHeight
 
   const mgr = new PIXIManager()
   await mgr.init(canvas, { width: w, height: h })
-
-  // 初始构建场景
   mgr.buildScene(props.state.players, props.state.deck.length)
+
+  // 竖屏内容溢出 → canvas 加高，页面可滚动
+  const totalH = mgr.layout?.totalHeight || h
+  const bottomBarH = 200 // 底部 UI 栏预留高度
+  const neededH = totalH + bottomBarH
+  if (w < h && neededH > h) {
+    mgr.resize(w, neededH)
+    scrollMode.value = true
+    scrollH.value = neededH
+  }
 
   // 窗口缩放
   resizeObserver = new ResizeObserver(() => {
@@ -37,7 +46,7 @@ onMounted(async () => {
 
   manager.value = mgr
 
-  // 首帧后自动重排：双 RAF 确保 CSS 布局/PIXI autoDensity 已稳定
+  // 首帧后自动重排
   requestAnimationFrame(() => {
     requestAnimationFrame(() => mgr.rebuildLayout())
   })
@@ -61,5 +70,11 @@ defineExpose({ manager })
   height: 100vh;
   z-index: 1;
   pointer-events: none;
+}
+
+/* 竖屏溢出：canvas 改为 absolute，页面可滚动 */
+.pixi-canvas--scroll {
+  position: absolute;
+  height: auto;
 }
 </style>

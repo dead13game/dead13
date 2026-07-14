@@ -70,10 +70,9 @@ export class PIXIManager {
     this.app.stage.removeChildren()
     if (stars) this.app.stage.addChild(stars)
 
-    // 布局 — 使用 canvas 实际逻辑尺寸（而非默认 1000×650），
-    // 确保移动端窄屏/竖屏布局正确
-    const logicalW = this.app.renderer.width / (this.app.renderer.resolution || 1)
-    const logicalH = this.app.renderer.height / (this.app.renderer.resolution || 1)
+    // 布局 — 使用 canvas 实际 CSS 像素尺寸（autoDensity 已处理 DPR 缩放）
+    const logicalW = this.app.renderer.width
+    const logicalH = this.app.renderer.height
     this.layout = new TableLayout(players.length, logicalW, logicalH)
 
     // 牌库精灵
@@ -181,7 +180,6 @@ export class PIXIManager {
       this.app.renderer.resize(w, h)
       if (this.layout) {
         this.layout.resize(w, h)
-        // 重建场景以应用新布局
         this._relayout()
       }
     }

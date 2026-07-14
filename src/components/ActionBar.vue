@@ -284,7 +284,22 @@ function resetNahida() {
   min-height: 44px; min-width: 44px; /* 移动端触控最小目标 */
 }
 .ab:disabled { opacity: 0.35; cursor: not-allowed; }
-.ab:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 3px 8px rgba(0,0,0,0.2); }
+@media (hover: hover) {
+  .ab:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 3px 8px rgba(0,0,0,0.2); }
+}
+
+/* 移动端：缩小按钮以在一行放下更多 */
+@media (max-width: 420px) {
+  .ab {
+    padding: 8px 12px;
+    font-size: 13px;
+    min-height: 40px;
+    min-width: 40px;
+    border-radius: 6px;
+  }
+  .action-row { gap: 5px; }
+  .action-hint { font-size: 11px; }
+}
 .ab--atk { background: #e53935; color: #fff; }
 .ab--def { background: #43a047; color: #fff; }
 .ab--gamble { background: #fb8c00; color: #fff; }

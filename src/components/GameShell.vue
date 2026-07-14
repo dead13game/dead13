@@ -47,7 +47,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed } from 'vue'
 import GameCanvas from '../pixi/GameCanvas.vue'
 import ActionBar from './ActionBar.vue'
 import LogPanel from './LogPanel.vue'
@@ -94,21 +94,6 @@ usePixiSync(props.state, getManager)
 // 动画流
 const { animating, flyToTarget, defenseDraw, gambleDraw } = useAnimationFlow(props.state, getManager)
 
-// Canvas 初始化
-let initCheck = null
-onMounted(() => {
-  initCheck = setInterval(() => {
-    const m = getManager()
-    if (m && props.state.players.length > 0) {
-      m.buildScene(props.state.players, props.state.deck.length)
-      clearInterval(initCheck)
-    }
-  }, 100)
-})
-
-onBeforeUnmount(() => {
-  if (initCheck) clearInterval(initCheck)
-})
 
 // ── 事件处理（动画→游戏逻辑）──
 
@@ -237,9 +222,11 @@ function onRelayout() {
 .relayout-btn {
   margin-left: auto; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
   color: rgba(255,255,255,0.5); font-size: 16px; cursor: pointer; border-radius: 6px;
-  padding: 2px 10px; min-width: 36px; min-height: 30px; transition: all 0.15s;
+  padding: 2px 10px; min-width: 44px; min-height: 44px; transition: all 0.15s;
 }
-.relayout-btn:hover { background: rgba(255,255,255,0.18); color: #fff; }
+@media (hover: hover) {
+  .relayout-btn:hover { background: rgba(255,255,255,0.18); color: #fff; }
+}
 
 /* 底部 UI — 固定在底部，适配 Home Indicator */
 .game-shell__bottom-bar {
@@ -254,5 +241,15 @@ function onRelayout() {
   background: rgba(8,8,30,0.85);
   max-height: 45vh;
   overflow-y: auto;
+}
+
+/* 移动端：缩小日志区，给牌桌更多空间 */
+@media (max-width: 500px) and (orientation: portrait) {
+  .game-shell__bottom-bar {
+    padding: 6px 10px 8px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    gap: 5px;
+    max-height: 40vh;
+  }
 }
 </style>

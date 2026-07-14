@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 项目概述
 
 亡命十三街 — 基于扑克牌的多人对战游戏。Vue 3 驱动 UI，PixiJS v8 渲染牌桌，GSAP 负责动画，Tauri 打包桌面端。
+本项目使用Chinese与用户交流
 
 **线上地址：** `https://drtion.github.io/dead4thirteen/`（GitHub Pages 自动部署）
 
@@ -71,6 +72,7 @@ STEP:  pickAction → attackShowCard → pickTarget → ... → pickAction
 ## 构建与部署
 
 ### 构建
+
 - **`codeSplitting: false`** — 关键配置。PixiJS v8 环境检测用动态 `import()`，正常构建会产生 3 个外部 chunk（browserAll/init/webworkerAll）。file:// 协议下动态 import 被拦截导致 PIXI 初始化失败，所以必须关闭代码分割，所有代码合并到单一 bundle（739KB）。
 - `postbuild.mjs` 将 JS 和 CSS 内联到 `index.html`，`<script type="module">` 保留以支持 `import.meta`。视频路径从 `amine-xxx.mp4` 修正为 `./assets/amine-xxx.mp4`。
 - `images/` 目录在 postbuild 时复制到 `dist/images/`。
@@ -86,6 +88,7 @@ STEP:  pickAction → attackShowCard → pickTarget → ... → pickAction
 **结论：不要依赖 file:// 分发。用线上 URL（GitHub Pages）或 `npm run preview` 本地服务器。** iOS WKWebView 彻底禁止 file:// 页面加载任何本地子资源（图片/视频/JS），无法绕过。
 
 ### GitHub Pages 部署
+
 - Workflow: `.github/workflows/deploy.yml` — push 到 main 自动触发构建+部署
 - 仓库: `drtion/dead4thirteen`
 - 构建在 Ubuntu 上跑 `npm ci → npm run build`，产出直接部署到 Pages
@@ -116,24 +119,29 @@ STEP:  pickAction → attackShowCard → pickTarget → ... → pickAction
 ## 关键技术细节
 
 ### PixiJS v8
+
 - `Application`、`Container`、`Graphics`、`Text` 都需要**显式 import**，v8 不再挂全局。
 - Canvas 元素必须 `position: fixed; z-index: 1; pointer-events: none` 覆盖在 Vue DOM 上方。
 - `resolution` 上限 2x（`Math.min(dpr, 2)`），避免移动端 3x 屏 GPU 过载。
 - `buildScene()` 创建 TableLayout 时必须传 `renderer.width/resolution` 逻辑尺寸，不能用默认值。
 
 ### Vue 3 `<script setup>`
+
 - `defineExpose` 暴露的值必须是 `ref`/`shallowRef`，普通变量不会随赋值更新。
 
 ### GSAP
+
 - 动画 PixiJS 对象时 `scaleX`/`scaleY` 无效，用 `sprite.scale.x` / `sprite.scale.y`。
 
 ### CSS
+
 - `position: fixed` 伪元素会覆盖普通流 DOM，body/app 需要明确的 z-index 层级。
 - 移动端 `100dvh` 优于 `100vh`（iOS Safari 地址栏问题），但需保留 `100vh` fallback。
 - iPhone 刘海屏需要 `env(safe-area-inset-*)` padding。
 - 触控按钮最小 44×44px，间距 ≥ 8px。
 
 ### 移动端
+
 - viewport: `viewport-fit=cover, maximum-scale=1.0, user-scalable=no`
 - `touch-action: manipulation` 消除点击延迟
 - `overscroll-behavior: none` 防下拉刷新
