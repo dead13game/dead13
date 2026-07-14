@@ -28,8 +28,7 @@ onMounted(async () => {
 
   // 竖屏内容溢出 → canvas 加高，页面可滚动
   const totalH = mgr.layout?.totalHeight || h
-  const bottomBarH = 200 // 底部 UI 栏预留高度
-  const neededH = totalH + bottomBarH
+  const neededH = totalH + h  // 加一整屏高度，保证最后一行能滚到底部 UI 栏上方
   if (w < h && neededH > h) {
     mgr.resize(w, neededH)
     scrollMode.value = true
