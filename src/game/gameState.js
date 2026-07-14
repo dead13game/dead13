@@ -557,12 +557,13 @@ export function executeAttack(state, targetIdx) {
     }
   }
 
-  // 联盟平摊（陷阱未触发时）
+  // 联盟平摊（陷阱未触发时）：先-2减伤，再2:1分配，向下取整
   if (!trapTriggered && target.allyIndex !== null && target.allianceTurns > 0) {
     const ally = state.players.find(p => p.index === target.allyIndex)
     if (ally && ally.alive && ally.index !== attacker.index) {
-      const allyDmg = Math.floor(attackValue / 3)
-      attackValue -= allyDmg  // 目标只承受剩余2/3
+      const reduced = attackValue - 2
+      const allyDmg = Math.floor(reduced / 3)
+      attackValue = reduced - allyDmg  // 目标承受剩余
       addLog(state, `联盟平摊：${target.name} ${attackValue}点, ${ally.name} ${allyDmg}点`)
       applyDamage(state, ally, allyDmg)
     }
