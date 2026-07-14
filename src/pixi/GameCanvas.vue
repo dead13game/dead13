@@ -1,9 +1,9 @@
 <template>
-  <canvas ref="canvasRef" class="pixi-canvas" :class="{ 'pixi-canvas--scroll': scrollMode }" :style="scrollMode ? { height: scrollH + 'px' } : {}"></canvas>
+  <canvas ref="canvasRef" class="pixi-canvas" :class="{ 'pixi-canvas--scroll': scrollMode }" :style="canvasStyle"></canvas>
 </template>
 
 <script setup>
-import { ref, shallowRef, onMounted, onBeforeUnmount } from 'vue'
+import { ref, shallowRef, computed, onMounted, onBeforeUnmount } from 'vue'
 import { PIXIManager } from './core/PIXIManager.js'
 
 const props = defineProps({
@@ -14,6 +14,19 @@ const canvasRef = ref(null)
 const manager = shallowRef(null)
 const scrollMode = ref(false)
 const scrollH = ref(0)
+
+// 当前 canvas 应该用的尺寸
+function currentSize() {
+  if (scrollMode.value) {
+    return { w: window.innerWidth, h: scrollH.value }
+  }
+  return { w: window.innerWidth, h: window.innerHeight }
+}
+
+const canvasStyle = computed(() => {
+  if (scrollMode.value) return { height: scrollH.value + 'px' }
+  return {}
+})
 
 let resizeObserver = null
 
@@ -28,18 +41,17 @@ onMounted(async () => {
 
   // 竖屏内容溢出 → canvas 加高，页面可滚动
   const totalH = mgr.layout?.totalHeight || h
-  const neededH = totalH + h  // 加一整屏高度，保证最后一行能滚到底部 UI 栏上方
+  const neededH = totalH + h  // 加一整屏高度，最后一行能滚到底部 UI 栏上方
   if (w < h && neededH > h) {
-    mgr.resize(w, neededH)
-    scrollMode.value = true
     scrollH.value = neededH
+    scrollMode.value = true
+    mgr.resize(w, neededH)
   }
 
-  // 窗口缩放
+  // 窗口缩放（保持滚动高度）
   resizeObserver = new ResizeObserver(() => {
-    const rw = window.innerWidth
-    const rh = window.innerHeight
-    if (mgr) mgr.resize(rw, rh)
+    const size = currentSize()
+    if (mgr) mgr.resize(size.w, size.h)
   })
   resizeObserver.observe(document.body)
 
@@ -47,7 +59,12 @@ onMounted(async () => {
 
   // 首帧后自动重排
   requestAnimationFrame(() => {
-    requestAnimationFrame(() => mgr.rebuildLayout())
+    requestAnimationFrame(() => {
+      if (scrollMode.value) {
+        mgr.resize(window.innerWidth, scrollH.value)
+      }
+      mgr.rebuildLayout()
+    })
   })
 })
 
@@ -71,9 +88,10 @@ defineExpose({ manager })
   pointer-events: none;
 }
 
-/* 竖屏溢出：canvas relative 占文档流，推动页面可滚动 */
+/* 竖屏溢出：relative 占文档流 + 允许触屏纵向滚动 */
 .pixi-canvas--scroll {
   position: relative;
   width: 100%;
+  touch-action: pan-y;
 }
 </style>
