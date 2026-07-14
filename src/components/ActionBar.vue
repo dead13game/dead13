@@ -274,13 +274,14 @@ function resetNahida() {
 
 <style scoped>
 .action-bar { display: flex; flex-direction: column; gap: 8px; align-items: center; }
-.action-row { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.action-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .action-hint { font-size: 13px; color: rgba(255,255,255,0.7); font-weight: bold; text-align: center; }
 
 .ab {
-  padding: 7px 16px; border: none; border-radius: 8px;
-  font-size: 13px; font-weight: bold; cursor: pointer;
+  padding: 10px 18px; border: none; border-radius: 8px;
+  font-size: 14px; font-weight: bold; cursor: pointer;
   transition: all 0.15s; white-space: nowrap;
+  min-height: 44px; min-width: 44px; /* 移动端触控最小目标 */
 }
 .ab:disabled { opacity: 0.35; cursor: not-allowed; }
 .ab:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 3px 8px rgba(0,0,0,0.2); }
@@ -309,9 +310,9 @@ function resetNahida() {
 .gamble-card--picked-bait { background: rgba(67,160,71,0.25); outline: 2px solid #43a047; }
 .gamble-card__btns { display: flex; gap: 4px; }
 .tiny-btn {
-  padding: 3px 8px; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px;
-  background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); font-size: 10px; cursor: pointer;
-  transition: all 0.15s;
+  padding: 6px 12px; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px;
+  background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); font-size: 12px; cursor: pointer;
+  transition: all 0.15s; min-height: 36px; min-width: 36px;
 }
 .tiny-btn.active { border-color: #fff; color: #fff; font-weight: bold; }
 .tiny-btn--trap.active { background: #fb8c00; border-color: #fb8c00; }

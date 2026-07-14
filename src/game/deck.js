@@ -58,8 +58,3 @@ export function cardDisplay(card) {
   return `${card.rank}${card.suit}`
 }
 
-/** 获取花色颜色 */
-export function cardColor(card) {
-  if (card.suit === '' || card.suit === '') return '#D32F2F'
-  return '#1a1a1a'
-}

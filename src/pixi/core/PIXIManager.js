@@ -30,7 +30,7 @@ export class PIXIManager {
       height: options.height || CANVAS_HEIGHT,
       backgroundColor: 0x1a1a2e,  // 稍亮的背景，区别于 CSS 背景
       antialias: true,
-      resolution: window.devicePixelRatio || 1,
+      resolution: Math.min(window.devicePixelRatio || 1, 2), // 移动端限制2x防止GPU过载
       autoDensity: true
     })
 
@@ -70,8 +70,11 @@ export class PIXIManager {
     this.app.stage.removeChildren()
     if (stars) this.app.stage.addChild(stars)
 
-    // 布局
-    this.layout = new TableLayout(players.length)
+    // 布局 — 使用 canvas 实际逻辑尺寸（而非默认 1000×650），
+    // 确保移动端窄屏/竖屏布局正确
+    const logicalW = this.app.renderer.width / (this.app.renderer.resolution || 1)
+    const logicalH = this.app.renderer.height / (this.app.renderer.resolution || 1)
+    this.layout = new TableLayout(players.length, logicalW, logicalH)
 
     // 牌库精灵
     this.deck = new DeckSprite('牌库')
@@ -181,6 +184,18 @@ export class PIXIManager {
         // 重建场景以应用新布局
         this._relayout()
       }
+    }
+  }
+
+  /** 强制重建布局：用当前视口尺寸 resize + 重新摆放所有元素 */
+  rebuildLayout() {
+    if (!this.app) return
+    const w = window.innerWidth
+    const h = window.innerHeight
+    this.app.renderer.resize(w, h)
+    if (this.layout) {
+      this.layout.resize(w, h)
+      this._relayout()
     }
   }
 

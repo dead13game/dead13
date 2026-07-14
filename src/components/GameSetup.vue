@@ -111,9 +111,12 @@ function charById(id) { return charMap.value[id] }
 .app__start { display: flex; justify-content: center; padding: 16px; }
 
 .start-card {
-  background: #fff; border-radius: 16px; padding: 24px;
+  background: #fff; border-radius: 16px; padding: 16px;
   max-width: 700px; width: 100%;
   box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+}
+@media (min-width: 500px) {
+  .start-card { padding: 24px; }
 }
 .start-card__icon { font-size: 48px; text-align: center; margin-bottom: 4px; }
 .start-card__title { font-size: 20px; text-align: center; margin-bottom: 4px; }
@@ -145,6 +148,7 @@ function charById(id) { return charMap.value[id] }
 .char-card {
   width: 130px; background: #fff; border: 2px solid #e0e0e0; border-radius: 10px;
   cursor: pointer; overflow: hidden; transition: all 0.2s;
+  flex: 1 0 110px; max-width: 150px; min-width: 100px;
 }
 .char-card:hover {
   transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-color: #90caf9;
@@ -155,7 +159,7 @@ function charById(id) { return charMap.value[id] }
   transform: translateY(-3px);
 }
 .char-card__img-wrap {
-  width: 130px; height: 150px; overflow: hidden;
+  width: 100%; aspect-ratio: 13/15; max-height: 150px; overflow: hidden;
   display: flex; align-items: center; justify-content: center; background: #f0f0f0;
 }
 .char-card__img { width: 100%; height: 100%; object-fit: cover; }

@@ -36,6 +36,11 @@ onMounted(async () => {
   resizeObserver.observe(document.body)
 
   manager.value = mgr
+
+  // 首帧后自动重排：双 RAF 确保 CSS 布局/PIXI autoDensity 已稳定
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => mgr.rebuildLayout())
+  })
 })
 
 onBeforeUnmount(() => {

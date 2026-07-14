@@ -11,6 +11,7 @@
       <span class="top-info top-info--grave">墓地 {{ state.grave.length }}</span>
       <span v-if="state.useWeather && weather" class="weather-tag">{{ weather.name }}</span>
       <span v-if="state.useWeather && nextWeather" class="weather-next">下回合: {{ nextWeather.name }}</span>
+      <button class="relayout-btn" @click="onRelayout" title="重新排版">⟳</button>
     </div>
 
     <!-- 底部 UI 栏 -->
@@ -195,6 +196,11 @@ function cancelPick() {
   props.state._liniyaSubSkill = null
   props.state._caiyueangMode = null
 }
+
+function onRelayout() {
+  const m = getManager()
+  if (m) m.rebuildLayout()
+}
 </script>
 
 <style scoped>
@@ -203,7 +209,7 @@ function cancelPick() {
   overflow: hidden;
 }
 
-/* 顶部信息栏 — 固定在顶部 */
+/* 顶部信息栏 — 固定在顶部，适配刘海屏 */
 .game-shell__top-bar {
   position: fixed;
   top: 0; left: 0; right: 0;
@@ -212,6 +218,7 @@ function cancelPick() {
   align-items: center;
   gap: 10px;
   padding: 8px 16px;
+  padding-top: max(8px, env(safe-area-inset-top));
   background: rgba(8,8,30,0.85);
 }
 
@@ -227,13 +234,20 @@ function cancelPick() {
 .peace-hint { font-size: 11px; color: #81c784; }
 .weather-tag { font-size: 11px; background: rgba(255,213,79,0.15); color: #ffd54f; padding: 2px 8px; border-radius: 4px; }
 .weather-next { font-size: 10px; color: rgba(255,255,255,0.35); }
+.relayout-btn {
+  margin-left: auto; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.5); font-size: 16px; cursor: pointer; border-radius: 6px;
+  padding: 2px 10px; min-width: 36px; min-height: 30px; transition: all 0.15s;
+}
+.relayout-btn:hover { background: rgba(255,255,255,0.18); color: #fff; }
 
-/* 底部 UI — 固定在底部 */
+/* 底部 UI — 固定在底部，适配 Home Indicator */
 .game-shell__bottom-bar {
   position: fixed;
   bottom: 0; left: 0; right: 0;
   z-index: 20;
   padding: 8px 16px 12px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   gap: 8px;

@@ -59,7 +59,7 @@ const rankDisplay = computed(() => {
 const color = computed(() => {
   if (!props.card) return 'black'
   if (props.card.isJoker) return 'joker'
-  if (props.card.suit === '' || props.card.suit === '') return 'red'
+  if (props.card.suit === '♥' || props.card.suit === '♦') return 'red'
   return 'black'
 })
 </script>

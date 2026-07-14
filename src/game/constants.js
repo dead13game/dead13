@@ -1,5 +1,5 @@
 // 扑克牌数据
-export const SUITS = ['', '', '', '']
+export const SUITS = ['♠', '♥', '♦', '♣']
 export const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
 export const RANK_VALUES = { 'A': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13 }
 
@@ -153,13 +153,4 @@ export const CHARACTERS = [
   }
 ]
 
-// 天气
-export const WEATHER = [
-  { id: 'calm', name: '风和日丽', desc: '无效果' },
-  { id: 'wind', name: '狂风呼啸', desc: '赌命抽牌数+1' },
-  { id: 'trade', name: '黑市交易', desc: '防御牌点数+2' },
-  { id: 'sun', name: '烈日当空', desc: '攻击牌点数+2' },
-  { id: 'rain', name: '暴雨倾盆', desc: '所有玩家防御区弃1张' },
-  { id: 'arms', name: '军备竞赛', desc: '本回合禁止使用角色技能' }
-]
 

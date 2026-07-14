@@ -96,9 +96,22 @@ body {
     linear-gradient(160deg, #050520 0%, #0d1035 25%, #121844 50%, #0a0f2e 75%, #060920 100%);
   background-attachment: fixed;
   min-height: 100vh;
+  min-height: 100dvh;
   color: #333;
+  /* 移动端触控优化 */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
-#app { min-height: 100vh; }
+/* 移动端 background-attachment: fixed 性能问题：用伪元素替代 */
+@media (max-width: 768px) {
+  body {
+    background-attachment: scroll;
+  }
+}
+#app { min-height: 100vh; min-height: 100dvh; }
 </style>
 
 <style scoped>

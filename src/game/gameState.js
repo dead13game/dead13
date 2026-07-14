@@ -194,7 +194,9 @@ function endAction(state) {
 }
 
 /** 推进到下一玩家 */
-function nextPlayer(state) {
+function nextPlayer(state, _depth = 0) {
+  // 安全防护：避免极端情况下无限递归（如所有玩家被冻结）
+  if (_depth > state.players.length) return
   let next = state.currentPlayerIndex + 1
   while (next < state.players.length && !state.players[next].alive) {
     next++
@@ -310,7 +312,7 @@ function nextPlayer(state) {
     if (p.frozenBy !== null) {
       addLog(state, `${p.name} 被冻结，跳过行动`)
       p.frozenBy = null
-      nextPlayer(state)
+      nextPlayer(state, _depth + 1)
       return
     }
 
@@ -479,10 +481,11 @@ export function executeAttack(state, targetIdx) {
     addLog(state, `弦月加持`)
   }
 
-  // 玛薇卡斗志
+  // 玛薇卡斗志（"下次攻击"=用完即清零）
   if (attacker.characterId === 'mavuika' && attacker.fightingSpirit > 0) {
     attackValue += attacker.fightingSpirit
     addLog(state, `斗志 ${attacker.fightingSpirit}层`)
+    attacker.fightingSpirit = 0
   }
 
   // 莉奈娅永久伤害加成
@@ -813,6 +816,7 @@ export function executeRaidenSkill(state, targetIdx) {
   // 玛薇卡
   if (attacker.characterId === 'mavuika' && attacker.fightingSpirit > 0) {
     damage += attacker.fightingSpirit
+    attacker.fightingSpirit = 0
       }
 
   addLog(state, `${attacker.name} 无想的一刀 ➜ ${target.name}`)

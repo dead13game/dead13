@@ -100,7 +100,7 @@ export class CardSprite extends Container {
       return
     }
 
-    const isRed = this.cardData.suit === '' || this.cardData.suit === ''
+    const isRed = this.cardData.suit === '♥' || this.cardData.suit === '♦'
     const textColor = isRed ? COLORS.SUIT_RED : COLORS.SUIT_BLACK
 
     if (this.faceUp) {
@@ -182,7 +182,7 @@ export class CardSprite extends Container {
     dash.anchor.set(0.5)
     dash.position.set(CARD_WIDTH / 2, CARD_HEIGHT / 2)
     // 移除旧的 dash（如果有的话）
-    this.removeChild(this._dashText)
+    if (this._dashText) this.removeChild(this._dashText)
     this._dashText = dash
     this.addChild(dash)
   }

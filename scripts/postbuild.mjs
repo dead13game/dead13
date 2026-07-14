@@ -6,10 +6,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const rootDir = join(__dirname, '..')
 const distDir = join(rootDir, 'dist')
 
-// 1. 读取构建产物
 let html = readFileSync(join(distDir, 'index.html'), 'utf-8')
 
-// 2. 内联所有 CSS
+// 1. 内联 CSS
 html = html.replace(
   /<link[^>]*href="\.\/assets\/([^"]+)"[^>]*\/?>/g,
   (match, filename) => {
@@ -18,32 +17,28 @@ html = html.replace(
   }
 )
 
-// 3. 内联主 JS 包（跳过 PixiJS worker 文件）
+// 2. 内联 JS（codeSplitting:false 已消除动态 import，只有一个主 bundle）
 html = html.replace(
   /<script[^>]*src="\.\/assets\/([^"]+)"[^>]*><\/script>/g,
   (match, filename) => {
-    // PixiJS worker 文件太小不需内联，且 Web Worker 无法内联
-    if (filename.includes('worker') || filename.includes('init-') || filename.includes('browserAll')) {
-      return match // 保留原样
-    }
-    const js = readFileSync(join(distDir, 'assets', filename), 'utf-8')
-    return `<script>${js}</script>`
+    let js = readFileSync(join(distDir, 'assets', filename), 'utf-8')
+
+    // 修复视频资源路径：
+    // 1. JS 中的 import.meta.url 基准变了（assets/ → index.html）
+    js = js.replace(
+      /new URL\(`(amine-[^`]+\.mp4)`,import\.meta\.url\)/g,
+      'new URL(`./assets/$1`,import.meta.url)'
+    )
+    // 2. 模板中的绝对路径 /amine.mp4 → ./amine.mp4（file:// 兼容）
+    js = js.replaceAll('"/amine.mp4"', '"./amine.mp4"')
+
+    return `<script type="module">${js}</script>`
   }
 )
 
-// 4. 把内联的 <script> 从 <head> 挪到 <body> 底部
-const scriptStart = html.indexOf('<script>')
-const scriptEnd = html.indexOf('</script>') + '</script>'.length
-if (scriptStart >= 0) {
-  const scriptTag = html.slice(scriptStart, scriptEnd)
-  html = html.slice(0, scriptStart) + html.slice(scriptEnd)
-  const bodyClose = html.lastIndexOf('</body>')
-  html = html.slice(0, bodyClose) + scriptTag + '\n' + html.slice(bodyClose)
-}
-
 writeFileSync(join(distDir, 'index.html'), html, 'utf-8')
 
-// 5. 复制 images 到 dist
+// 3. 复制 images
 const srcImages = join(rootDir, 'images')
 const dstImages = join(distDir, 'images')
 if (existsSync(srcImages)) {
@@ -51,4 +46,4 @@ if (existsSync(srcImages)) {
   console.log('postbuild: 图片已复制到 dist/images')
 }
 
-console.log('postbuild: JS+CSS 已内联，PixiJS worker 保留外链')
+console.log('postbuild: CSS+JS 已内联')

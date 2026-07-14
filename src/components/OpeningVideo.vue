@@ -40,13 +40,13 @@ function skip() {
 }
 
 onMounted(() => {
-  // 3秒超时保护
+  // 超时保护（视频 13 秒 + 缓冲余量）
   setTimeout(() => {
     if (visible.value) {
       visible.value = false
       setTimeout(() => emit('done'), 600)
     }
-  }, 8000)
+  }, 15000)
 })
 </script>
 
