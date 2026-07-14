@@ -28,7 +28,7 @@ onMounted(async () => {
 
   // 竖屏内容溢出 → canvas 加高，页面可滚动
   const totalH = mgr.layout?.totalHeight || h
-  const bottomBarH = 300 // 底部 UI 栏预留高度（8人局需较大滚动空间）
+  const bottomBarH = 200 // 底部 UI 栏预留高度
   const neededH = totalH + bottomBarH
   if (w < h && neededH > h) {
     mgr.resize(w, neededH)
@@ -72,9 +72,9 @@ defineExpose({ manager })
   pointer-events: none;
 }
 
-/* 竖屏溢出：canvas 改为 absolute，页面可滚动 */
+/* 竖屏溢出：canvas relative 占文档流，推动页面可滚动 */
 .pixi-canvas--scroll {
-  position: absolute;
-  height: auto;
+  position: relative;
+  width: 100%;
 }
 </style>

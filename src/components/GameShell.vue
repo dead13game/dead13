@@ -190,8 +190,8 @@ function onRelayout() {
 
 <style scoped>
 .game-shell {
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* 顶部信息栏 — 固定在顶部，适配刘海屏 */
