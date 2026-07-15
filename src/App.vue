@@ -69,9 +69,11 @@
         :selected-char="wcSelectedChar"
         :ai-team-names="wcAiTeamNames"
         :use-a-i="wcUseAI"
+        :use-weather="wcUseWeather"
         @update:teamName="wcTeamName = $event"
         @update:selectedChar="wcSelectedChar = $event"
         @update:useAI="wcUseAI = $event"
+        @update:useWeather="wcUseWeather = $event"
         @start="startWorldCup"
       />
 
@@ -80,6 +82,7 @@
         v-else-if="gameMode === 'worldcup' && wcStarted"
         ref="wcShellRef"
         :use-a-i="wcUseAI"
+        :use-weather="wcUseWeather"
         @restart="handleReset"
       />
     </div>
@@ -117,6 +120,7 @@ const wcTeamName = ref("");
 const wcSelectedChar = ref("");
 const wcAiTeamNames = ref([]);
 const wcUseAI = ref(true);
+const wcUseWeather = ref(false);
 const wcShellRef = ref(null);
 
 function selectMode(mode) {
@@ -139,6 +143,8 @@ function startWorldCup() {
       wcShellRef.value.initWorldCup(
         wcTeamName.value.trim(),
         wcSelectedChar.value,
+        wcAiTeamNames.value,
+        wcUseWeather.value,
       );
     }
   }, 50);

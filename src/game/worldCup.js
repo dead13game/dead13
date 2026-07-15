@@ -28,9 +28,11 @@ function pickRandomNames(pool, n, exclude = []) {
  * 创建世界杯锦标赛状态
  * @param {string} playerTeamName - 玩家队伍名称
  */
-export function createWorldCupState(playerTeamName) {
-  // 为小组赛选取3个对手名称
-  const opponentNames = pickRandomNames(AI_TEAM_NAMES, 3, [playerTeamName]);
+export function createWorldCupState(playerTeamName, opponentNamesOverride) {
+  // 为小组赛选取3个对手名称（可通过参数传入以保持与 UI 一致）
+  const opponentNames = opponentNamesOverride
+    ? [...opponentNamesOverride]
+    : pickRandomNames(AI_TEAM_NAMES, 3, [playerTeamName]);
   const opponentEmojis = opponentNames.map(
     (name) => TEAM_EMOJIS[AI_TEAM_NAMES.indexOf(name)] || "🏳️",
   );

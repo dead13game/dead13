@@ -19,6 +19,7 @@ import {
   executeSubstitution,
   skipSubstitution,
   executePenaltyRound,
+  checkMatchEnd,
 } from "../game/matchState.js";
 import { createGameState, initGame } from "../game/gameState.js";
 import { MATCH_CONFIG } from "../game/worldCupConstants.js";
@@ -39,9 +40,13 @@ export function useWorldCupController() {
   const matchResult = ref(null); // { winner, score, stage }
   const knockoutIntro = ref(null); // { round, opponent }
 
+  // 天气开关（Change 4）
+  let useWeather = false;
+
   // ---- 初始化 ----
-  function initWorldCup(teamName, startingCharId) {
-    const state = createWorldCupState(teamName);
+  function initWorldCup(teamName, startingCharId, opponentNames, weather) {
+    useWeather = weather || false;
+    const state = createWorldCupState(teamName, opponentNames);
     Object.assign(wcState, state);
     initGroupMatches(wcState);
 
@@ -91,16 +96,17 @@ export function useWorldCupController() {
 
   // ---- 初始化一场比赛的1v1游戏 ----
   function initGameForMatch(playerCharId, opponentCharId, startingRound, ms) {
-    // 保存名称
+    // 保存名称（始终从当前对手配置获取，避免 stale currentMatch 导致名称错误）
     const playerName = wcState.playerTeamName || "玩家";
-    const opponentName = wcState.currentMatch
-      ? ms === wcState.currentMatch
-        ? getCurrentOpponentName()
-        : "对手"
-      : getCurrentOpponentName();
+    const opponentName = getCurrentOpponentName();
 
     // 用 initGame 初始化 1v1 游戏
-    initGame(gameState, [playerCharId, opponentCharId], false, startingRound);
+    initGame(
+      gameState,
+      [playerCharId, opponentCharId],
+      useWeather,
+      startingRound,
+    );
 
     // 按 characterId 分配名字（initGame 会按血量排序，索引可能对调）
     gameState.players.forEach((p) => {
@@ -121,7 +127,23 @@ export function useWorldCupController() {
         } else if (ms.isPenaltyShootout) {
           uiMode.value = "penalty";
         } else if (ms.substitutionPending) {
-          uiMode.value = "substitution";
+          // 小组赛自动跳过换人，直接重置游戏
+          if (ms.isGroupStage) {
+            skipSubstitution(ms, gameState);
+            rebuildMatchContext(ms);
+          } else {
+            uiMode.value = "substitution";
+          }
+        }
+      },
+      // 新回合回调：检查是否超过比赛回合上限
+      onNewRound: (round) => {
+        if (ms.matchOver) return;
+        ms.matchRound = round;
+        // 回合超限检查（无人阵亡时也能强制结束）
+        checkMatchEnd(ms, gameState);
+        if (ms.matchOver) {
+          handleMatchEnd(ms);
         }
       },
     };
@@ -278,7 +300,22 @@ export function useWorldCupController() {
         } else if (ms.isPenaltyShootout) {
           uiMode.value = "penalty";
         } else if (ms.substitutionPending) {
-          uiMode.value = "substitution";
+          // 小组赛自动跳过换人
+          if (ms.isGroupStage) {
+            skipSubstitution(ms, gameState);
+            rebuildMatchContext(ms);
+          } else {
+            uiMode.value = "substitution";
+          }
+        }
+      },
+      // 新回合回调：检查是否超过比赛回合上限
+      onNewRound: (round) => {
+        if (ms.matchOver) return;
+        ms.matchRound = round;
+        checkMatchEnd(ms, gameState);
+        if (ms.matchOver) {
+          handleMatchEnd(ms);
         }
       },
     };
@@ -360,16 +397,28 @@ export function useWorldCupController() {
     Object.assign(wcState, createWorldCupState(""));
   }
 
-  // ---- 计算属性 ----
-  const currentPlayerName = computed(
-    () => gameState.players[0]?.name || wcState.playerTeamName || "玩家",
-  );
-  const currentOpponentName = computed(
-    () => gameState.players[1]?.name || "对手",
-  );
-  const currentCharName = computed(
-    () => gameState.players[0]?.characterName || "",
-  );
+  // ---- 计算属性（按 characterId 查找，避免 HP 排序导致索引错位）----
+  const currentPlayerName = computed(() => {
+    const p = gameState.players.find(
+      (p) =>
+        matchState.value && p.characterId === matchState.value.playerCharId,
+    );
+    return p?.name || wcState.playerTeamName || "玩家";
+  });
+  const currentOpponentName = computed(() => {
+    const p = gameState.players.find(
+      (p) =>
+        matchState.value && p.characterId === matchState.value.opponentCharId,
+    );
+    return p?.name || "对手";
+  });
+  const currentCharName = computed(() => {
+    const p = gameState.players.find(
+      (p) =>
+        matchState.value && p.characterId === matchState.value.playerCharId,
+    );
+    return p?.characterName || "";
+  });
 
   return {
     // 状态

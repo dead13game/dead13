@@ -64,8 +64,8 @@ export function onPlayerEliminated(
   return checkMatchEnd(matchState, gameState);
 }
 
-/** 判定比赛是否结束，或是否需要加时/点球 */
-function checkMatchEnd(matchState, gameState) {
+/** 判定比赛是否结束，或是否需要加时/点球（导出供控制器在回合推进时调用） */
+export function checkMatchEnd(matchState, gameState) {
   const [pScore, oScore] = matchState.score;
   const round = matchState.matchRound;
 
@@ -144,8 +144,15 @@ function startPenaltyShootout(matchState, gameState) {
  * 在换人完成或跳过换人后调用
  */
 export function resetGameForNextLife(matchState, gameState) {
-  const playerName = gameState.players[0]?.name || "玩家";
-  const opponentName = gameState.players[1]?.name || "对手";
+  // 按 characterId 保存名称（HP 排序后索引不可靠）
+  const playerP = gameState.players.find(
+    (p) => p.characterId === matchState.playerCharId,
+  );
+  const opponentP = gameState.players.find(
+    (p) => p.characterId === matchState.opponentCharId,
+  );
+  const playerName = playerP?.name || "玩家";
+  const opponentName = opponentP?.name || "对手";
 
   // 回合数 +1（因为上一局消耗了当前回合）
   matchState.matchRound++;
@@ -162,9 +169,14 @@ export function resetGameForNextLife(matchState, gameState) {
     matchState.matchRound,
   );
 
-  // 恢复名称
-  gameState.players[0].name = playerName;
-  gameState.players[1].name = opponentName;
+  // 按 characterId 恢复名称（HP 排序后索引可能已变）
+  gameState.players.forEach((p) => {
+    if (p.characterId === matchState.playerCharId) {
+      p.name = playerName;
+    } else if (p.characterId === matchState.opponentCharId) {
+      p.name = opponentName;
+    }
+  });
 
   // 恢复比赛上下文
   gameState.matchContext = savedContext;
@@ -256,7 +268,7 @@ function createPlayerForMatch(index, charData, name) {
     defensePile: [],
     trap: null,
     bait: null,
-    skillUses: charData.maxUses,
+    skillUses: 0, // 击杀后技能进入冷却，随回合逐步恢复
     skillName: charData.skillName,
     skillDesc: charData.skillDesc,
     skillType: charData.skillType,
@@ -306,13 +318,12 @@ export function executeSubstitution(matchState, gameState, newCharId) {
   const charData = getCharData(newCharId);
   if (!charData) return false;
 
+  const oldCharId = matchState.playerCharId;
   matchState.playerCharId = newCharId;
   matchState.substitutionsLeft--;
 
-  // 找到人类玩家（通过 characterId，因为血量排序后索引不可靠）
-  const player = gameState.players.find(
-    (p) => p.characterId === matchState.playerCharId,
-  );
+  // 找到人类玩家（用旧 characterId，因为新 charId 尚未应用到 player 对象）
+  const player = gameState.players.find((p) => p.characterId === oldCharId);
   if (player) {
     Object.assign(player, {
       characterId: charData.id,
@@ -321,7 +332,7 @@ export function executeSubstitution(matchState, gameState, newCharId) {
       characterIcon: charData.icon,
       hp: charData.hp,
       maxHp: charData.hp,
-      skillUses: charData.maxUses,
+      skillUses: 0, // 换人后技能进入冷却，随回合恢复
       skillName: charData.skillName,
       skillDesc: charData.skillDesc,
       skillType: charData.skillType,

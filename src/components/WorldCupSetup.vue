@@ -29,6 +29,18 @@
         </label>
       </div>
 
+      <div class="wc-setup__row">
+        <label>天气：</label>
+        <label class="wc-setup__toggle">
+          <input
+            type="checkbox"
+            :checked="useWeather"
+            @change="$emit('update:useWeather', $event.target.checked)"
+          />
+          启用天气系统
+        </label>
+      </div>
+
       <!-- 小组信息 -->
       <div class="wc-setup__group-info">
         <h3>🇦 组（A组）</h3>
@@ -98,12 +110,14 @@ const props = defineProps({
   selectedChar: { type: String, default: "" },
   aiTeamNames: { type: Array, default: () => [] },
   useAI: { type: Boolean, default: true },
+  useWeather: { type: Boolean, default: false },
 });
 
 defineEmits([
   "update:teamName",
   "update:selectedChar",
   "update:useAI",
+  "update:useWeather",
   "start",
 ]);
 

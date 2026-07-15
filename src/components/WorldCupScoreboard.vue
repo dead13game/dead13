@@ -17,7 +17,11 @@
     <!-- 回合 + 换人 -->
     <div class="wc-sb__info">
       <span class="wc-sb__round">
-        {{ isGroupStage ? "小组赛" : `${matchRound}/${maxRounds} 回合` }}
+        {{
+          isGroupStage
+            ? `小组赛 ${matchRound}/${maxRounds} 回合`
+            : `${matchRound}/${maxRounds} 回合`
+        }}
         <template v-if="isExtraTime"> 🔥加时</template>
       </span>
       <button

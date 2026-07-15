@@ -232,6 +232,7 @@ import {
 
 const props = defineProps({
   useAI: { type: Boolean, default: true },
+  useWeather: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["restart"]);

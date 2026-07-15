@@ -285,6 +285,18 @@ function nextPlayer(state, _depth = 0) {
       }
     }
 
+    // 技能冷却恢复：每回合所有存活玩家 +1 技能使用次数
+    for (const p of state.players) {
+      if (p.alive && p.skillUses < p.maxUses) {
+        p.skillUses++;
+      }
+    }
+
+    // 比赛模式：通知新回合（用于回合上限检查等）
+    if (state.matchContext?.onNewRound) {
+      state.matchContext.onNewRound(state.round);
+    }
+
     // 联盟回合处理
     for (const p of state.players) {
       if (!p.alive) continue;
