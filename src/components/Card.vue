@@ -3,7 +3,11 @@
     class="card"
     :class="[
       `card--${color}`,
-      { 'card--face-down': !card?.faceUp && !alwaysFaceUp, 'card--joker': card?.isJoker, 'card--empty': !card }
+      {
+        'card--face-down': !card?.faceUp && !alwaysFaceUp,
+        'card--joker': card?.isJoker,
+        'card--empty': !card,
+      },
     ]"
   >
     <template v-if="card">
@@ -40,28 +44,28 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed } from "vue";
 
 const props = defineProps({
   card: { type: Object, default: null },
   alwaysFaceUp: { type: Boolean, default: false },
   showValue: { type: Boolean, default: false },
-  size: { type: String, default: 'normal' } // small, normal, large
-})
+  size: { type: String, default: "normal" }, // small, normal, large
+});
 
 const rankDisplay = computed(() => {
-  if (!props.card) return ''
-  if (props.card.isBigJoker) return '君'
-  if (props.card.isJoker) return '影'
-  return props.card.rank
-})
+  if (!props.card) return "";
+  if (props.card.isBigJoker) return "君";
+  if (props.card.isJoker) return "影";
+  return props.card.rank;
+});
 
 const color = computed(() => {
-  if (!props.card) return 'black'
-  if (props.card.isJoker) return 'joker'
-  if (props.card.suit === '♥' || props.card.suit === '♦') return 'red'
-  return 'black'
-})
+  if (!props.card) return "black";
+  if (props.card.isJoker) return "joker";
+  if (props.card.suit === "♥" || props.card.suit === "♦") return "red";
+  return "black";
+});
 </script>
 
 <style scoped>
@@ -76,9 +80,11 @@ const color = computed(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-family: 'Georgia', serif;
+  font-family: "Georgia", serif;
   user-select: none;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
   flex-shrink: 0;
 }
 
@@ -93,13 +99,13 @@ const color = computed(() => {
 }
 
 .card--joker {
-  border-color: #8B4513;
+  border-color: #8b4513;
   background: linear-gradient(135deg, #fff8e1, #ffe0b2);
 }
 
 .card--red .card__rank,
 .card--red .card__suit {
-  color: #D32F2F;
+  color: #d32f2f;
 }
 
 .card--black .card__rank,
@@ -109,7 +115,7 @@ const color = computed(() => {
 
 .card--joker .card__rank,
 .card--joker .card__suit {
-  color: #8B4513;
+  color: #8b4513;
 }
 
 .card--empty {

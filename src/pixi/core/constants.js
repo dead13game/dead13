@@ -1,13 +1,13 @@
 // PixiJS 画布与布局常量
 
 /** 画布逻辑尺寸（会根据窗口缩放） */
-export const CANVAS_WIDTH = 1000
-export const CANVAS_HEIGHT = 650
+export const CANVAS_WIDTH = 1000;
+export const CANVAS_HEIGHT = 650;
 
 /** 卡牌尺寸 */
-export const CARD_WIDTH = 64
-export const CARD_HEIGHT = 96
-export const CARD_RADIUS = 8
+export const CARD_WIDTH = 64;
+export const CARD_HEIGHT = 96;
+export const CARD_RADIUS = 8;
 
 /** 舞台 zIndex 层级 */
 export const LAYER = {
@@ -15,8 +15,8 @@ export const LAYER = {
   TABLE: 10,
   CARDS: 20,
   EFFECTS: 30,
-  OVERLAY: 40
-}
+  OVERLAY: 40,
+};
 
 /** 颜色常量 */
 export const COLORS = {
@@ -34,5 +34,5 @@ export const COLORS = {
   EMPTY_SLOT_BG: 0xfafafa,
   CURRENT_PLAYER_GLOW: 0x1976d2,
   TRAP_GLOW: 0xfb8c00,
-  BAIT_GLOW: 0x43a047
-}
+  BAIT_GLOW: 0x43a047,
+};

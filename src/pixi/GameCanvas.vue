@@ -1,80 +1,85 @@
 <template>
-  <canvas ref="canvasRef" class="pixi-canvas" :class="{ 'pixi-canvas--scroll': scrollMode }" :style="canvasStyle"></canvas>
+  <canvas
+    ref="canvasRef"
+    class="pixi-canvas"
+    :class="{ 'pixi-canvas--scroll': scrollMode }"
+    :style="canvasStyle"
+  ></canvas>
 </template>
 
 <script setup>
-import { ref, shallowRef, computed, onMounted, onBeforeUnmount } from 'vue'
-import { PIXIManager } from './core/PIXIManager.js'
+import { ref, shallowRef, computed, onMounted, onBeforeUnmount } from "vue";
+import { PIXIManager } from "./core/PIXIManager.js";
 
 const props = defineProps({
-  state: { type: Object, required: true }
-})
+  state: { type: Object, required: true },
+});
 
-const canvasRef = ref(null)
-const manager = shallowRef(null)
-const scrollMode = ref(false)
-const scrollH = ref(0)
+const canvasRef = ref(null);
+const manager = shallowRef(null);
+const scrollMode = ref(false);
+const scrollH = ref(0);
 
 // 当前 canvas 应该用的尺寸
 function currentSize() {
   if (scrollMode.value) {
-    return { w: window.innerWidth, h: scrollH.value }
+    return { w: window.innerWidth, h: scrollH.value };
   }
-  return { w: window.innerWidth, h: window.innerHeight }
+  return { w: window.innerWidth, h: window.innerHeight };
 }
 
 const canvasStyle = computed(() => {
-  if (scrollMode.value) return { height: scrollH.value + 'px' }
-  return {}
-})
+  if (scrollMode.value) return { height: scrollH.value + "px" };
+  return {};
+});
 
-let resizeObserver = null
+let resizeObserver = null;
 
 onMounted(async () => {
-  const canvas = canvasRef.value
-  const w = window.innerWidth
-  const h = window.innerHeight
+  const canvas = canvasRef.value;
+  const w = window.innerWidth;
+  const h = window.innerHeight;
 
-  const mgr = new PIXIManager()
-  await mgr.init(canvas, { width: w, height: h })
-  mgr.buildScene(props.state.players, props.state.deck.length)
+  const mgr = new PIXIManager();
+  await mgr.init(canvas, { width: w, height: h });
+  mgr.buildScene(props.state.players, props.state.deck.length);
 
   // 竖屏内容溢出 → canvas 加高，页面可滚动
-  const totalH = mgr.layout?.totalHeight || h
-  const neededH = Math.min(totalH + 400, 1000)  // 足够滚出最后一排，不过度
+  const totalH = mgr.layout?.totalHeight || h;
+  const neededH = Math.min(totalH + 400, 1000); // 足够滚出最后一排，不过度
   if (w < h && totalH > h) {
-    scrollH.value = Math.max(neededH, totalH)
-    scrollMode.value = true
-    mgr.resize(w, scrollH.value)
-    mgr._createStarfield()  // 星空覆盖新高度
+    scrollH.value = Math.max(neededH, totalH);
+    scrollMode.value = true;
+    mgr.resize(w, scrollH.value);
+    mgr._createStarfield(); // 星空覆盖新高度
   }
 
   // 窗口缩放（保持滚动高度）
   resizeObserver = new ResizeObserver(() => {
-    const size = currentSize()
-    if (mgr) mgr.resize(size.w, size.h)
-  })
-  resizeObserver.observe(document.body)
+    const size = currentSize();
+    if (mgr) mgr.resize(size.w, size.h);
+  });
+  resizeObserver.observe(document.body);
 
-  manager.value = mgr
+  manager.value = mgr;
 
   // 首帧后自动重排
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       if (scrollMode.value) {
-        mgr.resize(window.innerWidth, scrollH.value)
+        mgr.resize(window.innerWidth, scrollH.value);
       }
-      mgr.rebuildLayout()
-    })
-  })
-})
+      mgr.rebuildLayout();
+    });
+  });
+});
 
 onBeforeUnmount(() => {
-  if (resizeObserver) resizeObserver.disconnect()
-  if (manager.value) manager.value.destroy()
-})
+  if (resizeObserver) resizeObserver.disconnect();
+  if (manager.value) manager.value.destroy();
+});
 
-defineExpose({ manager })
+defineExpose({ manager });
 </script>
 
 <style scoped>

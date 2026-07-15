@@ -1,11 +1,7 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## 项目概述
-
 亡命十三街 — 基于扑克牌的多人对战游戏。Vue 3 驱动 UI，PixiJS v8 渲染牌桌，GSAP 负责动画，Tauri 打包桌面端。
-本项目使用Chinese与用户交流
+本项目使用中文与用户交流。
 
 **线上地址：** `https://drtion.github.io/dead4thirteen/`（GitHub Pages 自动部署）
 
@@ -13,166 +9,85 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 npm run dev          # Vite 开发服务器
-npm run build        # 生产构建（vite build → postbuild 内联 JS/CSS）
+npm run build        # 生产构建（vite build → postbuild 内联）
 npm run preview      # 预览构建产物
-npm run tauri:dev    # Tauri 桌面开发模式
-npm run tauri:build  # Tauri 桌面打包
-git push             # 推送后 GitHub Actions 自动部署到 Pages
+npm run test         # 运行 vitest 测试
+npm run tauri:dev    # Tauri 桌面开发
+git push             # 推送后 GitHub Actions 自动部署 Pages
 ```
 
-**分发：** 线上 URL 是最推荐的方式。离线分发：`npm run build` 后 `dist/` 可 zip 分享，但注意各浏览器对 file:// 协议支持不一致（见下文）。
+## 核心设计原则（最重要，每次变更必须遵守）
 
-## 架构分层
+1. **`src/game/` 是纯逻辑层 — 零依赖。** 不引用 Vue、PIXI、GSAP 或浏览器 API。所有游戏规则在这里。
+2. **单向数据流：** `gameState` (Vue reactive) → `usePixiSync` (watch) → `PIXIManager` (渲染)。不反向操作。
+3. **新机制用通用标记。** 如 `endTurn` 控制回合推进（true=下一玩家，false=当前玩家额外行动），不搞角色特殊路径。
+4. **PixiJS 对象用 `shallowRef`，不用 `ref()`。** Vue 深度响应式代理会破坏纹理引用。GSAP 动画用 `sprite.scale.x` 不是 `scaleX`。
+5. **伤害计算：先 -2 再 2:1 联盟分配，向下取整（`Math.floor`）。**
 
-```
-App.vue (开场动画 → 选角界面 → 游戏界面)
-  ├─ GameSetup.vue    选角/人数/天气开关
-  └─ GameShell.vue    游戏主壳
-       ├─ GameCanvas.vue       PixiJS Canvas 层
-       ├─ ActionBar.vue        底部操作栏（攻击/防御/赌命/技能/结盟）
-       ├─ LogPanel.vue         战报日志
-       └─ GameOverPanel.vue    结算面板
+## 架构
 
-src/game/          → 纯逻辑层（零依赖，不引用 Vue/PIXI）
-  gameState.js        核心：状态机 + 所有游戏操作函数（1200行，待拆分）
-  constants.js        角色数据 CHARACTERS、阶段 PHASE、步骤 STEP、天气
-  deck.js             扑克牌创建/洗牌/抽牌
+```mermaid
+graph TD
+    A[App.vue] --> B[GameSetup.vue 选角]
+    A --> C[GameShell.vue 主壳]
+    C --> D[GameCanvas.vue → PIXI]
+    C --> E[ActionBar.vue]
+    C --> F[LogPanel.vue]
 
-src/bridge/       → Vue ↔ PIXI 桥接层
-  usePixiSync.js      监听 gameState 变化 → 调用 PIXIManager 更新渲染
-  useAnimationFlow.js 监听 gameState 变化 → 触发 GSAP 动画 + 粒子
-
-src/pixi/         → PIXI 渲染层
-  core/PIXIManager.js    Application 管理、场景构建、粒子系统、rebuildLayout()
-  entities/              牌桌精灵、卡牌精灵、牌库精灵
-  layout/TableLayout.js  自适应布局（横屏单/双行，竖屏2列网格）
-  effects/               粒子特效系统
-
-src/composables/  → Vue 组合式函数
-  useGameController.js  顶层游戏流程（选角→开始→重置）
+    G[src/game/gameState.js] -. watch .-> H[usePixiSync]
+    G -. watch .-> I[useAnimationFlow]
+    H --> J[PIXIManager]
+    I --> K[GSAP + Particles]
 ```
 
-## 核心设计原则
-
-- **`src/game/` 是纯逻辑层，不动。** 游戏规则、状态机、所有操作函数都在这里，不依赖任何框架。
-- **单向数据流：** `gameState` (Vue reactive) → `usePixiSync` 监听变化 → `PIXIManager` 更新渲染。
-- **动画通过 `useAnimationFlow`** 自动监听 state 变化触发，不对游戏逻辑造成影响。
-- **新机制用通用标记**（如 `endTurn` 控制回合推进），而非各角色各自处理特殊逻辑。
-- **`endTurn` 模式：** 执行完行动后，`endTurn=true` → 推进到下一玩家；`endTurn=false` → 留在当前玩家获得额外行动。
+| 层     | 目录              | 职责                                       |
+| ------ | ----------------- | ------------------------------------------ |
+| 纯逻辑 | `src/game/`       | 状态机 + 角色技能 + AI + 天气（零依赖）    |
+| 桥接   | `src/bridge/`     | 监听 gameState → 驱动 PIXI + GSAP          |
+| 渲染   | `src/pixi/`       | PixiJS v8 Application + 精灵 + 布局 + 粒子 |
+| UI     | `src/components/` | Vue 3 组件（ACtionBar、GameShell 等）      |
 
 ## 游戏状态机
 
 ```
 PHASE: SETUP → PEACE(前N回合禁攻) → NORMAL(战斗) → GAME_OVER
-STEP:  pickAction → attackShowCard → pickTarget → ... → pickAction
+STEP:  pickAction → attackShowCard → pickTarget → ... → pickAction（循环）
 ```
 
-`STEP` 驱动 UI 显示不同的操作面板（ActionBar 中 `v-if` 判断 `state.step`）。
+`STEP` 驱动 UI（ActionBar 中 `v-if` 判断 `state.step`）。
 
-## 构建与部署
+## 领域 Agents（按需自动激活）
 
-### 构建
+| Agent       | 文件                            | 触发条件                           |
+| ----------- | ------------------------------- | ---------------------------------- |
+| game-logic  | `.claude/agents/game-logic.md`  | 修改 `src/game/`                   |
+| pixi-render | `.claude/agents/pixi-render.md` | 修改 `src/pixi/` 或 GameCanvas.vue |
+| animation   | `.claude/agents/animation.md`   | 修改 `src/bridge/` 或 effects/     |
+| vue-ui      | `.claude/agents/vue-ui.md`      | 修改 `src/components/` 或 App.vue  |
 
-- **`codeSplitting: false`** — 关键配置。PixiJS v8 环境检测用动态 `import()`，正常构建会产生 3 个外部 chunk（browserAll/init/webworkerAll）。file:// 协议下动态 import 被拦截导致 PIXI 初始化失败，所以必须关闭代码分割，所有代码合并到单一 bundle（739KB）。
-- `postbuild.mjs` 将 JS 和 CSS 内联到 `index.html`，`<script type="module">` 保留以支持 `import.meta`。视频路径从 `amine-xxx.mp4` 修正为 `./assets/amine-xxx.mp4`。
-- `images/` 目录在 postbuild 时复制到 `dist/images/`。
+## 构建关键点
 
-### file:// 协议兼容性（重要）
+- **`codeSplitting: false`**（vite.config.js）— PixiJS v8 动态 import 在 file:// 协议会失败，必须合并单一 bundle。
+- **`resolution` 上限 2x** — `Math.min(dpr, 2)`，移动端 3x 屏 GPU 过载。
+- **分发用线上 URL** — 不要依赖 file://（iOS WKWebView 彻底禁止）。
+- **Canvas**: 默认 `position: fixed; z-index: 1`；竖屏滚动切为 `position: relative; touch-action: pan-y`。
 
-不同浏览器对 file:// 的 ES module 支持差异巨大：
+## 关键文件
 
-| 环境 | 桌面 Chrome | Android 夸克 | QQ 浏览器 | iOS Safari/WKWebView |
-|------|------------|-------------|----------|---------------------|
-| file:// module | ✅ | ✅ | ❌ | ❌（禁所有子资源） |
+| 文件                             | 行数 | 说明                                  |
+| -------------------------------- | ---- | ------------------------------------- |
+| `src/game/gameState.js`          | 1215 | 核心：状态机 + 全部游戏操作（待拆分） |
+| `src/game/constants.js`          | 156  | 角色数据 CHARACTERS、阶段/步骤/天气   |
+| `src/game/deck.js`               | 60   | 扑克牌创建/洗牌/抽牌/墓地重构         |
+| `src/pixi/core/PIXIManager.js`   | 268  | Application 管理 + 场景树 + 粒子      |
+| `src/pixi/layout/TableLayout.js` | 203  | 自适应布局（横屏单/双行，竖屏2列）    |
+| `src/bridge/useAnimationFlow.js` | 352  | GSAP 动画触发 + 粒子调度              |
 
-**结论：不要依赖 file:// 分发。用线上 URL（GitHub Pages）或 `npm run preview` 本地服务器。** iOS WKWebView 彻底禁止 file:// 页面加载任何本地子资源（图片/视频/JS），无法绕过。
+## 已修复的关键 Bug（禁止重复犯错）
 
-### GitHub Pages 部署
-
-- Workflow: `.github/workflows/deploy.yml` — push 到 main 自动触发构建+部署
-- 仓库: `drtion/dead4thirteen`
-- 构建在 Ubuntu 上跑 `npm ci → npm run build`，产出直接部署到 Pages
-
-## TableLayout 布局逻辑
-
-**横屏（`_computeLandscape()`）**：
-
-| 人数 | 布局 |
-|------|------|
-| 2-4人 | 单行水平排列，桌面 260×280 |
-| 5-8人 | 双行网格，桌面 230×200 |
-
-**竖屏（`_computePortrait()`）**：
-- 固定 2 列，从上到下排列
-- 牌桌宽度按视口均分，高度保持 260:280 比例
-- 顶部偏移 52px（避开信息栏），牌库/中央展示区在所有牌桌下方
-- 内容溢出时 canvas 改为 `position: relative` 占文档流，页面可纵向滚动
-- 滚动高度 = totalHeight + 400（上限 1000px），底部预留空间避开 UI 栏
-
-竖屏时常青按钮 "⟳" 可手动触发 `PIXIManager.rebuildLayout()` 重排。
-
-## PlayerTableSprite 布局
-
-- **桌面模式 (≥200px)**：防御区左、陷阱区右，标准字号和卡牌缩放 0.7
-- **紧凑模式 (<200px)**：自动缩小字体/卡牌/HP条（卡牌缩放 0.45），防御与陷阱保持左右并列
-- **角色立绘**：在防御预留列与陷阱区之间的卡片行下方，用 `texture.frame` 裁剪、圆角边框
-- 图片加载用 `new Image()` + `Texture.from(img)`（走浏览器缓存，选角页已预加载）
-- **注意**：`new Sprite()` 空纹理时设置 `width/height` 会产生 NaN scale 导致渲染崩溃
-
-## PIXIManager 关键细节
-
-- `buildScene()` 用 `renderer.width`（CSS 像素，autoDensity 已处理 DPR）作为 TableLayout 逻辑尺寸
-- **不再除以 resolution**——之前 `/ resolution` 导致移动端 DPR=2 时逻辑尺寸砍半
-- `resize()` 和 `rebuildLayout()` 也传 CSS 像素，与 `buildScene()` 一致
-- 星空背景 `_createStarfield()` 用当前 renderer 宽高，resize 后需重调以覆盖全高
-
-## 已修复的 Bug
-
-| Bug | 修复 |
-|-----|------|
-| 玛薇卡 `fightingSpirit` 永不重置 | `executeAttack`/`executeRaidenSkill` 攻击后清零 |
-| `CardSprite._renderEmpty()` 首次调用 crash | 初始化 `_dashText=null` + `removeChild` 前空值检查 |
-| `SUITS` 花色编码丢失（四个空字符串） | 恢复 `♠♥♦♣`，修复 `Card.vue` 和 `CardSprite.js` 红黑判重 |
-| 冰封无限递归 | `nextPlayer` 加 `_depth` guard |
-| 死代码 | 删 `usePixiApp.js`/`cardColor()`/`WEATHER` 数组 |
-| 移动端牌桌消失 | `buildScene()` 除以 resolution 导致逻辑尺寸砍半；`new Sprite()` 空纹理设 width/height 产生 NaN scale |
-| 竖屏滚动不生效 | canvas 改为 `position: relative` 占文档流；`rebuildLayout()` 不再覆盖滚动高度；GameShell 改为 `min-height: 100vh` |
-| 联盟伤害 2:1 分配 | 改为先 `-2` 再 2:1 分配，向下取整 |
-
-## 关键技术细节
-
-### PixiJS v8
-
-- `Application`、`Container`、`Graphics`、`Text`、`Sprite`、`Texture`、`Rectangle` 都需要**显式 import**，v8 不再挂全局。
-- Canvas 元素必须 `position: fixed; z-index: 1; pointer-events: none` 覆盖在 Vue DOM 上方。竖屏滚动时切换为 `position: relative; touch-action: pan-y`。
-- `resolution` 上限 2x（`Math.min(dpr, 2)`），避免移动端 3x 屏 GPU 过载。
-- `buildScene()` 创建 TableLayout 时传 `renderer.width` 逻辑尺寸，不除以 resolution。
-- PIXI mask 在 v8 中行为复杂，避免使用。裁剪改用 `texture.frame`。
-
-### Vue 3 `<script setup>`
-
-- `defineExpose` 暴露的值必须是 `ref`/`shallowRef`，普通变量不会随赋值更新。
-
-### GSAP
-
-- 动画 PixiJS 对象时 `scaleX`/`scaleY` 无效，用 `sprite.scale.x` / `sprite.scale.y`。
-
-### CSS
-
-- `position: fixed` 伪元素会覆盖普通流 DOM，body/app 需要明确的 z-index 层级。
-- 移动端 `100dvh` 优于 `100vh`（iOS Safari 地址栏问题），但需保留 `100vh` fallback。
-- iPhone 刘海屏需要 `env(safe-area-inset-*)` padding。
-- 触控按钮最小 44×44px，间距 ≥ 8px。
-- 竖屏滚动时 `position: absolute` 不占文档流导致无法滚动，需改用 `position: relative`。
-- hover 效果应包裹在 `@media (hover: hover)` 中，避免触屏设备误触发跳动。
-
-### 移动端
-
-- viewport: `viewport-fit=cover, maximum-scale=1.0, user-scalable=no`
-- `touch-action: manipulation` 消除点击延迟
-- `overscroll-behavior: none` 防下拉刷新
-- `-webkit-tap-highlight-color: transparent` 去 iOS 点击高亮
-- 竖屏滚动 canvas 需设 `touch-action: pan-y` 恢复触屏滚动（PIXI 默认设 `touch-action: none`）
-- 底部 UI 栏竖屏 `max-height: 40vh`，战报日志压缩至 80px
-- 选角界面 ≤500px 时角色卡 4 张/行，紧凑间距
-- 开场视频 `webkit-playsinline` + safe-area 定位跳过提示
+- `new Sprite()` 空纹理设 width/height → NaN scale 崩溃
+- `CardSprite._renderEmpty()` 首次调用时 `_dashText` 为 null
+- 冰封效果 `nextPlayer` 无深度保护 → 无限递归
+- 花色 `SUITS` 为空字符串（必须保持 `♠♥♦♣`）
+- `buildScene()` 传 TableLayout 尺寸**不能除以 resolution**
+- 竖屏 canvas 用 `position: absolute` → 不占文档流无法滚动

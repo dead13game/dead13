@@ -20,37 +20,37 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted } from "vue";
 
-const emit = defineEmits(['done'])
-const videoRef = ref(null)
-const visible = ref(true)
-const ready = ref(false)
+const emit = defineEmits(["done"]);
+const videoRef = ref(null);
+const visible = ref(true);
+const ready = ref(false);
 
 function onReady() {
-  ready.value = true
+  ready.value = true;
 }
 
 function onEnd() {
-  visible.value = false
-  setTimeout(() => emit('done'), 600)
+  visible.value = false;
+  setTimeout(() => emit("done"), 600);
 }
 
 function skip() {
-  if (!ready.value) return
-  visible.value = false
-  setTimeout(() => emit('done'), 600)
+  if (!ready.value) return;
+  visible.value = false;
+  setTimeout(() => emit("done"), 600);
 }
 
 onMounted(() => {
   // 超时保护（视频 13 秒 + 缓冲余量）
   setTimeout(() => {
     if (visible.value) {
-      visible.value = false
-      setTimeout(() => emit('done'), 600)
+      visible.value = false;
+      setTimeout(() => emit("done"), 600);
     }
-  }, 15000)
-})
+  }, 15000);
+});
 </script>
 
 <style scoped>
@@ -72,7 +72,7 @@ onMounted(() => {
 .opening__hint {
   position: absolute;
   bottom: max(40px, env(safe-area-inset-bottom, 40px));
-  color: rgba(255,255,255,0.4);
+  color: rgba(255, 255, 255, 0.4);
   font-size: 14px;
   animation: hintPulse 2s ease-in-out infinite;
 }
@@ -83,17 +83,30 @@ onMounted(() => {
     bottom: max(60px, calc(env(safe-area-inset-bottom, 40px) + 20px));
     font-size: 16px;
     padding: 12px 24px;
-    background: rgba(0,0,0,0.5);
+    background: rgba(0, 0, 0, 0.5);
     border-radius: 24px;
   }
 }
 @keyframes hintPulse {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
-.opening-enter-active { transition: opacity 0.6s; }
-.opening-leave-active { transition: opacity 0.8s; }
-.opening-enter-from { opacity: 0; }
-.opening-leave-to { opacity: 0; }
+.opening-enter-active {
+  transition: opacity 0.6s;
+}
+.opening-leave-active {
+  transition: opacity 0.8s;
+}
+.opening-enter-from {
+  opacity: 0;
+}
+.opening-leave-to {
+  opacity: 0;
+}
 </style>

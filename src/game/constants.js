@@ -1,156 +1,185 @@
 // 扑克牌数据
-export const SUITS = ['♠', '♥', '♦', '♣']
-export const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
-export const RANK_VALUES = { 'A': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13 }
+export const SUITS = ["♠", "♥", "♦", "♣"];
+export const RANKS = [
+  "A",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "10",
+  "J",
+  "Q",
+  "K",
+];
+export const RANK_VALUES = {
+  A: 1,
+  2: 2,
+  3: 3,
+  4: 4,
+  5: 5,
+  6: 6,
+  7: 7,
+  8: 8,
+  9: 9,
+  10: 10,
+  J: 11,
+  Q: 12,
+  K: 13,
+};
 
 // 游戏阶段
 export const PHASE = {
-  SETUP: 'setup',
-  PEACE: 'peace',
-  NORMAL: 'normal',
-  GAME_OVER: 'gameOver'
-}
+  SETUP: "setup",
+  PEACE: "peace",
+  NORMAL: "normal",
+  GAME_OVER: "gameOver",
+};
 
 // 行动步骤
 export const STEP = {
-  PICK_ACTION: 'pickAction',
-  PICK_TARGET: 'pickTarget',
-  ATTACK_SHOW_CARD: 'attackShowCard',
-  GAMBLE_PICK: 'gamblePick',
-  SKILL_PICK_TARGET: 'skillPickTarget',
-  SKILL_NAHIDA: 'skillNahida',
-  LINIYA_PICK: 'liniyaPick',
-  CAIYUEANG_PICK: 'caiyueangPick',
-  ALLY_PICK: 'allyPick',
-  ANIMATING: 'animating'
-}
+  PICK_ACTION: "pickAction",
+  PICK_TARGET: "pickTarget",
+  ATTACK_SHOW_CARD: "attackShowCard",
+  GAMBLE_PICK: "gamblePick",
+  SKILL_PICK_TARGET: "skillPickTarget",
+  SKILL_NAHIDA: "skillNahida",
+  LINIYA_PICK: "liniyaPick",
+  CAIYUEANG_PICK: "caiyueangPick",
+  ALLY_PICK: "allyPick",
+  ANIMATING: "animating",
+};
 
 // 月相（索引：0=弦月, 1=满月, 2=新月）
-export const MOON_NAMES = ['弦月', '满月', '新月']
+export const MOON_NAMES = ["弦月", "满月", "新月"];
 
 // 神明角色卡
 export const CHARACTERS = [
   {
-    id: 'venti',
-    name: '温迪',
-    title: '风神·巴巴托斯',
-    icon: './images/温迪.jpg',
+    id: "venti",
+    name: "温迪",
+    title: "风神·巴巴托斯",
+    icon: "./images/温迪.jpg",
     hp: 11,
-    skillName: '千风之诗',
-    skillType: 'active',
-    skillDesc: '攻击时抽2张牌，点数相加作为本次攻击的总伤害（第10回合解锁）',
-    maxUses: 3
+    skillName: "千风之诗",
+    skillType: "active",
+    skillDesc: "攻击时抽2张牌，点数相加作为本次攻击的总伤害（第10回合解锁）",
+    maxUses: 3,
   },
   {
-    id: 'zhongli',
-    name: '钟离',
-    title: '岩神·摩拉克斯',
-    icon: './images/钟离.jpg',
+    id: "zhongli",
+    name: "钟离",
+    title: "岩神·摩拉克斯",
+    icon: "./images/钟离.jpg",
     hp: 12,
-    skillName: '坚如磐石',
-    skillType: 'active',
-    skillDesc: '获得 18+已损失生命值×2 的护盾',
-    maxUses: 1
+    skillName: "坚如磐石",
+    skillType: "active",
+    skillDesc: "获得 18+已损失生命值×2 的护盾",
+    maxUses: 1,
   },
   {
-    id: 'raiden',
-    name: '雷电将军',
-    title: '雷神·巴尔泽布',
-    icon: './images/雷电将军.jpg',
+    id: "raiden",
+    name: "雷电将军",
+    title: "雷神·巴尔泽布",
+    icon: "./images/雷电将军.jpg",
     hp: 11,
-    skillName: '无想的一刀',
-    skillType: 'active',
-    skillDesc: '造成27点伤害（第10回合解锁）',
-    maxUses: 1
+    skillName: "无想的一刀",
+    skillType: "active",
+    skillDesc: "造成27点伤害（第10回合解锁）",
+    maxUses: 1,
   },
   {
-    id: 'nahida',
-    name: '纳西妲',
-    title: '草神·布耶尔',
-    icon: './images/纳西妲.jpg',
+    id: "nahida",
+    name: "纳西妲",
+    title: "草神·布耶尔",
+    icon: "./images/纳西妲.jpg",
     hp: 12,
-    skillName: '智慧之殿堂',
-    skillType: 'active',
-    skillDesc: '查看牌库顶5张牌并按任意顺序放回，随后可再行动一次',
-    maxUses: 3
+    skillName: "智慧之殿堂",
+    skillType: "active",
+    skillDesc: "查看牌库顶5张牌并按任意顺序放回，随后可再行动一次",
+    maxUses: 3,
   },
   {
-    id: 'furina',
-    name: '芙宁娜',
-    title: '水神·芙卡洛斯',
-    icon: './images/芙宁娜.jpg',
+    id: "furina",
+    name: "芙宁娜",
+    title: "水神·芙卡洛斯",
+    icon: "./images/芙宁娜.jpg",
     hp: 11,
-    skillName: '审判',
-    skillType: 'active',
-    skillDesc: '指定目标令其陷阱明暗交换，本回合攻击无视陷阱，获得额外行动',
-    maxUses: 3
+    skillName: "审判",
+    skillType: "active",
+    skillDesc: "指定目标令其陷阱明暗交换，本回合攻击无视陷阱，获得额外行动",
+    maxUses: 3,
   },
   {
-    id: 'mavuika',
-    name: '玛薇卡',
-    title: '火神',
-    icon: './images/玛薇卡.jpg',
+    id: "mavuika",
+    name: "玛薇卡",
+    title: "火神",
+    icon: "./images/玛薇卡.jpg",
     hp: 12,
-    skillName: '焚焰',
-    skillType: 'passive',
-    skillDesc: '每破除一个陷阱或击穿一层防御获得1层斗志，下次攻击伤害+斗志层数（上限5层）',
-    maxUses: Infinity
+    skillName: "焚焰",
+    skillType: "passive",
+    skillDesc:
+      "每破除一个陷阱或击穿一层防御获得1层斗志，下次攻击伤害+斗志层数（上限5层）",
+    maxUses: Infinity,
   },
   {
-    id: 'columbina',
-    name: '哥伦比娅',
-    title: '月神·少女',
-    icon: './images/哥伦比亚.jpg',
+    id: "columbina",
+    name: "哥伦比娅",
+    title: "月神·少女",
+    icon: "./images/哥伦比亚.jpg",
     hp: 11,
-    skillName: '三月交辉之刻',
-    skillType: 'passive',
-    skillDesc: '每回合自动轮换月相：弦月(+4攻) → 满月(+3防盾) → 新月(赌命抽3)',
-    maxUses: Infinity
+    skillName: "三月交辉之刻",
+    skillType: "passive",
+    skillDesc: "每回合自动轮换月相：弦月(+4攻) → 满月(+3防盾) → 新月(赌命抽3)",
+    maxUses: Infinity,
   },
   {
-    id: 'fenjin',
-    name: '风堇',
-    title: '重见澄澈晴空',
-    icon: './images/风堇.jpg',
+    id: "fenjin",
+    name: "风堇",
+    title: "重见澄澈晴空",
+    icon: "./images/风堇.jpg",
     hp: 11,
-    skillName: '重见澄澈晴空',
-    skillType: 'active',
-    skillDesc: '提高3点生命上限并回满，对一名玩家造成回复量×2的伤害。被动：消耗陷阱/防御牌时回复1点生命',
-    maxUses: 1
+    skillName: "重见澄澈晴空",
+    skillType: "active",
+    skillDesc:
+      "提高3点生命上限并回满，对一名玩家造成回复量×2的伤害。被动：消耗陷阱/防御牌时回复1点生命",
+    maxUses: 1,
   },
   {
-    id: 'liniya',
-    name: '莉奈娅',
-    title: '青春之力的馈赠',
-    icon: './images/莉奈娅.jpg',
+    id: "liniya",
+    name: "莉奈娅",
+    title: "青春之力的馈赠",
+    icon: "./images/莉奈娅.jpg",
     hp: 12,
-    skillName: '青春之力的馈赠',
-    skillType: 'active',
-    skillDesc: '技能一：偷取指定角色防御牌3回合，对其伤害永久+2。技能二：每回合5点DoT伤害无视陷阱持续5回合',
-    maxUses: 1
+    skillName: "青春之力的馈赠",
+    skillType: "active",
+    skillDesc:
+      "技能一：偷取指定角色防御牌3回合，对其伤害永久+2。技能二：每回合5点DoT伤害无视陷阱持续5回合",
+    maxUses: 1,
   },
   {
-    id: 'aimiliya',
-    name: '爱蜜莉雅',
-    title: '冻结',
-    icon: './images/爱蜜莉雅.png',
+    id: "aimiliya",
+    name: "爱蜜莉雅",
+    title: "冻结",
+    icon: "./images/爱蜜莉雅.png",
     hp: 12,
-    skillName: '冻结',
-    skillType: 'active',
-    skillDesc: '冻结一名对象，使其跳过下一次行动，一局2次',
-    maxUses: 2
+    skillName: "冻结",
+    skillType: "active",
+    skillDesc: "冻结一名对象，使其跳过下一次行动，一局2次",
+    maxUses: 2,
   },
   {
-    id: 'caiyueang',
-    name: '菜月昴',
-    title: '死亡回归',
-    icon: './images/菜月昴.png',
+    id: "caiyueang",
+    name: "菜月昴",
+    title: "死亡回归",
+    icon: "./images/菜月昴.png",
     hp: 11,
-    skillName: '死亡回归',
-    skillType: 'active',
-    skillDesc: '存档不限次，读档3次。均不结束回合',
-    maxUses: 3
-  }
-]
-
-
+    skillName: "死亡回归",
+    skillType: "active",
+    skillDesc: "存档不限次，读档3次。均不结束回合",
+    maxUses: 3,
+  },
+];
