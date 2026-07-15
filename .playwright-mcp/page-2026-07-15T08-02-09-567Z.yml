@@ -1,0 +1,28 @@
+- generic [ref=f2e6]:
+    - banner [ref=f2e7]:
+        - heading "亡命十三街" [level=1] [ref=f2e8]
+        - paragraph [ref=f2e9]: designed by Lynacine&made by myracler
+    - generic [ref=f2e10]:
+        - generic [ref=f2e11]:
+            - generic [ref=f2e12]: 小组赛 第1/3场
+            - generic [ref=f2e13]:
+                - generic [ref=f2e14]: ⭐ 测试队
+                - generic [ref=f2e15]: "0 : 0"
+                - generic [ref=f2e16]: 喀麦隆
+            - generic [ref=f2e17]: 小组赛
+        - generic [ref=f2e20]:
+            - generic [ref=f2e22]:
+                - button "攻击" [disabled] [ref=f2e23]
+                - button "防御" [ref=f2e24] [cursor=pointer]
+                - button "赌命" [ref=f2e25] [cursor=pointer]
+                - button "冻结(2)" [ref=f2e34] [cursor=pointer]
+            - generic [ref=f2e27]:
+                - generic [ref=f2e28]: 战报
+                - generic [ref=f2e29]:
+                    - generic [ref=f2e30]: 亡命十三街开始
+                    - generic [ref=f2e31]: 角色：温迪 · 爱蜜莉雅
+                    - generic [ref=f2e32]: 行动顺序：玩家 1 → 玩家 2
+                    - generic [ref=f2e33]: 和平发育（第1-2回合禁止攻击）
+                    - generic [ref=f2e35]: 测试队 执行防御
+                    - generic [ref=f2e36]: 当前 喀麦隆 行动
+                    - generic [ref=f2e37]: 和平阶段禁止攻击

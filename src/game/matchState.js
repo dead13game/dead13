@@ -309,8 +309,10 @@ export function executeSubstitution(matchState, gameState, newCharId) {
   matchState.playerCharId = newCharId;
   matchState.substitutionsLeft--;
 
-  // 更新游戏中的玩家角色（假设玩家在 index 0）
-  const player = gameState.players[0];
+  // 找到人类玩家（通过 characterId，因为血量排序后索引不可靠）
+  const player = gameState.players.find(
+    (p) => p.characterId === matchState.playerCharId,
+  );
   if (player) {
     Object.assign(player, {
       characterId: charData.id,

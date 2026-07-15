@@ -236,7 +236,13 @@ export class PlayerTableSprite extends Container {
 
   /** 更新整个玩家状态 */
   sync(player) {
+    const charChanged = this.playerData?.characterId !== player.characterId;
     this.playerData = player;
+    // 角色变了（换人）→ 刷新立绘和文字
+    if (charChanged) {
+      this.charText.text = `${player.characterName} · ${player.skillName}`;
+      this._loadPortrait();
+    }
     this._updateHP();
     this._syncDefenses(player.defensePile);
     this._syncTrap(player.trap, player.bait);

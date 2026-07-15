@@ -34,6 +34,10 @@ export function usePixiSync(state, getManager) {
       // 构建一个快照对象，Vue 会自动追踪所有访问的响应式属性
       return state.players.map((p) => ({
         index: p.index,
+        characterId: p.characterId,
+        characterName: p.characterName,
+        characterIcon: p.characterIcon,
+        skillName: p.skillName,
         hp: p.hp,
         alive: p.alive,
         defenseLen: p.defensePile.length,

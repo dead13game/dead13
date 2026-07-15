@@ -1,0 +1,96 @@
+- generic [ref=f1e6]:
+    - banner [ref=f1e7]:
+        - heading "亡命十三街" [level=1] [ref=f1e8]
+        - paragraph [ref=f1e9]: designed by Lynacine&made by myracler
+    - generic [ref=f1e18]:
+        - generic [ref=f1e19]: 🏆
+        - heading "世界杯模式" [level=2] [ref=f1e20]
+        - paragraph [ref=f1e21]: 1v1 · 小组赛→淘汰赛 · 90回合制
+        - generic [ref=f1e22]:
+            - generic [ref=f1e23]: 队名：
+            - textbox "输入你的队名" [ref=f1e24]: 中国队
+        - generic [ref=f1e25]:
+            - heading "🇦 组（A组）" [level=3] [ref=f1e26]
+            - generic [ref=f1e27]:
+                - generic [ref=f1e28]:
+                    - generic [ref=f1e29]: ⭐
+                    - generic [ref=f1e30]: 中国队
+                - generic [ref=f1e31]:
+                    - generic [ref=f1e32]: 🇸🇪
+                    - generic [ref=f1e33]: 瑞典
+                - generic [ref=f1e34]:
+                    - generic [ref=f1e35]: 🇯🇵
+                    - generic [ref=f1e36]: 日本
+                - generic [ref=f1e37]:
+                    - generic [ref=f1e38]: 🇨🇴
+                    - generic [ref=f1e39]: 哥伦比亚
+        - generic [ref=f1e40]:
+            - heading "选择首发角色：" [level=3] [ref=f1e41]
+            - generic [ref=f1e42]:
+                - generic [ref=f1e43] [cursor=pointer]:
+                    - img "温迪" [ref=f1e45]
+                    - generic [ref=f1e46]:
+                        - generic [ref=f1e47]: 温迪
+                        - generic [ref=f1e48]: HP 11
+                    - generic [ref=f1e49]: 千风之诗 （3次）
+                - generic [ref=f1e50] [cursor=pointer]:
+                    - img "钟离" [ref=f1e52]
+                    - generic [ref=f1e53]:
+                        - generic [ref=f1e54]: 钟离
+                        - generic [ref=f1e55]: HP 12
+                    - generic [ref=f1e56]: 坚如磐石 （1次）
+                - generic [ref=f1e57] [cursor=pointer]:
+                    - img "雷电将军" [ref=f1e59]
+                    - generic [ref=f1e60]:
+                        - generic [ref=f1e61]: 雷电将军
+                        - generic [ref=f1e62]: HP 11
+                    - generic [ref=f1e63]: 无想的一刀 （1次）
+                - generic [ref=f1e64] [cursor=pointer]:
+                    - img "纳西妲" [ref=f1e66]
+                    - generic [ref=f1e67]:
+                        - generic [ref=f1e68]: 纳西妲
+                        - generic [ref=f1e69]: HP 12
+                    - generic [ref=f1e70]: 智慧之殿堂 （3次）
+                - generic [ref=f1e71] [cursor=pointer]:
+                    - img "芙宁娜" [ref=f1e73]
+                    - generic [ref=f1e74]:
+                        - generic [ref=f1e75]: 芙宁娜
+                        - generic [ref=f1e76]: HP 11
+                    - generic [ref=f1e77]: 审判 （3次）
+                - generic [ref=f1e78] [cursor=pointer]:
+                    - img "玛薇卡" [ref=f1e80]
+                    - generic [ref=f1e81]:
+                        - generic [ref=f1e82]: 玛薇卡
+                        - generic [ref=f1e83]: HP 12
+                    - generic [ref=f1e84]: 焚焰 （被动）
+                - generic [ref=f1e85] [cursor=pointer]:
+                    - img "哥伦比娅" [ref=f1e87]
+                    - generic [ref=f1e88]:
+                        - generic [ref=f1e89]: 哥伦比娅
+                        - generic [ref=f1e90]: HP 11
+                    - generic [ref=f1e91]: 三月交辉之刻 （被动）
+                - generic [ref=f1e92] [cursor=pointer]:
+                    - img "风堇" [ref=f1e94]
+                    - generic [ref=f1e95]:
+                        - generic [ref=f1e96]: 风堇
+                        - generic [ref=f1e97]: HP 11
+                    - generic [ref=f1e98]: 重见澄澈晴空 （1次）
+                - generic [ref=f1e99] [cursor=pointer]:
+                    - img "莉奈娅" [ref=f1e101]
+                    - generic [ref=f1e102]:
+                        - generic [ref=f1e103]: 莉奈娅
+                        - generic [ref=f1e104]: HP 12
+                    - generic [ref=f1e105]: 青春之力的馈赠 （1次）
+                - generic [ref=f1e106] [cursor=pointer]:
+                    - img "爱蜜莉雅" [ref=f1e108]
+                    - generic [ref=f1e109]:
+                        - generic [ref=f1e110]: 爱蜜莉雅
+                        - generic [ref=f1e111]: HP 12
+                    - generic [ref=f1e112]: 冻结 （2次）
+                - generic [ref=f1e113] [cursor=pointer]:
+                    - img "菜月昴" [ref=f1e115]
+                    - generic [ref=f1e116]:
+                        - generic [ref=f1e117]: 菜月昴
+                        - generic [ref=f1e118]: HP 11
+                    - generic [ref=f1e119]: 死亡回归 （3次）
+        - button "开始世界杯之旅 ⚽" [ref=f1e120] [cursor=pointer]

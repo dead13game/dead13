@@ -1,0 +1,146 @@
+- generic [ref=f4e6]:
+    - banner [ref=f4e7]:
+        - heading "亡命十三街" [level=1] [ref=f4e8]
+        - paragraph [ref=f4e9]: designed by Lynacine&made by myracler
+    - generic [ref=f4e18]:
+        - heading "选角开战" [level=2] [ref=f4e19]
+        - paragraph [ref=f4e20]: 2-8人 · 选择神明角色 · 活到最后
+        - generic [ref=f4e21]:
+            - generic [ref=f4e22]:
+                - generic [ref=f4e23]: 玩家人数：
+                - combobox [ref=f4e24]:
+                    - option "2 人" [selected]
+                    - option "3 人"
+                    - option "4 人"
+                    - option "5 人"
+                    - option "6 人"
+                    - option "7 人"
+                    - option "8 人"
+            - generic [ref=f4e25]:
+                - generic [ref=f4e26]: 天气系统：
+                - generic [ref=f4e27] [cursor=pointer]:
+                    - checkbox "启用" [ref=f4e28]
+                    - text: 启用
+            - generic [ref=f4e29]:
+                - generic [ref=f4e30]:
+                    - generic [ref=f4e31]: 玩家 1
+                    - textbox "玩家 1" [ref=f4e32]
+                - generic [ref=f4e33]:
+                    - generic [ref=f4e34] [cursor=pointer]:
+                        - img "温迪" [ref=f4e36]
+                        - generic [ref=f4e37]:
+                            - generic [ref=f4e38]: 温迪
+                            - generic [ref=f4e39]: HP 11
+                    - generic [ref=f4e40] [cursor=pointer]:
+                        - img "钟离" [ref=f4e42]
+                        - generic [ref=f4e43]:
+                            - generic [ref=f4e44]: 钟离
+                            - generic [ref=f4e45]: HP 12
+                    - generic [ref=f4e46] [cursor=pointer]:
+                        - img "雷电将军" [ref=f4e48]
+                        - generic [ref=f4e49]:
+                            - generic [ref=f4e50]: 雷电将军
+                            - generic [ref=f4e51]: HP 11
+                    - generic [ref=f4e52] [cursor=pointer]:
+                        - img "纳西妲" [ref=f4e54]
+                        - generic [ref=f4e55]:
+                            - generic [ref=f4e56]: 纳西妲
+                            - generic [ref=f4e57]: HP 12
+                    - generic [ref=f4e58] [cursor=pointer]:
+                        - img "芙宁娜" [ref=f4e60]
+                        - generic [ref=f4e61]:
+                            - generic [ref=f4e62]: 芙宁娜
+                            - generic [ref=f4e63]: HP 11
+                    - generic [ref=f4e64] [cursor=pointer]:
+                        - img "玛薇卡" [ref=f4e66]
+                        - generic [ref=f4e67]:
+                            - generic [ref=f4e68]: 玛薇卡
+                            - generic [ref=f4e69]: HP 12
+                    - generic [ref=f4e70] [cursor=pointer]:
+                        - img "哥伦比娅" [ref=f4e72]
+                        - generic [ref=f4e73]:
+                            - generic [ref=f4e74]: 哥伦比娅
+                            - generic [ref=f4e75]: HP 11
+                    - generic [ref=f4e76] [cursor=pointer]:
+                        - img "风堇" [ref=f4e78]
+                        - generic [ref=f4e79]:
+                            - generic [ref=f4e80]: 风堇
+                            - generic [ref=f4e81]: HP 11
+                    - generic [ref=f4e82] [cursor=pointer]:
+                        - img "莉奈娅" [ref=f4e84]
+                        - generic [ref=f4e85]:
+                            - generic [ref=f4e86]: 莉奈娅
+                            - generic [ref=f4e87]: HP 12
+                    - generic [ref=f4e88] [cursor=pointer]:
+                        - img "爱蜜莉雅" [ref=f4e90]
+                        - generic [ref=f4e91]:
+                            - generic [ref=f4e92]: 爱蜜莉雅
+                            - generic [ref=f4e93]: HP 12
+                    - generic [ref=f4e94] [cursor=pointer]:
+                        - img "菜月昴" [ref=f4e96]
+                        - generic [ref=f4e97]:
+                            - generic [ref=f4e98]: 菜月昴
+                            - generic [ref=f4e99]: HP 11
+            - generic [ref=f4e100]:
+                - generic [ref=f4e101]:
+                    - generic [ref=f4e102]: 玩家 2
+                    - textbox "玩家 2" [ref=f4e103]
+                - generic [ref=f4e104]:
+                    - generic [ref=f4e105] [cursor=pointer]:
+                        - img "温迪" [ref=f4e107]
+                        - generic [ref=f4e108]:
+                            - generic [ref=f4e109]: 温迪
+                            - generic [ref=f4e110]: HP 11
+                    - generic [ref=f4e111] [cursor=pointer]:
+                        - img "钟离" [ref=f4e113]
+                        - generic [ref=f4e114]:
+                            - generic [ref=f4e115]: 钟离
+                            - generic [ref=f4e116]: HP 12
+                    - generic [ref=f4e117] [cursor=pointer]:
+                        - img "雷电将军" [ref=f4e119]
+                        - generic [ref=f4e120]:
+                            - generic [ref=f4e121]: 雷电将军
+                            - generic [ref=f4e122]: HP 11
+                    - generic [ref=f4e123] [cursor=pointer]:
+                        - img "纳西妲" [ref=f4e125]
+                        - generic [ref=f4e126]:
+                            - generic [ref=f4e127]: 纳西妲
+                            - generic [ref=f4e128]: HP 12
+                    - generic [ref=f4e129] [cursor=pointer]:
+                        - img "芙宁娜" [ref=f4e131]
+                        - generic [ref=f4e132]:
+                            - generic [ref=f4e133]: 芙宁娜
+                            - generic [ref=f4e134]: HP 11
+                    - generic [ref=f4e135] [cursor=pointer]:
+                        - img "玛薇卡" [ref=f4e137]
+                        - generic [ref=f4e138]:
+                            - generic [ref=f4e139]: 玛薇卡
+                            - generic [ref=f4e140]: HP 12
+                    - generic [ref=f4e141] [cursor=pointer]:
+                        - img "哥伦比娅" [ref=f4e143]
+                        - generic [ref=f4e144]:
+                            - generic [ref=f4e145]: 哥伦比娅
+                            - generic [ref=f4e146]: HP 11
+                    - generic [ref=f4e147] [cursor=pointer]:
+                        - img "风堇" [ref=f4e149]
+                        - generic [ref=f4e150]:
+                            - generic [ref=f4e151]: 风堇
+                            - generic [ref=f4e152]: HP 11
+                    - generic [ref=f4e153] [cursor=pointer]:
+                        - img "莉奈娅" [ref=f4e155]
+                        - generic [ref=f4e156]:
+                            - generic [ref=f4e157]: 莉奈娅
+                            - generic [ref=f4e158]: HP 12
+                    - generic [ref=f4e159] [cursor=pointer]:
+                        - img "爱蜜莉雅" [ref=f4e161]
+                        - generic [ref=f4e162]:
+                            - generic [ref=f4e163]: 爱蜜莉雅
+                            - generic [ref=f4e164]: HP 12
+                    - generic [ref=f4e165] [cursor=pointer]:
+                        - img "菜月昴" [ref=f4e167]
+                        - generic [ref=f4e168]:
+                            - generic [ref=f4e169]: 菜月昴
+                            - generic [ref=f4e170]: HP 11
+        - button "开始游戏" [disabled] [ref=f4e171]
+        - group [ref=f4e173]:
+            - generic "快速规则 v2.0" [ref=f4e174] [cursor=pointer]
