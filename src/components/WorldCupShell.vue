@@ -215,6 +215,7 @@ import WorldCupStandings from "./WorldCupStandings.vue";
 import { useWorldCupController } from "../composables/useWorldCupController.js";
 import { MATCH_CONFIG } from "../game/worldCupConstants.js";
 import { getKnockoutRoundName } from "../game/worldCup.js";
+import { CAT } from "../game/gameLogger.js";
 import {
   startAttack,
   executeAttack,
@@ -370,17 +371,46 @@ function aiAct() {
     gameState.currentWeather !== "arms";
 
   const r = Math.random();
-  if (r < 0.55 && canAttack) aiDoAttack();
-  else if (r < 0.82) executeDefense(gameState);
-  else if (r < 0.94) aiDoGamble();
-  else if (canSkill) aiDoSkill();
-  else executeDefense(gameState);
+  let choice;
+  if (r < 0.55 && canAttack) {
+    choice = "攻击";
+    aiDoAttack();
+  } else if (r < 0.82) {
+    choice = "防御";
+    executeDefense(gameState);
+  } else if (r < 0.94) {
+    choice = "赌命";
+    aiDoGamble();
+  } else if (canSkill) {
+    choice = "技能";
+    aiDoSkill();
+  } else {
+    choice = "防御(保底)";
+    executeDefense(gameState);
+  }
+
+  gameState.devLog.debug(
+    CAT.AI,
+    `AI决策: ${player?.name}→${choice} (r=${r.toFixed(2)})`,
+    {
+      player: player?.name,
+      choice,
+      canAttack,
+      canSkill,
+      hp: player?.hp,
+      defCount: player?.defensePile?.length,
+    },
+  );
 
   // 回退：300ms 后仍在 pickAction 且无人阵亡则防御
   aiTimer = setTimeout(() => {
     if (gameState.step !== "pickAction") return;
     if (!isAITurn() || gameState.gameOver) return;
     if (gameState.players.some((p) => !p.alive)) return;
+    gameState.devLog.warn(
+      CAT.AI,
+      `AI回退保底: ${player?.name} 300ms后仍在pickAction，强制防御`,
+    );
     executeDefense(gameState);
   }, 300);
 }
@@ -389,6 +419,7 @@ function aiAct() {
 
 function aiDoAttack() {
   const targetIdx = getPlayerIndex();
+  gameState.devLog.debug(CAT.AI, `AI攻击: 目标=${targetIdx}`, { targetIdx });
   startAttack(gameState);
   aiTimer = setTimeout(() => {
     if (gameState.step === "attackShowCard")
@@ -417,6 +448,9 @@ function aiDoGamble() {
 
 function aiDoSkill() {
   const targetIdx = getPlayerIndex();
+  gameState.devLog.debug(CAT.AI, `AI使用技能，目标=${targetIdx}`, {
+    targetIdx,
+  });
   executeSkill(gameState);
   aiTimer = setTimeout(() => aiAutoComplete(targetIdx), 400);
 }
@@ -427,6 +461,11 @@ function aiDoSkill() {
 function aiAutoComplete(targetIdx) {
   const s = gameState.step;
   if (s === "pickAction") return;
+
+  gameState.devLog.debug(CAT.AI, `AI自动完成步骤: ${s}`, {
+    step: s,
+    targetIdx,
+  });
 
   // 需要选目标的步骤（攻击展示、技能选目标）
   if (s === "attackShowCard") {

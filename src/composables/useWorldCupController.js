@@ -19,7 +19,7 @@ import {
   executeSubstitution,
   skipSubstitution,
   executePenaltyRound,
-  checkMatchEnd,
+
 } from "../game/matchState.js";
 import { createGameState, initGame } from "../game/gameState.js";
 import { MATCH_CONFIG } from "../game/worldCupConstants.js";
@@ -136,13 +136,19 @@ export function useWorldCupController() {
           }
         }
       },
-      // 新回合回调：检查是否超过比赛回合上限
+      // 新回合回调：仅检查回合上限，不触发换人（换人由阵亡回调处理）
       onNewRound: (round) => {
         if (ms.matchOver) return;
         ms.matchRound = round;
-        // 回合超限检查（无人阵亡时也能强制结束）
-        checkMatchEnd(ms, gameState);
-        if (ms.matchOver) {
+        // 回合超限强制结束（无人阵亡时也能终止比赛）
+        if (round > ms.maxRounds) {
+          const [pScore, oScore] = ms.score;
+          if (pScore > oScore) ms.winner = 0;
+          else if (oScore > pScore) ms.winner = 1;
+          else ms.winner = null;
+          ms.matchOver = true;
+          gameState.gameOver = true;
+          gameState.winnerIndex = ms.winner ?? -1;
           handleMatchEnd(ms);
         }
       },
@@ -309,12 +315,19 @@ export function useWorldCupController() {
           }
         }
       },
-      // 新回合回调：检查是否超过比赛回合上限
+      // 新回合回调：仅检查回合上限，不触发换人（换人由阵亡回调处理）
       onNewRound: (round) => {
         if (ms.matchOver) return;
         ms.matchRound = round;
-        checkMatchEnd(ms, gameState);
-        if (ms.matchOver) {
+        // 回合超限强制结束（无人阵亡时也能终止比赛）
+        if (round > ms.maxRounds) {
+          const [pScore, oScore] = ms.score;
+          if (pScore > oScore) ms.winner = 0;
+          else if (oScore > pScore) ms.winner = 1;
+          else ms.winner = null;
+          ms.matchOver = true;
+          gameState.gameOver = true;
+          gameState.winnerIndex = ms.winner ?? -1;
           handleMatchEnd(ms);
         }
       },

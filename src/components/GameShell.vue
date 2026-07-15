@@ -53,6 +53,9 @@
 
       <LogPanel :messages="state.messageLog" />
     </div>
+
+    <!-- 开发日志面板（Ctrl+Shift+D 切换） -->
+    <DevLogPanel :entries="state.devLog.entries" />
   </div>
 </template>
 
@@ -62,6 +65,7 @@ import GameCanvas from "../pixi/GameCanvas.vue";
 import ActionBar from "./ActionBar.vue";
 import LogPanel from "./LogPanel.vue";
 import GameOverPanel from "./GameOverPanel.vue";
+import DevLogPanel from "./DevLogPanel.vue";
 import { usePixiSync } from "../bridge/usePixiSync.js";
 import { useAnimationFlow } from "../bridge/useAnimationFlow.js";
 import {
