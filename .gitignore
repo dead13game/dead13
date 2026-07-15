@@ -28,3 +28,6 @@ dist-ssr
 *.png
 !public/*.png
 !src/**/*.png
+
+# Claude Code 本地配置（含API key）
+.claude/
