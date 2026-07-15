@@ -34,7 +34,7 @@ App.vue (开场动画 → 选角界面 → 游戏界面)
        └─ GameOverPanel.vue    结算面板
 
 src/game/          → 纯逻辑层（零依赖，不引用 Vue/PIXI）
-  gameState.js        核心：状态机 + 所有游戏操作（1200行，待拆分）
+  gameState.js        核心：状态机 + 所有游戏操作函数（1200行，待拆分）
   constants.js        角色数据 CHARACTERS、阶段 PHASE、步骤 STEP、天气
   deck.js             扑克牌创建/洗牌/抽牌
 
@@ -45,7 +45,7 @@ src/bridge/       → Vue ↔ PIXI 桥接层
 src/pixi/         → PIXI 渲染层
   core/PIXIManager.js    Application 管理、场景构建、粒子系统、rebuildLayout()
   entities/              牌桌精灵、卡牌精灵、牌库精灵
-  layout/TableLayout.js  自适应布局（横屏单/双行，竖屏1-2列网格）
+  layout/TableLayout.js  自适应布局（横屏单/双行，竖屏2列网格）
   effects/               粒子特效系统
 
 src/composables/  → Vue 组合式函数
@@ -95,16 +95,36 @@ STEP:  pickAction → attackShowCard → pickTarget → ... → pickAction
 
 ## TableLayout 布局逻辑
 
-| 屏幕 | 人数 | 布局 |
-|------|------|------|
-| 横屏 | 2-4人 | 单行水平排列，桌面 260×280 |
-| 横屏 | 5-8人 | 双行网格，桌面 230×200 |
-| 竖屏 | 2-3人 | 单列居中纵排，桌面自适应 |
-| 竖屏 | 4人 | 2×2 网格 |
-| 竖屏 | 5-6人 | 2列×3行 |
-| 竖屏 | 7-8人 | 2列×4行，最小 130×160 |
+**横屏（`_computeLandscape()`）**：
 
-竖屏时牌库和攻击展示区自动移到屏幕下方 35% 区域。顶部信息栏有 "⟳" 按钮可手动触发 `PIXIManager.rebuildLayout()` 重排。
+| 人数 | 布局 |
+|------|------|
+| 2-4人 | 单行水平排列，桌面 260×280 |
+| 5-8人 | 双行网格，桌面 230×200 |
+
+**竖屏（`_computePortrait()`）**：
+- 固定 2 列，从上到下排列
+- 牌桌宽度按视口均分，高度保持 260:280 比例
+- 顶部偏移 52px（避开信息栏），牌库/中央展示区在所有牌桌下方
+- 内容溢出时 canvas 改为 `position: relative` 占文档流，页面可纵向滚动
+- 滚动高度 = totalHeight + 400（上限 1000px），底部预留空间避开 UI 栏
+
+竖屏时常青按钮 "⟳" 可手动触发 `PIXIManager.rebuildLayout()` 重排。
+
+## PlayerTableSprite 布局
+
+- **桌面模式 (≥200px)**：防御区左、陷阱区右，标准字号和卡牌缩放 0.7
+- **紧凑模式 (<200px)**：自动缩小字体/卡牌/HP条（卡牌缩放 0.45），防御与陷阱保持左右并列
+- **角色立绘**：在防御预留列与陷阱区之间的卡片行下方，用 `texture.frame` 裁剪、圆角边框
+- 图片加载用 `new Image()` + `Texture.from(img)`（走浏览器缓存，选角页已预加载）
+- **注意**：`new Sprite()` 空纹理时设置 `width/height` 会产生 NaN scale 导致渲染崩溃
+
+## PIXIManager 关键细节
+
+- `buildScene()` 用 `renderer.width`（CSS 像素，autoDensity 已处理 DPR）作为 TableLayout 逻辑尺寸
+- **不再除以 resolution**——之前 `/ resolution` 导致移动端 DPR=2 时逻辑尺寸砍半
+- `resize()` 和 `rebuildLayout()` 也传 CSS 像素，与 `buildScene()` 一致
+- 星空背景 `_createStarfield()` 用当前 renderer 宽高，resize 后需重调以覆盖全高
 
 ## 已修复的 Bug
 
@@ -115,15 +135,19 @@ STEP:  pickAction → attackShowCard → pickTarget → ... → pickAction
 | `SUITS` 花色编码丢失（四个空字符串） | 恢复 `♠♥♦♣`，修复 `Card.vue` 和 `CardSprite.js` 红黑判重 |
 | 冰封无限递归 | `nextPlayer` 加 `_depth` guard |
 | 死代码 | 删 `usePixiApp.js`/`cardColor()`/`WEATHER` 数组 |
+| 移动端牌桌消失 | `buildScene()` 除以 resolution 导致逻辑尺寸砍半；`new Sprite()` 空纹理设 width/height 产生 NaN scale |
+| 竖屏滚动不生效 | canvas 改为 `position: relative` 占文档流；`rebuildLayout()` 不再覆盖滚动高度；GameShell 改为 `min-height: 100vh` |
+| 联盟伤害 2:1 分配 | 改为先 `-2` 再 2:1 分配，向下取整 |
 
 ## 关键技术细节
 
 ### PixiJS v8
 
-- `Application`、`Container`、`Graphics`、`Text` 都需要**显式 import**，v8 不再挂全局。
-- Canvas 元素必须 `position: fixed; z-index: 1; pointer-events: none` 覆盖在 Vue DOM 上方。
+- `Application`、`Container`、`Graphics`、`Text`、`Sprite`、`Texture`、`Rectangle` 都需要**显式 import**，v8 不再挂全局。
+- Canvas 元素必须 `position: fixed; z-index: 1; pointer-events: none` 覆盖在 Vue DOM 上方。竖屏滚动时切换为 `position: relative; touch-action: pan-y`。
 - `resolution` 上限 2x（`Math.min(dpr, 2)`），避免移动端 3x 屏 GPU 过载。
-- `buildScene()` 创建 TableLayout 时必须传 `renderer.width/resolution` 逻辑尺寸，不能用默认值。
+- `buildScene()` 创建 TableLayout 时传 `renderer.width` 逻辑尺寸，不除以 resolution。
+- PIXI mask 在 v8 中行为复杂，避免使用。裁剪改用 `texture.frame`。
 
 ### Vue 3 `<script setup>`
 
@@ -139,6 +163,8 @@ STEP:  pickAction → attackShowCard → pickTarget → ... → pickAction
 - 移动端 `100dvh` 优于 `100vh`（iOS Safari 地址栏问题），但需保留 `100vh` fallback。
 - iPhone 刘海屏需要 `env(safe-area-inset-*)` padding。
 - 触控按钮最小 44×44px，间距 ≥ 8px。
+- 竖屏滚动时 `position: absolute` 不占文档流导致无法滚动，需改用 `position: relative`。
+- hover 效果应包裹在 `@media (hover: hover)` 中，避免触屏设备误触发跳动。
 
 ### 移动端
 
@@ -146,3 +172,7 @@ STEP:  pickAction → attackShowCard → pickTarget → ... → pickAction
 - `touch-action: manipulation` 消除点击延迟
 - `overscroll-behavior: none` 防下拉刷新
 - `-webkit-tap-highlight-color: transparent` 去 iOS 点击高亮
+- 竖屏滚动 canvas 需设 `touch-action: pan-y` 恢复触屏滚动（PIXI 默认设 `touch-action: none`）
+- 底部 UI 栏竖屏 `max-height: 40vh`，战报日志压缩至 80px
+- 选角界面 ≤500px 时角色卡 4 张/行，紧凑间距
+- 开场视频 `webkit-playsinline` + safe-area 定位跳过提示
