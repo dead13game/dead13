@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Playwright test artifacts
+.playwright-mcp/
+*.png
+!public/*.png
+!src/**/*.png
