@@ -225,7 +225,7 @@ function reset1v1Game(gameState, playerCharId, opponentCharId, startingRound) {
     endTurn: true,
     useWeather: false,
     peaceRounds: 4,
-    _peaceStartRound: startingRound,
+    _peaceStartRound: startingRound - 1,
     _elimGuard: false,
     _elimPaused: false,
     _skipAnim: false,
