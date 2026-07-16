@@ -276,6 +276,7 @@ function scheduleAI() {
 function aiAct() {
   const state = props.state;
   if (state.step === "pickAction") {
+    if (!isAITurn()) return;
     const decision = decideTopAction(state);
     executeTopAction(decision);
   } else {
@@ -385,7 +386,12 @@ watch(
 watch(
   () => props.state?.step,
   (newStep) => {
-    if (newStep !== "pickAction" && isAITurn() && !props.state.gameOver) {
+    if (
+      newStep !== "pickAction" &&
+      isAITurn() &&
+      !props.state.gameOver &&
+      !props.worldCupMode
+    ) {
       if (aiTimer) clearTimeout(aiTimer);
       aiTimer = setTimeout(aiAct, 400);
     }
