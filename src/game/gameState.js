@@ -87,10 +87,28 @@ export function ensureDeck(state, n = 1) {
 
 /** 统一行动结束出口 */
 export function endAction(state) {
-  // 比赛模式：游戏刚被 matchContext 回调重置（击杀→resetGameForNextLife），
-  // 不再推进回合——重置时已设好 currentPlayerIndex 和 step
+  // Bug fix: 比赛模式阵亡后暂停，等待 UI 处理换人/重置（防止幽灵回合）
+  if (state._elimPaused) {
+    state._elimPaused = false;
+    return;
+  }
+  // 比赛模式：游戏刚被重置（击杀→resetGameForNextLife），当前玩家已完成首次行动
+  // 不再推进回合逻辑（已设好 round/phase），只需推进到下一个存活玩家，防止同一玩家连续行动
   if (state._gameJustReset) {
     state._gameJustReset = false;
+    // 手动推进到下一个存活玩家，不触发 nextPlayer 的回合逻辑（天气、月相等）
+    let next = state.currentPlayerIndex + 1;
+    while (next < state.players.length && !state.players[next].alive) {
+      next++;
+    }
+    if (next >= state.players.length) next = 0;
+    while (next < state.players.length && !state.players[next].alive) {
+      next++;
+    }
+    if (next < state.players.length && state.players[next]?.alive) {
+      state.currentPlayerIndex = next;
+      state.step = STEP.PICK_ACTION;
+    }
     return;
   }
   if (state.endTurn) {
@@ -174,6 +192,7 @@ export function createGameState() {
     matchContext: null,
     _skipAnim: false,
     _gameJustReset: false,
+    _elimPaused: false,
     devLog: null,
   });
 
@@ -216,6 +235,7 @@ export function initGame(
     matchContext: savedMatchContext,
     devLog: savedDevLog,
     _elimGuard: false,
+    _elimPaused: false,
   });
 
   savedDevLog.clear();
@@ -339,13 +359,6 @@ function nextPlayer(state, _depth = 0) {
       if (p.alive && p.characterId === "columbina") {
         p.moonPhase = (p.moonPhase + 1) % 3;
         addLog(state, `哥伦比娅月相 ${MOON_NAMES[p.moonPhase]}`);
-      }
-    }
-
-    // 技能冷却恢复：每回合所有存活玩家 +1 技能使用次数
-    for (const p of state.players) {
-      if (p.alive && p.skillUses < p.maxUses) {
-        p.skillUses++;
       }
     }
 

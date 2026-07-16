@@ -33,13 +33,11 @@ export function useWorldCupController() {
   const gameState = createGameState();
 
   // ---- UI 模式 ----
-  // 'setup' | 'groupIntro' | 'match' | 'substitution' | 'penalty' | 'goalScored' | 'matchResult' | 'standings' | 'knockoutIntro' | 'tournamentEnd'
   const uiMode = ref("setup");
   const goalFlash = ref(false);
-  const matchResult = ref(null); // { winner, score, stage }
-  const knockoutIntro = ref(null); // { round, opponent }
+  const matchResult = ref(null);
+  const knockoutIntro = ref(null);
 
-  // 天气开关（Change 4）
   let useWeather = false;
 
   // ---- 初始化 ----
@@ -49,14 +47,12 @@ export function useWorldCupController() {
     Object.assign(wcState, state);
     initGroupMatches(wcState);
 
-    // 设置小组赛对手角色（随机选，存储到 wcState 扩展字段）
     wcState._groupOpponentChars = [
       getRandomGroupOpponentChar(),
       getRandomGroupOpponentChar(),
       getRandomGroupOpponentChar(),
     ];
 
-    // 开始第一场小组赛
     startNextGroupMatch(startingCharId);
   }
 
@@ -64,7 +60,6 @@ export function useWorldCupController() {
   function startNextGroupMatch(startingCharId) {
     const matchIdx = getNextPlayerGroupMatch(wcState);
     if (matchIdx < 0) {
-      // 所有小组赛打完
       finishGroupStage();
       return;
     }
@@ -74,15 +69,16 @@ export function useWorldCupController() {
       wcState.groupTeams[match.home === 0 ? match.away : match.home];
     const opponentCharId = wcState._groupOpponentChars[matchIdx];
 
-    // 创建比赛状态（小组赛=简化规则）
-    const ms = createMatchState(
-      true,
-      startingCharId || wcState._lastPlayerChar,
-      opponentCharId,
+    // ms 从创建起就是 reactive，确保 game 层对 matchRound/score 的修改能被 Vue 检测到
+    const ms = reactive(
+      createMatchState(
+        true,
+        startingCharId || wcState._lastPlayerChar,
+        opponentCharId,
+      ),
     );
-    matchState.value = reactive(ms);
+    matchState.value = ms;
 
-    // 初始化游戏
     initGameForMatch(
       startingCharId || wcState._lastPlayerChar,
       opponentCharId,
@@ -95,11 +91,9 @@ export function useWorldCupController() {
 
   // ---- 初始化一场比赛的1v1游戏 ----
   function initGameForMatch(playerCharId, opponentCharId, startingRound, ms) {
-    // 保存名称（始终从当前对手配置获取，避免 stale currentMatch 导致名称错误）
     const playerName = wcState.playerTeamName || "玩家";
     const opponentName = getCurrentOpponentName();
 
-    // 用 initGame 初始化 1v1 游戏
     initGame(
       gameState,
       [playerCharId, opponentCharId],
@@ -107,7 +101,6 @@ export function useWorldCupController() {
       startingRound,
     );
 
-    // 按 characterId 分配名字（initGame 会按血量排序，索引可能对调）
     gameState.players.forEach((p) => {
       if (p.characterId === playerCharId) {
         p.name = playerName;
@@ -116,9 +109,12 @@ export function useWorldCupController() {
       }
     });
 
-    // 设置比赛上下文钩子
     gameState.matchContext = {
       onPlayerEliminated: (deadIdx, killerIdx, actualRound) => {
+        // 保存被击杀者 characterId，供重置后矫正先手顺序
+        const killedCharId = gameState.players[deadIdx]?.characterId;
+        if (killedCharId) ms._killedCharId = killedCharId;
+
         onPlayerEliminated(ms, gameState, deadIdx, killerIdx, actualRound);
 
         if (ms.matchOver) {
@@ -126,20 +122,12 @@ export function useWorldCupController() {
         } else if (ms.isPenaltyShootout) {
           uiMode.value = "penalty";
         } else if (ms.substitutionPending) {
-          // 小组赛自动跳过换人，直接重置游戏
-          if (ms.isGroupStage) {
-            skipSubstitution(ms, gameState);
-            rebuildMatchContext(ms);
-          } else {
-            uiMode.value = "substitution";
-          }
+          uiMode.value = "substitution";
         }
       },
-      // 新回合回调：仅检查回合上限，不触发换人（换人由阵亡回调处理）
       onNewRound: (round) => {
         if (ms.matchOver) return;
         ms.matchRound = round;
-        // 回合超限强制结束（无人阵亡时也能终止比赛）
         if (round > ms.maxRounds) {
           const [pScore, oScore] = ms.score;
           if (pScore > oScore) ms.winner = 0;
@@ -153,7 +141,6 @@ export function useWorldCupController() {
       },
     };
 
-    // 更新当前使用的角色
     wcState._lastPlayerChar = playerCharId;
   }
 
@@ -165,7 +152,6 @@ export function useWorldCupController() {
         return wcState.groupTeams[match.home === 0 ? match.away : match.home]
           .name;
       }
-      // 已打完，查当前进行中的比赛
       const currentMatch = wcState.groupMatches.find(
         (m) => m.isPlayerMatch && !m.played,
       );
@@ -187,14 +173,12 @@ export function useWorldCupController() {
     const [pScore, oScore] = ms.score;
 
     if (ms.isGroupStage) {
-      // 记录小组赛结果
       const matchIdx = getCurrentGroupMatchIdx();
       if (matchIdx >= 0) {
         const result = winner === 0 ? "home" : winner === 1 ? "away" : "draw";
         recordGroupMatchResult(wcState, matchIdx, result);
       }
 
-      // 检查是否还有未打的小组赛
       const nextMatch = getNextPlayerGroupMatch(wcState);
       if (nextMatch >= 0) {
         matchResult.value = {
@@ -206,11 +190,9 @@ export function useWorldCupController() {
         };
         uiMode.value = "matchResult";
       } else {
-        // 所有小组赛打完
         finishGroupStage();
       }
     } else {
-      // 淘汰赛
       const roundName = getKnockoutRoundName(wcState.knockoutRound);
       if (winner === 0) {
         matchResult.value = {
@@ -236,20 +218,15 @@ export function useWorldCupController() {
   }
 
   function getCurrentGroupMatchIdx() {
-    // 找到第一个未打的小组赛（当前刚打完的），recordGroupMatchResult 会将其标为 played
     return wcState.groupMatches.findIndex((m) => m.isPlayerMatch && !m.played);
   }
 
   // ---- 完成小组赛 ----
   function finishGroupStage() {
-    // 模拟非玩家比赛
     simulateNonPlayerMatches(wcState);
-
-    // 计算积分榜
     const standings = calculateGroupStandings(wcState);
     const { advanced, rank } = checkGroupAdvancement(wcState);
 
-    // 存储结果
     wcState._groupFinished = true;
     wcState._playerRank = rank;
     wcState._advanced = advanced;
@@ -277,8 +254,8 @@ export function useWorldCupController() {
     const playerCharId = wcState._lastPlayerChar;
     const opponent = wcState.knockoutOpponent;
 
-    const ms = createMatchState(false, playerCharId, opponent.charId);
-    matchState.value = reactive(ms);
+    const ms = reactive(createMatchState(false, playerCharId, opponent.charId));
+    matchState.value = ms;
     wcState.currentMatch = ms;
     ms.matchRound = 1;
 
@@ -291,7 +268,6 @@ export function useWorldCupController() {
     if (!matchState.value) return;
     const ms = matchState.value;
     resetGameForNextLife(ms, gameState);
-    // 重建 matchContext（因为 resetGameForNextLife 会重新 initGame）
     rebuildMatchContext(ms);
     uiMode.value = "match";
   }
@@ -299,26 +275,21 @@ export function useWorldCupController() {
   function rebuildMatchContext(ms) {
     gameState.matchContext = {
       onPlayerEliminated: (deadIdx, killerIdx, actualRound) => {
+        const killedCharId = gameState.players[deadIdx]?.characterId;
+        if (killedCharId) ms._killedCharId = killedCharId;
+
         onPlayerEliminated(ms, gameState, deadIdx, killerIdx, actualRound);
         if (ms.matchOver) {
           handleMatchEnd(ms);
         } else if (ms.isPenaltyShootout) {
           uiMode.value = "penalty";
         } else if (ms.substitutionPending) {
-          // 小组赛自动跳过换人
-          if (ms.isGroupStage) {
-            skipSubstitution(ms, gameState);
-            rebuildMatchContext(ms);
-          } else {
-            uiMode.value = "substitution";
-          }
+          uiMode.value = "substitution";
         }
       },
-      // 新回合回调：仅检查回合上限，不触发换人（换人由阵亡回调处理）
       onNewRound: (round) => {
         if (ms.matchOver) return;
         ms.matchRound = round;
-        // 回合超限强制结束（无人阵亡时也能终止比赛）
         if (round > ms.maxRounds) {
           const [pScore, oScore] = ms.score;
           if (pScore > oScore) ms.winner = 0;
@@ -333,11 +304,23 @@ export function useWorldCupController() {
     };
   }
 
+  /** 击杀→重置后，让被击杀方先手，避免 killer 连续行动两次。 */
+  function fixTurnAfterReset() {
+    const killedCharId = matchState.value?._killedCharId;
+    if (!killedCharId) return;
+    matchState.value._killedCharId = null;
+    const p = gameState.players.find((pl) => pl.characterId === killedCharId);
+    if (p) {
+      gameState.currentPlayerIndex = p.index;
+    }
+  }
+
   // ---- 换人 ----
   function handleSubstitution(newCharId) {
     if (!matchState.value) return;
     executeSubstitution(matchState.value, gameState, newCharId);
     resetGameForNextLife(matchState.value, gameState);
+    fixTurnAfterReset();
     rebuildMatchContext(matchState.value);
     uiMode.value = "match";
   }
@@ -345,11 +328,12 @@ export function useWorldCupController() {
   function handleSkipSubstitution() {
     if (!matchState.value) return;
     skipSubstitution(matchState.value, gameState);
+    fixTurnAfterReset();
     rebuildMatchContext(matchState.value);
     uiMode.value = "match";
   }
 
-  // ---- 继续（小组赛下一场或淘汰赛下一轮） ----
+  // ---- 继续 ----
   function continueAfterMatchResult() {
     const result = matchResult.value;
     matchResult.value = null;
@@ -358,14 +342,12 @@ export function useWorldCupController() {
 
     if (wcState.phase === "group") {
       if (result.hasNext) {
-        // 开始下一场小组赛（复用上次角色，可改）
         startNextGroupMatch();
       } else {
         finishGroupStage();
       }
     } else if (wcState.phase === "knockout") {
       if (result.winner === 0 && result.hasNext) {
-        // 晋级下一轮淘汰赛
         advanceKnockoutRound(wcState);
         wcState.substitutionsLeft = MATCH_CONFIG.maxSubstitutions;
         startKnockoutMatch();
@@ -379,7 +361,6 @@ export function useWorldCupController() {
     }
   }
 
-  // ---- 从积分榜进入淘汰赛 ----
   function continueFromStandings() {
     if (wcState._advanced) {
       enterKnockoutStage();
@@ -393,7 +374,6 @@ export function useWorldCupController() {
     if (!matchState.value) return null;
     const result = executePenaltyRound(matchState.value);
     if (result?.winner !== null && result?.winner !== undefined) {
-      // 点球结束，比赛结束
       matchState.value.winner = result.winner;
       handleMatchEnd(matchState.value);
     }
@@ -409,7 +389,7 @@ export function useWorldCupController() {
     Object.assign(wcState, createWorldCupState(""));
   }
 
-  // ---- 计算属性（按 characterId 查找，避免 HP 排序导致索引错位）----
+  // ---- 计算属性 ----
   const currentPlayerName = computed(() => {
     const p = gameState.players.find(
       (p) =>
@@ -433,7 +413,6 @@ export function useWorldCupController() {
   });
 
   return {
-    // 状态
     wcState,
     matchState,
     gameState,
@@ -441,11 +420,9 @@ export function useWorldCupController() {
     goalFlash,
     matchResult,
     knockoutIntro,
-    // 计算属性
     currentPlayerName,
     currentOpponentName,
     currentCharName,
-    // 方法
     initWorldCup,
     startNextGroupMatch,
     enterKnockoutStage,

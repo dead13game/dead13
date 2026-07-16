@@ -75,6 +75,18 @@ export function executeAttack(state, targetIdx) {
   const target = state.players.find((p) => p.index === targetIdx);
   if (!target?.alive) return;
 
+  // 经典模式：不能攻击盟友，盟友只能通过背刺伤害
+  if (!state.matchContext && attacker.allyIndex === targetIdx) {
+    addLog(state, "不能攻击盟友，请使用背刺");
+    state.devLog.warn(
+      CAT.ANOMALY,
+      `${attacker.name} 尝试攻击盟友 ${target.name}`,
+    );
+    state.pendingAttackCard = null;
+    state.step = STEP.PICK_ACTION;
+    return;
+  }
+
   if (state.step !== STEP.ATTACK_SHOW_CARD) {
     state.devLog.warn(CAT.ANOMALY, `攻击在非预期步骤执行: ${state.step}`, {
       expected: STEP.ATTACK_SHOW_CARD,
@@ -147,7 +159,6 @@ export function executeAttack(state, targetIdx) {
     const spirit = attacker.fightingSpirit;
     attackValue += spirit;
     addLog(state, `斗志 ${spirit}层`);
-    attacker.fightingSpirit = 0;
     state.devLog.debug(CAT.SKILL, `玛薇卡斗志 +${spirit} → ${attackValue}`);
   }
 
@@ -289,19 +300,24 @@ export function executeAttack(state, targetIdx) {
   const beforeDefense = target.defensePile.length;
   const remainingDmg = applyDamage(state, target, attackValue);
   const actualHpLost = targetHpBeforeApply - target.hp;
+  const defenseConsumed = beforeDefense - target.defensePile.length;
 
   if (actualHpLost > 0 && actualHpLost !== attackValue && !trapTriggered) {
-    state.devLog.warn(
-      CAT.ANOMALY,
-      `伤害偏差: 攻击值=${attackValue} 但HP减少=${actualHpLost}`,
-      {
-        attackValue,
-        actualHpLost,
-        delta: attackValue - actualHpLost,
-        defConsumed: beforeDefense - target.defensePile.length,
-        hasAlly: target.allyIndex !== null,
-      },
-    );
+    // 排除合法偏差：防御吸收、伤害溢出（系统自身将HP clamp到0）
+    const wasOverkill = targetHpBeforeApply + defenseConsumed < attackValue;
+    if (!wasOverkill && defenseConsumed === 0) {
+      state.devLog.warn(
+        CAT.ANOMALY,
+        `伤害偏差: 攻击值=${attackValue} 但HP减少=${actualHpLost}`,
+        {
+          attackValue,
+          actualHpLost,
+          delta: attackValue - actualHpLost,
+          defConsumed: defenseConsumed,
+          hasAlly: target.allyIndex !== null,
+        },
+      );
+    }
   }
 
   if (
@@ -323,7 +339,6 @@ export function executeAttack(state, targetIdx) {
   }
 
   // 玛薇卡击穿防御加斗志
-  const defenseConsumed = beforeDefense - target.defensePile.length;
   if (
     attacker.characterId === "mavuika" &&
     defenseConsumed > 0 &&
@@ -482,10 +497,7 @@ export function executeGamble(state) {
   const drawn = r.drawn.map((c) => ({ ...c, faceUp: true }));
   state.deck = r.remaining;
 
-  addLog(
-    state,
-    `${player.name} 执行赌命`,
-  );
+  addLog(state, `${player.name} 执行赌命`);
   state.devLog.info(
     CAT.GAMBLE,
     `${player.name} 赌命抽${drawn.length}张: ${drawn.map(cardDisplay).join(" ")}`,

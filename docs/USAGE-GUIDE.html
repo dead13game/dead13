@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <title>亡命十三街 — Claude Code 使用规范</title>
+    <style>
+      @page {
+        margin: 20mm;
+        size: A4;
+      }
+      body {
+        font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        color: #1a1a1a;
+        line-height: 1.8;
+      }
+      h1 {
+        text-align: center;
+        color: #c62828;
+        border-bottom: 3px solid #c62828;
+        padding-bottom: 12px;
+        margin-bottom: 30px;
+      }
+      h2 {
+        color: #1565c0;
+        border-left: 4px solid #1565c0;
+        padding-left: 12px;
+        margin-top: 30px;
+      }
+      h3 {
+        color: #333;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 15px 0;
+      }
+      th,
+      td {
+        border: 1px solid #ddd;
+        padding: 10px 14px;
+        text-align: left;
+      }
+      th {
+        background: #f5f5f5;
+        font-weight: bold;
+      }
+      code {
+        background: #f0f0f0;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.9em;
+      }
+      pre {
+        background: #1a1a2e;
+        color: #e0e0e0;
+        padding: 14px 18px;
+        border-radius: 8px;
+        overflow-x: auto;
+      }
+      blockquote {
+        background: #fff8e1;
+        border-left: 4px solid #ffc107;
+        margin: 12px 0;
+        padding: 10px 16px;
+      }
+      .bad {
+        color: #c62828;
+      }
+      .good {
+        color: #2e7d32;
+      }
+      .note {
+        background: #e3f2fd;
+        padding: 12px 16px;
+        border-radius: 6px;
+        margin: 10px 0;
+      }
+      .principle {
+        background: #fce4ec;
+        padding: 12px 16px;
+        border-radius: 6px;
+        font-weight: bold;
+        margin: 10px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🎮 亡命十三街 — Claude Code 使用规范</h1>
+
+    <h2>Session 命名规范</h2>
+
+    <pre>
+claude -n "类型-层-简述"
+
+类型: feature / fix / perf / refactor / explore / content
+层:   game / pixi / anim / ui / multi
+简述: 中文，3-8 字</pre>
+
+    <table>
+      <tr>
+        <th>我要做什么</th>
+        <th>命令示例</th>
+      </tr>
+      <tr>
+        <td>加新角色/技能</td>
+        <td><code>claude -n "feature-game-丽莎"</code></td>
+      </tr>
+      <tr>
+        <td>改战斗公式</td>
+        <td><code>claude -n "feature-game-伤害调整"</code></td>
+      </tr>
+      <tr>
+        <td>修牌桌布局 bug</td>
+        <td><code>claude -n "fix-pixi-竖屏重叠"</code></td>
+      </tr>
+      <tr>
+        <td>改按钮样式</td>
+        <td><code>claude -n "fix-ui-按钮过小"</code></td>
+      </tr>
+      <tr>
+        <td>修动画不动</td>
+        <td><code>claude -n "fix-anim-飞牌卡住"</code></td>
+      </tr>
+      <tr>
+        <td>数值平衡</td>
+        <td><code>claude -n "content-角色胜率"</code></td>
+      </tr>
+      <tr>
+        <td>性能优化</td>
+        <td><code>claude -n "perf-移动端帧率"</code></td>
+      </tr>
+      <tr>
+        <td>跨层重构</td>
+        <td><code>claude -n "refactor-multi-状态管理"</code></td>
+      </tr>
+      <tr>
+        <td>不知道改什么文件</td>
+        <td><code>claude -n "explore-防御逻辑"</code></td>
+      </tr>
+    </table>
+
+    <h2>提问规范</h2>
+
+    <h3><span class="good">✅</span> 好的提问</h3>
+    <blockquote>
+      「4人竖屏，第3回合温迪攻击雷电，控制台 [game] 日志 damage_calc 显示
+      afterMinus2=8 但 targetHpAfter 只少了 3。预期减少 8 但实际减少
+      3。完整日志：[粘贴]」
+    </blockquote>
+
+    <blockquote>
+      「新增角色丽莎，技能：选择一名玩家，偷取其一张防御牌并造成 5
+      点伤害。技能限用 2 次，endTurn=false。」
+    </blockquote>
+
+    <h3><span class="bad">❌</span> 坏的提问</h3>
+    <blockquote class="bad">
+      「防御有 bug」「加个新角色」「帮我优化一下」
+    </blockquote>
+
+    <h3>提问四要素</h3>
+    <ol>
+      <li><strong>复现步骤</strong> — 几人、什么模式、谁做了什么操作</li>
+      <li>
+        <strong>日志/报错</strong> — <code>[game]</code> 或
+        <code>[pixi]</code> 日志输出
+      </li>
+      <li><strong>预期行为</strong> — 你觉得应该发生什么</li>
+      <li><strong>实际行为</strong> — 实际发生了什么</li>
+    </ol>
+
+    <h2>不知道涉及哪些文件怎么办</h2>
+
+    <div class="note">
+      <strong>不用记。</strong> 直接在对话里问 Claude，它会自动 spawn Explore
+      subagent 搜索，或者开 <code>claude -n "explore-问题"</code>。
+    </div>
+
+    <h2>改代码时用什么 Agent</h2>
+
+    <table>
+      <tr>
+        <th>改的目录</th>
+        <th>对话里说什么</th>
+        <th>自动用</th>
+      </tr>
+      <tr>
+        <td><code>src/game/</code></td>
+        <td>「用 game-logic 改 combat.js」</td>
+        <td>game-logic</td>
+      </tr>
+      <tr>
+        <td><code>src/pixi/</code></td>
+        <td>「用 pixi-render 改 TableLayout」</td>
+        <td>pixi-render</td>
+      </tr>
+      <tr>
+        <td><code>src/bridge/</code></td>
+        <td>「用 animation 改动画」</td>
+        <td>animation</td>
+      </tr>
+      <tr>
+        <td><code>src/components/</code></td>
+        <td>「用 vue-ui 改 ActionBar」</td>
+        <td>vue-ui</td>
+      </tr>
+      <tr>
+        <td>跨多个层</td>
+        <td>主对话自己改</td>
+        <td>—</td>
+      </tr>
+    </table>
+
+    <div class="principle">
+      debug 时不分派，改代码时再分派。bug 定位需要跨层视角。
+    </div>
+
+    <h2>Debug 流程</h2>
+    <ol>
+      <li>对话里说 <code>/debug</code> 激活六步调试法</li>
+      <li>
+        Playwright 打开游戏复现 → 读 <code>browser_console_messages</code>
+      </li>
+      <li>筛选 <code>[game]</code> 日志定位事件</li>
+      <li>查到根因文件 → module-map.md 确认</li>
+      <li>先写测试复现 → 改代码 → <code>npm run test</code></li>
+    </ol>
+
+    <h2>Session 生命周期</h2>
+    <pre>开 Session → 说一句任务描述 → 探索/修改/验证 → 改完即关</pre>
+
+    <div class="principle">
+      一个 session 只做一件事。改一个文件是最佳状态。DeepSeek 上下文超 60%
+      后质量下降。
+    </div>
+
+    <h2>跨 Session 信息共享</h2>
+    <p>改接口后更新 CLAUDE.md「Agent 间合约」表格。三个通道：</p>
+    <ol>
+      <li><strong>SessionStart hook</strong> — 自动显示上次提交改了哪些文件</li>
+      <li><strong>Memory 系统</strong> — 变更日志 + 模块映射 + 合约</li>
+      <li>
+        <strong>CLAUDE.md 合约表</strong> — 函数签名、state 字段、桥接接口
+      </li>
+    </ol>
+
+    <p
+      style="text-align: center; color: #999; margin-top: 40px; font-size: 12px"
+    >
+      2026-07-16 · 亡命十三街项目 · Claude Code 使用规范
+    </p>
+  </body>
+</html>

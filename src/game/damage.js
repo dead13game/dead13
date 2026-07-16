@@ -148,6 +148,8 @@ export function checkGameOver(state) {
         },
       );
       state.matchContext.onPlayerEliminated(deadIdx, killerIdx, state.round);
+      // 比赛模式阵亡后暂停回合推进，等待 UI 处理换人/重置
+      state._elimPaused = true;
       return;
     }
     state.gameOver = true;

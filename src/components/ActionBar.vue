@@ -81,7 +81,7 @@
         <div class="action-hint">选择攻击目标：</div>
         <div class="action-row">
           <button
-            v-for="p in aliveTargets"
+            v-for="p in attackTargets"
             :key="p.index"
             class="ab ab--target"
             :disabled="disabled"
@@ -375,6 +375,17 @@ const nahidaTotalCards = computed(() => props.state.scryCards?.length || 5);
 const aliveTargets = computed(() =>
   props.state.players.filter((p) => p.alive && p !== currentPlayerVal.value),
 );
+
+// 攻击目标：经典模式下排除盟友（盟友只能通过背刺伤害）
+const attackTargets = computed(() => {
+  const attacker = currentPlayerVal.value;
+  if (!attacker) return [];
+  return aliveTargets.value.filter(
+    (p) =>
+      // 经典模式下，不能攻击自己的盟友
+      !(!props.state.matchContext && attacker.allyIndex === p.index),
+  );
+});
 
 const nahidaStepLabel = computed(() => {
   const total = nahidaTotalCards.value;

@@ -187,7 +187,6 @@ export function executeRaidenSkill(state, targetIdx) {
   if (attacker.characterId === "mavuika" && attacker.fightingSpirit > 0) {
     bonuses.spirit = attacker.fightingSpirit;
     damage += attacker.fightingSpirit;
-    attacker.fightingSpirit = 0;
   }
 
   state.devLog.info(
