@@ -227,9 +227,21 @@ import {
   executeFurinaSwap,
   executeAimiliyaSkill,
   executeCaiyueangSave,
+  executeCaiyueangLoad,
   executeLiniyaSkill,
   submitNahidaScry,
+  executeAlly,
+  executeFenjinSkill,
 } from "../game/gameState.js";
+import {
+  isAiPlayer,
+  decideTopAction,
+  decideTarget,
+  decideGamblePick,
+  decideNahidaOrder,
+  decideLiniyaChoice,
+  decideCaiyueangChoice,
+} from "../game/ai.js";
 
 const props = defineProps({
   useAI: { type: Boolean, default: true },
@@ -330,14 +342,7 @@ let aiTimer = null;
 function isAITurn() {
   if (!matchState.value) return false;
   const p = gameState.players[gameState.currentPlayerIndex];
-  return p?.alive && p.characterId !== matchState.value.playerCharId;
-}
-
-function getPlayerIndex() {
-  const p = gameState.players.find(
-    (p) => p.characterId === matchState.value?.playerCharId,
-  );
-  return p?.index ?? 0;
+  return p?.alive && isAiPlayer(p);
 }
 
 // ── 调度入口 ──
@@ -358,152 +363,124 @@ watch(() => gameState.step, scheduleAI, { immediate: true });
 // ── 主决策 ──
 
 function aiAct() {
-  if (!isAITurn() || gameState.gameOver || gameState.step !== "pickAction")
-    return;
-  // 安全检查：有人阵亡时等待 matchContext 处理，不行动
-  if (gameState.players.some((p) => !p.alive)) return;
-
-  const canAttack = gameState.phase !== "peace";
-  const player = gameState.players[gameState.currentPlayerIndex];
-  const canSkill =
-    player?.skillType === "active" &&
-    player?.skillUses > 0 &&
-    gameState.currentWeather !== "arms";
-
-  const r = Math.random();
-  let choice;
-  if (r < 0.55 && canAttack) {
-    choice = "攻击";
-    aiDoAttack();
-  } else if (r < 0.82) {
-    choice = "防御";
-    executeDefense(gameState);
-  } else if (r < 0.94) {
-    choice = "赌命";
-    aiDoGamble();
-  } else if (canSkill) {
-    choice = "技能";
-    aiDoSkill();
+  if (gameState.step === "pickAction") {
+    const decision = decideTopAction(gameState);
+    gameState.devLog.debug(
+      CAT.AI,
+      `AI决策: ${decision.action} (${decision.reason})`,
+      {
+        player: gameState.players[gameState.currentPlayerIndex]?.name,
+        decision,
+      },
+    );
+    executeTopAction(decision);
   } else {
-    choice = "防御(保底)";
-    executeDefense(gameState);
+    executeMiddleStep();
   }
 
-  gameState.devLog.debug(
-    CAT.AI,
-    `AI决策: ${player?.name}→${choice} (r=${r.toFixed(2)})`,
-    {
-      player: player?.name,
-      choice,
-      canAttack,
-      canSkill,
-      hp: player?.hp,
-      defCount: player?.defensePile?.length,
-    },
-  );
-
-  // 回退：300ms 后仍在 pickAction 且无人阵亡则防御
+  // 300ms 保底回退定时器
   aiTimer = setTimeout(() => {
     if (gameState.step !== "pickAction") return;
     if (!isAITurn() || gameState.gameOver) return;
     if (gameState.players.some((p) => !p.alive)) return;
-    gameState.devLog.warn(
-      CAT.AI,
-      `AI回退保底: ${player?.name} 300ms后仍在pickAction，强制防御`,
-    );
     executeDefense(gameState);
   }, 300);
 }
 
-// ── 各行动实现 ──
+// ── 顶层行动分发 ──
 
-function aiDoAttack() {
-  const targetIdx = getPlayerIndex();
-  gameState.devLog.debug(CAT.AI, `AI攻击: 目标=${targetIdx}`, { targetIdx });
-  startAttack(gameState);
-  aiTimer = setTimeout(() => {
-    if (gameState.step === "attackShowCard")
-      executeAttack(gameState, targetIdx);
-  }, 500);
-}
-
-function aiDoGamble() {
-  const targetIdx = getPlayerIndex(); // for auto-complete if needed
-  gameState._skipAnim = true;
-  const logBefore = gameState.messageLog.length;
-  executeGamble(gameState);
-  aiSuppressLog(logBefore, "对手 执行赌命");
-  aiTimer = setTimeout(() => {
-    if (
-      gameState.step === "gamblePick" &&
-      gameState.pendingGamble?.drawnCards?.length >= 2
-    ) {
-      const lb = gameState.messageLog.length;
-      submitGamble(gameState, 0, 1);
-      aiSuppressLog(lb);
+function executeTopAction(decision) {
+  switch (decision.action) {
+    case "attack": {
+      startAttack(gameState);
+      aiTimer = setTimeout(() => {
+        if (gameState.step === "attackShowCard") {
+          const t = decideTarget(gameState, { action: "attack" });
+          executeAttack(gameState, t.targetIndex);
+        }
+      }, 500);
+      break;
     }
-    gameState._skipAnim = false;
-  }, 400);
+    case "defense":
+      executeDefense(gameState);
+      break;
+    case "gamble": {
+      gameState._skipAnim = true;
+      const lb = gameState.messageLog.length;
+      executeGamble(gameState);
+      aiSuppressLog(lb, "对手 执行赌命");
+      aiTimer = setTimeout(() => {
+        if (gameState.step === "gamblePick" && gameState.pendingGamble) {
+          const g = decideGamblePick(
+            gameState,
+            gameState.pendingGamble.drawnCards,
+          );
+          const lb2 = gameState.messageLog.length;
+          submitGamble(gameState, g.trapIdx, g.baitIdx);
+          aiSuppressLog(lb2);
+        }
+        gameState._skipAnim = false;
+      }, 400);
+      break;
+    }
+    case "skill": {
+      executeSkill(gameState);
+      aiTimer = setTimeout(() => executeMiddleStep(), 400);
+      break;
+    }
+  }
 }
 
-function aiDoSkill() {
-  const targetIdx = getPlayerIndex();
-  gameState.devLog.debug(CAT.AI, `AI使用技能，目标=${targetIdx}`, {
-    targetIdx,
-  });
-  executeSkill(gameState);
-  aiTimer = setTimeout(() => aiAutoComplete(targetIdx), 400);
-}
+// ── 中间步骤自动完成 ──
 
-// ── 通用步骤自动完成 ──
-
-/** 在 1v1 中自动完成任何需要选择的中间步骤。未知步骤取消回退 */
-function aiAutoComplete(targetIdx) {
+function executeMiddleStep() {
   const s = gameState.step;
   if (s === "pickAction") return;
 
-  gameState.devLog.debug(CAT.AI, `AI自动完成步骤: ${s}`, {
-    step: s,
-    targetIdx,
-  });
-
-  // 需要选目标的步骤（攻击展示、技能选目标）
   if (s === "attackShowCard") {
-    executeAttack(gameState, targetIdx);
-    return;
-  }
-  if (s === "skillPickTarget") {
-    if (gameState.pendingFurinaTarget) executeFurinaSwap(gameState, targetIdx);
-    else if (gameState._aimiliyaFreeze)
-      executeAimiliyaSkill(gameState, targetIdx);
-    else executeRaidenSkill(gameState, targetIdx);
-    return;
-  }
-  // 角色特定步骤
-  if (s === "caiyueangPick") {
-    executeCaiyueangSave(gameState);
-    return;
-  }
-  if (s === "liniyaPick") {
-    executeLiniyaSkill(gameState, targetIdx, 2);
-    return;
-  }
-  if (s === "skillNahida" && gameState.scryCards) {
-    submitNahidaScry(
-      gameState,
-      gameState.scryCards.map((_, i) => i),
-    );
-    return;
-  }
+    const t = decideTarget(gameState, { action: "attack" });
+    executeAttack(gameState, t.targetIndex);
+  } else if (s === "gamblePick") {
+    if (gameState.pendingGamble) {
+      const g = decideGamblePick(gameState, gameState.pendingGamble.drawnCards);
+      submitGamble(gameState, g.trapIdx, g.baitIdx);
+    }
+    gameState._skipAnim = false;
+  } else if (s === "skillPickTarget") {
+    let ctx = { action: "skill" };
+    if (gameState.pendingFurinaTarget) ctx.characterId = "furina";
+    else if (gameState._aimiliyaFreeze) ctx.characterId = "aimiliya";
+    else if (gameState._fenjinHeal !== undefined) ctx.characterId = "fenjin";
+    else ctx.characterId = "raiden";
 
-  // 未知步骤 → 清除中间状态 → 防御
-  gameState.step = "pickAction";
-  gameState.pendingFurinaTarget = false;
-  gameState._aimiliyaFreeze = null;
-  gameState._fenjinHeal = null;
-  gameState._liniyaSubSkill = null;
-  gameState._caiyueangMode = null;
-  executeDefense(gameState);
+    const t = decideTarget(gameState, ctx);
+    if (gameState.pendingFurinaTarget) {
+      executeFurinaSwap(gameState, t.targetIndex);
+    } else if (gameState._aimiliyaFreeze) {
+      executeAimiliyaSkill(gameState, t.targetIndex);
+    } else if (gameState._fenjinHeal !== undefined) {
+      executeFenjinSkill(gameState, t.targetIndex);
+    } else {
+      executeRaidenSkill(gameState, t.targetIndex);
+    }
+  } else if (s === "skillNahida") {
+    const order = decideNahidaOrder(gameState, gameState.scryCards);
+    submitNahidaScry(gameState, order);
+  } else if (s === "liniyaPick") {
+    const d = decideLiniyaChoice(gameState);
+    executeLiniyaSkill(gameState, d.targetIndex, d.subSkill);
+  } else if (s === "caiyueangPick") {
+    const d = decideCaiyueangChoice(gameState);
+    if (d.choice === "save") executeCaiyueangSave(gameState);
+    else executeCaiyueangLoad(gameState);
+  } else if (s === "allyPick") {
+    const t = decideTarget(gameState, { action: "ally" });
+    executeAlly(gameState, t.targetIndex);
+  } else {
+    // 未知步骤保底
+    gameState.step = "pickAction";
+    executeDefense(gameState);
+  }
 }
 
 // ── 工具 ──

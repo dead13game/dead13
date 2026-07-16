@@ -48,11 +48,20 @@
         :useWeather="useWeather"
         :allSelected="allSelected"
         :availableChars="availableChars"
+        :aiSlots="aiSlots"
+        :aiDifficulties="aiDifficulties"
         @update:playerCount="playerCount = $event"
         @update:useWeather="useWeather = $event"
         @update:playerName="(idx, name) => (playerNames[idx] = name)"
         @selectChar="selectChar"
         @startGame="startGame"
+        @update:aiSlots="
+          (newSlots) => aiSlots.splice(0, aiSlots.length, ...newSlots)
+        "
+        @update:aiDifficulties="
+          (newDiffs) =>
+            aiDifficulties.splice(0, aiDifficulties.length, ...newDiffs)
+        "
       />
 
       <!-- 经典模式：游戏界面 -->
@@ -111,6 +120,8 @@ const {
   selectChar,
   startGame,
   resetGame,
+  aiSlots,
+  aiDifficulties,
 } = useGameController();
 
 // ---- 模式选择 ----

@@ -162,6 +162,8 @@ function createPlayer(index, charData, name) {
     damageBonus: {},
     frozenBy: null,
     savepoint: null,
+    isAI: false,
+    aiDifficulty: null, // 'easy' | 'skilled' | 'hell'
     allyIndex: null,
     allianceTurns: 0,
     betrayalPenalty: 0,
@@ -193,6 +195,7 @@ export function createGameState() {
     _skipAnim: false,
     _gameJustReset: false,
     _elimPaused: false,
+    aiPeekDepth: 3, // 地狱AI偷看牌库深度
     devLog: null,
   });
 

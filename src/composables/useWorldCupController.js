@@ -109,6 +109,15 @@ export function useWorldCupController() {
       }
     });
 
+    // 标记 AI 玩家
+    const aiDifficulty = "easy";
+    gameState.players.forEach((p) => {
+      if (p.characterId === opponentCharId) {
+        p.isAI = true;
+        p.aiDifficulty = aiDifficulty;
+      }
+    });
+
     gameState.matchContext = {
       onPlayerEliminated: (deadIdx, killerIdx, actualRound) => {
         // 保存被击杀者 characterId，供重置后矫正先手顺序
@@ -322,6 +331,7 @@ export function useWorldCupController() {
     resetGameForNextLife(matchState.value, gameState);
     fixTurnAfterReset();
     rebuildMatchContext(matchState.value);
+    markAIPlayer();
     uiMode.value = "match";
   }
 
@@ -330,7 +340,21 @@ export function useWorldCupController() {
     skipSubstitution(matchState.value, gameState);
     fixTurnAfterReset();
     rebuildMatchContext(matchState.value);
+    markAIPlayer();
     uiMode.value = "match";
+  }
+
+  /** 标记 AI 玩家（重置游戏后需重新标记） */
+  function markAIPlayer() {
+    if (!matchState.value) return;
+    const opponentCharId = matchState.value.opponentCharId;
+    const aiDifficulty = "easy";
+    gameState.players.forEach((p) => {
+      if (p.characterId === opponentCharId) {
+        p.isAI = true;
+        p.aiDifficulty = aiDifficulty;
+      }
+    });
   }
 
   // ---- 继续 ----

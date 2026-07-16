@@ -13,6 +13,26 @@ export function useGameController() {
   const playerNames = reactive(["", "", "", "", "", "", "", ""]);
   const playerChars = reactive(["", "", "", "", "", "", "", ""]);
   const useWeather = ref(false);
+  const aiSlots = reactive([
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+  ]);
+  const aiDifficulties = reactive([
+    "easy",
+    "easy",
+    "easy",
+    "easy",
+    "easy",
+    "easy",
+    "easy",
+    "easy",
+  ]);
 
   // 可用角色（排除已被其他玩家选的）
   function availableChars(playerIdx) {
@@ -43,6 +63,14 @@ export function useGameController() {
     chars.forEach((charId, i) => {
       gameState.players[i].name = names[i];
     });
+    // 标记 AI 玩家（用 characterId 配对，因为 initGame 会按HP重排players）
+    gameState.players.forEach((p) => {
+      const slotIdx = playerChars.indexOf(p.characterId);
+      if (slotIdx >= 0) {
+        p.isAI = aiSlots[slotIdx] || false;
+        p.aiDifficulty = aiSlots[slotIdx] ? aiDifficulties[slotIdx] : "easy";
+      }
+    });
     gameStarted.value = true;
   }
 
@@ -69,5 +97,7 @@ export function useGameController() {
     selectChar,
     startGame,
     resetGame,
+    aiSlots,
+    aiDifficulties,
   };
 }

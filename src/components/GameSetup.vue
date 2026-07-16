@@ -81,6 +81,39 @@
               >（{{ charById(playerChars[i - 1])?.maxUses }}次）</template
             >
           </div>
+
+          <div class="ai-controls">
+            <label class="ai-toggle">
+              <input
+                type="checkbox"
+                :checked="aiSlots[i - 1]"
+                @change="
+                  $emit(
+                    'update:aiSlots',
+                    aiSlots.map((v, j) => (j === i - 1 ? !v : v)),
+                  )
+                "
+              />
+              <span>AI</span>
+            </label>
+            <select
+              v-if="aiSlots[i - 1]"
+              :value="aiDifficulties[i - 1]"
+              @change="
+                $emit(
+                  'update:aiDifficulties',
+                  aiDifficulties.map((v, j) =>
+                    j === i - 1 ? $event.target.value : v,
+                  ),
+                )
+              "
+              class="ai-difficulty-select"
+            >
+              <option value="easy">简单</option>
+              <option value="skilled">熟练</option>
+              <option value="hell">地狱</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -120,6 +153,23 @@ defineProps({
   useWeather: { type: Boolean, default: false },
   allSelected: { type: Boolean, default: false },
   availableChars: { type: Function, required: true },
+  aiSlots: {
+    type: Array,
+    default: () => [false, false, false, false, false, false, false, false],
+  },
+  aiDifficulties: {
+    type: Array,
+    default: () => [
+      "easy",
+      "easy",
+      "easy",
+      "easy",
+      "easy",
+      "easy",
+      "easy",
+      "easy",
+    ],
+  },
 });
 
 defineEmits([
@@ -128,6 +178,8 @@ defineEmits([
   "update:playerName",
   "selectChar",
   "startGame",
+  "update:aiSlots",
+  "update:aiDifficulties",
 ]);
 
 const charMap = computed(() => {
@@ -360,6 +412,28 @@ function charById(id) {
 .rules-content p {
   color: #616161;
   font-size: 12px;
+}
+
+.ai-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.ai-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.ai-difficulty-select {
+  font-size: 13px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #555;
+  background: #333;
+  color: #fff;
 }
 
 /* 移动端：角色卡片更紧凑，4 张/行 */

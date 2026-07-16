@@ -60,7 +60,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, watch, onUnmounted } from "vue";
 import GameCanvas from "../pixi/GameCanvas.vue";
 import ActionBar from "./ActionBar.vue";
 import LogPanel from "./LogPanel.vue";
@@ -69,10 +69,20 @@ import DevLogPanel from "./DevLogPanel.vue";
 import { usePixiSync } from "../bridge/usePixiSync.js";
 import { useAnimationFlow } from "../bridge/useAnimationFlow.js";
 import {
+  isAiPlayer,
+  decideTopAction,
+  decideTarget,
+  decideGamblePick,
+  decideNahidaOrder,
+  decideLiniyaChoice,
+  decideCaiyueangChoice,
+} from "../game/ai.js";
+import {
   startAttack,
   executeAttack,
   executeDefense,
   executeGamble,
+  submitGamble,
   executeSkill,
   getCurrentWeather,
   executeRaidenSkill,
@@ -80,6 +90,7 @@ import {
   executeFenjinSkill,
   executeLiniyaSkill,
   executeAimiliyaSkill,
+  submitNahidaScry,
   executeCaiyueangSave,
   executeCaiyueangLoad,
   startAlly,
@@ -219,6 +230,149 @@ function onRelayout() {
   const m = getManager();
   if (m) m.rebuildLayout();
 }
+
+// ── AI 调度 ──
+let aiTimer = null;
+
+function isAITurn() {
+  if (!props.state || props.state.gameOver) return false;
+  const p = props.state.players[props.state.currentPlayerIndex];
+  return p?.alive && isAiPlayer(p);
+}
+
+function scheduleAI() {
+  if (props.worldCupMode) return; // 世界杯模式由 WorldCupShell 自行调度
+  if (aiTimer) clearTimeout(aiTimer);
+  const state = props.state;
+  if (!state || state.gameOver || state.phase === "setup") return;
+  if (state.players.filter((p) => !p.alive).length > 0) return;
+  if (state.step !== "pickAction" || !isAITurn()) return;
+  aiTimer = setTimeout(aiAct, 600 + Math.random() * 600);
+}
+
+function aiAct() {
+  const state = props.state;
+  if (state.step === "pickAction") {
+    const decision = decideTopAction(state);
+    executeTopAction(decision);
+  } else {
+    executeMiddleStep();
+  }
+
+  // 300ms 保底回退：如果卡住了强制防御
+  aiTimer = setTimeout(() => {
+    if (state.step !== "pickAction") return;
+    if (!isAITurn() || state.gameOver) return;
+    if (state.players.some((p) => !p.alive)) return;
+    executeDefense(state);
+  }, 300);
+}
+
+function executeTopAction(decision) {
+  const state = props.state;
+  switch (decision.action) {
+    case "attack": {
+      startAttack(state);
+      aiTimer = setTimeout(() => {
+        if (state.step === "attackShowCard") {
+          const t = decideTarget(state, { action: "attack" });
+          executeAttack(state, t.targetIndex);
+        }
+      }, 500);
+      break;
+    }
+    case "defense":
+      executeDefense(state);
+      break;
+    case "gamble": {
+      state._skipAnim = true;
+      executeGamble(state);
+      aiTimer = setTimeout(() => {
+        if (state.step === "gamblePick" && state.pendingGamble) {
+          const g = decideGamblePick(state, state.pendingGamble.drawnCards);
+          submitGamble(state, g.trapIdx, g.baitIdx);
+        }
+        state._skipAnim = false;
+      }, 400);
+      break;
+    }
+    case "skill": {
+      executeSkill(state);
+      aiTimer = setTimeout(() => executeMiddleStep(), 400);
+      break;
+    }
+  }
+}
+
+function executeMiddleStep() {
+  const state = props.state;
+  const s = state.step;
+  if (s === "pickAction") return;
+
+  if (s === "attackShowCard") {
+    const t = decideTarget(state, { action: "attack" });
+    executeAttack(state, t.targetIndex);
+  } else if (s === "gamblePick") {
+    if (state.pendingGamble) {
+      const g = decideGamblePick(state, state.pendingGamble.drawnCards);
+      submitGamble(state, g.trapIdx, g.baitIdx);
+    }
+    state._skipAnim = false;
+  } else if (s === "skillPickTarget") {
+    let ctx = { action: "skill" };
+    if (state.pendingFurinaTarget) ctx.characterId = "furina";
+    else if (state._aimiliyaFreeze) ctx.characterId = "aimiliya";
+    else if (state._fenjinHeal !== undefined) ctx.characterId = "fenjin";
+    else ctx.characterId = "raiden";
+
+    const t = decideTarget(state, ctx);
+    if (state.pendingFurinaTarget) {
+      executeFurinaSwap(state, t.targetIndex);
+    } else if (state._aimiliyaFreeze) {
+      executeAimiliyaSkill(state, t.targetIndex);
+    } else if (state._fenjinHeal !== undefined) {
+      executeFenjinSkill(state, t.targetIndex);
+    } else {
+      executeRaidenSkill(state, t.targetIndex);
+    }
+  } else if (s === "skillNahida") {
+    const order = decideNahidaOrder(state, state.scryCards);
+    submitNahidaScry(state, order);
+  } else if (s === "liniyaPick") {
+    const d = decideLiniyaChoice(state);
+    executeLiniyaSkill(state, d.targetIndex, d.subSkill);
+  } else if (s === "caiyueangPick") {
+    const d = decideCaiyueangChoice(state);
+    if (d.choice === "save") executeCaiyueangSave(state);
+    else executeCaiyueangLoad(state);
+  } else if (s === "allyPick") {
+    const t = decideTarget(state, { action: "ally" });
+    executeAlly(state, t.targetIndex);
+  } else {
+    state.step = "pickAction";
+    executeDefense(state);
+  }
+}
+
+// AI 回合调度 watch
+watch(
+  () => props.state?.currentPlayerIndex,
+  () => scheduleAI(),
+);
+watch(
+  () => props.state?.step,
+  (newStep) => {
+    if (newStep !== "pickAction" && isAITurn() && !props.state.gameOver) {
+      if (aiTimer) clearTimeout(aiTimer);
+      aiTimer = setTimeout(aiAct, 400);
+    }
+  },
+);
+
+// 清理 AI timer
+onUnmounted(() => {
+  if (aiTimer) clearTimeout(aiTimer);
+});
 </script>
 
 <style scoped>
