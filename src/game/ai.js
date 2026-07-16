@@ -402,15 +402,6 @@ function scoreSkillSkilled(state, player) {
       break;
   }
 
-  // 多次使用型技能：最后一次省着用（仅maxUses>1的角色，菜月昴除外）
-  if (
-    player.skillUses <= 1 &&
-    player.maxUses > 1 &&
-    player.characterId !== "caiyueang"
-  ) {
-    score -= 25;
-  }
-
   return score;
 }
 
