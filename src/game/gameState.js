@@ -87,6 +87,12 @@ export function ensureDeck(state, n = 1) {
 
 /** 统一行动结束出口 */
 export function endAction(state) {
+  // 比赛模式：游戏刚被 matchContext 回调重置（击杀→resetGameForNextLife），
+  // 不再推进回合——重置时已设好 currentPlayerIndex 和 step
+  if (state._gameJustReset) {
+    state._gameJustReset = false;
+    return;
+  }
   if (state.endTurn) {
     state.endTurn = true;
     nextPlayer(state);
@@ -167,6 +173,7 @@ export function createGameState() {
     useWeather: false,
     matchContext: null,
     _skipAnim: false,
+    _gameJustReset: false,
     devLog: null,
   });
 

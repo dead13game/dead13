@@ -232,6 +232,7 @@ function reset1v1Game(gameState, playerCharId, opponentCharId, startingRound) {
     peaceRounds: 2,
     _elimGuard: false,
     _skipAnim: false,
+    _gameJustReset: true,
   });
 
   // 创建两个玩家

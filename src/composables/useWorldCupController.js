@@ -19,7 +19,6 @@ import {
   executeSubstitution,
   skipSubstitution,
   executePenaltyRound,
-
 } from "../game/matchState.js";
 import { createGameState, initGame } from "../game/gameState.js";
 import { MATCH_CONFIG } from "../game/worldCupConstants.js";
@@ -81,7 +80,7 @@ export function useWorldCupController() {
       startingCharId || wcState._lastPlayerChar,
       opponentCharId,
     );
-    matchState.value = ms;
+    matchState.value = reactive(ms);
 
     // 初始化游戏
     initGameForMatch(
@@ -279,7 +278,7 @@ export function useWorldCupController() {
     const opponent = wcState.knockoutOpponent;
 
     const ms = createMatchState(false, playerCharId, opponent.charId);
-    matchState.value = ms;
+    matchState.value = reactive(ms);
     wcState.currentMatch = ms;
     ms.matchRound = 1;
 
