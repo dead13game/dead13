@@ -55,7 +55,7 @@
     </div>
 
     <!-- 开发日志面板（Ctrl+Shift+D 切换） -->
-    <DevLogPanel :entries="state.devLog.entries" />
+    <DevLogPanel ref="devLogRef" :entries="state.devLog.entries" />
   </div>
 </template>
 
@@ -106,6 +106,7 @@ const props = defineProps({
 const emit = defineEmits(["restart"]);
 
 const gameCanvasRef = ref(null);
+const devLogRef = ref(null);
 
 function getManager() {
   return gameCanvasRef.value?.manager ?? null;
@@ -229,7 +230,29 @@ function cancelPick() {
 function onRelayout() {
   const m = getManager();
   if (m) m.rebuildLayout();
+
+  // 5 连击打开 DevLogPanel（1.5 秒内）
+  relayoutClickCount++;
+  if (relayoutClickTimer) clearTimeout(relayoutClickTimer);
+  if (relayoutClickCount >= 5) {
+    devLogRef.value?.toggleDevLog();
+    relayoutClickCount = 0;
+  } else {
+    relayoutClickTimer = setTimeout(() => {
+      relayoutClickCount = 0;
+    }, 1500);
+  }
 }
+
+let relayoutClickCount = 0;
+let relayoutClickTimer = null;
+
+/** 暴露给 WorldCupShell 的 toggleDevLog */
+function toggleDevLog() {
+  devLogRef.value?.toggleDevLog();
+}
+
+defineExpose({ toggleDevLog });
 
 // ── AI 调度 ──
 let aiTimer = null;

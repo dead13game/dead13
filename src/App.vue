@@ -79,10 +79,12 @@
         :ai-team-names="wcAiTeamNames"
         :use-a-i="wcUseAI"
         :use-weather="wcUseWeather"
+        :difficulty="wcDifficulty"
         @update:teamName="wcTeamName = $event"
         @update:selectedChar="wcSelectedChar = $event"
         @update:useAI="wcUseAI = $event"
         @update:useWeather="wcUseWeather = $event"
+        @update:difficulty="wcDifficulty = $event"
         @start="startWorldCup"
       />
 
@@ -92,6 +94,7 @@
         ref="wcShellRef"
         :use-a-i="wcUseAI"
         :use-weather="wcUseWeather"
+        :difficulty="wcDifficulty"
         @restart="handleReset"
       />
     </div>
@@ -132,6 +135,7 @@ const wcSelectedChar = ref("");
 const wcAiTeamNames = ref([]);
 const wcUseAI = ref(true);
 const wcUseWeather = ref(false);
+const wcDifficulty = ref("easy");
 const wcShellRef = ref(null);
 
 function selectMode(mode) {
@@ -156,6 +160,7 @@ function startWorldCup() {
         wcSelectedChar.value,
         wcAiTeamNames.value,
         wcUseWeather.value,
+        wcDifficulty.value,
       );
     }
   }, 50);

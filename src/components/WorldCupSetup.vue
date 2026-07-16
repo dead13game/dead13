@@ -29,6 +29,19 @@
         </label>
       </div>
 
+      <div class="wc-setup__row" v-if="useAI">
+        <label>AI难度：</label>
+        <select
+          class="wc-setup__select"
+          :value="difficulty"
+          @change="$emit('update:difficulty', $event.target.value)"
+        >
+          <option value="easy">简单</option>
+          <option value="skilled">熟练</option>
+          <option value="hell">地狱</option>
+        </select>
+      </div>
+
       <div class="wc-setup__row">
         <label>天气：</label>
         <label class="wc-setup__toggle">
@@ -111,6 +124,7 @@ const props = defineProps({
   aiTeamNames: { type: Array, default: () => [] },
   useAI: { type: Boolean, default: true },
   useWeather: { type: Boolean, default: false },
+  difficulty: { type: String, default: "easy" },
 });
 
 defineEmits([
@@ -118,6 +132,7 @@ defineEmits([
   "update:selectedChar",
   "update:useAI",
   "update:useWeather",
+  "update:difficulty",
   "start",
 ]);
 
@@ -186,6 +201,20 @@ const aiTeams = computed(() =>
   transition: border-color 0.2s;
 }
 .wc-setup__input:focus {
+  border-color: #e53935;
+}
+.wc-setup__select {
+  flex: 1;
+  padding: 8px 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.wc-setup__select:focus {
   border-color: #e53935;
 }
 .wc-setup__group-info {

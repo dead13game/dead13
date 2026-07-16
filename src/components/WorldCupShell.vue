@@ -2,23 +2,26 @@
   <div class="wc-shell">
     <!-- 比赛进行中：显示游戏 + 记分牌 -->
     <template v-if="uiMode === 'match' || uiMode === 'substitution'">
-      <WorldCupScoreboard
-        :player-name="currentPlayerName"
-        :opponent-name="currentOpponentName"
-        :score="matchState?.score || [0, 0]"
-        :match-round="matchState?.matchRound || 1"
-        :max-rounds="matchState?.maxRounds || 90"
-        :is-group-stage="matchState?.isGroupStage || false"
-        :is-extra-time="matchState?.isExtraTime || false"
-        :subs-left="wcState.substitutionsLeft"
-        :can-sub="subsAvailable"
-        :stage-label="stageLabel"
-        :penalty="matchState?.penalty || null"
-        @substitute="uiMode = 'substitution'"
-      />
+      <div @click="onScoreboardClick">
+        <WorldCupScoreboard
+          :player-name="currentPlayerName"
+          :opponent-name="currentOpponentName"
+          :score="matchState?.score || [0, 0]"
+          :match-round="matchState?.matchRound || 1"
+          :max-rounds="matchState?.maxRounds || 90"
+          :is-group-stage="matchState?.isGroupStage || false"
+          :is-extra-time="matchState?.isExtraTime || false"
+          :subs-left="wcState.substitutionsLeft"
+          :can-sub="subsAvailable"
+          :stage-label="stageLabel"
+          :penalty="matchState?.penalty || null"
+          @substitute="uiMode = 'substitution'"
+        />
+      </div>
 
       <!-- 游戏主界面 -->
       <GameShell
+        ref="gameShellRef"
         :state="gameState"
         :world-cup-mode="true"
         @restart="resetWorldCup"
@@ -27,10 +30,21 @@
       <!-- 换人面板（覆盖在游戏上方） -->
       <div v-if="uiMode === 'substitution'" class="wc-shell__overlay">
         <WorldCupSubstitution
-          :current-char-id="matchState?.playerCharId || ''"
-          :current-char-name="currentCharName"
-          :opponent-char-id="matchState?.opponentCharId || ''"
+          :current-char-id="
+            opponentSubPending
+              ? matchState?.opponentCharId || ''
+              : matchState?.playerCharId || ''
+          "
+          :current-char-name="
+            opponentSubPending ? opponentCharName : currentCharName
+          "
+          :opponent-char-id="
+            opponentSubPending
+              ? matchState?.playerCharId || ''
+              : matchState?.opponentCharId || ''
+          "
           :subs-left="wcState.substitutionsLeft"
+          :sub-title="opponentSubPending ? '对手换人' : '玩家换人'"
           @confirm="onSubConfirm"
           @skip="onSubSkip"
         />
@@ -214,6 +228,7 @@ import WorldCupSubstitution from "./WorldCupSubstitution.vue";
 import WorldCupStandings from "./WorldCupStandings.vue";
 import { useWorldCupController } from "../composables/useWorldCupController.js";
 import { MATCH_CONFIG } from "../game/worldCupConstants.js";
+import { CHARACTERS } from "../game/constants.js";
 import { getKnockoutRoundName } from "../game/worldCup.js";
 import { CAT } from "../game/gameLogger.js";
 import {
@@ -246,6 +261,7 @@ import {
 const props = defineProps({
   useAI: { type: Boolean, default: true },
   useWeather: { type: Boolean, default: false },
+  difficulty: { type: String, default: "easy" },
 });
 
 const emit = defineEmits(["restart"]);
@@ -260,9 +276,13 @@ const {
   currentPlayerName,
   currentOpponentName,
   currentCharName,
+  opponentSubPending,
   initWorldCup,
   handleSubstitution,
   handleSkipSubstitution,
+  handlePlayerSubstitution,
+  handleOpponentSubstitution,
+  handleOpponentSkipSubstitution,
   continueAfterMatchResult,
   continueFromStandings,
   enterKnockoutStage,
@@ -273,6 +293,26 @@ const {
 
 // 暴露给父组件
 defineExpose({ initWorldCup, wcState, uiMode });
+
+// GameShell ref（用于 DevLogPanel 5 连击 + 对手换人）
+const gameShellRef = ref(null);
+
+// 计分板 5 连击 → 打开 DevLogPanel
+let sbClickCount = 0;
+let sbClickTimer = null;
+
+function onScoreboardClick() {
+  sbClickCount++;
+  if (sbClickTimer) clearTimeout(sbClickTimer);
+  if (sbClickCount >= 5) {
+    gameShellRef.value?.toggleDevLog();
+    sbClickCount = 0;
+  } else {
+    sbClickTimer = setTimeout(() => {
+      sbClickCount = 0;
+    }, 1500);
+  }
+}
 
 // 点球状态
 const penaltyRound = ref(null);
@@ -292,6 +332,14 @@ const stageLabel = computed(() => {
   return "";
 });
 
+// 对手角色名（用于换人 UI）
+const opponentCharName = computed(() => {
+  const charData = CHARACTERS.find(
+    (c) => c.id === matchState.value?.opponentCharId,
+  );
+  return charData?.name || "";
+});
+
 // 是否可以换人
 const subsAvailable = computed(() => {
   if (!matchState.value) return false;
@@ -304,11 +352,24 @@ const subsAvailable = computed(() => {
 
 // 换人确认
 function onSubConfirm(charId) {
-  handleSubstitution(charId);
+  if (props.useAI) {
+    handleSubstitution(charId);
+  } else if (opponentSubPending.value) {
+    handleOpponentSubstitution(charId);
+  } else {
+    handlePlayerSubstitution(charId);
+  }
 }
 
 function onSubSkip() {
-  handleSkipSubstitution();
+  if (props.useAI) {
+    handleSkipSubstitution();
+  } else if (opponentSubPending.value) {
+    handleOpponentSkipSubstitution();
+  } else {
+    // 玩家跳过，轮到对手换人
+    opponentSubPending.value = true;
+  }
 }
 
 // 点球

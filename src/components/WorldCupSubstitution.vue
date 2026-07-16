@@ -1,7 +1,7 @@
 <template>
   <div class="wc-sub">
     <div class="wc-sub__header">
-      <h3>🔄 换人</h3>
+      <h3>🔄 {{ subTitle }}</h3>
       <span class="wc-sub__remaining">剩余 {{ subsLeft }} 次</span>
     </div>
     <p class="wc-sub__current">
@@ -63,6 +63,7 @@ const props = defineProps({
   currentCharName: { type: String, default: "" },
   opponentCharId: { type: String, default: "" },
   subsLeft: { type: Number, default: 3 },
+  subTitle: { type: String, default: "换人" },
 });
 
 defineEmits(["confirm", "skip"]);

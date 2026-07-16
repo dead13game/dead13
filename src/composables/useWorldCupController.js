@@ -22,6 +22,7 @@ import {
 } from "../game/matchState.js";
 import { createGameState, initGame } from "../game/gameState.js";
 import { MATCH_CONFIG } from "../game/worldCupConstants.js";
+import { CHARACTERS } from "../game/constants.js";
 
 /**
  * 世界杯控制器 — 管理锦标赛+比赛+游戏三层状态
@@ -37,12 +38,22 @@ export function useWorldCupController() {
   const goalFlash = ref(false);
   const matchResult = ref(null);
   const knockoutIntro = ref(null);
+  const opponentSubPending = ref(false);
 
   let useWeather = false;
+  let aiDifficulty = "easy";
 
   // ---- 初始化 ----
-  function initWorldCup(teamName, startingCharId, opponentNames, weather) {
+  function initWorldCup(
+    teamName,
+    startingCharId,
+    opponentNames,
+    weather,
+    difficulty = "easy",
+  ) {
     useWeather = weather || false;
+    aiDifficulty = difficulty;
+    opponentSubPending.value = false;
     const state = createWorldCupState(teamName, opponentNames);
     Object.assign(wcState, state);
     initGroupMatches(wcState);
@@ -110,7 +121,6 @@ export function useWorldCupController() {
     });
 
     // 标记 AI 玩家
-    const aiDifficulty = "easy";
     gameState.players.forEach((p) => {
       if (p.characterId === opponentCharId) {
         p.isAI = true;
@@ -267,6 +277,7 @@ export function useWorldCupController() {
     matchState.value = ms;
     wcState.currentMatch = ms;
     ms.matchRound = 1;
+    opponentSubPending.value = false;
 
     initGameForMatch(playerCharId, opponent.charId, 1, ms);
     uiMode.value = "match";
@@ -348,13 +359,77 @@ export function useWorldCupController() {
   function markAIPlayer() {
     if (!matchState.value) return;
     const opponentCharId = matchState.value.opponentCharId;
-    const aiDifficulty = "easy";
     gameState.players.forEach((p) => {
       if (p.characterId === opponentCharId) {
         p.isAI = true;
         p.aiDifficulty = aiDifficulty;
       }
     });
+  }
+
+  // ---- 手动模式双步换人 ----
+
+  /** 玩家换人（第一步：执行换人但不重置游戏，等待对手也换人） */
+  function handlePlayerSubstitution(newCharId) {
+    if (!matchState.value) return;
+    executeSubstitution(matchState.value, gameState, newCharId);
+    opponentSubPending.value = true;
+    // uiMode 保持 "substitution"，等待对手换人
+  }
+
+  /** 对手换人（第二步：更新对手角色并统一重置游戏） */
+  function handleOpponentSubstitution(newCharId) {
+    if (!matchState.value) return;
+    const ms = matchState.value;
+    const oldOpponentCharId = ms.opponentCharId;
+
+    const opponent = gameState.players.find(
+      (p) => p.characterId === oldOpponentCharId,
+    );
+    const charData = CHARACTERS.find((c) => c.id === newCharId);
+
+    if (opponent && charData) {
+      Object.assign(opponent, {
+        characterId: charData.id,
+        characterName: charData.name,
+        characterTitle: charData.title,
+        characterIcon: charData.icon,
+        hp: charData.hp,
+        maxHp: charData.hp,
+        skillUses: charData.maxUses,
+        skillName: charData.skillName,
+        skillDesc: charData.skillDesc,
+        skillType: charData.skillType,
+        maxUses: charData.maxUses,
+      });
+
+      gameState.messageLog.push(
+        `🔄 对手换人：${charData.name} 上场！（剩余换人 ${ms.substitutionsLeft - 1} 次）`,
+      );
+    }
+
+    ms.opponentCharId = newCharId;
+    ms.substitutionsLeft--;
+    opponentSubPending.value = false;
+
+    resetGameForNextLife(ms, gameState);
+    fixTurnAfterReset();
+    rebuildMatchContext(ms);
+    markAIPlayer();
+    uiMode.value = "match";
+  }
+
+  /** 对手跳过换人（第二步skip：不换角色但统一重置游戏） */
+  function handleOpponentSkipSubstitution() {
+    if (!matchState.value) return;
+    const ms = matchState.value;
+    opponentSubPending.value = false;
+
+    resetGameForNextLife(ms, gameState);
+    fixTurnAfterReset();
+    rebuildMatchContext(ms);
+    markAIPlayer();
+    uiMode.value = "match";
   }
 
   // ---- 继续 ----
@@ -447,6 +522,7 @@ export function useWorldCupController() {
     currentPlayerName,
     currentOpponentName,
     currentCharName,
+    opponentSubPending,
     initWorldCup,
     startNextGroupMatch,
     enterKnockoutStage,
@@ -454,6 +530,9 @@ export function useWorldCupController() {
     continueKnockoutMatch,
     handleSubstitution,
     handleSkipSubstitution,
+    handlePlayerSubstitution,
+    handleOpponentSubstitution,
+    handleOpponentSkipSubstitution,
     continueAfterMatchResult,
     continueFromStandings,
     doPenaltyRound,

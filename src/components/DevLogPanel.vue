@@ -213,6 +213,11 @@ function clearLog() {
   props.entries.length = 0;
 }
 
+/** 切换面板（供外部 5 连击调用） */
+function toggleDevLog() {
+  visible.value = !visible.value;
+}
+
 /** 快捷键 */
 function onKeyDown(e) {
   if (e.ctrlKey && e.shiftKey && e.key === "D") {
@@ -220,6 +225,8 @@ function onKeyDown(e) {
     visible.value = !visible.value;
   }
 }
+
+defineExpose({ toggleDevLog });
 
 onMounted(() => {
   window.addEventListener("keydown", onKeyDown);
