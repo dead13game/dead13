@@ -318,9 +318,9 @@ function scoreDefenseSkilled(state, player) {
 }
 
 function scoreGambleSkilled(state, player) {
-  let score = 35;
+  let score = 20;
   if (!player.trap && !player.bait) score += 25;
-  else if (!player.trap || !player.bait) score += 12;
+  else if (!player.trap || !player.bait) score += 10;
   if (player.trap && player.trap.value < 5) score += 8;
   if (player.bait && player.bait.value < 3) score += 4;
   if (state.currentWeather === "wind") score += 10;
@@ -357,10 +357,22 @@ function scoreSkillSkilled(state, player) {
       break;
     case "furina": {
       if (state.phase === PHASE.PEACE) return -Infinity;
+
+      // 如果已经有无视陷阱效果，不要再放技能
+      if (player.ignoreTrapThisTurn) return -Infinity;
+
       const opponentsWithTrap = alivePlayers(state).filter(
         (p) => p.index !== player.index && p.trap,
       ).length;
+
+      // 如果所有对手都没有陷阱，芙宁娜技能意义不大
+      if (opponentsWithTrap === 0) return -Infinity;
+
       score += opponentsWithTrap * 8;
+
+      // 技能次数快用完了，降低滥用倾向
+      if (player.skillUses <= 1) score -= 40; // 最后一次省着用
+
       break;
     }
     case "fenjin": {
@@ -388,6 +400,11 @@ function scoreSkillSkilled(state, player) {
       break;
     default:
       break;
+  }
+
+  // 最后一次技能省着用（菜月昴除外，他的机制不同）
+  if (player.skillUses <= 1 && player.characterId !== "caiyueang") {
+    score -= 25;
   }
 
   return score;
@@ -585,20 +602,42 @@ function scoreAttackHell(state, player, target) {
     const atkVal = nextVal + bonus;
     const result = willTrapTrigger(atkVal, trapVal);
 
-    if (result === "rebound") {
-      // 反弹伤害会打回自己，如果我方会死 → 大幅减分
-      const selfDefense = estimateExactDamage(atkVal, player);
-      if (atkVal > player.hp + selfDefense) score -= 80;
-    } else if (result === "tie") {
-      // 平局双方受伤
+    if (result === "break") {
+      score += 15; // 能击破陷阱！加分
+    } else if (result === "rebound") {
+      const selfDmg = estimateExactDamage(atkVal, player);
+      if (atkVal > player.hp + selfDmg) score -= 80;
+      else score -= 15; // 反弹但不致命，只是亏
+    } else {
+      // tie
       if (atkVal > player.hp + estimateExactDamage(atkVal, player)) score -= 50;
+      else if (target.hp <= atkVal + target.defensePile.length * 2)
+        score += 5; // 平局但能杀对手
+      else score -= 10;
     }
   }
 
   // 精确伤害穿透计算
   const exactDmg = estimateExactDamage(nextVal + bonus, target);
-  if (exactDmg >= target.hp) score += 20;
+
+  // 斩杀机会检测
+  if (exactDmg >= target.hp) {
+    score += 30; // 必杀！最高优先级
+    // 如果对方无陷阱或者能破陷阱，再加分
+    if (!target.trap) score += 15;
+  }
+  // 有陷阱但能破 + 防御为0 + 残血 → 几乎必杀
+  if (
+    target.trap &&
+    willTrapTrigger(nextVal + bonus, target.trap.value) === "break" &&
+    exactDmg >= target.hp
+  ) {
+    score += 25;
+  }
   if (exactDmg <= 0) score -= 10;
+
+  // 安全攻击：对手无陷阱
+  if (!target.trap) score += 12;
 
   return score;
 }
@@ -628,9 +667,9 @@ function scoreDefenseHell(state, player) {
 }
 
 function scoreGambleHell(state, player) {
-  let score = 35;
+  let score = 20;
   if (!player.trap && !player.bait) score += 25;
-  else if (!player.trap || !player.bait) score += 12;
+  else if (!player.trap || !player.bait) score += 10;
   if (player.trap && player.trap.value < 5) score += 8;
   if (player.bait && player.bait.value < 3) score += 4;
   if (state.currentWeather === "wind") score += 10;
