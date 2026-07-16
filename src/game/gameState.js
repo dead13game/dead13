@@ -236,6 +236,7 @@ export function initGame(
     devLog: savedDevLog,
     _elimGuard: false,
     _elimPaused: false,
+    _peaceStartRound: startingRound ?? 1,
   });
 
   savedDevLog.clear();
@@ -316,7 +317,10 @@ function nextPlayer(state, _depth = 0) {
     }
 
     // 阶段切换
-    if (state.phase === PHASE.PEACE && state.round > state.peaceRounds) {
+    if (
+      state.phase === PHASE.PEACE &&
+      state.round > (state._peaceStartRound ?? 1) + state.peaceRounds
+    ) {
       state.phase = PHASE.NORMAL;
       addLog(state, `第${state.round}回合 战斗开始`);
       state.devLog.info(

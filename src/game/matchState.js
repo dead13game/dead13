@@ -215,7 +215,7 @@ function reset1v1Game(gameState, playerCharId, opponentCharId, startingRound) {
     weatherDeck: [],
     currentWeather: null,
     nextWeather: null,
-    round: 1,
+    round: startingRound,
     messageLog: gameState.messageLog, // 保留日志
     gameOver: false,
     winnerIndex: -1,
@@ -225,6 +225,7 @@ function reset1v1Game(gameState, playerCharId, opponentCharId, startingRound) {
     endTurn: true,
     useWeather: false,
     peaceRounds: 4,
+    _peaceStartRound: startingRound,
     _elimGuard: false,
     _elimPaused: false,
     _skipAnim: false,
