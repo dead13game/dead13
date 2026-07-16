@@ -181,11 +181,6 @@ export function resetGameForNextLife(matchState, gameState) {
   // 恢复比赛上下文
   gameState.matchContext = savedContext;
 
-  // 如果已过和平回合，直接进入战斗
-  if (matchState.matchRound > gameState.peaceRounds) {
-    gameState.phase = "normal";
-  }
-
   // 加时赛提示
   if (
     matchState.isExtraTime &&
@@ -220,7 +215,7 @@ function reset1v1Game(gameState, playerCharId, opponentCharId, startingRound) {
     weatherDeck: [],
     currentWeather: null,
     nextWeather: null,
-    round: startingRound,
+    round: 1,
     messageLog: gameState.messageLog, // 保留日志
     gameOver: false,
     winnerIndex: -1,
@@ -229,8 +224,9 @@ function reset1v1Game(gameState, playerCharId, opponentCharId, startingRound) {
     pendingVentiCards: null,
     endTurn: true,
     useWeather: false,
-    peaceRounds: 2,
+    peaceRounds: 4,
     _elimGuard: false,
+    _elimPaused: false,
     _skipAnim: false,
     _gameJustReset: true,
   });
@@ -248,10 +244,7 @@ function reset1v1Game(gameState, playerCharId, opponentCharId, startingRound) {
     p.index = i;
   });
 
-  // 如果 startingRound > peaceRounds，直接进入战斗阶段
-  if (startingRound > 2) {
-    gameState.phase = "normal";
-  }
+  // 换人重置后始终从 PEACE 开始，由 nextPlayer 根据 round 和 peaceRounds 控制阶段切换
 }
 
 /** 创建比赛用玩家对象（精简版 createPlayer） */
@@ -269,7 +262,7 @@ function createPlayerForMatch(index, charData, name) {
     defensePile: [],
     trap: null,
     bait: null,
-    skillUses: 0, // 击杀后技能进入冷却，随回合逐步恢复
+    skillUses: charData.maxUses, // 击杀重置后技能恢复到满
     skillName: charData.skillName,
     skillDesc: charData.skillDesc,
     skillType: charData.skillType,
@@ -333,7 +326,7 @@ export function executeSubstitution(matchState, gameState, newCharId) {
       characterIcon: charData.icon,
       hp: charData.hp,
       maxHp: charData.hp,
-      skillUses: 0, // 换人后技能进入冷却，随回合恢复
+      skillUses: charData.maxUses, // 换人后技能恢复到满
       skillName: charData.skillName,
       skillDesc: charData.skillDesc,
       skillType: charData.skillType,
