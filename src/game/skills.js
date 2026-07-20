@@ -372,6 +372,7 @@ export function executeAimiliyaSkill(state, targetIdx) {
   addLog(state, `${target.name} 被冻结，将跳过下一次行动`);
   state._aimiliyaFreeze = null;
   state.step = STEP.PICK_ACTION;
+  state.endTurn = false;
   endAction(state);
 }
 

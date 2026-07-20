@@ -31,6 +31,8 @@
           </label>
         </div>
 
+        <p class="triple-hint">💡 连续点击角色头像3次查看技能详情</p>
+
         <div v-for="i in playerCount" :key="'setup-' + i" class="setup-player">
           <div class="setup-player__header">
             <label>玩家 {{ i }}</label>
@@ -48,7 +50,7 @@
               :key="char.id"
               class="char-card"
               :class="{ 'char-card--selected': playerChars[i - 1] === char.id }"
-              @click="$emit('selectChar', i - 1, char.id)"
+              @click="onCharCardClick(i - 1, char.id)"
             >
               <div class="char-card__img-wrap">
                 <img
@@ -140,10 +142,59 @@
       </div>
     </div>
   </div>
+
+  <!-- 技能详情弹窗 -->
+  <Transition name="popup-fade">
+    <div
+      v-if="popupChar"
+      class="skill-overlay"
+      @click.self="skillPopupCharId = null"
+    >
+      <div class="skill-modal">
+        <button class="skill-modal__close" @click="skillPopupCharId = null">
+          ✕
+        </button>
+        <div class="skill-modal__header">
+          <img
+            v-if="popupChar.icon"
+            :src="popupChar.icon"
+            :alt="popupChar.name"
+            class="skill-modal__icon"
+          />
+          <div class="skill-modal__title-group">
+            <h3 class="skill-modal__name">{{ popupChar.name }}</h3>
+            <span class="skill-modal__title">{{ popupChar.title }}</span>
+          </div>
+        </div>
+        <div class="skill-modal__body">
+          <div class="skill-modal__skill-row">
+            <span class="skill-modal__skill-name">{{
+              popupChar.skillName
+            }}</span>
+            <span class="skill-modal__skill-type">{{
+              popupChar.skillType === "passive" ? "被动技能" : "主动技能"
+            }}</span>
+          </div>
+          <p class="skill-modal__desc">{{ popupChar.skillDesc }}</p>
+          <div class="skill-modal__stat">
+            <span>❤️ HP {{ popupChar.hp }}</span>
+            <span v-if="popupChar.skillType === 'active'">
+              ⚡
+              {{
+                popupChar.id === "caiyueang"
+                  ? "读档3次"
+                  : popupChar.maxUses + "次"
+              }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </Transition>
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { CHARACTERS } from "../game/constants.js";
 
 defineProps({
@@ -172,7 +223,7 @@ defineProps({
   },
 });
 
-defineEmits([
+const emit = defineEmits([
   "update:playerCount",
   "update:useWeather",
   "update:playerName",
@@ -191,6 +242,37 @@ const charMap = computed(() => {
 });
 function charById(id) {
   return charMap.value[id];
+}
+
+// ---- 三连击技能详情 ----
+const skillPopupCharId = ref(null);
+const clickTracker = ref({});
+
+const popupChar = computed(() =>
+  skillPopupCharId.value ? charById(skillPopupCharId.value) : null,
+);
+
+function onCharCardClick(playerIdx, charId) {
+  // 三连击检测
+  const now = Date.now();
+  const track = clickTracker.value[charId] || { count: 0, lastTime: 0 };
+  if (now - track.lastTime > 500) {
+    track.count = 1;
+  } else {
+    track.count += 1;
+  }
+  track.lastTime = now;
+  clickTracker.value[charId] = track;
+
+  if (track.count >= 3) {
+    track.count = 0;
+    // 切换/关闭弹窗
+    skillPopupCharId.value = skillPopupCharId.value === charId ? null : charId;
+    return; // 不触发选择
+  }
+
+  // 正常选择角色
+  emit("selectChar", playerIdx, charId);
 }
 </script>
 
@@ -485,5 +567,134 @@ function charById(id) {
     min-width: 60px;
     font-size: 12px;
   }
+}
+
+/* 三连击提示 */
+.triple-hint {
+  text-align: center;
+  font-size: 12px;
+  color: #9e9e9e;
+  margin-bottom: 8px;
+  padding: 4px 0;
+}
+
+/* 技能详情弹窗 */
+.skill-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+.skill-modal {
+  background: #1a1a2e;
+  border-radius: 14px;
+  padding: 24px;
+  max-width: 400px;
+  width: 100%;
+  color: #e0e0e0;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+  position: relative;
+}
+.skill-modal__close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: #9e9e9e;
+  font-size: 20px;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+.skill-modal__close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+.skill-modal__header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.skill-modal__icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+}
+.skill-modal__title-group {
+  flex: 1;
+}
+.skill-modal__name {
+  font-size: 20px;
+  font-weight: bold;
+  color: #fff;
+  margin: 0;
+}
+.skill-modal__title {
+  font-size: 13px;
+  color: #ffab00;
+  display: block;
+  margin-top: 2px;
+}
+.skill-modal__body {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 14px;
+}
+.skill-modal__skill-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.skill-modal__skill-name {
+  font-size: 16px;
+  font-weight: bold;
+  color: #64b5f6;
+}
+.skill-modal__skill-type {
+  font-size: 11px;
+  color: #9e9e9e;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.skill-modal__desc {
+  font-size: 13px;
+  line-height: 1.7;
+  color: #cfcfcf;
+  margin-bottom: 14px;
+}
+.skill-modal__stat {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: #bdbdbd;
+}
+
+/* 弹窗过渡 */
+.popup-fade-enter-active {
+  transition: opacity 0.25s ease;
+}
+.popup-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.popup-fade-enter-from,
+.popup-fade-leave-to {
+  opacity: 0;
 }
 </style>

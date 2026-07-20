@@ -143,12 +143,14 @@ export function executeCaiyueangLoad(state) {
     state.step = STEP.PICK_ACTION;
     return;
   }
-  player.loadUses--;
+  const subaruIdx = player.index;
   restoreState(state, player.savepoint);
+  const subaru = state.players[subaruIdx];
+  subaru.loadUses--;
   state.endTurn = false;
   addLog(
     state,
-    `${player.name} 死亡回归！回溯到存档点（剩余读档${player.loadUses}次）`,
+    `${subaru.name} 死亡回归！回溯到存档点（剩余读档${subaru.loadUses}次）`,
   );
   state._caiyueangMode = null;
   endAction(state);

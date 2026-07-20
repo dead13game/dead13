@@ -36,6 +36,10 @@
             🏆 世界杯模式
             <span class="mode-btn__desc">1v1淘汰赛 · 90回合制</span>
           </button>
+          <button class="mode-btn mode-btn--rules" @click="showRules = true">
+            📖 规则说明
+            <span class="mode-btn__desc">查看游戏详细规则</span>
+          </button>
         </div>
       </div>
 
@@ -97,6 +101,64 @@
         :difficulty="wcDifficulty"
         @restart="handleReset"
       />
+
+      <!-- 规则说明弹窗 -->
+      <Transition name="easter">
+        <div
+          v-if="showRules"
+          class="rules-overlay"
+          @click.self="showRules = false"
+        >
+          <div class="rules-modal">
+            <button class="rules-modal__close" @click="showRules = false">
+              ✕
+            </button>
+            <h2 class="rules-modal__title">《亡命十三街》快速规则</h2>
+            <div class="rules-modal__content">
+              <p class="rules-modal__summary">
+                一句话概括：选一个角色，抽牌对战，活到最后。
+              </p>
+              <h3 class="rules-modal__section-title">
+                每回合你可以做四件事之一：
+              </h3>
+              <ul>
+                <li><strong>攻击</strong>——抽1张牌打人，点数就是伤害</li>
+                <li>
+                  <strong>防御</strong>——抽1张牌扣着当护盾，挨打时抵消伤害
+                </li>
+                <li>
+                  <strong>赌命</strong
+                  >——抽2张牌，1张当陷阱（反伤用）、1张当诱饵（迷惑用）
+                </li>
+                <li><strong>放技能</strong>——每个角色有自己的专属技能</li>
+              </ul>
+              <h3 class="rules-modal__section-title">
+                战斗流程（攻击时按顺序结算）：
+              </h3>
+              <ol>
+                <li>对方有陷阱？先比大小，你点数小就自己被反伤</li>
+                <li>对方有护盾？翻开护盾牌抵消伤害</li>
+                <li>护盾用完还有剩？扣对方血量</li>
+              </ol>
+              <h3 class="rules-modal__section-title">其他规则：</h3>
+              <ul>
+                <li>前N回合为和平期（禁攻），N=人数</li>
+                <li>伤害计算：先-2再按联盟人数平分（向下取整）</li>
+                <li>联盟：2人结盟平摊伤害，可背叛</li>
+                <li>天气：每回合可能变化，影响全局</li>
+              </ul>
+              <h3 class="rules-modal__section-title">胜负判定：</h3>
+              <p>活到最后的人获胜。</p>
+              <h3 class="rules-modal__section-title">特色玩法：</h3>
+              <ul>
+                <li>世界杯模式——小组赛+淘汰赛，1v1对战</li>
+                <li>联盟机制——结盟、平摊伤害、背叛</li>
+                <li>2-8人对战——AI补位，一个人也能玩</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </Transition>
     </div>
   </Transition>
 </template>
@@ -183,6 +245,7 @@ function handleReset() {
 const showOpening = ref(true);
 
 // 彩蛋
+const showRules = ref(false);
 const easterEgg = ref(false);
 let titleClickTimer = null;
 
@@ -397,6 +460,109 @@ body {
   font-weight: normal;
   color: #757575;
   margin-top: 4px;
+}
+.mode-btn--rules {
+  border-color: #7b1fa2;
+  color: #6a1b9a;
+  margin-bottom: 0;
+}
+.mode-btn--rules:hover {
+  border-color: #6a1b9a;
+  background: #f3e5f5;
+}
+
+/* 规则说明弹窗 */
+.rules-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+.rules-modal {
+  background: #1a1a2e;
+  border-radius: 14px;
+  padding: 24px;
+  max-width: 480px;
+  width: 100%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  color: #e0e0e0;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+  position: relative;
+}
+.rules-modal__close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: #9e9e9e;
+  font-size: 20px;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+.rules-modal__close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+.rules-modal__title {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 12px;
+  color: #ff8f00;
+  text-align: center;
+  padding-right: 24px;
+}
+.rules-modal__content {
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.8;
+  padding-right: 4px;
+}
+.rules-modal__content::-webkit-scrollbar {
+  width: 4px;
+}
+.rules-modal__content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+.rules-modal__summary {
+  font-weight: bold;
+  color: #fff;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+.rules-modal__section-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #ffab00;
+  margin: 12px 0 6px;
+}
+.rules-modal__content ul,
+.rules-modal__content ol {
+  padding-left: 20px;
+  margin-bottom: 8px;
+}
+.rules-modal__content li {
+  margin-bottom: 4px;
+  color: #cfcfcf;
+}
+.rules-modal__content strong {
+  color: #fff;
 }
 
 /* 开场动画后的主界面淡入 */
