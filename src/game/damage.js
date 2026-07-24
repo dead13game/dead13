@@ -17,6 +17,16 @@ export function dissolveAlliance(state, player) {
 export function applyDamage(state, player, damage) {
   const hpBefore = player.hp;
   const defCountBefore = player.defensePile.length;
+
+  // 赌命惩罚：有 gamblePenalty 的角色受到的伤害+1
+  if (player.gamblePenalty) {
+    damage += 1;
+    state.devLog.info(CAT.GAMBLE, `赌命惩罚: ${player.name} 额外受到1点伤害`, {
+      playerName: player.name,
+      finalDamage: damage,
+    });
+  }
+
   let remaining = damage;
 
   state.devLog.debug(CAT.DAMAGE, `对 ${player.name} 造成 ${damage} 伤害`, {
@@ -26,33 +36,34 @@ export function applyDamage(state, player, damage) {
   });
 
   // 防御判定
+  // 使用 defenseValue 跟踪剩余防御值，不修改 card.value（保留原始牌面值）
   while (remaining > 0 && player.defensePile.length > 0) {
     const top = player.defensePile[player.defensePile.length - 1];
-    const topValueBefore = top.value;
+    const defenseValue = top.defenseValue ?? top.value;
     if (!top.faceUp) top.faceUp = true;
 
-    if (top.value >= remaining) {
-      top.value -= remaining;
+    if (defenseValue >= remaining) {
+      top.defenseValue = defenseValue - remaining;
       remaining = 0;
-      if (top.value === 0) {
+      if (top.defenseValue === 0) {
         player.defensePile.pop();
         if (!top.isShield) state.grave.push(top);
         state.messageLog.push(`${player.name} 防御牌抵消`);
         state.devLog.debug(CAT.DAMAGE, `防御牌 ${cardDisplay(top)} 完全消耗`, {
-          value: topValueBefore,
+          value: defenseValue,
         });
       } else {
-        state.messageLog.push(`${player.name} 残盾 ${top.value}点`);
+        state.messageLog.push(`${player.name} 残盾 ${top.defenseValue}点`);
         state.devLog.debug(CAT.DAMAGE, `防御牌 ${cardDisplay(top)} 残盾`, {
-          before: topValueBefore,
-          after: top.value,
+          before: defenseValue,
+          after: top.defenseValue,
         });
       }
     } else {
-      remaining -= top.value;
+      remaining -= defenseValue;
       state.messageLog.push(`${player.name} 防御牌 ${cardDisplay(top)} 被击穿`);
       state.devLog.debug(CAT.DAMAGE, `防御牌 ${cardDisplay(top)} 被击穿`, {
-        value: top.value,
+        value: defenseValue,
         remainingAfter: remaining,
       });
       player.defensePile.pop();

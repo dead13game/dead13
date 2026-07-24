@@ -38,6 +38,10 @@ export function startAlly(state) {
     return;
   }
   const player = currentPlayer(state);
+  // 非赌命操作：重置连续赌命计数
+  if (player.consecutiveGambles > 0) {
+    player.consecutiveGambles = 0;
+  }
   if (player.allyIndex !== null) {
     addLog(state, "已有盟友，不可再结盟");
     return;
@@ -76,6 +80,10 @@ export function executeAlly(state, targetIdx) {
 
 export function executeBetray(state) {
   const player = currentPlayer(state);
+  // 非赌命操作：重置连续赌命计数
+  if (player.consecutiveGambles > 0) {
+    player.consecutiveGambles = 0;
+  }
   if (player.allyIndex === null) {
     addLog(state, "没有盟友可以背刺");
     return;

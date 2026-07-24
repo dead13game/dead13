@@ -168,6 +168,8 @@ function createPlayer(index, charData, name) {
     allianceTurns: 0,
     betrayalPenalty: 0,
     allyKillBonus: false,
+    consecutiveGambles: 0,
+    gamblePenalty: false,
   };
 }
 
@@ -459,6 +461,183 @@ function nextPlayer(state, _depth = 0) {
       allyIndex: p.allyIndex,
     });
   }
+}
+
+// ════════════════════════════════════
+//  游戏存档（手动持久化）
+// ════════════════════════════════════
+
+/**
+ * 序列化当前游戏状态为可 JSON 存储的纯对象。
+ * Vue 层调用后自行写入 localStorage。
+ * @returns {Object} 可 JSON.stringify 的存档数据
+ */
+export function serializeGameState(state) {
+  const data = {
+    version: 1,
+    players: state.players.map((p) => ({
+      index: p.index,
+      name: p.name,
+      characterId: p.characterId,
+      characterName: p.characterName,
+      characterTitle: p.characterTitle,
+      characterIcon: p.characterIcon,
+      hp: p.hp,
+      maxHp: p.maxHp,
+      alive: p.alive,
+      defensePile: p.defensePile.map((c) => ({ ...c })),
+      trap: p.trap ? { ...p.trap } : null,
+      bait: p.bait ? { ...p.bait } : null,
+      skillUses: p.skillUses,
+      maxUses: p.maxUses,
+      fightingSpirit: p.fightingSpirit,
+      moonPhase: p.moonPhase,
+      ignoreTrapThisTurn: p.ignoreTrapThisTurn,
+      extraAction: p.extraAction,
+      loadUses: p.loadUses,
+      loadMaxUses: p.loadMaxUses,
+      stealTarget: p.stealTarget ? { ...p.stealTarget } : null,
+      dotTarget: p.dotTarget ? { ...p.dotTarget } : null,
+      damageBonus: { ...p.damageBonus },
+      frozenBy: p.frozenBy,
+      allyIndex: p.allyIndex,
+      allianceTurns: p.allianceTurns,
+      betrayalPenalty: p.betrayalPenalty,
+      allyKillBonus: p.allyKillBonus,
+      consecutiveGambles: p.consecutiveGambles,
+      gamblePenalty: p.gamblePenalty,
+      isAI: p.isAI,
+      aiDifficulty: p.aiDifficulty,
+    })),
+    deck: state.deck.map((c) => ({ ...c })),
+    grave: state.grave.map((c) => ({ ...c })),
+    weatherDeck: state.weatherDeck.map((c) => ({ ...c })),
+    currentPlayerIndex: state.currentPlayerIndex,
+    phase: state.phase,
+    step: state.step,
+    round: state.round,
+    peaceRounds: state.peaceRounds,
+    currentWeather: state.currentWeather,
+    nextWeather: state.nextWeather,
+    useWeather: state.useWeather,
+  };
+
+  state.devLog?.info(CAT.STATE, "游戏存档完成", {
+    round: data.round,
+    phase: data.phase,
+    playerCount: data.players.length,
+    aliveCount: data.players.filter((p) => p.alive).length,
+  });
+
+  return data;
+}
+
+/**
+ * 从存档数据恢复游戏状态。
+ * state 必须是已通过 createGameState() 创建的响应式对象。
+ * @returns {boolean} 是否成功恢复
+ */
+export function deserializeGameState(state, saveData) {
+  if (!saveData || !saveData.players || !Array.isArray(saveData.players)) {
+    return false;
+  }
+
+  // 1. 恢复玩家
+  state.players = saveData.players.map((sp) => {
+    const charData = CHARACTERS.find((c) => c.id === sp.characterId);
+    return {
+      index: sp.index,
+      name: sp.name,
+      characterId: sp.characterId,
+      characterName: sp.characterName,
+      characterTitle: sp.characterTitle,
+      characterIcon: sp.characterIcon,
+      hp: sp.hp,
+      maxHp: sp.maxHp,
+      alive: sp.alive,
+      defensePile: (sp.defensePile || []).map((c) => ({ ...c })),
+      trap: sp.trap ? { ...sp.trap } : null,
+      bait: sp.bait ? { ...sp.bait } : null,
+      skillUses: sp.skillUses ?? charData?.maxUses ?? 0,
+      skillName: sp.skillName ?? charData?.skillName ?? "",
+      skillDesc: sp.skillDesc ?? charData?.skillDesc ?? "",
+      skillType: sp.skillType ?? charData?.skillType ?? "",
+      maxUses: sp.maxUses ?? charData?.maxUses ?? 0,
+      fightingSpirit: sp.fightingSpirit ?? 0,
+      moonPhase: sp.moonPhase ?? 0,
+      ignoreTrapThisTurn: sp.ignoreTrapThisTurn ?? false,
+      extraAction: sp.extraAction ?? false,
+      loadUses: sp.loadUses ?? 3,
+      loadMaxUses: sp.loadMaxUses ?? 3,
+      stealTarget: sp.stealTarget ? { ...sp.stealTarget } : null,
+      dotTarget: sp.dotTarget ? { ...sp.dotTarget } : null,
+      damageBonus: { ...(sp.damageBonus || {}) },
+      frozenBy: sp.frozenBy ?? null,
+      savepoint: null,
+      allyIndex: sp.allyIndex ?? null,
+      allianceTurns: sp.allianceTurns ?? 0,
+      betrayalPenalty: sp.betrayalPenalty ?? 0,
+      allyKillBonus: sp.allyKillBonus ?? false,
+      consecutiveGambles: sp.consecutiveGambles ?? 0,
+      gamblePenalty: sp.gamblePenalty ?? false,
+      isAI: sp.isAI ?? false,
+      aiDifficulty: sp.aiDifficulty ?? null,
+    };
+  });
+
+  // 2. 恢复牌堆
+  state.deck = (saveData.deck || []).map((c) => ({ ...c }));
+  state.grave = (saveData.grave || []).map((c) => ({ ...c }));
+  state.weatherDeck = (saveData.weatherDeck || []).map((c) => ({ ...c }));
+
+  // 3. 恢复回合/阶段
+  state.currentPlayerIndex = saveData.currentPlayerIndex ?? 0;
+  state.phase = saveData.phase ?? PHASE.PEACE;
+  state.step = STEP.PICK_ACTION;
+  state.round = saveData.round ?? 1;
+  state.peaceRounds = saveData.peaceRounds ?? 4;
+  state.currentWeather = saveData.currentWeather ?? null;
+  state.nextWeather = saveData.nextWeather ?? null;
+  state.useWeather = saveData.useWeather ?? false;
+
+  // 4. 重置临时状态（必须全部覆盖，防止上一局残留字段影响读档行为）
+  state.endTurn = true;
+  state.gameOver = false;
+  state.winnerIndex = -1;
+  state.messageLog = [`游戏已读取存档（第${state.round}回合）`];
+  state.scryCards = null;
+  state.pendingAttackCard = null;
+  state.pendingVentiCards = null;
+  state._elimGuard = false;
+  state._elimPaused = false;
+  state._gameJustReset = false;
+  state._peaceStartRound = 0;
+  state._skipAnim = false;
+  state.pendingFurinaTarget = false;
+  state._aimiliyaFreeze = null;
+  delete state._fenjinHeal;
+  state._liniyaSubSkill = null;
+  if (state._caiyueangMode !== undefined) {
+    state._caiyueangMode = null;
+  }
+  state.pendingGamble = null;
+
+  // 5. 校验游戏状态
+  checkGameOver(state);
+
+  state.devLog?.info(CAT.STATE, "游戏读档完成", {
+    round: state.round,
+    phase: state.phase,
+    currentPlayer: state.players[state.currentPlayerIndex]?.name,
+    players: state.players.map((p) => ({
+      name: p.name,
+      hp: p.hp,
+      alive: p.alive,
+      defCount: p.defensePile.length,
+    })),
+  });
+
+  return true;
 }
 
 // ════════════════════════════════════

@@ -2,6 +2,21 @@
   <div class="action-bar">
     <!-- 普通行动选择 -->
     <template v-if="state.step === 'pickAction'">
+      <!-- 赌命警告提示 -->
+      <div
+        v-if="gamblePenaltyActive"
+        class="gamble-warning gamble-warning--penalty"
+      >
+        <span class="gamble-warning__icon">&#x1F525;</span>
+        <span>赌命惩罚中：所受伤害+1（陷阱触发/被破后解除）</span>
+      </div>
+      <div
+        v-else-if="gambleWarning"
+        class="gamble-warning gamble-warning--warn"
+      >
+        <span class="gamble-warning__icon">&#x26A0;&#xFE0F;</span>
+        <span>连续赌命2次！再赌一次将触发惩罚（所受伤害+1）</span>
+      </div>
       <div class="action-row">
         <button
           class="ab ab--atk"
@@ -343,6 +358,14 @@ const gambleBaitIdx = ref(-1);
 const nahidaOrder = ref([]);
 
 const currentPlayerVal = computed(() => currentPlayer(props.state));
+const gambleWarning = computed(() => {
+  const p = currentPlayerVal.value;
+  return p && p.consecutiveGambles >= 2 && !p.gamblePenalty;
+});
+const gamblePenaltyActive = computed(() => {
+  const p = currentPlayerVal.value;
+  return p && p.gamblePenalty === true;
+});
 const canSkill = computed(() =>
   canUseSkill(props.state, currentPlayerVal.value),
 );
@@ -627,5 +650,55 @@ function resetNahida() {
 .scry-card--selected {
   outline: 2px solid #ffd54f;
   background: rgba(255, 213, 79, 0.15);
+}
+
+/* 赌命警告提示 */
+.gamble-warning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: bold;
+  text-align: center;
+  width: 100%;
+  max-width: 440px;
+  box-sizing: border-box;
+  line-height: 1.4;
+  animation: gamble-warning-fadein 0.25s ease-out;
+}
+@keyframes gamble-warning-fadein {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.gamble-warning--warn {
+  background: rgba(251, 140, 0, 0.2);
+  border: 1px solid rgba(251, 140, 0, 0.5);
+  color: #ffb74d;
+}
+.gamble-warning--penalty {
+  background: rgba(229, 57, 53, 0.2);
+  border: 1px solid rgba(229, 57, 53, 0.5);
+  color: #ef9a9a;
+}
+.gamble-warning__icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+@media (max-width: 420px) {
+  .gamble-warning {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+  .gamble-warning__icon {
+    font-size: 12px;
+  }
 }
 </style>

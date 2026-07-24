@@ -62,6 +62,18 @@ export class PlayerTableSprite extends Container {
     this.nameText.position.set(8, compact ? 3 : 6);
     this.addChild(this.nameText);
 
+    // ── 赌命警告/惩罚标签（名字右侧）──
+    this.gambleWarnText = new Text({
+      text: "",
+      style: {
+        fontSize: compact ? 9 : 11,
+        fontWeight: "bold",
+        fill: 0xff8c00,
+        fontFamily: "sans-serif",
+      },
+    });
+    this.addChild(this.gambleWarnText);
+
     // ── 角色名 + 技能 ──
     this.charText = new Text({
       text: `${this.playerData.characterName} · ${this.playerData.skillName}`,
@@ -388,6 +400,34 @@ export class PlayerTableSprite extends Container {
     if (player.fightingSpirit > 0) tags.push(`斗志${player.fightingSpirit}`);
     if (player.extraAction) tags.push("+1行动");
     if (player.ignoreTrapThisTurn) tags.push("无视陷阱");
+    if (player.gamblePenalty) tags.push("赌命惩罚");
     this.statusText.text = tags.join(" · ");
+
+    this._updateGambleWarn(player);
+  }
+
+  /** 更新名字右侧的赌命警告/惩罚文字 */
+  _updateGambleWarn(player) {
+    const compact = this._compact;
+    const fsWarn = compact ? 9 : 11;
+
+    if (player.gamblePenalty) {
+      this.gambleWarnText.text = "🔥受伤害+1";
+      this.gambleWarnText.style.fill = 0xff4444;
+      this.gambleWarnText.style.fontSize = fsWarn;
+    } else if (player.consecutiveGambles === 2) {
+      this.gambleWarnText.text = "⚠再赌将受罚";
+      this.gambleWarnText.style.fill = 0xff8c00;
+      this.gambleWarnText.style.fontSize = fsWarn;
+    } else {
+      this.gambleWarnText.text = "";
+      return;
+    }
+
+    // 定位在名字右侧（留 4px 间距）
+    this.gambleWarnText.position.set(
+      8 + this.nameText.width + 4,
+      compact ? 3 : 6,
+    );
   }
 }

@@ -35,6 +35,10 @@ function endAction(state) {
 
 export function startAttack(state) {
   if (state.step !== STEP.PICK_ACTION) return;
+  const p = currentPlayer(state);
+  if (p.consecutiveGambles > 0) {
+    p.consecutiveGambles = 0;
+  }
   const canAttack = state.matchContext
     ? state.phase !== PHASE.PEACE
     : state.round >= 4;
@@ -227,6 +231,16 @@ export function executeAttack(state, targetIdx) {
       target.bait = null;
       trapTriggered = true;
       applyDamage(state, attacker, trapValue);
+      // 赌命惩罚清除：陷阱反弹，赌命周期结束
+      if (target.gamblePenalty || target.consecutiveGambles > 0) {
+        target.gamblePenalty = false;
+        target.consecutiveGambles = 0;
+        addLog(state, `${target.name} 赌命惩罚结束（陷阱反弹）`);
+        state.devLog.info(
+          CAT.GAMBLE,
+          `赌命惩罚结束: ${target.name}（陷阱反弹）`,
+        );
+      }
       attackCards.forEach((c) => state.grave.push(c));
       if (!state.gameOver) endAction(state);
       return;
@@ -240,6 +254,16 @@ export function executeAttack(state, targetIdx) {
       trapTriggered = true;
       applyDamage(state, attacker, trapValue);
       applyDamage(state, target, trapValue);
+      // 赌命惩罚清除：陷阱平局，赌命周期结束
+      if (target.gamblePenalty || target.consecutiveGambles > 0) {
+        target.gamblePenalty = false;
+        target.consecutiveGambles = 0;
+        addLog(state, `${target.name} 赌命惩罚结束（陷阱平局）`);
+        state.devLog.info(
+          CAT.GAMBLE,
+          `赌命惩罚结束: ${target.name}（陷阱平局）`,
+        );
+      }
       if (attacker.characterId === "mavuika") {
         attacker.fightingSpirit = Math.min(5, attacker.fightingSpirit + 1);
         addLog(state, `斗志 ${attacker.fightingSpirit}层`);
@@ -266,6 +290,16 @@ export function executeAttack(state, targetIdx) {
       if (target.bait) state.grave.push(target.bait);
       target.trap = null;
       target.bait = null;
+      // 赌命惩罚清除：陷阱被破，赌命周期结束
+      if (target.gamblePenalty || target.consecutiveGambles > 0) {
+        target.gamblePenalty = false;
+        target.consecutiveGambles = 0;
+        addLog(state, `${target.name} 赌命惩罚结束（陷阱被破）`);
+        state.devLog.info(
+          CAT.GAMBLE,
+          `赌命惩罚结束: ${target.name}（陷阱被破）`,
+        );
+      }
     }
   }
 
@@ -420,6 +454,9 @@ export function executeDefense(state) {
     return;
   }
   const player = currentPlayer(state);
+  if (player.consecutiveGambles > 0) {
+    player.consecutiveGambles = 0;
+  }
   ensureDeck(state);
 
   const r = drawCards(state.deck, 1);
@@ -448,7 +485,8 @@ export function executeDefense(state) {
     state.devLog.debug(CAT.ALLIANCE, `联盟防御 +2 → ${cardValue}`);
   }
 
-  card.value = cardValue;
+  card.defenseValue = cardValue;
+  card.value = originalValue;
   card.faceUp = false;
   player.defensePile.push(card);
   addLog(state, `${player.name} 执行防御`);
@@ -510,6 +548,23 @@ export function executeGamble(state) {
       },
     },
   );
+
+  // 连续赌命计数 + 赌命惩罚判定
+  player.consecutiveGambles = (player.consecutiveGambles || 0) + 1;
+  state.devLog.info(
+    CAT.GAMBLE,
+    `${player.name} 连续赌命 ${player.consecutiveGambles} 次`,
+    {
+      consecutiveGambles: player.consecutiveGambles,
+    },
+  );
+  if (player.consecutiveGambles >= 3 && !player.gamblePenalty) {
+    player.gamblePenalty = true;
+    addLog(state, `${player.name} 连续赌命3次，被标记惩罚！受到的伤害+1`);
+    state.devLog.info(CAT.GAMBLE, `赌命惩罚开始: ${player.name}`, {
+      consecutiveGambles: player.consecutiveGambles,
+    });
+  }
 
   state.step = STEP.GAMBLE_PICK;
   state.pendingGamble = { drawnCards: drawn };

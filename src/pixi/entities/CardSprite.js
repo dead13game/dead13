@@ -137,9 +137,10 @@ export class CardSprite extends Container {
       this.bottomRank.visible = true;
       this.bottomSuit.visible = true;
 
-      // 点数标签（残盾）
-      if (this.showValue && this.cardData.value !== undefined) {
-        this._drawValueBadge(this.cardData.value);
+      // 点数标签（残盾 — 用 defenseValue 获取剩余防御值，fallback 到原始 value）
+      const displayValue = this.cardData.defenseValue ?? this.cardData.value;
+      if (this.showValue && displayValue !== undefined) {
+        this._drawValueBadge(displayValue);
       } else {
         this.valueBadge.visible = false;
         this.valueText.visible = false;

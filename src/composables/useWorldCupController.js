@@ -15,6 +15,7 @@ import {
 import {
   createMatchState,
   onPlayerEliminated,
+  checkMatchEnd,
   resetGameForNextLife,
   executeSubstitution,
   skipSubstitution,
@@ -136,10 +137,10 @@ export function useWorldCupController() {
 
         onPlayerEliminated(ms, gameState, deadIdx, killerIdx, actualRound);
 
-        if (ms.matchOver) {
-          handleMatchEnd(ms);
-        } else if (ms.isPenaltyShootout) {
+        if (ms.isPenaltyShootout) {
           uiMode.value = "penalty";
+        } else if (ms.matchOver) {
+          handleMatchEnd(ms);
         } else if (ms.substitutionPending) {
           uiMode.value = "substitution";
         }
@@ -148,14 +149,14 @@ export function useWorldCupController() {
         if (ms.matchOver) return;
         ms.matchRound = round;
         if (round > ms.maxRounds) {
-          const [pScore, oScore] = ms.score;
-          if (pScore > oScore) ms.winner = 0;
-          else if (oScore > pScore) ms.winner = 1;
-          else ms.winner = null;
-          ms.matchOver = true;
-          gameState.gameOver = true;
-          gameState.winnerIndex = ms.winner ?? -1;
-          handleMatchEnd(ms);
+          checkMatchEnd(ms, gameState);
+          if (ms.isPenaltyShootout) {
+            uiMode.value = "penalty";
+          } else if (ms.matchOver) {
+            handleMatchEnd(ms);
+          } else if (ms.substitutionPending) {
+            uiMode.value = "substitution";
+          }
         }
       },
     };
@@ -190,6 +191,7 @@ export function useWorldCupController() {
   function handleMatchEnd(ms) {
     const winner = ms.winner;
     const [pScore, oScore] = ms.score;
+    const decidedByPenalty = ms.isPenaltyShootout || false;
 
     if (ms.isGroupStage) {
       const matchIdx = getCurrentGroupMatchIdx();
@@ -203,9 +205,12 @@ export function useWorldCupController() {
         matchResult.value = {
           winner,
           score: [pScore, oScore],
-          stage: `小组赛第${(matchIdx >= 0 ? matchIdx : 0) + 1}场`,
+          stage: decidedByPenalty
+            ? `小组赛第${(matchIdx >= 0 ? matchIdx : 0) + 1}场（点球）`
+            : `小组赛第${(matchIdx >= 0 ? matchIdx : 0) + 1}场`,
           hasNext: true,
           isGroupStage: true,
+          decidedByPenalty,
         };
         uiMode.value = "matchResult";
       } else {
@@ -220,6 +225,7 @@ export function useWorldCupController() {
           stage: roundName,
           hasNext: wcState.knockoutRound !== "Final",
           isChampion: wcState.knockoutRound === "Final",
+          decidedByPenalty,
         };
         uiMode.value = "matchResult";
       } else {
@@ -229,6 +235,7 @@ export function useWorldCupController() {
           stage: roundName,
           hasNext: false,
           eliminated: true,
+          decidedByPenalty,
         };
         eliminatePlayer(wcState);
         uiMode.value = "matchResult";
@@ -299,10 +306,10 @@ export function useWorldCupController() {
         if (killedCharId) ms._killedCharId = killedCharId;
 
         onPlayerEliminated(ms, gameState, deadIdx, killerIdx, actualRound);
-        if (ms.matchOver) {
-          handleMatchEnd(ms);
-        } else if (ms.isPenaltyShootout) {
+        if (ms.isPenaltyShootout) {
           uiMode.value = "penalty";
+        } else if (ms.matchOver) {
+          handleMatchEnd(ms);
         } else if (ms.substitutionPending) {
           uiMode.value = "substitution";
         }
@@ -311,14 +318,14 @@ export function useWorldCupController() {
         if (ms.matchOver) return;
         ms.matchRound = round;
         if (round > ms.maxRounds) {
-          const [pScore, oScore] = ms.score;
-          if (pScore > oScore) ms.winner = 0;
-          else if (oScore > pScore) ms.winner = 1;
-          else ms.winner = null;
-          ms.matchOver = true;
-          gameState.gameOver = true;
-          gameState.winnerIndex = ms.winner ?? -1;
-          handleMatchEnd(ms);
+          checkMatchEnd(ms, gameState);
+          if (ms.isPenaltyShootout) {
+            uiMode.value = "penalty";
+          } else if (ms.matchOver) {
+            handleMatchEnd(ms);
+          } else if (ms.substitutionPending) {
+            uiMode.value = "substitution";
+          }
         }
       },
     };
@@ -471,12 +478,23 @@ export function useWorldCupController() {
   // ---- 点球大战 ----
   function doPenaltyRound() {
     if (!matchState.value) return null;
+    // 修复：startPenaltyShootout 设置 matchOver=true 会阻止 executePenaltyRound 执行
+    // 临时允许执行，执行完后恢复 matchOver=true（点球阶段保持比赛终止）
+    const savedMatchOver = matchState.value.matchOver;
+    matchState.value.matchOver = false;
     const result = executePenaltyRound(matchState.value);
+    matchState.value.matchOver = true;
     if (result?.winner !== null && result?.winner !== undefined) {
       matchState.value.winner = result.winner;
-      handleMatchEnd(matchState.value);
+      // 不立即调用 handleMatchEnd — 让 UI 先展示最终轮结果再手动跳转
     }
     return result;
+  }
+
+  /** 点球结束后手动跳转到比赛结果页 */
+  function finishPenalty() {
+    if (!matchState.value) return;
+    handleMatchEnd(matchState.value);
   }
 
   // ---- 重置 ----
@@ -536,6 +554,9 @@ export function useWorldCupController() {
     continueAfterMatchResult,
     continueFromStandings,
     doPenaltyRound,
+    finishPenalty,
     resetWorldCup,
+    rebuildMatchContext,
+    markAIPlayer,
   };
 }

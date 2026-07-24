@@ -62,6 +62,11 @@ export function executeSkill(state) {
     return false;
   }
 
+  // 非赌命操作：重置连续赌命计数
+  if (player.consecutiveGambles > 0) {
+    player.consecutiveGambles = 0;
+  }
+
   state.devLog.info(CAT.SKILL, `${player.name} 释放技能: ${player.skillName}`, {
     characterId: player.characterId,
     skillUsesBefore: player.skillUses,

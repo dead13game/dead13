@@ -5,25 +5,14 @@
 
 **线上地址：** `https://menghun-myracler.github.io/13street/`（GitHub Pages 自动部署）
 
-## 快速开始（每次进 Session 先看这）
+## 快速开始
 
-1. 改代码 → spawn 领域 agent（全部 V4 Pro，不用纠结能力问题）
-2. 同 agent 再用 → `SendMessage` 续接；不知道改什么 → `Explore` agent 搜索
-3. 主对话不要自己读 src/，只负责派 agent + 验证 + 跑 test
-4. 改完 → `npm run test` 验证
-5. 改接口 → 更新下方「Agent 间合约」表
+本项目使用**手动 5 session**：4 个领域 session（game-logic / pixi-render / animation / vue-ui）+ 1 个主 session。主 session 判断任务领域，用户手动切 session 传递任务和结果。
 
-## Session 命名
-
-三个主 session，不用频繁换：
-
-```bash
-claude -n "bug-fix"       # debug、修 bug
-claude -n "feature-add"   # 加新功能、新角色
-claude -n "change"        # 改旧逻辑、调机制、重构
-```
-
-上下文快满了（`/context` 超 60%）才换新 session。
+1. 主 session 收到任务 → 判断领域 → 输出 `📎 发给 [agent名]：任务描述`
+2. 不知道改什么 → 主 session 自己搜索或让用户开 Explore session
+3. 改完 → `npm run test` 验证
+4. 改接口 → 更新下方「Agent 间合约」表
 
 ## 常用命令
 
@@ -60,7 +49,7 @@ PR以及gh CLI会导致用户GitHub账户封禁，禁止使用。
 4. **多个可能原因时** — bug 有 2 个以上可能的原因时，不要赌一个去改。列出所有假设，追问用户或读日志排除后再改。
 5. **第一次听说的问题** — 用户描述的问题不在已修复 Bug 列表或你的认知范围内，先追问细节，不要直接动手。
 6. **不确定影响范围** — 不知道改动会涉及哪些文件时，spawn Explore subagent（subagent_type: "Explore"）做只读搜索，拿到文件列表后再派对应的领域 agent。
-7. **长时间后继续工作** — 如果 SessionStart 显示的上次提交不是本 session 做的（其他 session 改了代码），动手前先 spawn Explore 或子 agent 重读相关文件。不要依赖旧上下文里的文件内容。
+7. **会话长时间中断后** — 如果中间可能有其他改动（用户手动改代码或第三方工具），动手前先 spawn Explore 或子 agent 重读相关文件，不要依赖中断前的上下文。
 
 **好的提问示范：**
 
@@ -98,21 +87,43 @@ STEP:  pickAction → attackShowCard → pickTarget → ... → pickAction（循
 
 `STEP` 驱动 UI（ActionBar 中 `v-if` 判断 `state.step`）。
 
-## 领域 Agents — 第一步就委派，不要自己读
+## 领域 Agent 手动工作流
 
-子 agent 和主对话都用 **V4 Pro**，能力相同。委派是为了隔离上下文、保护缓存命中。
+用户手动维护 4 个长期 session（对应 4 个领域 agent）+ 1 个主 session。主 session 不直接调 Agent tool——由用户手动在 session 间传递任务和结果。
 
-| 用户要改的目录                  | 第一步                       |
-| ------------------------------- | ---------------------------- |
-| `src/game/`                     | spawn `game-logic` agent     |
-| `src/pixi/` 或 `GameCanvas.vue` | spawn `pixi-render` agent    |
-| `src/bridge/` 或 `effects/`     | spawn `animation` agent      |
-| `src/components/` 或 `App.vue`  | spawn `vue-ui` agent         |
-| 跨多个层或不明确                | spawn `Explore` agent 先搜索 |
+```
+主 session（你）接收到任务
+  → 判断属于哪个领域
+  → 输出：「📎 发给 [game-logic]：修复 combat.js 联盟平摊 off-by-one」
+  → 用户手动切到 game-logic session，粘贴任务
+  → game-logic 完成后，用户把结果贴回主 session
+  → 主 session 验证（跑 test、看 diff）
+```
 
-**委派（仅限第一次调用子agent或用户要求）：** `Agent({subagent_type: "game-logic", description: "改什么", prompt: "具体任务"})`
-**续接：** `SendMessage({to: "game-logic", summary: "继续", message: "..."})`
-**主对话不读 src/ 代码。** 派 agent → 验证 → 跑 test。
+| 目录                            | 发给哪个 session                      | 启动命令                                       |
+| ------------------------------- | ------------------------------------- | ---------------------------------------------- |
+| `src/game/`                     | game-logic                            | 用 `.claude/agents/game-logic.md` 的 prompt 开 |
+| `src/pixi/` 或 `GameCanvas.vue` | pixi-render                           | 同上，对应 prompt                              |
+| `src/bridge/` 或 `effects/`     | animation                             | 同上                                           |
+| `src/components/` 或 `App.vue`  | vue-ui                                | 同上                                           |
+| 不确定                          | 主 session 自己搜索或让用户开 Explore | —                                              |
+
+**主 session 输出任务格式：** `📎 发给 [agent名]：具体任务描述（含文件路径、函数名、改什么）`
+
+**领域 session 输出结果格式：** 标准化结果块（改动文件、摘要、测试结果、合约影响）。主 session 收到后自动解析并判断是否需要跟进。
+
+**典型交互：**
+
+```
+你：[贴回 game-logic 的结果]
+    ## 📊 任务结果
+    改动文件: src/game/combat.js
+    改动摘要: 修复联盟平摊 Math.floor
+    测试: 45/45 通过
+    合约影响: 无
+
+主 session：「收到。combat.js 联盟平摊已修复，测试全绿，合约无变化。下一个任务？」
+```
 
 ## Skills & 调试
 
@@ -149,6 +160,8 @@ Agent 之间通过代码 + CLAUDE.md + Memory 通信。任何 Agent 改了下述
 | `executeAlly(state, targetIdx)`                    | state, number | GameShell         |
 | `executeBetray(state)`                             | state         | GameShell         |
 | `getAllianceTargets(state)`                        | state         | UI                |
+| `serializeGameState(state)`                        | state         | Vue（存档）       |
+| `deserializeGameState(state, saveData)`            | state, object | Vue（读档）       |
 
 ### 合约 3：PIXI ↔ Vue 桥接
 
@@ -162,9 +175,9 @@ Agent 之间通过代码 + CLAUDE.md + Memory 通信。任何 Agent 改了下述
 
 ### 合约 4：player 对象渲染字段
 
-PlayerTableSprite `_updateStatus()` 依赖: `frozenBy, allyIndex, allianceTurns, betrayalPenalty, stealTarget, dotTarget, fightingSpirit, savepoint, extraAction, ignoreTrapThisTurn`
+PlayerTableSprite `_updateStatus()` 依赖: `frozenBy, allyIndex, allianceTurns, betrayalPenalty, stealTarget, dotTarget, fightingSpirit, savepoint, extraAction, ignoreTrapThisTurn, gamblePenalty, consecutiveGambles`
 
-→ game-logic 新增状态标签时，必须告知 pixi-render 同步改 `_updateStatus()`
+→ game-logic 新增状态标签时，必须告知 pixi-render 同步改 `_updateStatus()` 或 `_updateGambleWarn()`
 
 ## 构建关键点
 

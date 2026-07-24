@@ -22,6 +22,9 @@
       <button class="relayout-btn" @click="onRelayout" title="重新排版">
         ⟳
       </button>
+      <button class="save-quit-btn" @click="onSaveAndQuit" title="保存并退出">
+        💾
+      </button>
     </div>
 
     <!-- 底部 UI 栏 -->
@@ -60,7 +63,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onUnmounted } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import GameCanvas from "../pixi/GameCanvas.vue";
 import ActionBar from "./ActionBar.vue";
 import LogPanel from "./LogPanel.vue";
@@ -97,13 +100,14 @@ import {
   executeAlly,
   executeBetray,
   getNextWeather,
+  serializeGameState,
 } from "../game/gameState.js";
 
 const props = defineProps({
   state: { type: Object, required: true },
   worldCupMode: { type: Boolean, default: false },
 });
-const emit = defineEmits(["restart"]);
+const emit = defineEmits(["restart", "saveAndQuit"]);
 
 const gameCanvasRef = ref(null);
 const devLogRef = ref(null);
@@ -225,6 +229,15 @@ function cancelPick() {
   props.state._fenjinHeal = null;
   props.state._liniyaSubSkill = null;
   props.state._caiyueangMode = null;
+}
+
+function onSaveAndQuit() {
+  const gameData = serializeGameState(props.state);
+  const saveData = {
+    gameState: gameData,
+    gameMode: props.worldCupMode ? "worldcup" : "normal",
+  };
+  emit("saveAndQuit", saveData);
 }
 
 function onRelayout() {
@@ -398,6 +411,13 @@ watch(
   },
 );
 
+// 加载时自动触发 AI（读档后当前玩家若是 AI，watch 不会触发初始值）
+onMounted(() => {
+  if (isAITurn() && !props.worldCupMode) {
+    scheduleAI();
+  }
+});
+
 // 清理 AI timer
 onUnmounted(() => {
   if (aiTimer) clearTimeout(aiTimer);
@@ -483,6 +503,25 @@ onUnmounted(() => {
   .relayout-btn:hover {
     background: rgba(255, 255, 255, 0.18);
     color: #fff;
+  }
+}
+
+.save-quit-btn {
+  background: rgba(255, 215, 0, 0.12);
+  border: 1px solid rgba(255, 215, 0, 0.25);
+  color: rgba(255, 215, 0, 0.7);
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 2px 8px;
+  min-width: 44px;
+  min-height: 44px;
+  transition: all 0.15s;
+}
+@media (hover: hover) {
+  .save-quit-btn:hover {
+    background: rgba(255, 215, 0, 0.25);
+    color: #ffd700;
   }
 }
 

@@ -19,12 +19,18 @@
         />
       </div>
 
+      <!-- 保存并退出按钮（世界杯模式独立按钮） -->
+      <button class="wc-save-btn" @click="onWCSaveAndQuit" title="保存并退出">
+        💾
+      </button>
+
       <!-- 游戏主界面 -->
       <GameShell
         ref="gameShellRef"
         :state="gameState"
         :world-cup-mode="true"
         @restart="resetWorldCup"
+        @saveAndQuit="handleWCSave"
       />
 
       <!-- 换人面板（覆盖在游戏上方） -->
@@ -117,8 +123,11 @@
             }}
           </p>
         </div>
-        <button class="wc-btn" @click="onPenaltyRound" :disabled="penaltyDone">
-          {{ penaltyDone ? "点球结束" : "抽牌比点" }}
+        <button v-if="!penaltyDone" class="wc-btn" @click="onPenaltyRound">
+          抽牌比点
+        </button>
+        <button v-else class="wc-btn wc-btn--next" @click="onFinishPenalty">
+          查看结果
         </button>
       </div>
     </template>
@@ -153,6 +162,9 @@
                 ? "😞 失利"
                 : "🤝 平局"
           }}
+        </p>
+        <p v-if="matchResult?.decidedByPenalty" class="wc-result__penalty">
+          ⚽ 点球大战决胜
         </p>
         <p v-if="matchResult?.eliminated" class="wc-result__eliminated">
           世界杯之旅到此结束
@@ -221,7 +233,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from "vue";
+import { ref, reactive, computed, watch } from "vue";
 import GameShell from "./GameShell.vue";
 import WorldCupScoreboard from "./WorldCupScoreboard.vue";
 import WorldCupSubstitution from "./WorldCupSubstitution.vue";
@@ -247,6 +259,8 @@ import {
   submitNahidaScry,
   executeAlly,
   executeFenjinSkill,
+  serializeGameState,
+  deserializeGameState,
 } from "../game/gameState.js";
 import {
   isAiPlayer,
@@ -288,11 +302,89 @@ const {
   enterKnockoutStage,
   startKnockoutMatch,
   doPenaltyRound,
+  finishPenalty,
   resetWorldCup,
+  rebuildMatchContext,
+  markAIPlayer,
 } = useWorldCupController();
 
+// 世界杯模式下点击"保存并退出"按钮
+function onWCSaveAndQuit() {
+  const gameData = serializeGameState(gameState);
+  const saveData = {
+    gameState: gameData,
+    gameMode: "worldcup",
+  };
+  handleWCSave(saveData);
+}
+
+// 世界杯存档：保存并退出
+function handleWCSave(saveData) {
+  // 附加世界杯设置信息
+  saveData.wcSetup = {
+    teamName: wcState.playerTeamName,
+    selectedChar: wcState._lastPlayerChar,
+    opponentNames:
+      wcState.groupTeams?.filter((t) => !t.isPlayer).map((t) => t.name) || [],
+    useWeather: props.useWeather,
+    difficulty: props.difficulty,
+  };
+
+  // 序列化锦标赛状态（仅可序列化字段，去除回调引用）
+  saveData.wcState = {
+    phase: wcState.phase,
+    playerTeamName: wcState.playerTeamName,
+    groupName: wcState.groupName,
+    groupTeams: wcState.groupTeams,
+    groupMatches: wcState.groupMatches,
+    groupStandings: wcState.groupStandings,
+    knockoutRound: wcState.knockoutRound,
+    knockoutOpponent: wcState.knockoutOpponent,
+    substitutionsLeft: wcState.substitutionsLeft,
+    _lastPlayerChar: wcState._lastPlayerChar,
+    _groupOpponentChars: wcState._groupOpponentChars,
+    _groupFinished: wcState._groupFinished,
+    _playerRank: wcState._playerRank,
+    _advanced: wcState._advanced,
+  };
+
+  // 序列化比赛状态
+  if (matchState.value) {
+    const { _killedCharId, ...rest } = matchState.value;
+    saveData.matchState = rest;
+  }
+
+  localStorage.setItem("dead13_save", JSON.stringify(saveData));
+  emit("restart");
+}
+
+// 世界杯存档：从存档恢复
+function restoreFromSave(saveData) {
+  if (!saveData.wcState || !saveData.matchState) return;
+
+  // 1. 恢复锦标赛状态
+  Object.assign(wcState, saveData.wcState);
+
+  // 2. 恢复比赛状态
+  const ms = reactive({ ...saveData.matchState });
+  matchState.value = ms;
+  wcState.currentMatch = ms;
+
+  // 3. 恢复游戏状态（使用已有的 gameState 对象）
+  deserializeGameState(gameState, saveData.gameState);
+
+  // 4. 重建 matchContext 回调
+  rebuildMatchContext(ms);
+
+  // 5. 重新标记 AI 玩家
+  markAIPlayer();
+
+  // 6. 设置 UI 为比赛进行中
+  uiMode.value = "match";
+}
+
 // 暴露给父组件
-defineExpose({ initWorldCup, wcState, uiMode });
+defineExpose({ initWorldCup, wcState, uiMode, restoreFromSave });
 
 // GameShell ref（用于 DevLogPanel 5 连击 + 对手换人）
 const gameShellRef = ref(null);
@@ -382,6 +474,11 @@ function onPenaltyRound() {
       penaltyDone.value = true;
     }
   }
+}
+
+/** 点球结束后跳转到比赛结果 */
+function onFinishPenalty() {
+  finishPenalty();
 }
 
 // 继续
@@ -558,6 +655,30 @@ function aiSuppressLog(logBefore, replacement) {
 .wc-shell {
   min-height: 100vh;
 }
+
+/* 保存并退出按钮（世界杯模式专用） */
+.wc-save-btn {
+  position: fixed;
+  top: max(50px, calc(env(safe-area-inset-top) + 38px));
+  right: 12px;
+  z-index: 25;
+  background: rgba(255, 215, 0, 0.12);
+  border: 1px solid rgba(255, 215, 0, 0.25);
+  color: rgba(255, 215, 0, 0.7);
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 6px 10px;
+  min-width: 44px;
+  min-height: 44px;
+  transition: all 0.15s;
+}
+@media (hover: hover) {
+  .wc-save-btn:hover {
+    background: rgba(255, 215, 0, 0.25);
+    color: #ffd700;
+  }
+}
 .wc-shell__overlay {
   position: fixed;
   bottom: 0;
@@ -681,6 +802,12 @@ function aiSuppressLog(logBefore, replacement) {
   color: rgba(255, 255, 255, 0.5);
   margin-bottom: 20px;
 }
+.wc-result__penalty {
+  font-size: 14px;
+  color: #ffd54f;
+  margin-bottom: 8px;
+  font-weight: bold;
+}
 
 /* 淘汰赛介绍 */
 .wc-knockout-intro {
@@ -758,5 +885,11 @@ function aiSuppressLog(logBefore, replacement) {
 .wc-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+.wc-btn--next {
+  background: linear-gradient(135deg, #2e7d32, #4caf50);
+}
+.wc-btn--next:hover {
+  box-shadow: 0 4px 16px rgba(76, 175, 80, 0.4);
 }
 </style>

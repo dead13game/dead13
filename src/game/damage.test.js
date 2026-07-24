@@ -75,7 +75,7 @@ describe("applyDamage", () => {
     player.defensePile = [mockCard({ value: 8 })];
     applyDamage(state, player, 5);
     expect(player.hp).toBe(20); // 未扣血
-    expect(player.defensePile[0].value).toBe(3); // 残盾 3
+    expect(player.defensePile[0].defenseValue).toBe(3); // 残盾 3
     expect(state.messageLog).toContain("测试玩家 残盾 3点");
   });
 
@@ -103,9 +103,9 @@ describe("applyDamage", () => {
   it("护盾牌不进入墓地", () => {
     player.defensePile = [mockCard({ value: 5, isShield: true })];
     applyDamage(state, player, 3);
-    expect(player.defensePile[0].value).toBe(2); // 残盾
+    expect(player.defensePile[0].defenseValue).toBe(2); // 残盾
     // 护盾没消耗完 → 不弃入墓地
-    if (player.defensePile[0].value === 0) {
+    if (player.defensePile[0].defenseValue === 0) {
       expect(state.grave).toHaveLength(0);
     }
   });

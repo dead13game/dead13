@@ -26,6 +26,14 @@
         <div class="mode-select__card">
           <h2>选择模式</h2>
           <button
+            v-if="hasSave"
+            class="mode-btn mode-btn--continue"
+            @click="continueGame"
+          >
+            📂 继续游戏
+            <span class="mode-btn__desc">从上次离开继续</span>
+          </button>
+          <button
             class="mode-btn mode-btn--normal"
             @click="selectMode('normal')"
           >
@@ -73,6 +81,7 @@
         v-else-if="gameMode === 'normal' && gameStarted"
         :state="gameState"
         @restart="resetGame"
+        @saveAndQuit="handleNormalSave"
       />
 
       <!-- 世界杯模式：设置界面 -->
@@ -164,13 +173,14 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, nextTick, onMounted } from "vue";
 import GameShell from "./components/GameShell.vue";
 import GameSetup from "./components/GameSetup.vue";
 import WorldCupSetup from "./components/WorldCupSetup.vue";
 import WorldCupShell from "./components/WorldCupShell.vue";
 import OpeningVideo from "./components/OpeningVideo.vue";
 import { useGameController } from "./composables/useGameController.js";
+import { deserializeGameState } from "./game/gameState.js";
 import { AI_TEAM_NAMES } from "./game/worldCupConstants.js";
 
 const {
@@ -200,6 +210,12 @@ const wcUseWeather = ref(false);
 const wcDifficulty = ref("easy");
 const wcShellRef = ref(null);
 
+// 存档检测
+const hasSave = ref(false);
+onMounted(() => {
+  hasSave.value = !!localStorage.getItem("dead13_save");
+});
+
 function selectMode(mode) {
   gameMode.value = mode;
   if (mode === "worldcup") {
@@ -208,6 +224,57 @@ function selectMode(mode) {
     wcAiTeamNames.value = shuffled.slice(0, 3);
     wcTeamName.value = "";
     wcSelectedChar.value = "";
+  }
+}
+
+// 保存并退出（经典模式）
+function handleNormalSave(saveData) {
+  localStorage.setItem("dead13_save", JSON.stringify(saveData));
+  hasSave.value = true;
+  gameMode.value = null;
+  resetGame();
+}
+
+// 继续游戏（读档）
+function continueGame() {
+  const raw = localStorage.getItem("dead13_save");
+  if (!raw) return;
+  let saveData;
+  try {
+    saveData = JSON.parse(raw);
+  } catch {
+    localStorage.removeItem("dead13_save");
+    hasSave.value = false;
+    return;
+  }
+
+  localStorage.removeItem("dead13_save");
+  hasSave.value = false;
+
+  if (saveData.gameMode === "normal") {
+    const ok = deserializeGameState(gameState, saveData.gameState);
+    if (ok) {
+      gameMode.value = "normal";
+      gameStarted.value = true;
+    }
+  } else if (saveData.gameMode === "worldcup" && saveData.wcSetup) {
+    // 设置世界杯模式参数
+    gameMode.value = "worldcup";
+    wcTeamName.value = saveData.wcSetup.teamName || "";
+    wcSelectedChar.value = saveData.wcSetup.selectedChar || "";
+    wcAiTeamNames.value = saveData.wcSetup.opponentNames || [];
+    wcUseWeather.value = saveData.wcSetup.useWeather || false;
+    wcDifficulty.value = saveData.wcSetup.difficulty || "easy";
+    wcStarted.value = true;
+
+    // 等待 WorldCupShell 挂载后恢复存档
+    nextTick(() => {
+      setTimeout(() => {
+        if (wcShellRef.value?.restoreFromSave) {
+          wcShellRef.value.restoreFromSave(saveData);
+        }
+      }, 150);
+    });
   }
 }
 
@@ -236,6 +303,8 @@ function handleReset() {
     gameMode.value = null;
     wcTeamName.value = "";
     wcSelectedChar.value = "";
+    // 返回模式选择时重新检查存档，确保"继续游戏"按钮正确显示
+    hasSave.value = !!localStorage.getItem("dead13_save");
   } else {
     originalResetGame();
   }
@@ -469,6 +538,17 @@ body {
 .mode-btn--rules:hover {
   border-color: #6a1b9a;
   background: #f3e5f5;
+}
+.mode-btn--continue {
+  border-color: #ff8f00;
+  color: #e65100;
+  background: linear-gradient(135deg, #fff8e1, #fff3e0);
+}
+.mode-btn--continue:hover {
+  border-color: #e65100;
+  background: linear-gradient(135deg, #ffe0b2, #ffcc80);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(255, 111, 0, 0.2);
 }
 
 /* 规则说明弹窗 */

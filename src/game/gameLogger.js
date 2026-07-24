@@ -80,6 +80,11 @@ export const LOG_TYPE = {
   GRAVE_RESHUFFLE: "grave_reshuffle",
   AI_DECISION: "ai_decision",
   ANOMALY: "anomaly",
+  GAMBLE_PENALTY_START: "gamble_penalty_start",
+  GAMBLE_PENALTY_END: "gamble_penalty_end",
+  GAMBLE_CONSECUTIVE: "gamble_consecutive",
+  GAME_SAVE: "game_save",
+  GAME_LOAD: "game_load",
 };
 
 // ===== 分类（中文标签，用于 DevLogPanel 过滤，兼容旧代码） =====
@@ -133,6 +138,11 @@ const TYPE_CAT_MAP = {
   grave_reshuffle: CAT.DECK,
   ai_decision: CAT.AI,
   anomaly: CAT.ANOMALY,
+  gamble_penalty_start: CAT.GAMBLE,
+  gamble_penalty_end: CAT.GAMBLE,
+  gamble_consecutive: CAT.GAMBLE,
+  game_save: CAT.STATE,
+  game_load: CAT.STATE,
 };
 
 // CAT → 默认 LOG_TYPE（向后兼容旧 CAT 调用）
