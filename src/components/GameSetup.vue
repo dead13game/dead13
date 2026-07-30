@@ -75,8 +75,7 @@
               v-if="charById(playerChars[i - 1])?.skillType === 'passive'"
               >（被动）</template
             >
-            <template
-              v-else-if="charById(playerChars[i - 1])?.id === 'caiyueang'"
+            <template v-else-if="charById(playerChars[i - 1])?.id === 11"
               >（读档3次）</template
             >
             <template v-else
@@ -235,7 +234,7 @@ const emit = defineEmits([
 
 const charMap = computed(() => {
   const map = {};
-  CHARACTERS.forEach((c) => {
+  Object.values(CHARACTERS).forEach((c) => {
     map[c.id] = c;
   });
   return map;

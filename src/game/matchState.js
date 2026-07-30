@@ -158,8 +158,12 @@ export function resetGameForNextLife(matchState, gameState) {
   matchState.matchRound++;
   matchState.substitutionPending = false;
 
-  // 保存 matchContext
+  // 保存 matchContext + 天气状态（reset1v1Game 会清掉天气）
   const savedContext = gameState.matchContext;
+  const savedUseWeather = gameState.useWeather;
+  const savedWeatherDeck = gameState.weatherDeck;
+  const savedCurrentWeather = gameState.currentWeather;
+  const savedNextWeather = gameState.nextWeather;
 
   // 重新初始化 1v1 游戏
   reset1v1Game(
@@ -168,6 +172,12 @@ export function resetGameForNextLife(matchState, gameState) {
     matchState.opponentCharId,
     matchState.matchRound,
   );
+
+  // 恢复天气状态（世界杯模式下应保持天气）
+  gameState.useWeather = savedUseWeather;
+  gameState.weatherDeck = savedWeatherDeck;
+  gameState.currentWeather = savedCurrentWeather;
+  gameState.nextWeather = savedNextWeather;
 
   // 按 characterId 恢复名称（HP 排序后索引可能已变）
   gameState.players.forEach((p) => {
@@ -236,9 +246,11 @@ function reset1v1Game(gameState, playerCharId, opponentCharId, startingRound) {
   gameState.players.push(createPlayerForMatch(0, charData1, "玩家"));
   gameState.players.push(createPlayerForMatch(1, charData2, "对手"));
 
-  // 按血量排序
+  // 按 speed 降序排列（数字大=行动快），同速按 index 升序
   gameState.players.sort((a, b) => {
-    if (a.hp !== b.hp) return a.hp - b.hp;
+    const sa = CHARACTERS[a.characterId]?.speed ?? 5;
+    const sb = CHARACTERS[b.characterId]?.speed ?? 5;
+    if (sa !== sb) return sb - sa;
     return a.index - b.index;
   });
   gameState.players.forEach((p, i) => {
@@ -253,41 +265,41 @@ function createPlayerForMatch(index, charData, name) {
   return {
     index,
     name,
-    characterId: charData.id,
-    characterName: charData.name,
-    characterTitle: charData.title,
-    characterIcon: charData.icon,
+    characterId: charData.id, // 数字 ID
     hp: charData.hp,
     maxHp: charData.hp,
     alive: true,
     defensePile: [],
     trap: null,
     bait: null,
-    skillUses: charData.maxUses, // 击杀重置后技能恢复到满
-    skillName: charData.skillName,
-    skillDesc: charData.skillDesc,
-    skillType: charData.skillType,
-    maxUses: charData.maxUses,
+    skillUses: charData.maxUses,
     fightingSpirit: 0,
     moonPhase: 0,
-    ignoreTrapThisTurn: false,
-    extraAction: false,
-    loadUses: charData.id === "caiyueang" ? 3 : 0,
-    loadMaxUses: charData.id === "caiyueang" ? 3 : 0,
-    stealTarget: null,
-    dotTarget: null,
-    damageBonus: {},
-    frozenBy: null,
-    savepoint: null,
-    allyIndex: null,
-    allianceTurns: 0,
-    betrayalPenalty: 0,
-    allyKillBonus: false,
+    loadUses: charData.loadMaxUses,
+    statusEffects: {
+      ignoreTrapThisTurn: false,
+      extraAction: false,
+      stealTarget: null,
+      dotTarget: null,
+      damageBonus: {},
+      frozenBy: null,
+      savepoint: null,
+    },
+    relations: {
+      allyIndex: null,
+      allianceTurns: 0,
+      betrayalPenalty: 0,
+      allyKillBonus: false,
+      consecutiveGambles: 0,
+      gamblePenalty: false,
+    },
+    isAI: false,
+    aiDifficulty: null,
   };
 }
 
 function getCharData(charId) {
-  return CHARACTERS.find((c) => c.id === charId) || null;
+  return CHARACTERS[charId] || null;
 }
 
 // ===== 换人 =====
@@ -322,16 +334,9 @@ export function executeSubstitution(matchState, gameState, newCharId) {
   if (player) {
     Object.assign(player, {
       characterId: charData.id,
-      characterName: charData.name,
-      characterTitle: charData.title,
-      characterIcon: charData.icon,
       hp: charData.hp,
       maxHp: charData.hp,
       skillUses: charData.maxUses, // 换人后技能恢复到满
-      skillName: charData.skillName,
-      skillDesc: charData.skillDesc,
-      skillType: charData.skillType,
-      maxUses: charData.maxUses,
     });
   }
 

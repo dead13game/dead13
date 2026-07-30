@@ -3,7 +3,7 @@
     <GameCanvas ref="gameCanvasRef" :state="state" />
 
     <!-- 顶部信息栏（正常模式） -->
-    <div v-if="!worldCupMode" class="game-shell__top-bar">
+    <div v-if="!worldCupMode && !leagueMode" class="game-shell__top-bar">
       <span class="phase-badge" :class="'phase-badge--' + state.phase">{{
         phaseLabel
       }}</span>
@@ -30,9 +30,10 @@
     <!-- 底部 UI 栏 -->
     <div class="game-shell__bottom-bar">
       <ActionBar
-        v-if="!state.gameOver || worldCupMode"
+        v-if="!state.gameOver || worldCupMode || leagueMode"
         :state="state"
         :disabled="animating"
+        :league-mode="leagueMode"
         @attack="onAttack"
         @defense="onDefense"
         @gamble="onGamble"
@@ -49,7 +50,7 @@
       />
 
       <GameOverPanel
-        v-if="state.gameOver && !worldCupMode"
+        v-if="state.gameOver && !worldCupMode && !leagueMode"
         :winner="winner"
         @restart="$emit('restart')"
       />
@@ -79,7 +80,7 @@ import {
   decideNahidaOrder,
   decideLiniyaChoice,
   decideCaiyueangChoice,
-} from "../game/ai.js";
+} from "../game/ai/index.js";
 import {
   startAttack,
   executeAttack,
@@ -106,6 +107,7 @@ import {
 const props = defineProps({
   state: { type: Object, required: true },
   worldCupMode: { type: Boolean, default: false },
+  leagueMode: { type: Boolean, default: false },
 });
 const emit = defineEmits(["restart", "saveAndQuit"]);
 
@@ -277,7 +279,7 @@ function isAITurn() {
 }
 
 function scheduleAI() {
-  if (props.worldCupMode) return; // 世界杯模式由 WorldCupShell 自行调度
+  if (props.worldCupMode || props.leagueMode) return; // 世界杯/联赛模式由上层 Shell 自行调度
   if (aiTimer) clearTimeout(aiTimer);
   const state = props.state;
   if (!state || state.gameOver || state.phase === "setup") return;

@@ -33,11 +33,43 @@ function mockState(players = [], overrides = {}) {
 }
 
 function mockPlayer(overrides = {}) {
+  // 自动将旧字段名迁移到嵌套结构
+  const relationKeys = [
+    "allyIndex",
+    "allianceTurns",
+    "betrayalPenalty",
+    "allyKillBonus",
+    "consecutiveGambles",
+    "gamblePenalty",
+  ];
+  const statusKeys = [
+    "frozenBy",
+    "stealTarget",
+    "dotTarget",
+    "damageBonus",
+    "ignoreTrapThisTurn",
+    "extraAction",
+    "savepoint",
+  ];
+  const extraRelations = {};
+  const extraStatus = {};
+  for (const k of relationKeys) {
+    if (k in overrides) {
+      extraRelations[k] = overrides[k];
+      delete overrides[k];
+    }
+  }
+  for (const k of statusKeys) {
+    if (k in overrides) {
+      extraStatus[k] = overrides[k];
+      delete overrides[k];
+    }
+  }
+
   return {
     index: 0,
     name: "测试玩家",
-    characterId: "test",
-    characterName: "测试",
+    characterId: 1,
     hp: 20,
     maxHp: 20,
     alive: true,
@@ -45,25 +77,28 @@ function mockPlayer(overrides = {}) {
     trap: null,
     bait: null,
     skillUses: 1,
-    skillName: "测试技能",
-    skillDesc: "",
-    skillType: "active",
-    maxUses: 1,
     fightingSpirit: 0,
     moonPhase: 0,
-    ignoreTrapThisTurn: false,
-    extraAction: false,
-    loadUses: 3,
-    loadMaxUses: 3,
-    stealTarget: null,
-    dotTarget: null,
-    damageBonus: {},
-    frozenBy: null,
-    savepoint: null,
-    allyIndex: null,
-    allianceTurns: 0,
-    betrayalPenalty: 0,
-    allyKillBonus: false,
+    loadUses: 0,
+    statusEffects: {
+      ignoreTrapThisTurn: false,
+      extraAction: false,
+      stealTarget: null,
+      dotTarget: null,
+      damageBonus: {},
+      frozenBy: null,
+      savepoint: null,
+      ...extraStatus,
+    },
+    relations: {
+      allyIndex: null,
+      allianceTurns: 0,
+      betrayalPenalty: 0,
+      allyKillBonus: false,
+      consecutiveGambles: 0,
+      gamblePenalty: false,
+      ...extraRelations,
+    },
     ...overrides,
   };
 }
@@ -133,10 +168,10 @@ describe("alliance", () => {
       expect(state.step).toBe("allyPick");
 
       executeAlly(state, 1);
-      expect(p0.allyIndex).toBe(1);
-      expect(p0.allianceTurns).toBe(5);
-      expect(p1.allyIndex).toBe(0);
-      expect(p1.allianceTurns).toBe(5);
+      expect(p0.relations.allyIndex).toBe(1);
+      expect(p0.relations.allianceTurns).toBe(5);
+      expect(p1.relations.allyIndex).toBe(0);
+      expect(p1.relations.allianceTurns).toBe(5);
     });
 
     it("已有盟友不可再结盟", () => {
@@ -158,7 +193,7 @@ describe("alliance", () => {
       startAlly(state);
       executeAlly(state, 1);
       expect(state.messageLog).toContain("B 已有盟友");
-      expect(p0.allyIndex).toBeNull();
+      expect(p0.relations.allyIndex).toBeNull();
     });
 
     it("背刺惩罚中不可结盟", () => {
@@ -193,10 +228,10 @@ describe("alliance", () => {
       // 背刺造成卡牌值 +4 伤害
       expect(p1.hp).toBeLessThan(20);
       // 联盟被解除
-      expect(p0.allyIndex).toBeNull();
-      expect(p1.allyIndex).toBeNull();
+      expect(p0.relations.allyIndex).toBeNull();
+      expect(p1.relations.allyIndex).toBeNull();
       // 背刺惩罚
-      expect(p0.betrayalPenalty).toBe(10);
+      expect(p0.relations.betrayalPenalty).toBe(10);
     });
 
     it("无盟友时背刺无效", () => {
@@ -235,7 +270,7 @@ describe("alliance", () => {
       const state = mockState([p0, p1]);
 
       expect(() => dissolveAlliance(state, p0)).not.toThrow();
-      expect(p0.allyIndex).toBeNull();
+      expect(p0.relations.allyIndex).toBeNull();
     });
   });
 });

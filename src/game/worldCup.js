@@ -212,7 +212,8 @@ export function initKnockoutOpponent() {
   const emoji = TEAM_EMOJIS[AI_TEAM_NAMES.indexOf(name)] || "🏳️";
 
   // 随机选角色
-  const char = CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)];
+  const chars = Object.values(CHARACTERS);
+  const char = chars[Math.floor(Math.random() * chars.length)];
 
   return { name, emoji, charId: char.id };
 }
@@ -259,6 +260,7 @@ export function eliminatePlayer(state) {
 
 /** 为小组赛对手随机选取角色 */
 export function getRandomGroupOpponentChar() {
-  const char = CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)];
+  const chars = Object.values(CHARACTERS);
+  const char = chars[Math.floor(Math.random() * chars.length)];
   return char.id;
 }

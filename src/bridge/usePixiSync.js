@@ -35,9 +35,6 @@ export function usePixiSync(state, getManager) {
       return state.players.map((p) => ({
         index: p.index,
         characterId: p.characterId,
-        characterName: p.characterName,
-        characterIcon: p.characterIcon,
-        skillName: p.skillName,
         hp: p.hp,
         alive: p.alive,
         defenseLen: p.defensePile.length,
@@ -48,8 +45,8 @@ export function usePixiSync(state, getManager) {
         bait: p.bait ? p.bait.id + "-" + p.bait.value : null,
         fightingSpirit: p.fightingSpirit,
         moonPhase: p.moonPhase,
-        extraAction: p.extraAction,
-        ignoreTrapThisTurn: p.ignoreTrapThisTurn,
+        extraAction: p.statusEffects.extraAction,
+        ignoreTrapThisTurn: p.statusEffects.ignoreTrapThisTurn,
       }));
     },
     () => {

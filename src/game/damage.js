@@ -4,13 +4,15 @@ import { CAT } from "./gameLogger.js";
 
 /** 解除双方的联盟关系 */
 export function dissolveAlliance(state, player) {
-  const ally = state.players.find((p) => p.index === player.allyIndex);
+  const ally = state.players.find(
+    (p) => p.index === player.relations.allyIndex,
+  );
   if (ally) {
-    ally.allyIndex = null;
-    ally.allianceTurns = 0;
+    ally.relations.allyIndex = null;
+    ally.relations.allianceTurns = 0;
   }
-  player.allyIndex = null;
-  player.allianceTurns = 0;
+  player.relations.allyIndex = null;
+  player.relations.allianceTurns = 0;
 }
 
 /** 对一名玩家造成伤害（处理防御结算、扣血、死亡） */
@@ -19,7 +21,7 @@ export function applyDamage(state, player, damage) {
   const defCountBefore = player.defensePile.length;
 
   // 赌命惩罚：有 gamblePenalty 的角色受到的伤害+1
-  if (player.gamblePenalty) {
+  if (player.relations.gamblePenalty) {
     damage += 1;
     state.devLog.info(CAT.GAMBLE, `赌命惩罚: ${player.name} 额外受到1点伤害`, {
       playerName: player.name,
@@ -125,6 +127,12 @@ export function applyDamage(state, player, damage) {
       player.trap = null;
       player.bait = null;
       dissolveAlliance(state, player);
+
+      // 联赛模式：每次死亡都通知控制器记录死亡顺序
+      if (state.leagueContext) {
+        state.leagueContext.onPlayerDeath(player.index);
+      }
+
       checkGameOver(state);
       return remaining;
     }
@@ -141,6 +149,26 @@ export function alivePlayers(state) {
 /** 检查游戏结束 */
 export function checkGameOver(state) {
   const alive = alivePlayers(state);
+
+  // 联赛模式：只做团灭检测（个人死亡已在 applyDamage 中通知）
+  if (state.leagueContext) {
+    if (alive.length === 0) return;
+    const teamsAlive = new Set(alive.map((p) => p.teamId));
+    if (teamsAlive.size <= 1) {
+      if (state._elimGuard) return;
+      state._elimGuard = true;
+      const survivingTeam = [...teamsAlive][0];
+      state.devLog.info(
+        CAT.STATE,
+        `联赛团队团灭: 只剩队伍${survivingTeam}存活`,
+        { round: state.round, alivePlayers: alive.map((p) => p.name) },
+      );
+      state.leagueContext.onTeamWipe(survivingTeam);
+      state._elimPaused = true;
+    }
+    return;
+  }
+
   if (alive.length <= 1) {
     // 比赛模式：不结束游戏，交给 matchContext 处理
     if (state.matchContext) {
@@ -159,7 +187,6 @@ export function checkGameOver(state) {
         },
       );
       state.matchContext.onPlayerEliminated(deadIdx, killerIdx, state.round);
-      // 比赛模式阵亡后暂停回合推进，等待 UI 处理换人/重置
       state._elimPaused = true;
       return;
     }

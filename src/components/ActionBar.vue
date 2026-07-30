@@ -59,10 +59,10 @@
           v-if="canSkill"
           class="ab ab--skill"
           :disabled="disabled"
-          :title="currentPlayerVal.skillDesc"
+          :title="getCharData(currentPlayerVal).skillDesc"
           @click="$emit('skill')"
         >
-          {{ currentPlayerVal.skillName }}{{ skillLabel }}
+          {{ getCharData(currentPlayerVal).skillName }}{{ skillLabel }}
         </button>
       </div>
     </template>
@@ -207,7 +207,8 @@
           class="ab ab--skill"
           :disabled="
             disabled ||
-            (currentPlayerVal.loadUses <= 0 && !currentPlayerVal.savepoint)
+            (currentPlayerVal.loadUses <= 0 &&
+              !currentPlayerVal.statusEffects.savepoint)
           "
           @click="$emit('caiyueangLoad')"
         >
@@ -322,6 +323,7 @@
 <script setup>
 import { ref, computed, watch } from "vue";
 import Card from "./Card.vue";
+import { getCharData } from "../game/constants.js";
 import {
   currentPlayer,
   canUseSkill,
@@ -333,6 +335,7 @@ import {
 const props = defineProps({
   state: { type: Object, required: true },
   disabled: { type: Boolean, default: false },
+  leagueMode: { type: Boolean, default: false },
 });
 
 const emit = defineEmits([
@@ -360,11 +363,11 @@ const nahidaOrder = ref([]);
 const currentPlayerVal = computed(() => currentPlayer(props.state));
 const gambleWarning = computed(() => {
   const p = currentPlayerVal.value;
-  return p && p.consecutiveGambles >= 2 && !p.gamblePenalty;
+  return p && p.relations.consecutiveGambles >= 2 && !p.relations.gamblePenalty;
 });
 const gamblePenaltyActive = computed(() => {
   const p = currentPlayerVal.value;
-  return p && p.gamblePenalty === true;
+  return p && p.relations.gamblePenalty === true;
 });
 const canSkill = computed(() =>
   canUseSkill(props.state, currentPlayerVal.value),
@@ -372,22 +375,24 @@ const canSkill = computed(() =>
 const skillLabel = computed(() => {
   const p = currentPlayerVal.value;
   if (!p) return "";
-  if (p.characterId === "caiyueang") return `(读档${p.loadUses})`;
+  if (p.characterId === 11) return `(读档${p.loadUses})`;
   if (p.skillUses === Infinity) return "被动";
   return `(${p.skillUses})`;
 });
 const canAlly = computed(() => {
+  if (props.leagueMode) return false; // 联赛模式无联盟
   const p = currentPlayerVal.value;
   return (
     props.state.players.length >= 4 &&
     props.state.phase !== "peace" &&
-    p.allyIndex === null &&
-    p.betrayalPenalty <= 0
+    p.relations.allyIndex === null &&
+    p.relations.betrayalPenalty <= 0
   );
 });
 const canBetray = computed(() => {
+  if (props.leagueMode) return false; // 联赛模式无背刺
   const p = currentPlayerVal.value;
-  return props.state.phase !== "peace" && p.allyIndex !== null;
+  return props.state.phase !== "peace" && p.relations.allyIndex !== null;
 });
 const allianceTargets = computed(() => getAllianceTargets(props.state));
 const pendingGamble = computed(() => props.state.pendingGamble);
@@ -399,15 +404,27 @@ const aliveTargets = computed(() =>
   props.state.players.filter((p) => p.alive && p !== currentPlayerVal.value),
 );
 
-// 攻击目标：经典模式下排除盟友（盟友只能通过背刺伤害）
+// 攻击目标：经典模式下排除盟友，联赛模式下排除队友
 const attackTargets = computed(() => {
   const attacker = currentPlayerVal.value;
   if (!attacker) return [];
-  return aliveTargets.value.filter(
-    (p) =>
-      // 经典模式下，不能攻击自己的盟友
-      !(!props.state.matchContext && attacker.allyIndex === p.index),
-  );
+  return aliveTargets.value.filter((p) => {
+    // 经典模式：不能攻击盟友
+    if (
+      !props.state.matchContext &&
+      !props.leagueMode &&
+      attacker.relations.allyIndex === p.index
+    )
+      return false;
+    // 联赛模式：不能攻击队友
+    if (
+      props.leagueMode &&
+      attacker.teamId >= 0 &&
+      attacker.teamId === p.teamId
+    )
+      return false;
+    return true;
+  });
 });
 
 const nahidaStepLabel = computed(() => {

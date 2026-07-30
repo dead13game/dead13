@@ -1,6 +1,7 @@
 import { Container, Graphics, Text, Sprite, Texture, Rectangle } from "pixi.js";
 import gsap from "gsap";
 import { CARD_WIDTH, CARD_HEIGHT, COLORS } from "../core/constants.js";
+import { getCharData } from "../../game/constants.js";
 import { CardSprite } from "./CardSprite.js";
 
 /**
@@ -76,7 +77,7 @@ export class PlayerTableSprite extends Container {
 
     // ── 角色名 + 技能 ──
     this.charText = new Text({
-      text: `${this.playerData.characterName} · ${this.playerData.skillName}`,
+      text: `${getCharData(this.playerData).name} · ${getCharData(this.playerData).skillName}`,
       style: { fontSize: fsChar, fill: 0x666666, fontFamily: "sans-serif" },
     });
     this.charText.position.set(8, compact ? 13 : 20);
@@ -196,7 +197,7 @@ export class PlayerTableSprite extends Container {
 
   _loadPortrait() {
     const r = this._portraitRect;
-    const path = this.playerData.characterIcon;
+    const path = getCharData(this.playerData).icon;
     if (!path) {
       this._drawPortraitPlaceholder(r);
       return;
@@ -252,7 +253,7 @@ export class PlayerTableSprite extends Container {
     this.playerData = player;
     // 角色变了（换人）→ 刷新立绘和文字
     if (charChanged) {
-      this.charText.text = `${player.characterName} · ${player.skillName}`;
+      this.charText.text = `${getCharData(player).name} · ${getCharData(player).skillName}`;
       this._loadPortrait();
     }
     this._updateHP();
@@ -387,20 +388,23 @@ export class PlayerTableSprite extends Container {
 
   _updateStatus(player) {
     const tags = [];
-    if (player.frozenBy !== null) tags.push("冻结");
-    if (player.allyIndex !== null && player.allianceTurns > 0)
-      tags.push(`联盟(${player.allianceTurns})`);
-    if (player.betrayalPenalty > 0)
-      tags.push(`背刺惩罚(${player.betrayalPenalty})`);
-    if (player.stealTarget?.turns > 0)
-      tags.push(`偷取中(${player.stealTarget.turns})`);
-    if (player.dotTarget?.turns > 0)
-      tags.push(`DoT(${player.dotTarget.turns})`);
-    if (player.savepoint) tags.push("已存档");
+    if (player.statusEffects.frozenBy !== null) tags.push("冻结");
+    if (
+      player.relations.allyIndex !== null &&
+      player.relations.allianceTurns > 0
+    )
+      tags.push(`联盟(${player.relations.allianceTurns})`);
+    if (player.relations.betrayalPenalty > 0)
+      tags.push(`背刺惩罚(${player.relations.betrayalPenalty})`);
+    if (player.statusEffects.stealTarget?.turns > 0)
+      tags.push(`偷取中(${player.statusEffects.stealTarget.turns})`);
+    if (player.statusEffects.dotTarget?.turns > 0)
+      tags.push(`DoT(${player.statusEffects.dotTarget.turns})`);
+    if (player.statusEffects.savepoint) tags.push("已存档");
     if (player.fightingSpirit > 0) tags.push(`斗志${player.fightingSpirit}`);
-    if (player.extraAction) tags.push("+1行动");
-    if (player.ignoreTrapThisTurn) tags.push("无视陷阱");
-    if (player.gamblePenalty) tags.push("赌命惩罚");
+    if (player.statusEffects.extraAction) tags.push("+1行动");
+    if (player.statusEffects.ignoreTrapThisTurn) tags.push("无视陷阱");
+    if (player.relations.gamblePenalty) tags.push("赌命惩罚");
     this.statusText.text = tags.join(" · ");
 
     this._updateGambleWarn(player);
@@ -411,11 +415,11 @@ export class PlayerTableSprite extends Container {
     const compact = this._compact;
     const fsWarn = compact ? 9 : 11;
 
-    if (player.gamblePenalty) {
+    if (player.relations.gamblePenalty) {
       this.gambleWarnText.text = "🔥受伤害+1";
       this.gambleWarnText.style.fill = 0xff4444;
       this.gambleWarnText.style.fontSize = fsWarn;
-    } else if (player.consecutiveGambles === 2) {
+    } else if (player.relations.consecutiveGambles === 2) {
       this.gambleWarnText.text = "⚠再赌将受罚";
       this.gambleWarnText.style.fill = 0xff8c00;
       this.gambleWarnText.style.fontSize = fsWarn;

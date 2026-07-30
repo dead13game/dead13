@@ -7,12 +7,7 @@
 
 ## 快速开始
 
-本项目使用**手动 5 session**：4 个领域 session（game-logic / pixi-render / animation / vue-ui）+ 1 个主 session。主 session 判断任务领域，用户手动切 session 传递任务和结果。
-
-1. 主 session 收到任务 → 判断领域 → 输出 `📎 发给 [agent名]：任务描述`
-2. 不知道改什么 → 主 session 自己搜索或让用户开 Explore session
-3. 改完 → `npm run test` 验证
-4. 改接口 → 更新下方「Agent 间合约」表
+单 session 工作流。收到任务直接改，改完跑 `npm run test`。
 
 ## 常用命令
 
@@ -38,6 +33,9 @@ PR以及gh CLI会导致用户GitHub账户封禁，禁止使用。
 3. **新机制用通用标记。** 如 `endTurn` 控制回合推进（true=下一玩家，false=当前玩家额外行动），不搞角色特殊路径。
 4. **PixiJS 对象用 `shallowRef`，不用 `ref()`。** Vue 深度响应式代理会破坏纹理引用。GSAP 动画用 `sprite.scale.x` 不是 `scaleX`。
 5. **伤害计算：先 -2 再 2:1 联盟分配，向下取整（`Math.floor`）。**
+6. **角色数据用 `getCharData(player)` 查表。** 不要直接访问 `player.characterName`/`skillName`/`skillDesc` 等——这些字段已移入 CHARACTERS 字典，player 上只保留 `characterId`（数字）。
+7. **Player 嵌套字段写完整路径。** 状态效果 → `player.statusEffects.xxx`，关系 → `player.relations.xxx`。详见 `/contract`。
+8. **行动顺序按 `CHARACTERS[id].speed` 每回合重排。** speed 降序（大=先动），dead 排末尾，同速按 index 升序。
 
 ## 行为准则 — 信息不足时必须追问（最重要）
 
@@ -45,15 +43,14 @@ PR以及gh CLI会导致用户GitHub账户封禁，禁止使用。
 
 1. **Bug 报告太模糊** — 用户只说「XX 有 bug」但没有给错误日志、复现步骤、预期/实际行为。追问：「请提供控制台报错或 `[game]` 日志，并描述预期行为 vs 实际行为」
 2. **功能需求不明确** — 用户说「加一个新角色」但没给技能名称、效果、数值。追问：「新角色的技能是什么？效果数值？是否有使用次数限制？」
-3. **不要自己读 src/ 代码** — 涉及 src/ 下任何文件时，不要自己 Read。直接 spawn 对应领域的子 agent，它会读需要的文件。你自己读 = 浪费 token + 上下文膨胀。唯一例外：跨层问题需要你自己同时理解多个层时。
-4. **多个可能原因时** — bug 有 2 个以上可能的原因时，不要赌一个去改。列出所有假设，追问用户或读日志排除后再改。
-5. **第一次听说的问题** — 用户描述的问题不在已修复 Bug 列表或你的认知范围内，先追问细节，不要直接动手。
-6. **不确定影响范围** — 不知道改动会涉及哪些文件时，spawn Explore subagent（subagent_type: "Explore"）做只读搜索，拿到文件列表后再派对应的领域 agent。
-7. **会话长时间中断后** — 如果中间可能有其他改动（用户手动改代码或第三方工具），动手前先 spawn Explore 或子 agent 重读相关文件，不要依赖中断前的上下文。
+3. **多个可能原因时** — bug 有 2 个以上可能的原因时，不要赌一个去改。列出所有假设，追问用户或读日志排除后再改。
+4. **第一次听说的问题** — 用户描述的问题不在已修复 Bug 列表或你的认知范围内，先追问细节，不要直接动手。
 
 **好的提问示范：**
 
 > 「你说的『攻击伤害不对』，具体是哪个角色攻击哪个目标？伤害值预期多少、实际多少？控制台 `[game]` 日志里 `damage_calc` 那行输出是什么？」
+
+**善用question** — 不确定的地方不要猜测，question用户获得最准确的方向
 
 ## 架构
 
@@ -87,63 +84,19 @@ STEP:  pickAction → attackShowCard → pickTarget → ... → pickAction（循
 
 `STEP` 驱动 UI（ActionBar 中 `v-if` 判断 `state.step`）。
 
-## 领域 Agent 手动工作流
-
-用户手动维护 4 个长期 session（对应 4 个领域 agent）+ 1 个主 session。主 session 不直接调 Agent tool——由用户手动在 session 间传递任务和结果。
-
-```
-主 session（你）接收到任务
-  → 判断属于哪个领域
-  → 输出：「📎 发给 [game-logic]：修复 combat.js 联盟平摊 off-by-one」
-  → 用户手动切到 game-logic session，粘贴任务
-  → game-logic 完成后，用户把结果贴回主 session
-  → 主 session 验证（跑 test、看 diff）
-```
-
-| 目录                            | 发给哪个 session                      | 启动命令                                       |
-| ------------------------------- | ------------------------------------- | ---------------------------------------------- |
-| `src/game/`                     | game-logic                            | 用 `.claude/agents/game-logic.md` 的 prompt 开 |
-| `src/pixi/` 或 `GameCanvas.vue` | pixi-render                           | 同上，对应 prompt                              |
-| `src/bridge/` 或 `effects/`     | animation                             | 同上                                           |
-| `src/components/` 或 `App.vue`  | vue-ui                                | 同上                                           |
-| 不确定                          | 主 session 自己搜索或让用户开 Explore | —                                              |
-
-**主 session 输出任务格式：** `📎 发给 [agent名]：具体任务描述（含文件路径、函数名、改什么）`
-
-**领域 session 输出结果格式：** 标准化结果块（改动文件、摘要、测试结果、合约影响）。主 session 收到后自动解析并判断是否需要跟进。
-
-**典型交互：**
-
-```
-你：[贴回 game-logic 的结果]
-    ## 📊 任务结果
-    改动文件: src/game/combat.js
-    改动摘要: 修复联盟平摊 Math.floor
-    测试: 45/45 通过
-    合约影响: 无
-
-主 session：「收到。combat.js 联盟平摊已修复，测试全绿，合约无变化。下一个任务？」
-```
-
 ## Skills & 调试
 
 | 工具                  | 用途                                                                           |
 | --------------------- | ------------------------------------------------------------------------------ |
+| `/contract`           | **Player 字段表 + CHARACTERS 字典 + 函数签名 + ID 映射 + 公式速查**            |
 | `/debug`              | 六步调试法（复现→隔离→假设→测试→修复→记录），含症状→模块速查表                 |
 | `npm run test`        | 45 条 vitest 测试（damage 14 + alliance 8 + deck 9 + TableLayout 14），< 300ms |
+| `PostToolUse hook`    | `src/game/*` 编辑后自动跑 test，改字段当场暴露                                 |
 | Playwright MCP        | `browser_console_messages` 读日志 + `browser_evaluate` 读 PixiJS/游戏状态      |
 | `window.__PIXI_APP__` | 浏览器控制台访问 PIXI Application 内部状态                                     |
 | `[game]` 日志         | `console.debug` 输出结构化 JSON，`window.__GAME_LOG_LEVEL__` 动态控制等级      |
 
-## Agent 间合约（跨层接口 — 修改必须同步更新本表）
-
-Agent 之间通过代码 + CLAUDE.md + Memory 通信。任何 Agent 改了下述接口，必须同步更新本表。改完跑 `npm run test`。
-
-### 合约 1：gameState 响应式对象结构
-
-`createGameState()` 返回的 reactive 对象，被所有 Agent 共享。新增字段由 game-logic 负责。
-
-### 合约 2：gameState.js 导出函数签名
+## gameState.js 导出函数签名
 
 | 函数                                               | 参数          | 调用方            |
 | -------------------------------------------------- | ------------- | ----------------- |
@@ -163,21 +116,24 @@ Agent 之间通过代码 + CLAUDE.md + Memory 通信。任何 Agent 改了下述
 | `serializeGameState(state)`                        | state         | Vue（存档）       |
 | `deserializeGameState(state, saveData)`            | state, object | Vue（读档）       |
 
-### 合约 3：PIXI ↔ Vue 桥接
+## PIXI ↔ Vue 桥接
 
-| 接口                                                 | 方向       | 维护 Agent  |
-| ---------------------------------------------------- | ---------- | ----------- |
-| `usePixiSync(state, getManager)`                     | Vue → PIXI | animation   |
-| `useAnimationFlow(state, getManager)`                | Vue → PIXI | animation   |
-| `PIXIManager.buildScene(players, deckCount)`         | PIXI       | pixi-render |
-| `PIXIManager.updatePlayer(index, player, isCurrent)` | PIXI       | pixi-render |
-| `GameShell.onRelayout()`                             | Vue → PIXI | vue-ui      |
+| 接口                                                 | 方向       |
+| ---------------------------------------------------- | ---------- |
+| `usePixiSync(state, getManager)`                     | Vue → PIXI |
+| `useAnimationFlow(state, getManager)`                | Vue → PIXI |
+| `PIXIManager.buildScene(players, deckCount)`         | PIXI       |
+| `PIXIManager.updatePlayer(index, player, isCurrent)` | PIXI       |
+| `GameShell.onRelayout()`                             | Vue → PIXI |
 
-### 合约 4：player 对象渲染字段
+## player 对象渲染字段
 
-PlayerTableSprite `_updateStatus()` 依赖: `frozenBy, allyIndex, allianceTurns, betrayalPenalty, stealTarget, dotTarget, fightingSpirit, savepoint, extraAction, ignoreTrapThisTurn, gamblePenalty, consecutiveGambles`
+PlayerTableSprite `_updateStatus()` 依赖（注意嵌套路径）:
+`statusEffects.frozenBy`, `relations.allyIndex`, `relations.allianceTurns`, `relations.betrayalPenalty`,
+`statusEffects.stealTarget`, `statusEffects.dotTarget`, `fightingSpirit`, `statusEffects.savepoint`,
+`statusEffects.extraAction`, `statusEffects.ignoreTrapThisTurn`, `relations.gamblePenalty`, `relations.consecutiveGambles`
 
-→ game-logic 新增状态标签时，必须告知 pixi-render 同步改 `_updateStatus()` 或 `_updateGambleWarn()`
+→ 新增状态标签时同步改 `_updateStatus()` 或 `_updateGambleWarn()`。字段结构详见 `/contract`。
 
 ## 构建关键点
 
@@ -190,14 +146,22 @@ PlayerTableSprite `_updateStatus()` 依赖: `frozenBy, allyIndex, allianceTurns,
 
 | 文件                             | 行数 | 说明                                         |
 | -------------------------------- | ---- | -------------------------------------------- |
-| `src/game/gameState.js`          | 462  | 状态创建 + 初始化 + 回合推进 + 统一导出      |
-| `src/game/combat.js`             | 543  | 攻击/防御/赌命 全流程                        |
-| `src/game/skills.js`             | 388  | 9 个角色技能（路由 + 各角色实现）            |
-| `src/game/damage.js`             | 162  | 伤害结算 + 死亡 + 游戏结束判定               |
-| `src/game/alliance.js`           | 151  | 结盟/背刺/目标筛选                           |
-| `src/game/caiyueang.js`          | 155  | 菜月昴死亡回归（存档/读档/深拷贝）           |
+| `src/game/index.js`              | —    | **桶导出，外部统一入口**                     |
+| `src/game/constants.js`          | 213  | CHARACTERS 字典 + getCharData + 阶段/天气    |
+| `src/game/gameState.js`          | 455  | 状态创建 + 初始化 + 回合推进 + 统一导出      |
+| `src/game/player.js`             | 44   | Player 工厂函数                              |
+| `src/game/serialize.js`          | 170  | 游戏存档/读档                                |
+| `src/game/combat.js`             | 520  | 攻击/防御                                    |
+| `src/game/gamble.js`             | 100  | 赌命（抽牌+设陷阱）                          |
+| `src/game/skills.js`             | 395  | 11 个角色技能（路由 + 各角色实现）           |
+| `src/game/damage.js`             | 175  | 伤害结算 + 死亡 + 游戏结束判定               |
+| `src/game/alliance.js`           | 160  | 结盟/背刺/目标筛选                           |
+| `src/game/caiyueang.js`          | 150  | 菜月昴死亡回归（存档/读档/深拷贝）           |
+| `src/game/ai/index.js`           | 160  | AI 公共 API + 共享工具                       |
+| `src/game/ai/skilled.js`         | 240  | AI 熟练难度                                  |
+| `src/game/ai/hell.js`            | 250  | AI 地狱难度（偷看牌库）                      |
+| `src/game/ai/easy.js`            | 50   | AI 简单难度                                  |
 | `src/game/weather.js`            | 44   | 天气牌堆 + getter                            |
-| `src/game/constants.js`          | 156  | 角色数据 CHARACTERS、阶段/步骤/天气          |
 | `src/game/deck.js`               | 60   | 扑克牌创建/洗牌/抽牌/墓地重构                |
 | `src/game/gameLogger.js`         | 200  | 开发日志（零依赖，`[game]` JSON 到 console） |
 | `src/pixi/core/PIXIManager.js`   | 268  | Application 管理 + 场景树 + 粒子             |
@@ -212,6 +176,8 @@ PlayerTableSprite `_updateStatus()` 依赖: `frozenBy, allyIndex, allianceTurns,
 - 花色 `SUITS` 为空字符串（必须保持 `♠♥♦♣`）
 - `buildScene()` 传 TableLayout 尺寸**不能除以 resolution**
 - 竖屏 canvas 用 `position: absolute` → 不占文档流无法滚动
+- `_fenjinHeal = null` 永不清除 → 后续所有角色技能触发都被路由到风堇。**必须用 `= undefined` 或 `delete` 清除标记**
+- `reset1v1Game` 硬编码 `useWeather: false` → 世界杯击杀后天气消失。**重置比赛前必须保存天气状态**
 
 ## 开发日志系统
 

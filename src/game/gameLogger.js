@@ -188,14 +188,13 @@ function sanitize(obj, depth = 3, seen = new WeakSet()) {
       index: obj.index,
       name: obj.name,
       characterId: obj.characterId,
-      characterName: obj.characterName,
       hp: obj.hp,
       maxHp: obj.maxHp,
       alive: obj.alive,
       defCount: obj.defensePile?.length ?? 0,
       trapValue: obj.trap?.value ?? null,
-      allyIndex: obj.allyIndex,
-      allianceTurns: obj.allianceTurns,
+      allyIndex: obj.relations?.allyIndex,
+      allianceTurns: obj.relations?.allianceTurns,
     };
   }
   const result = {};

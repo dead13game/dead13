@@ -1,4 +1,4 @@
-import { PHASE, STEP } from "./constants.js";
+import { PHASE, STEP, getCharData } from "./constants.js";
 import { drawCards, cardDisplay } from "./deck.js";
 import { applyDamage } from "./damage.js";
 import { CAT } from "./gameLogger.js";
@@ -34,9 +34,8 @@ function endAction(state) {
 
 export function canUseSkill(state, player) {
   if (!player.alive) return false;
-  if (player.skillType !== "active") return false;
-  if (player.characterId === "caiyueang")
-    return state.step === STEP.PICK_ACTION;
+  if (getCharData(player).skillType !== "active") return false;
+  if (player.characterId === 11) return state.step === STEP.PICK_ACTION;
   if (player.skillUses <= 0) return false;
   if (state.currentWeather === "arms") return false;
   return state.step === STEP.PICK_ACTION;
@@ -54,7 +53,7 @@ export function executeSkill(state) {
       `${player.name} 尝试使用技能但 canUseSkill=false`,
       {
         skillUses: player.skillUses,
-        skillType: player.skillType,
+        skillType: getCharData(player).skillType,
         weather: state.currentWeather,
         step: state.step,
       },
@@ -63,33 +62,37 @@ export function executeSkill(state) {
   }
 
   // 非赌命操作：重置连续赌命计数
-  if (player.consecutiveGambles > 0) {
-    player.consecutiveGambles = 0;
+  if (player.relations.consecutiveGambles > 0) {
+    player.relations.consecutiveGambles = 0;
   }
 
-  state.devLog.info(CAT.SKILL, `${player.name} 释放技能: ${player.skillName}`, {
-    characterId: player.characterId,
-    skillUsesBefore: player.skillUses,
-  });
+  state.devLog.info(
+    CAT.SKILL,
+    `${player.name} 释放技能: ${getCharData(player).skillName}`,
+    {
+      characterId: player.characterId,
+      skillUsesBefore: player.skillUses,
+    },
+  );
 
   switch (player.characterId) {
-    case "venti":
+    case 1:
       return startSkillVenti(state);
-    case "zhongli":
+    case 2:
       return executeSkillZhongli(state);
-    case "raiden":
+    case 3:
       return executeSkillRaidenPick(state);
-    case "nahida":
+    case 4:
       return startSkillNahida(state);
-    case "furina":
+    case 5:
       return executeSkillFurina(state);
-    case "fenjin":
+    case 8:
       return executeSkillFenjin(state);
-    case "liniya":
+    case 9:
       return executeSkillLiniya(state);
-    case "aimiliya":
+    case 10:
       return executeSkillAimiliya(state);
-    case "caiyueang":
+    case 11:
       return executeSkillCaiyueang(state);
     default:
       return false;
@@ -189,7 +192,7 @@ export function executeRaidenSkill(state, targetIdx) {
     damage += 2;
     bonuses.sun = 2;
   }
-  if (attacker.characterId === "mavuika" && attacker.fightingSpirit > 0) {
+  if (attacker.characterId === 6 && attacker.fightingSpirit > 0) {
     bonuses.spirit = attacker.fightingSpirit;
     damage += attacker.fightingSpirit;
   }
@@ -207,7 +210,7 @@ export function executeRaidenSkill(state, targetIdx) {
 
   addLog(state, `${attacker.name} 无想的一刀 ➜ ${target.name}`);
   applyDamage(state, target, damage);
-  attacker.ignoreTrapThisTurn = false;
+  attacker.statusEffects.ignoreTrapThisTurn = false;
   if (!state.gameOver) endAction(state);
 }
 
@@ -249,7 +252,7 @@ function executeSkillFurina(state) {
     addLog(state, "第4回合后才能攻击");
     return;
   }
-  player.ignoreTrapThisTurn = true;
+  player.statusEffects.ignoreTrapThisTurn = true;
   player.skillUses--;
   state.pendingFurinaTarget = true;
   state.step = STEP.SKILL_PICK_TARGET;
@@ -316,6 +319,7 @@ export function executeFenjinSkill(state, targetIdx) {
   );
   addLog(state, `对 ${target.name} 造成 ${damage} 点伤害`);
   applyDamage(state, target, damage);
+  state._fenjinHeal = undefined; // 清除标记，防止后续其他角色技能路由到风堇
   if (!state.gameOver) endAction(state);
 }
 
@@ -339,14 +343,15 @@ export function executeLiniyaSkill(state, targetIdx, subSkill) {
   if (!target?.alive) return;
 
   if (subSkill === 1) {
-    player.stealTarget = { idx: targetIdx, turns: 3 };
-    player.damageBonus[targetIdx] = (player.damageBonus[targetIdx] || 0) + 2;
+    player.statusEffects.stealTarget = { idx: targetIdx, turns: 3 };
+    player.statusEffects.damageBonus[targetIdx] =
+      (player.statusEffects.damageBonus[targetIdx] || 0) + 2;
     addLog(
       state,
       `${player.name} 偷取 ${target.name} 的防御牌（3回合），对其伤害+2`,
     );
   } else {
-    player.dotTarget = { idx: targetIdx, turns: 5 };
+    player.statusEffects.dotTarget = { idx: targetIdx, turns: 5 };
     addLog(
       state,
       `${player.name} 对 ${target.name} 施加5回合DoT（每回合5点无视陷阱）`,
@@ -373,7 +378,7 @@ export function executeAimiliyaSkill(state, targetIdx) {
   const target = state.players.find((p) => p.index === targetIdx);
   if (!target?.alive) return;
 
-  target.frozenBy = player.index;
+  target.statusEffects.frozenBy = player.index;
   addLog(state, `${target.name} 被冻结，将跳过下一次行动`);
   state._aimiliyaFreeze = null;
   state.step = STEP.PICK_ACTION;

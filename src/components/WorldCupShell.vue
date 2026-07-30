@@ -270,7 +270,7 @@ import {
   decideNahidaOrder,
   decideLiniyaChoice,
   decideCaiyueangChoice,
-} from "../game/ai.js";
+} from "../game/ai/index.js";
 
 const props = defineProps({
   useAI: { type: Boolean, default: true },
@@ -426,9 +426,7 @@ const stageLabel = computed(() => {
 
 // 对手角色名（用于换人 UI）
 const opponentCharName = computed(() => {
-  const charData = CHARACTERS.find(
-    (c) => c.id === matchState.value?.opponentCharId,
-  );
+  const charData = CHARACTERS[matchState.value?.opponentCharId];
   return charData?.name || "";
 });
 

@@ -39,15 +39,18 @@ export function startAlly(state) {
   }
   const player = currentPlayer(state);
   // 非赌命操作：重置连续赌命计数
-  if (player.consecutiveGambles > 0) {
-    player.consecutiveGambles = 0;
+  if (player.relations.consecutiveGambles > 0) {
+    player.relations.consecutiveGambles = 0;
   }
-  if (player.allyIndex !== null) {
+  if (player.relations.allyIndex !== null) {
     addLog(state, "已有盟友，不可再结盟");
     return;
   }
-  if (player.betrayalPenalty > 0) {
-    addLog(state, `背刺惩罚中，${player.betrayalPenalty}回合内不可结盟`);
+  if (player.relations.betrayalPenalty > 0) {
+    addLog(
+      state,
+      `背刺惩罚中，${player.relations.betrayalPenalty}回合内不可结盟`,
+    );
     return;
   }
   state.step = "allyPick";
@@ -58,14 +61,14 @@ export function executeAlly(state, targetIdx) {
   const player = currentPlayer(state);
   const target = state.players.find((p) => p.index === targetIdx);
   if (!target?.alive) return;
-  if (target.allyIndex !== null) {
+  if (target.relations.allyIndex !== null) {
     addLog(state, `${target.name} 已有盟友`);
     return;
   }
-  player.allyIndex = targetIdx;
-  player.allianceTurns = 5;
-  target.allyIndex = player.index;
-  target.allianceTurns = 5;
+  player.relations.allyIndex = targetIdx;
+  player.relations.allianceTurns = 5;
+  target.relations.allyIndex = player.index;
+  target.relations.allianceTurns = 5;
   addLog(state, `${player.name} 与 ${target.name} 结盟（5回合）`);
   state.devLog.info(
     CAT.ALLIANCE,
@@ -81,14 +84,16 @@ export function executeAlly(state, targetIdx) {
 export function executeBetray(state) {
   const player = currentPlayer(state);
   // 非赌命操作：重置连续赌命计数
-  if (player.consecutiveGambles > 0) {
-    player.consecutiveGambles = 0;
+  if (player.relations.consecutiveGambles > 0) {
+    player.relations.consecutiveGambles = 0;
   }
-  if (player.allyIndex === null) {
+  if (player.relations.allyIndex === null) {
     addLog(state, "没有盟友可以背刺");
     return;
   }
-  const ally = state.players.find((p) => p.index === player.allyIndex);
+  const ally = state.players.find(
+    (p) => p.index === player.relations.allyIndex,
+  );
   if (!ally?.alive) return;
 
   ensureDeck(state);
@@ -114,8 +119,8 @@ export function executeBetray(state) {
   for (const c of player.defensePile) c.faceUp = true;
   if (player.trap) player.trap.faceUp = true;
   if (player.bait) player.bait.faceUp = true;
-  player.betrayalPenalty = 10;
-  player.allianceTurns = 0;
+  player.relations.betrayalPenalty = 10;
+  player.relations.allianceTurns = 0;
   dissolveAlliance(state, player);
 
   // 击杀奖励
@@ -148,12 +153,14 @@ export function getAllianceTargets(state) {
     (p) =>
       p.alive &&
       p.index !== player.index &&
-      p.allyIndex === null &&
-      p.betrayalPenalty <= 0,
+      p.relations.allyIndex === null &&
+      p.relations.betrayalPenalty <= 0,
   );
 }
 
 export function getAlly(state, player) {
-  if (player.allyIndex === null) return null;
-  return state.players.find((p) => p.index === player.allyIndex) || null;
+  if (player.relations.allyIndex === null) return null;
+  return (
+    state.players.find((p) => p.index === player.relations.allyIndex) || null
+  );
 }

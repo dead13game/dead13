@@ -31,15 +31,30 @@ function mockPlayer(overrides = {}) {
   return {
     index: 0,
     name: "测试玩家",
+    characterId: 1,
     hp: 20,
     maxHp: 20,
     alive: true,
     defensePile: [],
     trap: null,
     bait: null,
-    allyIndex: null,
-    allianceTurns: 0,
-    betrayalPenalty: 0,
+    statusEffects: {
+      frozenBy: null,
+      stealTarget: null,
+      dotTarget: null,
+      damageBonus: {},
+      ignoreTrapThisTurn: false,
+      extraAction: false,
+      savepoint: null,
+    },
+    relations: {
+      allyIndex: null,
+      allianceTurns: 0,
+      betrayalPenalty: 0,
+      allyKillBonus: false,
+      consecutiveGambles: 0,
+      gamblePenalty: false,
+    },
     ...overrides,
   };
 }
@@ -141,10 +156,10 @@ describe("dissolveAlliance", () => {
     const state = mockState([p1, p2]);
 
     dissolveAlliance(state, p1);
-    expect(p1.allyIndex).toBeNull();
-    expect(p1.allianceTurns).toBe(0);
-    expect(p2.allyIndex).toBeNull();
-    expect(p2.allianceTurns).toBe(0);
+    expect(p1.relations.allyIndex).toBeNull();
+    expect(p1.relations.allianceTurns).toBe(0);
+    expect(p2.relations.allyIndex).toBeNull();
+    expect(p2.relations.allianceTurns).toBe(0);
   });
 
   it("单方无盟友时安全处理", () => {

@@ -22,7 +22,10 @@
       </Transition>
 
       <!-- 模式选择 -->
-      <div v-if="!gameMode && !gameStarted && !wcStarted" class="mode-select">
+      <div
+        v-if="!gameMode && !gameStarted && !wcStarted && !leagueStarted"
+        class="mode-select"
+      >
         <div class="mode-select__card">
           <h2>选择模式</h2>
           <button
@@ -40,13 +43,40 @@
             ⚔️ 经典模式
             <span class="mode-btn__desc">2-8人混战 · 活到最后</span>
           </button>
-          <button class="mode-btn mode-btn--wc" @click="selectMode('worldcup')">
-            🏆 世界杯模式
-            <span class="mode-btn__desc">1v1淘汰赛 · 90回合制</span>
+          <button
+            class="mode-btn mode-btn--football"
+            @click="selectMode('football')"
+          >
+            ⚽ 足球模式
+            <span class="mode-btn__desc">世界杯 · 联赛</span>
           </button>
           <button class="mode-btn mode-btn--rules" @click="showRules = true">
             📖 规则说明
             <span class="mode-btn__desc">查看游戏详细规则</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 足球模式子选择 -->
+      <div v-else-if="gameMode === 'football'" class="mode-select">
+        <div class="mode-select__card">
+          <h2>⚽ 选择足球模式</h2>
+          <button
+            class="mode-btn mode-btn--wc"
+            @click="selectFootballMode('worldcup')"
+          >
+            🏆 世界杯模式
+            <span class="mode-btn__desc">1v1淘汰赛 · 小组赛→决赛</span>
+          </button>
+          <button
+            class="mode-btn mode-btn--league"
+            @click="selectFootballMode('league')"
+          >
+            🏅 联赛模式
+            <span class="mode-btn__desc">10队双循环 · 18轮 · 3v3</span>
+          </button>
+          <button class="mode-btn mode-btn--back" @click="gameMode = null">
+            ↩ 返回
           </button>
         </div>
       </div>
@@ -109,6 +139,15 @@
         :use-weather="wcUseWeather"
         :difficulty="wcDifficulty"
         @restart="handleReset"
+        @saveAndQuit="handleNormalSave"
+      />
+
+      <!-- 联赛模式 -->
+      <LeagueShell
+        v-else-if="gameMode === 'league' && leagueStarted"
+        ref="leagueShellRef"
+        @restart="handleReset"
+        @saveAndQuit="handleLeagueSave"
       />
 
       <!-- 规则说明弹窗 -->
@@ -178,6 +217,7 @@ import GameShell from "./components/GameShell.vue";
 import GameSetup from "./components/GameSetup.vue";
 import WorldCupSetup from "./components/WorldCupSetup.vue";
 import WorldCupShell from "./components/WorldCupShell.vue";
+import LeagueShell from "./components/LeagueShell.vue";
 import OpeningVideo from "./components/OpeningVideo.vue";
 import { useGameController } from "./composables/useGameController.js";
 import { deserializeGameState } from "./game/gameState.js";
@@ -200,7 +240,7 @@ const {
 } = useGameController();
 
 // ---- 模式选择 ----
-const gameMode = ref(null); // null | 'normal' | 'worldcup'
+const gameMode = ref(null); // null | 'normal' | 'football' | 'worldcup' | 'league'
 const wcStarted = ref(false);
 const wcTeamName = ref("");
 const wcSelectedChar = ref("");
@@ -210,6 +250,11 @@ const wcUseWeather = ref(false);
 const wcDifficulty = ref("easy");
 const wcShellRef = ref(null);
 
+// 联赛模式状态
+const leagueStarted = ref(false);
+const leagueDifficulty = ref("skilled");
+const leagueShellRef = ref(null);
+
 // 存档检测
 const hasSave = ref(false);
 onMounted(() => {
@@ -218,12 +263,27 @@ onMounted(() => {
 
 function selectMode(mode) {
   gameMode.value = mode;
-  if (mode === "worldcup") {
+}
+
+function selectFootballMode(subMode) {
+  if (subMode === "worldcup") {
+    gameMode.value = "worldcup";
     // 随机选取3个AI队名用于小组赛
     const shuffled = [...AI_TEAM_NAMES].sort(() => Math.random() - 0.5);
     wcAiTeamNames.value = shuffled.slice(0, 3);
     wcTeamName.value = "";
     wcSelectedChar.value = "";
+  } else if (subMode === "league") {
+    gameMode.value = "league";
+    leagueStarted.value = true;
+    // 等待 LeagueShell 挂载后调用 init
+    nextTick(() => {
+      setTimeout(() => {
+        if (leagueShellRef.value?.initLeagueFromSetup) {
+          // Shell 已挂载，uiMode 为 'setup'，用户在 LeagueSetup 中选择
+        }
+      }, 50);
+    });
   }
 }
 
@@ -275,7 +335,31 @@ function continueGame() {
         }
       }, 150);
     });
+  } else if (
+    saveData.gameMode === "football" &&
+    saveData.footballSubMode === "league"
+  ) {
+    // 恢复联赛存档
+    gameMode.value = "league";
+    leagueStarted.value = true;
+    leagueDifficulty.value = saveData.leagueSetup?.difficulty || "skilled";
+
+    nextTick(() => {
+      setTimeout(() => {
+        if (leagueShellRef.value?.restoreLeague) {
+          leagueShellRef.value.restoreLeague(saveData);
+        }
+      }, 150);
+    });
   }
+}
+
+// 联赛存档
+function handleLeagueSave(saveData) {
+  localStorage.setItem("dead13_save", JSON.stringify(saveData));
+  hasSave.value = true;
+  gameMode.value = null;
+  leagueStarted.value = false;
 }
 
 function startWorldCup() {
@@ -303,7 +387,10 @@ function handleReset() {
     gameMode.value = null;
     wcTeamName.value = "";
     wcSelectedChar.value = "";
-    // 返回模式选择时重新检查存档，确保"继续游戏"按钮正确显示
+    hasSave.value = !!localStorage.getItem("dead13_save");
+  } else if (gameMode.value === "league") {
+    leagueStarted.value = false;
+    gameMode.value = null;
     hasSave.value = !!localStorage.getItem("dead13_save");
   } else {
     originalResetGame();

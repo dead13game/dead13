@@ -1,7 +1,9 @@
-import { PHASE, STEP } from "./constants.js";
+import { PHASE, STEP, getCharData } from "./constants.js";
 import { drawCards, cardDisplay } from "./deck.js";
 import { applyDamage } from "./damage.js";
 import { CAT } from "./gameLogger.js";
+
+// 赌命函数移至 gamble.js，这里不再导出（仅作注释提醒）
 
 // 这些函数从 gameState.js 导入（live binding，调用时已就绪）
 let _currentPlayer, _addLog, _ensureDeck, _endAction;
@@ -36,8 +38,8 @@ function endAction(state) {
 export function startAttack(state) {
   if (state.step !== STEP.PICK_ACTION) return;
   const p = currentPlayer(state);
-  if (p.consecutiveGambles > 0) {
-    p.consecutiveGambles = 0;
+  if (p.relations.consecutiveGambles > 0) {
+    p.relations.consecutiveGambles = 0;
   }
   const canAttack = state.matchContext
     ? state.phase !== PHASE.PEACE
@@ -80,11 +82,23 @@ export function executeAttack(state, targetIdx) {
   if (!target?.alive) return;
 
   // 经典模式：不能攻击盟友，盟友只能通过背刺伤害
-  if (!state.matchContext && attacker.allyIndex === targetIdx) {
+  if (!state.matchContext && attacker.relations.allyIndex === targetIdx) {
     addLog(state, "不能攻击盟友，请使用背刺");
     state.devLog.warn(
       CAT.ANOMALY,
       `${attacker.name} 尝试攻击盟友 ${target.name}`,
+    );
+    state.pendingAttackCard = null;
+    state.step = STEP.PICK_ACTION;
+    return;
+  }
+
+  // 联赛模式：不能攻击同队队友
+  if (attacker.teamId >= 0 && attacker.teamId === target.teamId) {
+    addLog(state, "不能攻击队友");
+    state.devLog.warn(
+      CAT.ANOMALY,
+      `${attacker.name} 尝试攻击队友 ${target.name}`,
     );
     state.pendingAttackCard = null;
     state.step = STEP.PICK_ACTION;
@@ -144,6 +158,16 @@ export function executeAttack(state, targetIdx) {
     },
   );
 
+  // 联赛模式卡牌加成：根据等级差+主客场
+  if (state.leagueContext?.cardBonus) {
+    const bonus = state.leagueContext.cardBonus.attackBonus || 0;
+    if (bonus > 0) {
+      attackValue += bonus;
+      addLog(state, `联赛攻击加成+${bonus}`);
+      state.devLog.debug(CAT.ATTACK, `联赛攻击加成 +${bonus} → ${attackValue}`);
+    }
+  }
+
   // 天气加成
   if (state.currentWeather === "sun") {
     attackValue += 2;
@@ -152,14 +176,14 @@ export function executeAttack(state, targetIdx) {
   }
 
   // 哥伦比娅弦月 +4
-  if (attacker.characterId === "columbina" && attacker.moonPhase === 0) {
+  if (attacker.characterId === 7 && attacker.moonPhase === 0) {
     attackValue += 4;
     addLog(state, "弦月加持");
     state.devLog.debug(CAT.SKILL, `弦月加持 +4 → ${attackValue}`);
   }
 
   // 玛薇卡斗志
-  if (attacker.characterId === "mavuika" && attacker.fightingSpirit > 0) {
+  if (attacker.characterId === 6 && attacker.fightingSpirit > 0) {
     const spirit = attacker.fightingSpirit;
     attackValue += spirit;
     addLog(state, `斗志 ${spirit}层`);
@@ -168,10 +192,10 @@ export function executeAttack(state, targetIdx) {
 
   // 莉奈娅永久伤害加成
   if (
-    attacker.characterId === "liniya" &&
-    attacker.damageBonus[targetIdx] > 0
+    attacker.characterId === 9 &&
+    attacker.statusEffects.damageBonus[targetIdx] > 0
   ) {
-    const bonus = attacker.damageBonus[targetIdx];
+    const bonus = attacker.statusEffects.damageBonus[targetIdx];
     attackValue += bonus;
     addLog(state, `永久伤害+${bonus}`);
     state.devLog.debug(CAT.SKILL, `莉奈娅永久伤害 +${bonus} → ${attackValue}`);
@@ -179,9 +203,9 @@ export function executeAttack(state, targetIdx) {
 
   // 联盟攻击加成
   if (
-    attacker.allyIndex !== null &&
-    attacker.allianceTurns > 0 &&
-    attacker.betrayalPenalty <= 0
+    attacker.relations.allyIndex !== null &&
+    attacker.relations.allianceTurns > 0 &&
+    attacker.relations.betrayalPenalty <= 0
   ) {
     attackValue += 2;
     addLog(state, "联盟攻击+2");
@@ -189,7 +213,7 @@ export function executeAttack(state, targetIdx) {
   }
 
   // 打背刺者伤害+2
-  if (attacker !== target && target.betrayalPenalty > 0) {
+  if (attacker !== target && target.relations.betrayalPenalty > 0) {
     attackValue += 2;
     addLog(state, "惩罚背刺者+2");
     state.devLog.debug(CAT.ALLIANCE, `背刺惩罚 +2 → ${attackValue}`);
@@ -209,7 +233,7 @@ export function executeAttack(state, targetIdx) {
   // 陷阱判定
   let trapTriggered = false;
   const hadTrap = !!target.trap;
-  if (target.trap && !attacker.ignoreTrapThisTurn) {
+  if (target.trap && !attacker.statusEffects.ignoreTrapThisTurn) {
     target.trap.faceUp = true;
     const trapValue = target.trap.value;
     addLog(state, `${target.name} 触发陷阱`);
@@ -232,9 +256,12 @@ export function executeAttack(state, targetIdx) {
       trapTriggered = true;
       applyDamage(state, attacker, trapValue);
       // 赌命惩罚清除：陷阱反弹，赌命周期结束
-      if (target.gamblePenalty || target.consecutiveGambles > 0) {
-        target.gamblePenalty = false;
-        target.consecutiveGambles = 0;
+      if (
+        target.relations.gamblePenalty ||
+        target.relations.consecutiveGambles > 0
+      ) {
+        target.relations.gamblePenalty = false;
+        target.relations.consecutiveGambles = 0;
         addLog(state, `${target.name} 赌命惩罚结束（陷阱反弹）`);
         state.devLog.info(
           CAT.GAMBLE,
@@ -255,16 +282,19 @@ export function executeAttack(state, targetIdx) {
       applyDamage(state, attacker, trapValue);
       applyDamage(state, target, trapValue);
       // 赌命惩罚清除：陷阱平局，赌命周期结束
-      if (target.gamblePenalty || target.consecutiveGambles > 0) {
-        target.gamblePenalty = false;
-        target.consecutiveGambles = 0;
+      if (
+        target.relations.gamblePenalty ||
+        target.relations.consecutiveGambles > 0
+      ) {
+        target.relations.gamblePenalty = false;
+        target.relations.consecutiveGambles = 0;
         addLog(state, `${target.name} 赌命惩罚结束（陷阱平局）`);
         state.devLog.info(
           CAT.GAMBLE,
           `赌命惩罚结束: ${target.name}（陷阱平局）`,
         );
       }
-      if (attacker.characterId === "mavuika") {
+      if (attacker.characterId === 6) {
         attacker.fightingSpirit = Math.min(5, attacker.fightingSpirit + 1);
         addLog(state, `斗志 ${attacker.fightingSpirit}层`);
         state.devLog.debug(
@@ -278,7 +308,7 @@ export function executeAttack(state, targetIdx) {
     } else {
       addLog(state, "陷阱被破");
       state.devLog.info(CAT.DAMAGE, `陷阱被破: ${attackValue} > ${trapValue}`);
-      if (attacker.characterId === "mavuika") {
+      if (attacker.characterId === 6) {
         attacker.fightingSpirit = Math.min(5, attacker.fightingSpirit + 1);
         addLog(state, `斗志 ${attacker.fightingSpirit}层`);
         state.devLog.debug(
@@ -291,9 +321,12 @@ export function executeAttack(state, targetIdx) {
       target.trap = null;
       target.bait = null;
       // 赌命惩罚清除：陷阱被破，赌命周期结束
-      if (target.gamblePenalty || target.consecutiveGambles > 0) {
-        target.gamblePenalty = false;
-        target.consecutiveGambles = 0;
+      if (
+        target.relations.gamblePenalty ||
+        target.relations.consecutiveGambles > 0
+      ) {
+        target.relations.gamblePenalty = false;
+        target.relations.consecutiveGambles = 0;
         addLog(state, `${target.name} 赌命惩罚结束（陷阱被破）`);
         state.devLog.info(
           CAT.GAMBLE,
@@ -304,8 +337,14 @@ export function executeAttack(state, targetIdx) {
   }
 
   // 联盟平摊
-  if (!trapTriggered && target.allyIndex !== null && target.allianceTurns > 0) {
-    const ally = state.players.find((p) => p.index === target.allyIndex);
+  if (
+    !trapTriggered &&
+    target.relations.allyIndex !== null &&
+    target.relations.allianceTurns > 0
+  ) {
+    const ally = state.players.find(
+      (p) => p.index === target.relations.allyIndex,
+    );
     if (ally && ally.alive && ally.index !== attacker.index) {
       const reduced = attackValue - 2;
       const allyDmg = Math.floor(reduced / 3);
@@ -348,7 +387,7 @@ export function executeAttack(state, targetIdx) {
           actualHpLost,
           delta: attackValue - actualHpLost,
           defConsumed: defenseConsumed,
-          hasAlly: target.allyIndex !== null,
+          hasAlly: target.relations.allyIndex !== null,
         },
       );
     }
@@ -373,11 +412,7 @@ export function executeAttack(state, targetIdx) {
   }
 
   // 玛薇卡击穿防御加斗志
-  if (
-    attacker.characterId === "mavuika" &&
-    defenseConsumed > 0 &&
-    !trapTriggered
-  ) {
+  if (attacker.characterId === 6 && defenseConsumed > 0 && !trapTriggered) {
     attacker.fightingSpirit = Math.min(
       5,
       attacker.fightingSpirit + defenseConsumed,
@@ -390,10 +425,12 @@ export function executeAttack(state, targetIdx) {
   }
 
   // 联盟击杀奖励
-  if (!target.alive && attacker.allyIndex !== null) {
-    const ally = state.players.find((p) => p.index === attacker.allyIndex);
+  if (!target.alive && attacker.relations.allyIndex !== null) {
+    const ally = state.players.find(
+      (p) => p.index === attacker.relations.allyIndex,
+    );
     if (ally?.alive) {
-      ally.allyKillBonus = true;
+      ally.relations.allyKillBonus = true;
       addLog(state, `${ally.name} 获得联盟击杀奖励`);
       state.devLog.info(CAT.ALLIANCE, `${ally.name} 获得联盟击杀奖励`, {
         attacker: attacker.name,
@@ -403,7 +440,7 @@ export function executeAttack(state, targetIdx) {
   }
 
   // 风堇被动
-  if (attacker.characterId === "fenjin") {
+  if (attacker.characterId === 8) {
     let healCount = 0;
     if (hadTrap && !trapTriggered) healCount++;
     healCount += defenseConsumed;
@@ -439,8 +476,8 @@ export function executeAttack(state, targetIdx) {
   );
 
   attackCards.forEach((c) => state.grave.push(c));
-  if (attacker.ignoreTrapThisTurn) {
-    attacker.ignoreTrapThisTurn = false;
+  if (attacker.statusEffects.ignoreTrapThisTurn) {
+    attacker.statusEffects.ignoreTrapThisTurn = false;
   }
 
   if (!state.gameOver) endAction(state);
@@ -454,8 +491,8 @@ export function executeDefense(state) {
     return;
   }
   const player = currentPlayer(state);
-  if (player.consecutiveGambles > 0) {
-    player.consecutiveGambles = 0;
+  if (player.relations.consecutiveGambles > 0) {
+    player.relations.consecutiveGambles = 0;
   }
   ensureDeck(state);
 
@@ -470,15 +507,27 @@ export function executeDefense(state) {
     state.devLog.debug(CAT.WEATHER, `黑市交易 +2 → ${cardValue}`);
   }
 
-  if (player.characterId === "columbina" && player.moonPhase === 1) {
+  // 联赛模式防御加成
+  if (state.leagueContext?.cardBonus) {
+    const defBonus = state.leagueContext.cardBonus.defenseBonus || 0;
+    if (defBonus > 0) {
+      cardValue += defBonus;
+      state.devLog.debug(
+        CAT.ATTACK,
+        `联赛防御加成 +${defBonus} → ${cardValue}`,
+      );
+    }
+  }
+
+  if (player.characterId === 7 && player.moonPhase === 1) {
     cardValue += 3;
     state.devLog.debug(CAT.SKILL, `满月 +3 → ${cardValue}`);
   }
 
   if (
-    player.allyIndex !== null &&
-    player.allianceTurns > 0 &&
-    player.betrayalPenalty <= 0
+    player.relations.allyIndex !== null &&
+    player.relations.allianceTurns > 0 &&
+    player.relations.betrayalPenalty <= 0
   ) {
     cardValue += 2;
     addLog(state, "联盟防御+2");
@@ -500,12 +549,11 @@ export function executeDefense(state) {
       defCount: player.defensePile.length,
       bonuses: {
         trade: state.currentWeather === "trade" ? 2 : 0,
-        fullMoon:
-          player.characterId === "columbina" && player.moonPhase === 1 ? 3 : 0,
+        fullMoon: player.characterId === 7 && player.moonPhase === 1 ? 3 : 0,
         alliance:
-          player.allyIndex !== null &&
-          player.allianceTurns > 0 &&
-          player.betrayalPenalty <= 0
+          player.relations.allyIndex !== null &&
+          player.relations.allianceTurns > 0 &&
+          player.relations.betrayalPenalty <= 0
             ? 2
             : 0,
       },
@@ -517,94 +565,5 @@ export function executeDefense(state) {
 }
 
 // ===== 赌命 =====
-
-export function executeGamble(state) {
-  if (state.step !== STEP.PICK_ACTION) return;
-  const player = currentPlayer(state);
-  ensureDeck(state);
-
-  let drawCount = 2;
-  if (player.characterId === "columbina" && player.moonPhase === 2) {
-    drawCount = 3;
-  }
-  if (state.currentWeather === "wind") {
-    drawCount += 1;
-  }
-
-  const r = drawCards(state.deck, drawCount);
-  const drawn = r.drawn.map((c) => ({ ...c, faceUp: true }));
-  state.deck = r.remaining;
-
-  addLog(state, `${player.name} 执行赌命`);
-  state.devLog.info(
-    CAT.GAMBLE,
-    `${player.name} 赌命抽${drawn.length}张: ${drawn.map(cardDisplay).join(" ")}`,
-    {
-      drawCount,
-      cards: drawn.map((c) => ({ display: cardDisplay(c), value: c.value })),
-      bonuses: {
-        newMoon: player.characterId === "columbina" && player.moonPhase === 2,
-        wind: state.currentWeather === "wind",
-      },
-    },
-  );
-
-  // 连续赌命计数 + 赌命惩罚判定
-  player.consecutiveGambles = (player.consecutiveGambles || 0) + 1;
-  state.devLog.info(
-    CAT.GAMBLE,
-    `${player.name} 连续赌命 ${player.consecutiveGambles} 次`,
-    {
-      consecutiveGambles: player.consecutiveGambles,
-    },
-  );
-  if (player.consecutiveGambles >= 3 && !player.gamblePenalty) {
-    player.gamblePenalty = true;
-    addLog(state, `${player.name} 连续赌命3次，被标记惩罚！受到的伤害+1`);
-    state.devLog.info(CAT.GAMBLE, `赌命惩罚开始: ${player.name}`, {
-      consecutiveGambles: player.consecutiveGambles,
-    });
-  }
-
-  state.step = STEP.GAMBLE_PICK;
-  state.pendingGamble = { drawnCards: drawn };
-}
-
-export function submitGamble(state, trapIdx, baitIdx) {
-  if (state.step !== STEP.GAMBLE_PICK) return;
-  const player = currentPlayer(state);
-  const cards = state.pendingGamble?.drawnCards;
-  if (!cards || trapIdx === baitIdx) return;
-
-  const trapCard = cards[trapIdx];
-  const baitCard = cards[baitIdx];
-
-  if (player.trap) state.grave.push(player.trap);
-  if (player.bait) state.grave.push(player.bait);
-
-  trapCard.faceUp = false;
-  player.trap = trapCard;
-  baitCard.faceUp = true;
-  player.bait = baitCard;
-
-  cards.forEach((c, i) => {
-    if (i !== trapIdx && i !== baitIdx) state.grave.push(c);
-  });
-
-  addLog(state, `${player.name} 设陷阱 诱饵${cardDisplay(baitCard)}`);
-  state.devLog.info(
-    CAT.GAMBLE,
-    `${player.name} 设陷阱: 陷阱=${cardDisplay(trapCard)}(${trapCard.value}) 诱饵=${cardDisplay(baitCard)}(${baitCard.value})`,
-    {
-      trapValue: trapCard.value,
-      baitValue: baitCard.value,
-      discarded: cards
-        .filter((_, i) => i !== trapIdx && i !== baitIdx)
-        .map(cardDisplay),
-    },
-  );
-
-  state.pendingGamble = null;
-  state.step = STEP.PICK_ACTION;
-  endAction(state);
-}
+// executeGamble / submitGamble 已移至 gamble.js
+// gameState.js 直接从 gamble.js 导入并注入依赖

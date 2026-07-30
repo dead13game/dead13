@@ -393,21 +393,14 @@ export function useWorldCupController() {
     const opponent = gameState.players.find(
       (p) => p.characterId === oldOpponentCharId,
     );
-    const charData = CHARACTERS.find((c) => c.id === newCharId);
+    const charData = CHARACTERS[newCharId];
 
     if (opponent && charData) {
       Object.assign(opponent, {
         characterId: charData.id,
-        characterName: charData.name,
-        characterTitle: charData.title,
-        characterIcon: charData.icon,
         hp: charData.hp,
         maxHp: charData.hp,
         skillUses: charData.maxUses,
-        skillName: charData.skillName,
-        skillDesc: charData.skillDesc,
-        skillType: charData.skillType,
-        maxUses: charData.maxUses,
       });
 
       gameState.messageLog.push(
