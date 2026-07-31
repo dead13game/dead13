@@ -43,6 +43,7 @@ export function useWorldCupController() {
 
   let useWeather = false;
   let aiDifficulty = "easy";
+  let playerArtifactId = null; // 玩家圣遗物ID
 
   // ---- 初始化 ----
   function initWorldCup(
@@ -51,9 +52,11 @@ export function useWorldCupController() {
     opponentNames,
     weather,
     difficulty = "easy",
+    artifactId = null,
   ) {
     useWeather = weather || false;
     aiDifficulty = difficulty;
+    playerArtifactId = artifactId;
     opponentSubPending.value = false;
     const state = createWorldCupState(teamName, opponentNames);
     Object.assign(wcState, state);
@@ -128,6 +131,9 @@ export function useWorldCupController() {
         p.aiDifficulty = aiDifficulty;
       }
     });
+
+    // 应用圣遗物
+    applyPlayerArtifact();
 
     gameState.matchContext = {
       onPlayerEliminated: (deadIdx, killerIdx, actualRound) => {
@@ -295,6 +301,7 @@ export function useWorldCupController() {
     if (!matchState.value) return;
     const ms = matchState.value;
     resetGameForNextLife(ms, gameState);
+    applyPlayerArtifact();
     rebuildMatchContext(ms);
     uiMode.value = "match";
   }
@@ -347,6 +354,7 @@ export function useWorldCupController() {
     if (!matchState.value) return;
     executeSubstitution(matchState.value, gameState, newCharId);
     resetGameForNextLife(matchState.value, gameState);
+    applyPlayerArtifact();
     fixTurnAfterReset();
     rebuildMatchContext(matchState.value);
     markAIPlayer();
@@ -356,10 +364,27 @@ export function useWorldCupController() {
   function handleSkipSubstitution() {
     if (!matchState.value) return;
     skipSubstitution(matchState.value, gameState);
+    applyPlayerArtifact();
     fixTurnAfterReset();
     rebuildMatchContext(matchState.value);
     markAIPlayer();
     uiMode.value = "match";
+  }
+
+  /** 在游戏初始化/重置后给人类玩家应用圣遗物ID */
+  function applyPlayerArtifact() {
+    if (playerArtifactId == null || !matchState.value) return;
+    const playerCharId = matchState.value.playerCharId;
+    const player = gameState.players.find(
+      (p) => p.characterId === playerCharId,
+    );
+    if (player) {
+      player.artifactId = playerArtifactId;
+      player.breakCount = 0;
+      player.holyWordUses = 2;
+      player.artifactActive = false;
+      player.artifactRoundsLeft = 0;
+    }
   }
 
   /** 标记 AI 玩家（重置游戏后需重新标记） */
@@ -413,6 +438,7 @@ export function useWorldCupController() {
     opponentSubPending.value = false;
 
     resetGameForNextLife(ms, gameState);
+    applyPlayerArtifact();
     fixTurnAfterReset();
     rebuildMatchContext(ms);
     markAIPlayer();
@@ -426,6 +452,7 @@ export function useWorldCupController() {
     opponentSubPending.value = false;
 
     resetGameForNextLife(ms, gameState);
+    applyPlayerArtifact();
     fixTurnAfterReset();
     rebuildMatchContext(ms);
     markAIPlayer();

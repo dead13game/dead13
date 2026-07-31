@@ -33,6 +33,16 @@ export function useGameController() {
     "easy",
     "easy",
   ]);
+  const playerArtifacts = reactive([
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+  ]);
 
   // 可用角色（排除已被其他玩家选的）
   function availableChars(playerIdx) {
@@ -69,6 +79,10 @@ export function useGameController() {
       if (slotIdx >= 0) {
         p.isAI = aiSlots[slotIdx] || false;
         p.aiDifficulty = aiSlots[slotIdx] ? aiDifficulties[slotIdx] : "easy";
+        // 圣遗物选择（非AI玩家必须已选）
+        if (!aiSlots[slotIdx]) {
+          p.artifactId = playerArtifacts[slotIdx] || null;
+        }
       }
     });
     gameStarted.value = true;
@@ -79,6 +93,7 @@ export function useGameController() {
     for (let i = 0; i < 8; i++) {
       playerNames[i] = "";
       playerChars[i] = "";
+      playerArtifacts[i] = null;
     }
   }
 
@@ -99,5 +114,6 @@ export function useGameController() {
     resetGame,
     aiSlots,
     aiDifficulties,
+    playerArtifacts,
   };
 }

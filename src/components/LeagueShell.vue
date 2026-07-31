@@ -6,9 +6,11 @@
         :selected-team-id="_selectedTeamId"
         :difficulty="_difficulty"
         :use-a-i="_useAI"
+        :artifact-id="_artifactId"
         @update:selected-team-id="onSelectTeam"
         @update:use-a-i="onSetUseAI"
         @update:difficulty="onSetDifficulty"
+        @update:artifact-id="_artifactId = $event"
         @start="onStartSetup"
       />
     </template>
@@ -158,6 +160,7 @@ const gameShellRef = ref(null);
 const _selectedTeamId = ref(null);
 const _difficulty = ref("skilled");
 const _useAI = ref(props.useAI ?? true);
+const _artifactId = ref(null);
 const scoreboardClicks = ref(0);
 
 // ---- 设置事件 ----
@@ -175,7 +178,7 @@ function onSetUseAI(val) {
 
 function onStartSetup() {
   if (!_selectedTeamId.value) return;
-  initLeague(_selectedTeamId.value, _difficulty.value);
+  initLeague(_selectedTeamId.value, _difficulty.value, _artifactId.value);
 }
 
 // ---- 选人完成 ----
@@ -369,10 +372,10 @@ function aiSuppressLog(fromIdx, replaceMsg) {
 }
 
 // ---- 公开方法 ----
-function initLeagueFromSetup(teamId, difficulty) {
+function initLeagueFromSetup(teamId, difficulty, artifactId) {
   _selectedTeamId.value = teamId;
   _difficulty.value = difficulty;
-  initLeague(teamId, difficulty);
+  initLeague(teamId, difficulty, artifactId);
 }
 
 defineExpose({

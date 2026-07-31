@@ -405,6 +405,15 @@ export class PlayerTableSprite extends Container {
     if (player.statusEffects.extraAction) tags.push("+1行动");
     if (player.statusEffects.ignoreTrapThisTurn) tags.push("无视陷阱");
     if (player.relations.gamblePenalty) tags.push("赌命惩罚");
+    // 圣遗物
+    if (player.artifactId != null) {
+      const artIcon = player.artifactId === 1 ? "⚔️" : "🎵";
+      if (player.artifactActive) {
+        tags.push(`${artIcon}圣遗物(${player.artifactRoundsLeft})`);
+      } else {
+        tags.push(`${artIcon}击破${player.breakCount}/8`);
+      }
+    }
     this.statusText.text = tags.join(" · ");
 
     this._updateGambleWarn(player);

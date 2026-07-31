@@ -38,6 +38,7 @@
         @defense="onDefense"
         @gamble="onGamble"
         @skill="onSkill"
+        @holyWord="onHolyWord"
         @target="onTarget"
         @skillTarget="onSkillTarget"
         @liniyaSkill="onLiniyaSkill"
@@ -97,6 +98,7 @@ import {
   submitNahidaScry,
   executeCaiyueangSave,
   executeCaiyueangLoad,
+  executeHolyWord,
   startAlly,
   executeAlly,
   executeBetray,
@@ -169,6 +171,11 @@ async function onGamble() {
 function onSkill() {
   if (animating.value) return;
   executeSkill(props.state);
+}
+
+function onHolyWord() {
+  if (animating.value) return;
+  executeHolyWord(props.state);
 }
 
 async function onTarget(idx) {

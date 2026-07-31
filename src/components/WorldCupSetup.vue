@@ -103,9 +103,32 @@
         </div>
       </div>
 
+      <!-- 圣遗物选择 -->
+      <div v-if="selectedChar" class="wc-setup__artifact">
+        <h3>🏺 选择圣遗物</h3>
+        <p class="wc-setup__artifact-desc">
+          累计8次击破后发动"圣言自明"激活效果（每局限2次）
+        </p>
+        <div class="artifact-options">
+          <div
+            v-for="art in artifactList"
+            :key="art.id"
+            class="artifact-card"
+            :class="{ 'artifact-card--selected': artifactId === art.id }"
+            @click="$emit('update:artifactId', art.id)"
+          >
+            <span class="artifact-card__icon">{{ art.icon }}</span>
+            <div class="artifact-card__info">
+              <span class="artifact-card__name">{{ art.name }}</span>
+              <span class="artifact-card__desc">{{ art.desc }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <button
         class="wc-setup__btn"
-        :disabled="!teamName.trim() || !selectedChar"
+        :disabled="!teamName.trim() || !selectedChar || artifactId == null"
         @click="$emit('start')"
       >
         开始世界杯之旅 ⚽
@@ -166,6 +189,7 @@
 <script setup>
 import { computed, ref } from "vue";
 import { CHARACTERS } from "../game/constants.js";
+import { ARTIFACTS } from "../game/gameState.js";
 import { AI_TEAM_NAMES, TEAM_EMOJIS } from "../game/worldCupConstants.js";
 
 const props = defineProps({
@@ -175,6 +199,7 @@ const props = defineProps({
   useAI: { type: Boolean, default: true },
   useWeather: { type: Boolean, default: false },
   difficulty: { type: String, default: "easy" },
+  artifactId: { type: Number, default: null },
 });
 
 const emit = defineEmits([
@@ -183,10 +208,15 @@ const emit = defineEmits([
   "update:useAI",
   "update:useWeather",
   "update:difficulty",
+  "update:artifactId",
   "start",
 ]);
 
 const chars = CHARACTERS;
+const artifactList = Object.values(ARTIFACTS).map((a) => ({
+  ...a,
+  icon: a.type === "damage_boost" ? "⚔️" : "🎵",
+}));
 
 const aiTeams = computed(() =>
   props.aiTeamNames.map((name) => ({
@@ -567,5 +597,77 @@ function onCharCardClick(charId) {
 .popup-fade-enter-from,
 .popup-fade-leave-to {
   opacity: 0;
+}
+
+/* 圣遗物选择 */
+.wc-setup__artifact {
+  margin: 16px 0;
+  padding: 16px;
+  background: rgba(255, 152, 0, 0.05);
+  border: 1px solid rgba(255, 152, 0, 0.2);
+  border-radius: 12px;
+}
+.wc-setup__artifact h3 {
+  font-size: 16px;
+  font-weight: bold;
+  color: #ff8f00;
+  margin: 0 0 4px;
+  text-align: center;
+}
+.wc-setup__artifact-desc {
+  font-size: 12px;
+  color: #888;
+  text-align: center;
+  margin: 0 0 12px;
+}
+.artifact-options {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.artifact-card {
+  flex: 1 1 140px;
+  max-width: 220px;
+  min-width: 130px;
+  background: #fff;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+.artifact-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  border-color: #ff8f00;
+}
+.artifact-card--selected {
+  border-color: #ff8f00;
+  background: rgba(255, 143, 0, 0.08);
+  box-shadow: 0 0 0 2px rgba(255, 143, 0, 0.25);
+}
+.artifact-card__icon {
+  font-size: 32px;
+}
+.artifact-card__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.artifact-card__name {
+  font-size: 14px;
+  font-weight: bold;
+  color: #333;
+}
+.artifact-card__desc {
+  font-size: 11px;
+  color: #757575;
+  line-height: 1.4;
 }
 </style>

@@ -118,9 +118,49 @@
         </div>
       </div>
 
+      <!-- 圣遗物选择（非AI玩家必须选择） -->
+      <div v-if="allCharsSelected" class="artifact-section">
+        <h3 class="artifact-section__title">🏺 选择圣遗物</h3>
+        <p class="artifact-section__desc">
+          每局限2次，累计8次击破后发动"圣言自明"激活效果
+        </p>
+        <div
+          v-for="i in playerCount"
+          :key="'artifact-' + i"
+          class="setup-player"
+        >
+          <div class="setup-player__header">
+            <label>玩家 {{ i }}</label>
+            <span class="setup-player__char-name">{{
+              playerNames[i - 1] || "玩家 " + i
+            }}</span>
+            <span class="setup-player__char-name">{{
+              charById(playerChars[i - 1])?.name || ""
+            }}</span>
+          </div>
+          <div class="artifact-options">
+            <div
+              v-for="art in artifactList"
+              :key="art.id"
+              class="artifact-card"
+              :class="{
+                'artifact-card--selected': playerArtifacts[i - 1] === art.id,
+              }"
+              @click="$emit('update:playerArtifact', i - 1, art.id)"
+            >
+              <span class="artifact-card__icon">{{ art.icon }}</span>
+              <div class="artifact-card__info">
+                <span class="artifact-card__name">{{ art.name }}</span>
+                <span class="artifact-card__desc">{{ art.desc }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <button
         class="start-btn"
-        :disabled="!allSelected"
+        :disabled="!allReady"
         @click="$emit('startGame')"
       >
         开始游戏
@@ -195,14 +235,19 @@
 <script setup>
 import { computed, ref } from "vue";
 import { CHARACTERS } from "../game/constants.js";
+import { ARTIFACTS, getArtifactData } from "../game/gameState.js";
 
-defineProps({
+const props = defineProps({
   playerCount: { type: Number, required: true },
   playerNames: { type: Array, required: true },
   playerChars: { type: Array, required: true },
   useWeather: { type: Boolean, default: false },
   allSelected: { type: Boolean, default: false },
   availableChars: { type: Function, required: true },
+  playerArtifacts: {
+    type: Array,
+    default: () => [null, null, null, null, null, null, null, null],
+  },
   aiSlots: {
     type: Array,
     default: () => [false, false, false, false, false, false, false, false],
@@ -230,6 +275,7 @@ const emit = defineEmits([
   "startGame",
   "update:aiSlots",
   "update:aiDifficulties",
+  "update:playerArtifact",
 ]);
 
 const charMap = computed(() => {
@@ -242,6 +288,28 @@ const charMap = computed(() => {
 function charById(id) {
   return charMap.value[id];
 }
+
+const artifactList = Object.values(ARTIFACTS).map((a) => ({
+  ...a,
+  icon: a.type === "damage_boost" ? "⚔️" : "🎵",
+}));
+
+// 所有玩家角色已选完
+const allCharsSelected = computed(() => {
+  for (let i = 0; i < props.playerCount; i++) {
+    if (!props.playerChars[i]) return false;
+  }
+  return true;
+});
+
+// 所有人类玩家都选了角色+圣遗物
+const allReady = computed(() => {
+  if (!allCharsSelected.value) return false;
+  for (let i = 0; i < props.playerCount; i++) {
+    if (!props.aiSlots[i] && props.playerArtifacts[i] == null) return false;
+  }
+  return true;
+});
 
 // ---- 三连击技能详情 ----
 const skillPopupCharId = ref(null);
@@ -695,5 +763,82 @@ function onCharCardClick(playerIdx, charId) {
 .popup-fade-enter-from,
 .popup-fade-leave-to {
   opacity: 0;
+}
+
+/* 圣遗物选择 */
+.artifact-section {
+  margin: 16px 0;
+  padding: 16px;
+  background: rgba(255, 152, 0, 0.05);
+  border: 1px solid rgba(255, 152, 0, 0.2);
+  border-radius: 12px;
+}
+.artifact-section__title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #ff8f00;
+  margin: 0 0 4px;
+  text-align: center;
+}
+.artifact-section__desc {
+  font-size: 12px;
+  color: #888;
+  text-align: center;
+  margin: 0 0 12px;
+}
+.setup-player__char-name {
+  font-size: 12px;
+  color: #ff8f00;
+  font-weight: 600;
+}
+.artifact-options {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.artifact-card {
+  flex: 1 1 140px;
+  max-width: 220px;
+  min-width: 130px;
+  background: #fff;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+.artifact-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  border-color: #ff8f00;
+}
+.artifact-card--selected {
+  border-color: #ff8f00;
+  background: rgba(255, 143, 0, 0.08);
+  box-shadow: 0 0 0 2px rgba(255, 143, 0, 0.25);
+}
+.artifact-card__icon {
+  font-size: 32px;
+}
+.artifact-card__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.artifact-card__name {
+  font-size: 14px;
+  font-weight: bold;
+  color: #333;
+}
+.artifact-card__desc {
+  font-size: 11px;
+  color: #757575;
+  line-height: 1.4;
 }
 </style>

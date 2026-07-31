@@ -38,6 +38,16 @@ export function canUseSkill(state, player) {
   if (player.characterId === 11) return state.step === STEP.PICK_ACTION;
   if (player.skillUses <= 0) return false;
   if (state.currentWeather === "arms") return false;
+
+  // 圣遗物效果期间，禁用温迪/雷神/风堇的主动伤害大招
+  const RESTRICTED_ARTIFACT_SKILLS = [1, 3, 8]; // 温迪, 雷电将军, 风堇
+  if (
+    player.artifactActive &&
+    RESTRICTED_ARTIFACT_SKILLS.includes(player.characterId)
+  ) {
+    return false;
+  }
+
   return state.step === STEP.PICK_ACTION;
 }
 

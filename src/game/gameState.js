@@ -66,6 +66,18 @@ import {
   _injectCaiyueangDeps,
 } from "./caiyueang.js";
 
+import {
+  executeHolyWord,
+  canUseHolyWord,
+  applyArtifactDamageBoost,
+  recordTrapBreak,
+  recordDefenseBreak,
+  tickArtifactRounds,
+  getArtifactData,
+  ARTIFACTS,
+  _injectArtifactsDeps,
+} from "./artifacts.js";
+
 // ════════════════════════════════════
 //  工具函数（导出供子模块使用）
 // ════════════════════════════════════
@@ -134,6 +146,7 @@ _injectGambleDeps(currentPlayer, addLog, ensureDeck, endAction);
 _injectSkillsDeps(currentPlayer, addLog, ensureDeck, endAction);
 _injectAllianceDeps(currentPlayer, addLog, ensureDeck, endAction);
 _injectCaiyueangDeps(currentPlayer, addLog, endAction, checkGameOver);
+_injectArtifactsDeps(currentPlayer, addLog, endAction);
 
 // ════════════════════════════════════
 //  状态创建
@@ -360,6 +373,9 @@ function nextPlayer(state, _depth = 0) {
       }
     }
 
+    // 圣遗物效果回合递减
+    tickArtifactRounds(state);
+
     // 比赛模式：通知新回合（用于回合上限检查等）
     if (state.matchContext?.onNewRound) {
       state.matchContext.onNewRound(state.round);
@@ -511,6 +527,14 @@ export {
   // caiyueang.js
   executeCaiyueangSave,
   executeCaiyueangLoad,
+  // artifacts.js
+  executeHolyWord,
+  canUseHolyWord,
+  applyArtifactDamageBoost,
+  recordTrapBreak,
+  recordDefenseBreak,
+  getArtifactData,
+  ARTIFACTS,
   // serialize.js
   serializeGameState,
   deserializeGameState,

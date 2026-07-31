@@ -2,6 +2,11 @@ import { PHASE, STEP, getCharData } from "./constants.js";
 import { drawCards, cardDisplay } from "./deck.js";
 import { applyDamage } from "./damage.js";
 import { CAT } from "./gameLogger.js";
+import {
+  recordTrapBreak,
+  recordDefenseBreak,
+  applyArtifactDamageBoost,
+} from "./artifacts.js";
 
 // 赌命函数移至 gamble.js，这里不再导出（仅作注释提醒）
 
@@ -279,6 +284,8 @@ export function executeAttack(state, targetIdx) {
       target.trap = null;
       target.bait = null;
       trapTriggered = true;
+      // 陷阱平局也算击破（+2：明暗两张牌）
+      recordTrapBreak(attacker, state);
       applyDamage(state, attacker, trapValue);
       applyDamage(state, target, trapValue);
       // 赌命惩罚清除：陷阱平局，赌命周期结束
@@ -308,6 +315,8 @@ export function executeAttack(state, targetIdx) {
     } else {
       addLog(state, "陷阱被破");
       state.devLog.info(CAT.DAMAGE, `陷阱被破: ${attackValue} > ${trapValue}`);
+      // 陷阱击破 +2（明暗两张牌）
+      recordTrapBreak(attacker, state);
       if (attacker.characterId === 6) {
         attacker.fightingSpirit = Math.min(5, attacker.fightingSpirit + 1);
         addLog(state, `斗志 ${attacker.fightingSpirit}层`);
@@ -368,12 +377,23 @@ export function executeAttack(state, targetIdx) {
     }
   }
 
+  // 圣遗物伤害加成（非陷阱触发时，在联盟平摊之后、防御结算之前）
+  let wasCrit = false;
+  if (!trapTriggered && attacker.artifactActive && attacker.artifactId) {
+    const result = applyArtifactDamageBoost(attacker, attackValue, state);
+    attackValue = result.value;
+    wasCrit = result.crit;
+  }
+
   // 防御判定
   const targetHpBeforeApply = target.hp;
   const beforeDefense = target.defensePile.length;
   const remainingDmg = applyDamage(state, target, attackValue);
   const actualHpLost = targetHpBeforeApply - target.hp;
   const defenseConsumed = beforeDefense - target.defensePile.length;
+
+  // 防御击破计数（每张防御牌+1）
+  recordDefenseBreak(attacker, defenseConsumed, state);
 
   if (actualHpLost > 0 && actualHpLost !== attackValue && !trapTriggered) {
     // 排除合法偏差：防御吸收、伤害溢出（系统自身将HP clamp到0）

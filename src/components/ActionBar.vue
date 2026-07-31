@@ -64,6 +64,21 @@
         >
           {{ getCharData(currentPlayerVal).skillName }}{{ skillLabel }}
         </button>
+        <button
+          v-if="currentPlayerVal.artifactId != null"
+          class="ab ab--holyword"
+          :class="{ 'ab--holyword-ready': canHolyWord }"
+          :disabled="disabled || !canHolyWord"
+          :title="
+            canHolyWord
+              ? '消耗8击破发动圣言自明，获得额外行动'
+              : '需要8击破 (' + currentPlayerVal.breakCount + '/8)'
+          "
+          @click="$emit('holyWord')"
+        >
+          {{ holyWordLabel }}
+          <span class="holyword-break">{{ holyWordBreakInfo }}</span>
+        </button>
       </div>
     </template>
 
@@ -330,6 +345,8 @@ import {
   submitGamble,
   submitNahidaScry,
   getAllianceTargets,
+  canUseHolyWord,
+  getArtifactData,
 } from "../game/gameState.js";
 
 const props = defineProps({
@@ -343,6 +360,7 @@ const emit = defineEmits([
   "defense",
   "gamble",
   "skill",
+  "holyWord",
   "target",
   "skillTarget",
   "cancel",
@@ -372,6 +390,22 @@ const gamblePenaltyActive = computed(() => {
 const canSkill = computed(() =>
   canUseSkill(props.state, currentPlayerVal.value),
 );
+const canHolyWord = computed(() =>
+  canUseHolyWord(props.state, currentPlayerVal.value),
+);
+const holyWordLabel = computed(() => {
+  const p = currentPlayerVal.value;
+  if (!p || p.artifactId == null) return "";
+  const artData = getArtifactData(p.artifactId);
+  return artData
+    ? `圣言自明【${artData.name}】(${p.holyWordUses})`
+    : `圣言自明(${p.holyWordUses})`;
+});
+const holyWordBreakInfo = computed(() => {
+  const p = currentPlayerVal.value;
+  if (!p || p.artifactId == null) return "";
+  return `击破 ${p.breakCount}/8`;
+});
 const skillLabel = computed(() => {
   const p = currentPlayerVal.value;
   if (!p) return "";
@@ -553,6 +587,31 @@ function resetNahida() {
 .ab--skill {
   background: linear-gradient(135deg, #7b1fa2, #6a1b9a);
   color: #fff;
+}
+.ab--holyword {
+  background: linear-gradient(135deg, #ff8f00, #e65100);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  line-height: 1.2;
+}
+.ab--holyword-ready {
+  animation: holyword-pulse 1.5s ease-in-out infinite;
+}
+@keyframes holyword-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 8px rgba(255, 143, 0, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 143, 0, 0.8);
+  }
+}
+.holyword-break {
+  font-size: 10px;
+  opacity: 0.8;
 }
 .ab--target {
   background: #1565c0;

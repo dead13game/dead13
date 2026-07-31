@@ -16,6 +16,7 @@
  *   skills.js     — 技能路由 + 各角色实现
  *   alliance.js   — 结盟/背刺
  *   caiyueang.js  — 菜月昴死亡回归
+ *   artifacts.js  — 圣遗物系统（圣言自明+伤害加成+击破计数）
  *   ai/index.js   — AI 决策（easy/skilled/hell）
  *   weather.js    — 天气牌堆
  *   matchState.js — 比赛状态机（世界杯）
@@ -84,6 +85,11 @@ export {
   getAllianceTargets,
   executeCaiyueangSave,
   executeCaiyueangLoad,
+  // artifacts
+  executeHolyWord,
+  canUseHolyWord,
+  getArtifactData,
+  ARTIFACTS,
 } from "./gameState.js";
 
 // ── ai ──

@@ -46,6 +46,12 @@ export function createPlayer(index, charData, name, teamId) {
       consecutiveGambles: 0,
       gamblePenalty: false,
     },
+    // 圣遗物
+    artifactId: null, // 选择的圣遗物ID (null=未选择, 1=角斗士, 2=流浪大地)
+    breakCount: 0, // 击破计数（累计8次可发动圣言自明）
+    holyWordUses: 2, // 剩余圣言自明次数（每局最多2次）
+    artifactActive: false, // 圣遗物效果是否激活中
+    artifactRoundsLeft: 0, // 圣遗物效果剩余回合数
     // AI
     isAI: false,
     aiDifficulty: null, // 'easy' | 'skilled' | 'hell'

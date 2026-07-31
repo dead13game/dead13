@@ -92,6 +92,7 @@
         :availableChars="availableChars"
         :aiSlots="aiSlots"
         :aiDifficulties="aiDifficulties"
+        :playerArtifacts="playerArtifacts"
         @update:playerCount="playerCount = $event"
         @update:useWeather="useWeather = $event"
         @update:playerName="(idx, name) => (playerNames[idx] = name)"
@@ -104,6 +105,7 @@
           (newDiffs) =>
             aiDifficulties.splice(0, aiDifficulties.length, ...newDiffs)
         "
+        @update:playerArtifact="(idx, artId) => (playerArtifacts[idx] = artId)"
       />
 
       <!-- 经典模式：游戏界面 -->
@@ -123,11 +125,13 @@
         :use-a-i="wcUseAI"
         :use-weather="wcUseWeather"
         :difficulty="wcDifficulty"
+        :artifactId="wcArtifactId"
         @update:teamName="wcTeamName = $event"
         @update:selectedChar="wcSelectedChar = $event"
         @update:useAI="wcUseAI = $event"
         @update:useWeather="wcUseWeather = $event"
         @update:difficulty="wcDifficulty = $event"
+        @update:artifactId="wcArtifactId = $event"
         @start="startWorldCup"
       />
 
@@ -237,6 +241,7 @@ const {
   resetGame,
   aiSlots,
   aiDifficulties,
+  playerArtifacts,
 } = useGameController();
 
 // ---- 模式选择 ----
@@ -248,6 +253,7 @@ const wcAiTeamNames = ref([]);
 const wcUseAI = ref(true);
 const wcUseWeather = ref(false);
 const wcDifficulty = ref("easy");
+const wcArtifactId = ref(null);
 const wcShellRef = ref(null);
 
 // 联赛模式状态
@@ -374,6 +380,7 @@ function startWorldCup() {
         wcAiTeamNames.value,
         wcUseWeather.value,
         wcDifficulty.value,
+        wcArtifactId.value,
       );
     }
   }, 50);

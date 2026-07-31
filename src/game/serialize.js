@@ -48,6 +48,13 @@ export function serializeGameState(state) {
       },
       isAI: p.isAI,
       aiDifficulty: p.aiDifficulty,
+      teamId: p.teamId ?? -1,
+      // 圣遗物字段
+      artifactId: p.artifactId,
+      breakCount: p.breakCount ?? 0,
+      holyWordUses: p.holyWordUses ?? 2,
+      artifactActive: p.artifactActive ?? false,
+      artifactRoundsLeft: p.artifactRoundsLeft ?? 0,
     })),
     deck: state.deck.map((c) => ({ ...c })),
     grave: state.grave.map((c) => ({ ...c })),
@@ -120,6 +127,13 @@ export function deserializeGameState(state, saveData) {
       },
       isAI: sp.isAI ?? false,
       aiDifficulty: sp.aiDifficulty ?? null,
+      teamId: sp.teamId ?? -1,
+      // 圣遗物字段
+      artifactId: sp.artifactId ?? null,
+      breakCount: sp.breakCount ?? 0,
+      holyWordUses: sp.holyWordUses ?? 2,
+      artifactActive: sp.artifactActive ?? false,
+      artifactRoundsLeft: sp.artifactRoundsLeft ?? 0,
     };
   });
 

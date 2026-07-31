@@ -46,14 +46,30 @@ export function useLeagueController() {
   const roundResults = ref(null);
 
   let aiDifficulty = "skilled";
+  let leagueArtifactId = null; // 玩家队伍圣遗物ID
 
   // ---- 初始化 ----
-  function initLeague(teamId, difficulty = "skilled") {
+  function initLeague(teamId, difficulty = "skilled", artifactId = null) {
     aiDifficulty = difficulty;
+    leagueArtifactId = artifactId;
     const state = createLeagueState(teamId);
     Object.assign(leagueState, state);
     leagueState._currentRound = 1;
     uiMode.value = "draft";
+  }
+
+  /** 将圣遗物应用到所有人类玩家（teamId === 0） */
+  function applyLeagueArtifact() {
+    if (leagueArtifactId == null) return;
+    gameState.players.forEach((p) => {
+      if (p.teamId === 0) {
+        p.artifactId = leagueArtifactId;
+        p.breakCount = 0;
+        p.holyWordUses = 2;
+        p.artifactActive = false;
+        p.artifactRoundsLeft = 0;
+      }
+    });
   }
 
   // ---- 选人完成后开始比赛 ----
@@ -136,6 +152,9 @@ export function useLeagueController() {
         p.aiDifficulty = aiDifficulty;
       }
     });
+
+    // 应用圣遗物到人类玩家
+    applyLeagueArtifact();
 
     // 设置联赛上下文
     gameState.leagueContext = {
@@ -372,6 +391,8 @@ export function useLeagueController() {
         p.aiDifficulty = aiDifficulty;
       }
     });
+
+    applyLeagueArtifact();
 
     gameState.leagueContext = {
       cardBonus: { attackBonus: 0, defenseBonus: 0 },

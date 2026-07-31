@@ -11,7 +11,12 @@ import {
 } from "./deck.js";
 
 /** 创建比赛状态 */
-export function createMatchState(isGroupStage, playerCharId, opponentCharId) {
+export function createMatchState(
+  isGroupStage,
+  playerCharId,
+  opponentCharId,
+  playerArtifactId = null,
+) {
   return {
     isGroupStage,
     matchRound: 1,
@@ -26,6 +31,7 @@ export function createMatchState(isGroupStage, playerCharId, opponentCharId) {
     substitutionsLeft: MATCH_CONFIG.maxSubstitutions,
     playerCharId,
     opponentCharId,
+    playerArtifactId, // 玩家选择的圣遗物ID (null=未选)
     // 点球大战
     penalty: null,
     penaltyDeck: [],
@@ -293,6 +299,13 @@ function createPlayerForMatch(index, charData, name) {
       consecutiveGambles: 0,
       gamblePenalty: false,
     },
+    // 圣遗物
+    artifactId: null,
+    breakCount: 0,
+    holyWordUses: 2,
+    artifactActive: false,
+    artifactRoundsLeft: 0,
+    // AI
     isAI: false,
     aiDifficulty: null,
   };

@@ -109,6 +109,8 @@ STEP:  pickAction → attackShowCard → pickTarget → ... → pickAction（循
 | `executeGamble(state)`                             | state         | GameShell         |
 | `executeSkill(state)`                              | state         | GameShell         |
 | `canUseSkill(state, player)`                       | state, player | UI                |
+| `executeHolyWord(state)`                           | state         | GameShell         |
+| `canUseHolyWord(state, player)`                    | state, player | UI                |
 | `startAlly(state)`                                 | state         | GameShell         |
 | `executeAlly(state, targetIdx)`                    | state, number | GameShell         |
 | `executeBetray(state)`                             | state         | GameShell         |
@@ -156,6 +158,7 @@ PlayerTableSprite `_updateStatus()` 依赖（注意嵌套路径）:
 | `src/game/skills.js`             | 395  | 11 个角色技能（路由 + 各角色实现）           |
 | `src/game/damage.js`             | 175  | 伤害结算 + 死亡 + 游戏结束判定               |
 | `src/game/alliance.js`           | 160  | 结盟/背刺/目标筛选                           |
+| `src/game/artifacts.js`          | 220  | 圣遗物系统（圣言自明+伤害加成+击破计数）     |
 | `src/game/caiyueang.js`          | 150  | 菜月昴死亡回归（存档/读档/深拷贝）           |
 | `src/game/ai/index.js`           | 160  | AI 公共 API + 共享工具                       |
 | `src/game/ai/skilled.js`         | 240  | AI 熟练难度                                  |
