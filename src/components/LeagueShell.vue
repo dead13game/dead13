@@ -5,7 +5,9 @@
       <LeagueSetup
         :selected-team-id="_selectedTeamId"
         :difficulty="_difficulty"
+        :use-a-i="_useAI"
         @update:selected-team-id="onSelectTeam"
+        @update:use-a-i="onSetUseAI"
         @update:difficulty="onSetDifficulty"
         @start="onStartSetup"
       />
@@ -155,6 +157,7 @@ const draftRef = ref(null);
 const gameShellRef = ref(null);
 const _selectedTeamId = ref(null);
 const _difficulty = ref("skilled");
+const _useAI = ref(props.useAI ?? true);
 const scoreboardClicks = ref(0);
 
 // ---- 设置事件 ----
@@ -164,6 +167,10 @@ function onSelectTeam(teamId) {
 
 function onSetDifficulty(diff) {
   _difficulty.value = diff;
+}
+
+function onSetUseAI(val) {
+  _useAI.value = val;
 }
 
 function onStartSetup() {
@@ -199,6 +206,7 @@ function onStandingsContinue() {
     }
   } else {
     // 联赛进行中，继续下一轮
+    leagueState._currentRound++;
     uiMode.value = "draft";
   }
 }
@@ -224,7 +232,7 @@ function isAITurn() {
 
 function scheduleAI() {
   if (aiTimer) clearTimeout(aiTimer);
-  if (!props.useAI) return;
+  if (!_useAI.value) return;
   if (uiMode.value !== "match" || gameState.gameOver) return;
   if (gameState._elimPaused) return;
   if (matchState.value?.matchOver) return;

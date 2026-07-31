@@ -19,7 +19,7 @@ export const MATCH_CONFIG = {
   knockoutRounds: 90, // 常规时间回合数
   extraTimeRounds: 30, // 加时赛回合数
   totalRounds: 120, // 常规+加时总回合数
-  maxSubstitutions: 3, // 每队换人次数
+  maxSubstitutions: 999, // 每队换人次数
   penaltyFirstTo: 5, // 点球大战先得5分者胜
   penaltyCardsPerSide: 2, // 点球每方抽牌数
 };

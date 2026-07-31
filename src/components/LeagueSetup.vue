@@ -53,8 +53,21 @@
         </ul>
       </div>
 
-      <!-- AI难度 -->
+      <!-- AI开关 -->
       <div class="league-setup__row">
+        <label>对手：</label>
+        <label class="league-setup__toggle">
+          <input
+            type="checkbox"
+            :checked="useAI"
+            @change="$emit('update:useAI', $event.target.checked)"
+          />
+          AI自动（关闭=手动操控对手）
+        </label>
+      </div>
+
+      <!-- AI难度 -->
+      <div class="league-setup__row" v-if="useAI">
         <label>AI难度：</label>
         <select
           class="league-setup__select"
@@ -86,9 +99,15 @@ import { LEAGUE_TEAMS, TIER_LABELS } from "../game/leagueConstants.js";
 defineProps({
   selectedTeamId: { type: Number, default: null },
   difficulty: { type: String, default: "skilled" },
+  useAI: { type: Boolean, default: true },
 });
 
-defineEmits(["update:selectedTeamId", "update:difficulty", "start"]);
+defineEmits([
+  "update:selectedTeamId",
+  "update:difficulty",
+  "update:useAI",
+  "start",
+]);
 
 const teams = LEAGUE_TEAMS.filter(Boolean); // 去掉 null 占位
 

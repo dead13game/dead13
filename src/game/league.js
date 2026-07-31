@@ -152,36 +152,51 @@ export function simulateNonPlayerMatches(state, round) {
 
 /**
  * 自动模拟单场比赛
+ * 胜率表（主队视角，已包含主场优势）：
+ *   一流 vs 末流: 75/15/10
+ *   一流 vs 二流: 60/20/20
+ *   二流 vs 末流: 60/20/20
+ *   同等级:       35/30/35
+ * 反向对阵对称翻转主胜/客胜
  * @returns {'home' | 'away' | 'draw'}
  */
 export function simulateMatch(homeId, awayId) {
   const homeTier = getTeamTier(homeId);
   const awayTier = getTeamTier(awayId);
 
-  // 基础胜率：按等级差
-  let homeWinProb = 0.5;
-  let awayWinProb = 0.5;
+  let homeWinProb, drawProb, awayWinProb;
 
-  const tierDiff = awayTier - homeTier; // 正数=主队等级更高
-  if (tierDiff >= 2) {
-    homeWinProb = 0.8;
-    awayWinProb = 0.2;
-  } else if (tierDiff === 1) {
-    homeWinProb = 0.65;
-    awayWinProb = 0.35;
-  } else if (tierDiff === -1) {
+  if (homeTier === awayTier) {
+    // 同等级
     homeWinProb = 0.35;
-    awayWinProb = 0.65;
-  } else if (tierDiff <= -2) {
-    homeWinProb = 0.2;
-    awayWinProb = 0.8;
+    drawProb = 0.3;
+    awayWinProb = 0.35;
+  } else if (homeTier < awayTier) {
+    // 主队等级更高（一流 vs 二流/末流，二流 vs 末流）
+    if (homeTier === 1 && awayTier === 3) {
+      homeWinProb = 0.75;
+      drawProb = 0.15;
+      awayWinProb = 0.1;
+    } else {
+      // 一流 vs 二流 或 二流 vs 末流
+      homeWinProb = 0.6;
+      drawProb = 0.2;
+      awayWinProb = 0.2;
+    }
+  } else {
+    // 主队等级更低 — 翻转反向对阵的概率
+    if (awayTier === 1 && homeTier === 3) {
+      // 末流 vs 一流 ← 翻转 一流 vs 末流
+      homeWinProb = 0.1;
+      drawProb = 0.15;
+      awayWinProb = 0.75;
+    } else {
+      // 二流 vs 一流 或 末流 vs 二流 ← 翻转 60/20/20
+      homeWinProb = 0.2;
+      drawProb = 0.2;
+      awayWinProb = 0.6;
+    }
   }
-
-  // 主场加成+10%
-  homeWinProb = Math.min(1, homeWinProb + 0.1);
-  // 从客胜和平局中各扣5%
-  awayWinProb = Math.max(0, awayWinProb - 0.05);
-  const drawProb = Math.max(0, 1 - homeWinProb - awayWinProb);
 
   const r = Math.random();
   if (r < homeWinProb) return "home";

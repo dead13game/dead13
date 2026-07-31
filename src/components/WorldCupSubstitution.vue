@@ -2,7 +2,7 @@
   <div class="wc-sub">
     <div class="wc-sub__header">
       <h3>🔄 {{ subTitle }}</h3>
-      <span class="wc-sub__remaining">剩余 {{ subsLeft }} 次</span>
+      <span class="wc-sub__remaining">剩余 无限</span>
     </div>
     <p class="wc-sub__current">
       当前：<strong>{{ currentCharName }}</strong>
