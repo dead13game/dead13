@@ -7,10 +7,12 @@
         :difficulty="_difficulty"
         :use-a-i="_useAI"
         :artifact-id="_artifactId"
+        :opponent-artifact-id="_opponentArtifactId"
         @update:selected-team-id="onSelectTeam"
         @update:use-a-i="onSetUseAI"
         @update:difficulty="onSetDifficulty"
         @update:artifact-id="_artifactId = $event"
+        @update:opponent-artifact-id="_opponentArtifactId = $event"
         @start="onStartSetup"
       />
     </template>
@@ -161,6 +163,7 @@ const _selectedTeamId = ref(null);
 const _difficulty = ref("skilled");
 const _useAI = ref(props.useAI ?? true);
 const _artifactId = ref(null);
+const _opponentArtifactId = ref(null);
 const scoreboardClicks = ref(0);
 
 // ---- 设置事件 ----
@@ -178,7 +181,13 @@ function onSetUseAI(val) {
 
 function onStartSetup() {
   if (!_selectedTeamId.value) return;
-  initLeague(_selectedTeamId.value, _difficulty.value, _artifactId.value);
+  initLeague(
+    _selectedTeamId.value,
+    _difficulty.value,
+    _artifactId.value,
+    _opponentArtifactId.value,
+    _useAI.value,
+  );
 }
 
 // ---- 选人完成 ----
@@ -372,15 +381,29 @@ function aiSuppressLog(fromIdx, replaceMsg) {
 }
 
 // ---- 公开方法 ----
-function initLeagueFromSetup(teamId, difficulty, artifactId) {
+function initLeagueFromSetup(
+  teamId,
+  difficulty,
+  artifactId,
+  opponentArtId,
+  useAI,
+) {
   _selectedTeamId.value = teamId;
   _difficulty.value = difficulty;
-  initLeague(teamId, difficulty, artifactId);
+  initLeague(teamId, difficulty, artifactId, opponentArtId, useAI);
+}
+
+/** 读档后同步本组件的设置状态（AI开关/圣遗物） */
+function onRestoreLeague(saveData) {
+  restoreLeague(saveData);
+  _useAI.value = saveData.leagueSetup?.useAI ?? true;
+  _artifactId.value = saveData.leagueSetup?.artifactId ?? null;
+  _opponentArtifactId.value = saveData.leagueSetup?.opponentArtifactId ?? null;
 }
 
 defineExpose({
   initLeagueFromSetup,
-  restoreLeague,
+  restoreLeague: onRestoreLeague,
   saveLeague,
   uiMode,
   leagueState,

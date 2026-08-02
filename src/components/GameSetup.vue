@@ -137,8 +137,9 @@
             <span class="setup-player__char-name">{{
               charById(playerChars[i - 1])?.name || ""
             }}</span>
+            <span v-if="aiSlots[i - 1]" class="setup-player__ai-badge">AI</span>
           </div>
-          <div class="artifact-options">
+          <div v-if="!aiSlots[i - 1]" class="artifact-options">
             <div
               v-for="art in artifactList"
               :key="art.id"
@@ -154,6 +155,9 @@
                 <span class="artifact-card__desc">{{ art.desc }}</span>
               </div>
             </div>
+          </div>
+          <div v-else class="artifact-options artifact-options--ai">
+            <span class="artifact-ai-hint">🤖 AI 玩家不选择圣遗物</span>
           </div>
         </div>
       </div>
@@ -796,6 +800,22 @@ function onCharCardClick(playerIdx, charId) {
   gap: 10px;
   flex-wrap: wrap;
   justify-content: center;
+}
+.artifact-options--ai {
+  justify-content: center;
+  padding: 10px;
+}
+.artifact-ai-hint {
+  font-size: 12px;
+  color: #9e9e9e;
+}
+.setup-player__ai-badge {
+  font-size: 11px;
+  color: #1976d2;
+  background: rgba(25, 118, 210, 0.12);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: bold;
 }
 .artifact-card {
   flex: 1 1 140px;

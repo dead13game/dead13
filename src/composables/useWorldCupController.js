@@ -44,6 +44,7 @@ export function useWorldCupController() {
   let useWeather = false;
   let aiDifficulty = "easy";
   let playerArtifactId = null; // 玩家圣遗物ID
+  let opponentArtifactId = null; // 对手圣遗物ID（手动模式）
 
   // ---- 初始化 ----
   function initWorldCup(
@@ -53,10 +54,12 @@ export function useWorldCupController() {
     weather,
     difficulty = "easy",
     artifactId = null,
+    oppArtifactId = null,
   ) {
     useWeather = weather || false;
     aiDifficulty = difficulty;
     playerArtifactId = artifactId;
+    opponentArtifactId = oppArtifactId;
     opponentSubPending.value = false;
     const state = createWorldCupState(teamName, opponentNames);
     Object.assign(wcState, state);
@@ -371,20 +374,28 @@ export function useWorldCupController() {
     uiMode.value = "match";
   }
 
-  /** 在游戏初始化/重置后给人类玩家应用圣遗物ID */
+  /** 在游戏初始化/重置后给双方应用圣遗物ID */
   function applyPlayerArtifact() {
-    if (playerArtifactId == null || !matchState.value) return;
-    const playerCharId = matchState.value.playerCharId;
-    const player = gameState.players.find(
-      (p) => p.characterId === playerCharId,
-    );
-    if (player) {
-      player.artifactId = playerArtifactId;
-      player.breakCount = 0;
-      player.holyWordUses = 2;
-      player.artifactActive = false;
-      player.artifactRoundsLeft = 0;
-    }
+    if (!matchState.value) return;
+    const { playerCharId, opponentCharId } = matchState.value;
+    gameState.players.forEach((p) => {
+      const artId =
+        p.characterId === playerCharId
+          ? playerArtifactId
+          : p.characterId === opponentCharId
+            ? opponentArtifactId
+            : null;
+      if (artId != null) {
+        p.artifactId = artId;
+        p.breakCount = 0;
+        p.holyWordUses = 2;
+        p.artifactActive = false;
+        p.artifactRoundsLeft = 0;
+      } else {
+        // 未配置圣遗物的角色清除（换人后旧角色可能残留）
+        p.artifactId = null;
+      }
+    });
   }
 
   /** 标记 AI 玩家（重置游戏后需重新标记） */
@@ -549,6 +560,12 @@ export function useWorldCupController() {
     return p?.characterName || "";
   });
 
+  /** 读档时恢复圣遗物配置 */
+  function setArtifacts(playerArt, oppArt) {
+    playerArtifactId = playerArt;
+    opponentArtifactId = oppArt;
+  }
+
   return {
     wcState,
     matchState,
@@ -578,5 +595,7 @@ export function useWorldCupController() {
     resetWorldCup,
     rebuildMatchContext,
     markAIPlayer,
+    setArtifacts,
+    applyPlayerArtifact,
   };
 }

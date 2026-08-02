@@ -103,10 +103,39 @@
         </div>
       </div>
 
+      <!-- 对手队伍圣遗物（手动模式） -->
+      <div v-if="selectedTeamId && !useAI" class="league-setup__artifact">
+        <h3>🏺 对手队伍圣遗物</h3>
+        <p class="league-setup__artifact-desc">
+          手动模式下，对手也选择一件圣遗物
+        </p>
+        <div class="artifact-options">
+          <div
+            v-for="art in artifactList"
+            :key="art.id"
+            class="artifact-card"
+            :class="{
+              'artifact-card--selected': opponentArtifactId === art.id,
+            }"
+            @click="$emit('update:opponent-artifact-id', art.id)"
+          >
+            <span class="artifact-card__icon">{{ art.icon }}</span>
+            <div class="artifact-card__info">
+              <span class="artifact-card__name">{{ art.name }}</span>
+              <span class="artifact-card__desc">{{ art.desc }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- 开始按钮 -->
       <button
         class="league-setup__start"
-        :disabled="!selectedTeamId || artifactId == null"
+        :disabled="
+          !selectedTeamId ||
+          artifactId == null ||
+          (!useAI && opponentArtifactId == null)
+        "
         @click="$emit('start')"
       >
         ⚽ 开始联赛
@@ -125,6 +154,7 @@ defineProps({
   difficulty: { type: String, default: "skilled" },
   useAI: { type: Boolean, default: true },
   artifactId: { type: Number, default: null },
+  opponentArtifactId: { type: Number, default: null },
 });
 
 defineEmits([
@@ -132,6 +162,7 @@ defineEmits([
   "update:difficulty",
   "update:useAI",
   "update:artifactId",
+  "update:opponent-artifact-id",
   "start",
 ]);
 

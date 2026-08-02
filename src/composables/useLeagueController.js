@@ -46,24 +46,40 @@ export function useLeagueController() {
   const roundResults = ref(null);
 
   let aiDifficulty = "skilled";
+  let useAI = true;
   let leagueArtifactId = null; // 玩家队伍圣遗物ID
+  let opponentArtifactId = null; // 对手队伍圣遗物ID（手动模式）
 
   // ---- 初始化 ----
-  function initLeague(teamId, difficulty = "skilled", artifactId = null) {
+  function initLeague(
+    teamId,
+    difficulty = "skilled",
+    artifactId = null,
+    opponentArtId = null,
+    aiEnabled = true,
+  ) {
     aiDifficulty = difficulty;
     leagueArtifactId = artifactId;
+    opponentArtifactId = opponentArtId;
+    useAI = aiEnabled;
     const state = createLeagueState(teamId);
     Object.assign(leagueState, state);
     leagueState._currentRound = 1;
     uiMode.value = "draft";
   }
 
-  /** 将圣遗物应用到所有人类玩家（teamId === 0） */
+  /** 将圣遗物应用到所有人类玩家（根据AI开关分配） */
   function applyLeagueArtifact() {
-    if (leagueArtifactId == null) return;
     gameState.players.forEach((p) => {
-      if (p.teamId === 0) {
+      if (p.teamId === 0 && leagueArtifactId != null) {
         p.artifactId = leagueArtifactId;
+        p.breakCount = 0;
+        p.holyWordUses = 2;
+        p.artifactActive = false;
+        p.artifactRoundsLeft = 0;
+      } else if (p.teamId === 1 && opponentArtifactId != null) {
+        // 手动模式下对手也选圣遗物
+        p.artifactId = opponentArtifactId;
         p.breakCount = 0;
         p.holyWordUses = 2;
         p.artifactActive = false;
@@ -145,15 +161,17 @@ export function useLeagueController() {
       }
     });
 
-    // 标记AI玩家
-    gameState.players.forEach((p) => {
-      if (p.teamId === 1) {
-        p.isAI = true;
-        p.aiDifficulty = aiDifficulty;
-      }
-    });
+    // 标记AI玩家（仅AI模式）
+    if (useAI) {
+      gameState.players.forEach((p) => {
+        if (p.teamId === 1) {
+          p.isAI = true;
+          p.aiDifficulty = aiDifficulty;
+        }
+      });
+    }
 
-    // 应用圣遗物到人类玩家
+    // 应用圣遗物
     applyLeagueArtifact();
 
     // 设置联赛上下文
@@ -385,12 +403,15 @@ export function useLeagueController() {
       }
     });
 
-    gameState.players.forEach((p) => {
-      if (p.teamId === 1) {
-        p.isAI = true;
-        p.aiDifficulty = aiDifficulty;
-      }
-    });
+    // 标记AI玩家（仅AI模式）
+    if (useAI) {
+      gameState.players.forEach((p) => {
+        if (p.teamId === 1) {
+          p.isAI = true;
+          p.aiDifficulty = aiDifficulty;
+        }
+      });
+    }
 
     applyLeagueArtifact();
 
@@ -438,6 +459,9 @@ export function useLeagueController() {
       leagueSetup: {
         teamId: leagueState.playerTeamId,
         difficulty: aiDifficulty,
+        artifactId: leagueArtifactId,
+        opponentArtifactId: opponentArtifactId,
+        useAI,
       },
       leagueState: {
         playerTeamId: leagueState.playerTeamId,
@@ -460,6 +484,9 @@ export function useLeagueController() {
   function restoreLeague(saveData) {
     const sd = saveData;
     aiDifficulty = sd.leagueSetup?.difficulty || "skilled";
+    leagueArtifactId = sd.leagueSetup?.artifactId ?? null;
+    opponentArtifactId = sd.leagueSetup?.opponentArtifactId ?? null;
+    useAI = sd.leagueSetup?.useAI ?? true;
 
     Object.assign(leagueState, {
       playerTeamId: sd.leagueState.playerTeamId,

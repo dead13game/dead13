@@ -64,6 +64,12 @@ function deepCloneState(state) {
         betrayalPenalty: p.relations.betrayalPenalty,
         allyKillBonus: p.relations.allyKillBonus,
       },
+      // 圣遗物（读档时 Object.assign 会恢复这些键）
+      artifactId: p.artifactId,
+      breakCount: p.breakCount,
+      holyWordUses: p.holyWordUses,
+      artifactActive: p.artifactActive,
+      artifactRoundsLeft: p.artifactRoundsLeft,
     })),
     deck: state.deck.map((c) => ({ ...c })),
     grave: state.grave.map((c) => ({ ...c })),

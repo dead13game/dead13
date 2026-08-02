@@ -306,6 +306,8 @@ const {
   resetWorldCup,
   rebuildMatchContext,
   markAIPlayer,
+  setArtifacts,
+  applyPlayerArtifact,
 } = useWorldCupController();
 
 // 世界杯模式下点击"保存并退出"按钮
@@ -328,6 +330,14 @@ function handleWCSave(saveData) {
       wcState.groupTeams?.filter((t) => !t.isPlayer).map((t) => t.name) || [],
     useWeather: props.useWeather,
     difficulty: props.difficulty,
+    artifactId:
+      gameState.players.find(
+        (p) => p.characterId === matchState?.value?.playerCharId,
+      )?.artifactId ?? null,
+    opponentArtifactId:
+      gameState.players.find(
+        (p) => p.characterId === matchState?.value?.opponentCharId,
+      )?.artifactId ?? null,
   };
 
   // 序列化锦标赛状态（仅可序列化字段，去除回调引用）
@@ -362,6 +372,12 @@ function handleWCSave(saveData) {
 function restoreFromSave(saveData) {
   if (!saveData.wcState || !saveData.matchState) return;
 
+  // 0. 恢复圣遗物配置
+  setArtifacts(
+    saveData.wcSetup?.artifactId ?? null,
+    saveData.wcSetup?.opponentArtifactId ?? null,
+  );
+
   // 1. 恢复锦标赛状态
   Object.assign(wcState, saveData.wcState);
 
@@ -379,7 +395,10 @@ function restoreFromSave(saveData) {
   // 5. 重新标记 AI 玩家
   markAIPlayer();
 
-  // 6. 设置 UI 为比赛进行中
+  // 6. 应用圣遗物（deserializeGameState 已恢复字段，此处确保配置同步）
+  applyPlayerArtifact();
+
+  // 7. 设置 UI 为比赛进行中
   uiMode.value = "match";
 }
 

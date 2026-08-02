@@ -126,9 +126,37 @@
         </div>
       </div>
 
+      <!-- 对手圣遗物（手动模式） -->
+      <div v-if="selectedChar && !useAI" class="wc-setup__artifact">
+        <h3>🏺 对手圣遗物</h3>
+        <p class="wc-setup__artifact-desc">手动模式下，对手也选择一件圣遗物</p>
+        <div class="artifact-options">
+          <div
+            v-for="art in artifactList"
+            :key="art.id"
+            class="artifact-card"
+            :class="{
+              'artifact-card--selected': opponentArtifactId === art.id,
+            }"
+            @click="$emit('update:opponentArtifactId', art.id)"
+          >
+            <span class="artifact-card__icon">{{ art.icon }}</span>
+            <div class="artifact-card__info">
+              <span class="artifact-card__name">{{ art.name }}</span>
+              <span class="artifact-card__desc">{{ art.desc }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <button
         class="wc-setup__btn"
-        :disabled="!teamName.trim() || !selectedChar || artifactId == null"
+        :disabled="
+          !teamName.trim() ||
+          !selectedChar ||
+          artifactId == null ||
+          (!useAI && opponentArtifactId == null)
+        "
         @click="$emit('start')"
       >
         开始世界杯之旅 ⚽
@@ -200,6 +228,7 @@ const props = defineProps({
   useWeather: { type: Boolean, default: false },
   difficulty: { type: String, default: "easy" },
   artifactId: { type: Number, default: null },
+  opponentArtifactId: { type: Number, default: null },
 });
 
 const emit = defineEmits([
@@ -209,6 +238,7 @@ const emit = defineEmits([
   "update:useWeather",
   "update:difficulty",
   "update:artifactId",
+  "update:opponentArtifactId",
   "start",
 ]);
 

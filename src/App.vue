@@ -126,12 +126,14 @@
         :use-weather="wcUseWeather"
         :difficulty="wcDifficulty"
         :artifactId="wcArtifactId"
+        :opponent-artifact-id="wcOpponentArtifactId"
         @update:teamName="wcTeamName = $event"
         @update:selectedChar="wcSelectedChar = $event"
         @update:useAI="wcUseAI = $event"
         @update:useWeather="wcUseWeather = $event"
         @update:difficulty="wcDifficulty = $event"
         @update:artifactId="wcArtifactId = $event"
+        @update:opponentArtifactId="wcOpponentArtifactId = $event"
         @start="startWorldCup"
       />
 
@@ -254,6 +256,7 @@ const wcUseAI = ref(true);
 const wcUseWeather = ref(false);
 const wcDifficulty = ref("easy");
 const wcArtifactId = ref(null);
+const wcOpponentArtifactId = ref(null);
 const wcShellRef = ref(null);
 
 // 联赛模式状态
@@ -381,6 +384,7 @@ function startWorldCup() {
         wcUseWeather.value,
         wcDifficulty.value,
         wcArtifactId.value,
+        wcOpponentArtifactId.value,
       );
     }
   }, 50);

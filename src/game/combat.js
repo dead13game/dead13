@@ -286,8 +286,17 @@ export function executeAttack(state, targetIdx) {
       trapTriggered = true;
       // 陷阱平局也算击破（+2：明暗两张牌）
       recordTrapBreak(attacker, state);
+      // 平局时 target 受到的伤害同样吃圣遗物加成
+      let tieTargetDmg = trapValue;
+      if (attacker.artifactActive && attacker.artifactId) {
+        tieTargetDmg = applyArtifactDamageBoost(
+          attacker,
+          trapValue,
+          state,
+        ).value;
+      }
       applyDamage(state, attacker, trapValue);
-      applyDamage(state, target, trapValue);
+      applyDamage(state, target, tieTargetDmg);
       // 赌命惩罚清除：陷阱平局，赌命周期结束
       if (
         target.relations.gamblePenalty ||
@@ -345,6 +354,12 @@ export function executeAttack(state, targetIdx) {
     }
   }
 
+  // 圣遗物伤害加成（非陷阱触发时，先加成后联盟平摊）
+  if (!trapTriggered && attacker.artifactActive && attacker.artifactId) {
+    const result = applyArtifactDamageBoost(attacker, attackValue, state);
+    attackValue = result.value;
+  }
+
   // 联盟平摊
   if (
     !trapTriggered &&
@@ -375,14 +390,6 @@ export function executeAttack(state, targetIdx) {
       );
       applyDamage(state, ally, allyDmg);
     }
-  }
-
-  // 圣遗物伤害加成（非陷阱触发时，在联盟平摊之后、防御结算之前）
-  let wasCrit = false;
-  if (!trapTriggered && attacker.artifactActive && attacker.artifactId) {
-    const result = applyArtifactDamageBoost(attacker, attackValue, state);
-    attackValue = result.value;
-    wasCrit = result.crit;
   }
 
   // 防御判定
