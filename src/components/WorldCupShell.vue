@@ -330,6 +330,7 @@ function handleWCSave(saveData) {
       wcState.groupTeams?.filter((t) => !t.isPlayer).map((t) => t.name) || [],
     useWeather: props.useWeather,
     difficulty: props.difficulty,
+    useAI: props.useAI,
     artifactId:
       gameState.players.find(
         (p) => p.characterId === matchState?.value?.playerCharId,
@@ -538,6 +539,8 @@ watch(() => gameState.step, scheduleAI, { immediate: true });
 // ── 主决策 ──
 
 function aiAct() {
+  // 双保险：手动模式下已调度的 timer 也直接退出（防止读档时序问题）
+  if (!props.useAI) return;
   if (gameState.step === "pickAction") {
     const decision = decideTopAction(gameState);
     gameState.devLog.debug(
@@ -565,6 +568,7 @@ function aiAct() {
 // ── 顶层行动分发 ──
 
 function executeTopAction(decision) {
+  if (!props.useAI) return; // 手动模式中止链式调度
   switch (decision.action) {
     case "attack": {
       startAttack(gameState);
@@ -609,6 +613,7 @@ function executeTopAction(decision) {
 // ── 中间步骤自动完成 ──
 
 function executeMiddleStep() {
+  if (!props.useAI) return; // 手动模式中止链式调度
   const s = gameState.step;
   if (s === "pickAction") return;
 

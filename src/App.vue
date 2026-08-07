@@ -228,6 +228,7 @@ import OpeningVideo from "./components/OpeningVideo.vue";
 import { useGameController } from "./composables/useGameController.js";
 import { deserializeGameState } from "./game/gameState.js";
 import { AI_TEAM_NAMES } from "./game/worldCupConstants.js";
+import SoundManager from "./audio/SoundManager.js";
 
 const {
   gameState,
@@ -268,6 +269,15 @@ const leagueShellRef = ref(null);
 const hasSave = ref(false);
 onMounted(() => {
   hasSave.value = !!localStorage.getItem("dead13_save");
+
+  // 主背景音乐：首次用户交互后启动（浏览器自动播放策略限制）
+  const startBgm = () => {
+    SoundManager.playBgm();
+    window.removeEventListener("pointerdown", startBgm);
+    window.removeEventListener("keydown", startBgm);
+  };
+  window.addEventListener("pointerdown", startBgm);
+  window.addEventListener("keydown", startBgm);
 });
 
 function selectMode(mode) {
@@ -334,6 +344,9 @@ function continueGame() {
     wcAiTeamNames.value = saveData.wcSetup.opponentNames || [];
     wcUseWeather.value = saveData.wcSetup.useWeather || false;
     wcDifficulty.value = saveData.wcSetup.difficulty || "easy";
+    wcUseAI.value = saveData.wcSetup.useAI ?? true;
+    wcArtifactId.value = saveData.wcSetup?.artifactId ?? null;
+    wcOpponentArtifactId.value = saveData.wcSetup?.opponentArtifactId ?? null;
     wcStarted.value = true;
 
     // 等待 WorldCupShell 挂载后恢复存档
