@@ -24,6 +24,7 @@ import {
 import { createGameState, initGame } from "../game/gameState.js";
 import { MATCH_CONFIG } from "../game/worldCupConstants.js";
 import { CHARACTERS } from "../game/constants.js";
+import { recordSound } from "../game/soundEvents.js";
 
 /**
  * 世界杯控制器 — 管理锦标赛+比赛+游戏三层状态
@@ -198,6 +199,7 @@ export function useWorldCupController() {
 
   // ---- 处理比赛结束 ----
   function handleMatchEnd(ms) {
+    recordSound(gameState, "match_end");
     const winner = ms.winner;
     const [pScore, oScore] = ms.score;
     const decidedByPenalty = ms.isPenaltyShootout || false;

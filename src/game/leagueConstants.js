@@ -19,6 +19,21 @@ export const LEAGUE_TEAMS = [
 /** 等级标签 */
 export const TIER_LABELS = { 1: "🏆 争冠级", 2: "⚔️ 欧战级", 3: "🛡️ 保级级" };
 
+/** 队标资源目录（对应 public/team-badges/，构建后原样拷贝到 dist 根） */
+export const TEAM_BADGE_DIR = "./team-badges";
+
+/**
+ * 球队队标接口 — 读取球队队标图片路径
+ * 命名规则：public/team-badges/{teamId}.png（如 1.png = 曼城，2.png = 利物浦）
+ * 把图片放进目录即可自动生效，无需改代码。
+ * 未放图片时返回 null，UI 回退显示 emoji。
+ * 若要为个别球队指定不同文件名，可直接改写此函数或在此处加覆盖映射。
+ */
+export function getTeamBadge(teamId) {
+  if (teamId == null || !LEAGUE_TEAMS[teamId]) return null;
+  return `${TEAM_BADGE_DIR}/${teamId}.png`;
+}
+
 /** 等级分组 */
 export const TIER_1 = [1, 2, 3, 4];
 export const TIER_2 = [5, 6, 7];

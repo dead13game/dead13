@@ -29,7 +29,7 @@
           >
             <td class="col-rank">{{ idx + 1 }}</td>
             <td class="col-team">
-              <span class="team-emoji">{{ team.emoji }}</span>
+              <TeamBadge :team-id="team.teamId" size="sm" />
               {{ team.name }}
               <span v-if="team.isPlayer" class="player-badge">👈</span>
             </td>
@@ -54,6 +54,8 @@
 </template>
 
 <script setup>
+import TeamBadge from "./TeamBadge.vue";
+
 defineProps({
   standings: { type: Array, required: true },
   currentRound: { type: Number, default: 1 },
@@ -124,9 +126,6 @@ defineEmits(["continue"]);
   width: 52px;
 }
 
-.team-emoji {
-  margin-right: 6px;
-}
 .player-badge {
   margin-left: 4px;
 }

@@ -1,6 +1,7 @@
 import { STEP } from "./constants.js";
 import { drawCards, cardDisplay } from "./deck.js";
 import { CAT } from "./gameLogger.js";
+import { recordSound } from "./soundEvents.js";
 
 // 依赖注入（由 gameState.js 调用）
 let _currentPlayer, _addLog, _ensureDeck, _endAction;
@@ -50,6 +51,7 @@ export function executeGamble(state) {
   const drawn = r.drawn.map((c) => ({ ...c, faceUp: true }));
   state.deck = r.remaining;
 
+  recordSound(state, "gamble");
   addLog(state, `${player.name} 执行赌命`);
   state.devLog.info(
     CAT.GAMBLE,

@@ -26,6 +26,7 @@ import {
   deserializeGameState,
 } from "../game/gameState.js";
 import { CHARACTERS } from "../game/constants.js";
+import { recordSound } from "../game/soundEvents.js";
 
 /**
  * 联赛控制器 — 管理联赛+比赛+游戏三层状态
@@ -230,6 +231,7 @@ export function useLeagueController() {
 
     ms.matchOver = true;
     ms.winner = survivingTeamId;
+    recordSound(gameState, "match_end");
 
     const { playerScore, opponentScore } = calculateMatchScore(
       ms.deathOrder,
@@ -253,6 +255,7 @@ export function useLeagueController() {
 
     ms.matchOver = true;
     ms.winner = null; // 平局
+    recordSound(gameState, "match_end");
 
     const { playerScore, opponentScore } = calculateMatchScore(
       ms.deathOrder,
@@ -304,8 +307,10 @@ export function useLeagueController() {
         m.away === leagueState.playerTeamId;
 
       return {
+        homeTeamId: m.home,
         homeName: homeTeam.name,
         homeEmoji: homeTeam.emoji,
+        awayTeamId: m.away,
         awayName: awayTeam.name,
         awayEmoji: awayTeam.emoji,
         result: result || "?",
@@ -427,6 +432,7 @@ export function useLeagueController() {
         if (!ms || ms.matchOver) return;
         ms.matchOver = true;
         ms.winner = survivingTeamId;
+        recordSound(gameState, "match_end");
         const { playerScore, opponentScore } = calculateMatchScore(
           ms.deathOrder,
           0,

@@ -22,7 +22,7 @@
           }"
           @click="$emit('update:selectedTeamId', team.id)"
         >
-          <span class="league-team-card__emoji">{{ team.emoji }}</span>
+          <TeamBadge :team-id="team.id" size="lg" />
           <span class="league-team-card__name">{{ team.name }}</span>
           <span class="league-team-card__tier">{{ tierLabel(team.tier) }}</span>
         </div>
@@ -148,6 +148,7 @@
 <script setup>
 import { LEAGUE_TEAMS, TIER_LABELS } from "../game/leagueConstants.js";
 import { ARTIFACTS } from "../game/gameState.js";
+import TeamBadge from "./TeamBadge.vue";
 
 defineProps({
   selectedTeamId: { type: Number, default: null },
@@ -263,10 +264,6 @@ function tierLabel(tier) {
 }
 .league-team-card--tier3 {
   border-left: 3px solid #cd7f32;
-}
-.league-team-card__emoji {
-  font-size: 24px;
-  display: block;
 }
 .league-team-card__name {
   font-size: 13px;

@@ -31,7 +31,7 @@
       <!-- 记分牌 -->
       <div class="league-scoreboard" @click="onScoreboardClick">
         <div class="lsb-team lsb-team--player">
-          <span class="lsb-emoji">{{ currentPlayerTeam?.emoji }}</span>
+          <TeamBadge :team-id="currentPlayerTeam?.id" size="sm" />
           <span class="lsb-name">{{ currentPlayerTeam?.name }}</span>
         </div>
         <div class="lsb-score">
@@ -43,7 +43,7 @@
         </div>
         <div class="lsb-team lsb-team--opponent">
           <span class="lsb-name">{{ currentOpponentTeam?.name }}</span>
-          <span class="lsb-emoji">{{ currentOpponentTeam?.emoji }}</span>
+          <TeamBadge :team-id="currentOpponentTeam?.id" size="sm" />
         </div>
       </div>
 
@@ -103,6 +103,7 @@
 <script setup>
 import { ref, computed, watch, nextTick, onBeforeUnmount } from "vue";
 import GameShell from "./GameShell.vue";
+import TeamBadge from "./TeamBadge.vue";
 import LeagueSetup from "./LeagueSetup.vue";
 import LeagueDraft from "./LeagueDraft.vue";
 import LeagueStandings from "./LeagueStandings.vue";
@@ -256,6 +257,8 @@ watch(() => gameState.currentPlayerIndex, scheduleAI, { immediate: true });
 watch(() => gameState.step, scheduleAI, { immediate: true });
 
 function aiAct() {
+  // 双保险：即使已调度的 timer 触发，手动模式下直接退出（防止读档时序问题）
+  if (!_useAI.value) return;
   if (gameState.step === "pickAction") {
     const decision = decideTopAction(gameState);
     gameState.devLog?.debug(
@@ -284,6 +287,7 @@ function aiAct() {
 }
 
 function executeTopAction(decision) {
+  if (!_useAI.value) return; // 手动模式中止链式调度
   switch (decision.action) {
     case "attack": {
       startAttack(gameState);
@@ -335,6 +339,7 @@ function executeTopAction(decision) {
 }
 
 function executeMiddleStep() {
+  if (!_useAI.value) return; // 手动模式中止链式调度
   const s = gameState.step;
   if (s === "pickAction") return;
 
@@ -395,10 +400,18 @@ function initLeagueFromSetup(
 
 /** 读档后同步本组件的设置状态（AI开关/圣遗物） */
 function onRestoreLeague(saveData) {
-  restoreLeague(saveData);
+  // 先同步设置状态，再恢复游戏（restoreLeague 内部会触发 watch → scheduleAI，
+  // 此时 _useAI 已是正确值，避免手动模式被调度 AI）
   _useAI.value = saveData.leagueSetup?.useAI ?? true;
   _artifactId.value = saveData.leagueSetup?.artifactId ?? null;
   _opponentArtifactId.value = saveData.leagueSetup?.opponentArtifactId ?? null;
+  restoreLeague(saveData);
+  // 兜底：清除 restore 过程中可能残留的 AI 调度
+  if (aiTimer) {
+    clearTimeout(aiTimer);
+    aiTimer = null;
+  }
+  if (_useAI.value) scheduleAI();
 }
 
 defineExpose({
@@ -441,9 +454,6 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-}
-.lsb-emoji {
-  font-size: 18px;
 }
 .lsb-name {
   font-size: 14px;

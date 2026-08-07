@@ -1,6 +1,7 @@
 import { PHASE } from "./constants.js";
 import { cardDisplay } from "./deck.js";
 import { CAT } from "./gameLogger.js";
+import { recordSound } from "./soundEvents.js";
 
 /** 解除双方的联盟关系 */
 export function dissolveAlliance(state, player) {
@@ -63,6 +64,7 @@ export function applyDamage(state, player, damage) {
       }
     } else {
       remaining -= defenseValue;
+      recordSound(state, "shield_break");
       state.messageLog.push(`${player.name} 防御牌 ${cardDisplay(top)} 被击穿`);
       state.devLog.debug(CAT.DAMAGE, `防御牌 ${cardDisplay(top)} 被击穿`, {
         value: defenseValue,
@@ -112,6 +114,7 @@ export function applyDamage(state, player, damage) {
     if (player.hp <= 0) {
       player.alive = false;
       player.hp = 0;
+      recordSound(state, "kill");
       state.messageLog.push(`${player.name} 阵亡`);
       state.devLog.info(CAT.STATE, `${player.name} 阵亡`, {
         round: state.round,

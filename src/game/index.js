@@ -135,4 +135,6 @@ export {
   LEAGUE_POINTS,
   TOTAL_ROUNDS,
   LEAGUE_SCHEDULE,
+  TEAM_BADGE_DIR,
+  getTeamBadge,
 } from "./leagueConstants.js";

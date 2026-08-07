@@ -11,7 +11,8 @@
           :class="{ 'round-match--player': match.isPlayer }"
         >
           <span class="round-match__team round-match__team--home">
-            {{ match.homeEmoji }} {{ match.homeName }}
+            <TeamBadge :team-id="match.homeTeamId" size="sm" />
+            {{ match.homeName }}
           </span>
           <span
             class="round-match__result"
@@ -20,7 +21,8 @@
             {{ resultLabel(match.result) }}
           </span>
           <span class="round-match__team round-match__team--away">
-            {{ match.awayName }} {{ match.awayEmoji }}
+            {{ match.awayName }}
+            <TeamBadge :team-id="match.awayTeamId" size="sm" />
           </span>
           <span v-if="match.isPlayer" class="round-match__player-badge"
             >⚽ 你的比赛</span
@@ -44,10 +46,12 @@
 </template>
 
 <script setup>
+import TeamBadge from "./TeamBadge.vue";
+
 defineProps({
   round: { type: Number, required: true },
   matchResults: { type: Array, required: true },
-  // matchResults: [{ homeName, homeEmoji, awayName, awayEmoji, result: 'home'|'away'|'draw', isPlayer }]
+  // matchResults: [{ homeTeamId, homeName, awayTeamId, awayName, result: 'home'|'away'|'draw', isPlayer }]
   isLastRound: { type: Boolean, default: false },
 });
 

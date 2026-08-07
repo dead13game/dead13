@@ -7,6 +7,7 @@ import {
   recordDefenseBreak,
   applyArtifactDamageBoost,
 } from "./artifacts.js";
+import { recordSound } from "./soundEvents.js";
 
 // 赌命函数移至 gamble.js，这里不再导出（仅作注释提醒）
 
@@ -65,6 +66,7 @@ export function startAttack(state) {
   state.deck = r.remaining;
   card.faceUp = false;
 
+  recordSound(state, "attack");
   state.pendingAttackCard = card;
   state.step = STEP.ATTACK_SHOW_CARD;
   addLog(state, `${currentPlayer(state).name} 攻击 摸出${cardDisplay(card)}`);
@@ -249,6 +251,7 @@ export function executeAttack(state, targetIdx) {
     );
 
     if (attackValue < trapValue) {
+      recordSound(state, "trap_reflect");
       addLog(state, `陷阱反弹 ${attacker.name}`);
       state.devLog.info(
         CAT.DAMAGE,
@@ -277,6 +280,7 @@ export function executeAttack(state, targetIdx) {
       if (!state.gameOver) endAction(state);
       return;
     } else if (attackValue === trapValue) {
+      recordSound(state, "trap_tie");
       addLog(state, "陷阱平局双方受伤");
       state.devLog.info(CAT.DAMAGE, `陷阱平局: 双方各受 ${trapValue} 伤害`);
       state.grave.push(target.trap);
@@ -322,6 +326,7 @@ export function executeAttack(state, targetIdx) {
       if (!state.gameOver) endAction(state);
       return;
     } else {
+      recordSound(state, "trap_break");
       addLog(state, "陷阱被破");
       state.devLog.info(CAT.DAMAGE, `陷阱被破: ${attackValue} > ${trapValue}`);
       // 陷阱击破 +2（明暗两张牌）
@@ -528,6 +533,7 @@ export function executeDefense(state) {
   state.deck = r.remaining;
   const originalValue = card.value;
 
+  recordSound(state, "defense");
   let cardValue = card.value;
   if (state.currentWeather === "trade") {
     cardValue += 2;

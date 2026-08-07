@@ -2,6 +2,7 @@ import { PHASE, STEP, getCharData } from "./constants.js";
 import { drawCards, cardDisplay } from "./deck.js";
 import { applyDamage } from "./damage.js";
 import { CAT } from "./gameLogger.js";
+import { recordSound } from "./soundEvents.js";
 
 let _currentPlayer, _addLog, _ensureDeck, _endAction;
 
@@ -75,6 +76,8 @@ export function executeSkill(state) {
   if (player.relations.consecutiveGambles > 0) {
     player.relations.consecutiveGambles = 0;
   }
+
+  recordSound(state, "skill");
 
   state.devLog.info(
     CAT.SKILL,

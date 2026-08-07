@@ -73,6 +73,7 @@ import GameOverPanel from "./GameOverPanel.vue";
 import DevLogPanel from "./DevLogPanel.vue";
 import { usePixiSync } from "../bridge/usePixiSync.js";
 import { useAnimationFlow } from "../bridge/useAnimationFlow.js";
+import { useSoundSync } from "../bridge/useSoundSync.js";
 import {
   isAiPlayer,
   decideTopAction,
@@ -141,6 +142,9 @@ const nextWeather = computed(() => getNextWeather(props.state));
 
 // 同步 PixiJS
 usePixiSync(props.state, getManager);
+
+// 音效：监听 gameState.soundQueue → SoundManager 播放
+useSoundSync(props.state);
 
 // 动画流
 const { animating, flyToTarget, defenseDraw, gambleDraw } = useAnimationFlow(
