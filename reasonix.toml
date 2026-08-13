@@ -1,0 +1,10 @@
+# 亡命十三街 权限规则
+# deny 规则为硬阻断：任何模式（含 yolo）都不可绕过（官方注释: "hard-blocked in every mode"）
+[permissions]
+deny = [
+  "Bash(git push*)",   # GitHub 上传：git push（禁自己 push，改完提醒用户手动 push）
+  "Bash(gh *)",        # GitHub CLI：PR / release / repo 上传等，会导致 GitHub 账号封禁
+  "Bash(git clone*)",  # 批量拉代码：克隆远程仓库
+  "Bash(git pull*)",   # 批量拉代码：拉取远程更新
+]
+allow = ["Bash=cat public/sfx/README.md; echo \"===playBgm / mute in project===\"; grep -rn \"playBgm\\|stopBgm\\|setMuted\\|SoundManager\\.\" src/ --include=\"*.vue\" --include=\"*.js\" | grep -v \"SoundManager.js\" | head; echo \"===ffmpeg?===\"; which ffmpeg ffplay 2>&1; echo \"===ffmpeg ver===\"; ffmpeg -version 2>&1 | head -1"]

@@ -157,7 +157,7 @@
           artifactId == null ||
           (!useAI && opponentArtifactId == null)
         "
-        @click="$emit('start')"
+        @click="onStart"
       >
         开始世界杯之旅 ⚽
       </button>
@@ -216,6 +216,7 @@
 
 <script setup>
 import { computed, ref } from "vue";
+import SoundManager from "../audio/SoundManager.js";
 import { CHARACTERS } from "../game/constants.js";
 import { ARTIFACTS } from "../game/gameState.js";
 import { AI_TEAM_NAMES, TEAM_EMOJIS } from "../game/worldCupConstants.js";
@@ -285,7 +286,14 @@ function onCharCardClick(charId) {
   }
 
   // 正常选择角色
+  SoundManager.play("click"); // 主菜单选角点击音效
   emit("update:selectedChar", charId);
+}
+
+// 开始世界杯（主菜单点击音效）
+function onStart() {
+  SoundManager.play("click");
+  emit("start");
 }
 </script>
 

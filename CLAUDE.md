@@ -25,16 +25,19 @@ npm run tauri:dev    # Tauri 桌面开发
 PR以及gh CLI会导致用户GitHub账户封禁，禁止使用。
 禁用worktree分支，修改直接作用在main里
 禁止自己git push操作，更新完游戏提醒用户手动push
+禁止批量拉代码（git clone / git pull），如确实需要先向用户确认
+
+> 以上 git push / gh CLI / git clone / git pull 已写入 `reasonix.toml` 的 `[permissions] deny`，任何模式（含 yolo）都会硬阻断。
 
 ## 核心设计原则（最重要，每次变更必须遵守）
 
-1. **`src/game/` 是纯逻辑层 — 零依赖。** 不引用 Vue、PIXI、GSAP 或浏览器 API。所有游戏规则在这里。
+1. **`src/game/` 是纯逻辑层 — 零依赖。** 不引用 Vue、PIXI、GSAP 或浏览器 API。所有游戏规则在这里（含 league.js / worldCup.js / matchState.js）。
 2. **单向数据流：** `gameState` (Vue reactive) → `usePixiSync` (watch) → `PIXIManager` (渲染)。不反向操作。
 3. **新机制用通用标记。** 如 `endTurn` 控制回合推进（true=下一玩家，false=当前玩家额外行动），不搞角色特殊路径。
 4. **PixiJS 对象用 `shallowRef`，不用 `ref()`。** Vue 深度响应式代理会破坏纹理引用。GSAP 动画用 `sprite.scale.x` 不是 `scaleX`。
 5. **伤害计算：先 -2 再 2:1 联盟分配，向下取整（`Math.floor`）。**
 6. **角色数据用 `getCharData(player)` 查表。** 不要直接访问 `player.characterName`/`skillName`/`skillDesc` 等——这些字段已移入 CHARACTERS 字典，player 上只保留 `characterId`（数字）。
-7. **Player 嵌套字段写完整路径。** 状态效果 → `player.statusEffects.xxx`，关系 → `player.relations.xxx`。详见 `/contract`。
+7. **Player 嵌套字段写完整路径。** 状态效果 → `player.statusEffects.xxx`，关系 → `player.relations.xxx`。
 8. **行动顺序按 `CHARACTERS[id].speed` 每回合重排。** speed 降序（大=先动），dead 排末尾，同速按 index 升序。
 
 ## 行为准则 — 信息不足时必须追问（最重要）
@@ -56,24 +59,38 @@ PR以及gh CLI会导致用户GitHub账户封禁，禁止使用。
 
 ```mermaid
 graph TD
-    A[App.vue] --> B[GameSetup.vue 选角]
+    A[App.vue 模式选择] --> B[GameSetup.vue 选角]
     A --> C[GameShell.vue 主壳]
-    C --> D[GameCanvas.vue → PIXI]
-    C --> E[ActionBar.vue]
-    C --> F[LogPanel.vue]
+    A --> D[LeagueShell / WorldCupShell]
+    C --> E[GameCanvas.vue → PIXI]
+    C --> F[ActionBar.vue]
+    C --> G[LogPanel.vue]
 
-    G[src/game/gameState.js] -. watch .-> H[usePixiSync]
-    G -. watch .-> I[useAnimationFlow]
-    H --> J[PIXIManager]
-    I --> K[GSAP + Particles]
+    H[src/game/* 纯逻辑] -. watch .-> I[usePixiSync]
+    H -. watch .-> J[useAnimationFlow]
+    I --> K[PIXIManager]
+    J --> L[GSAP + Particles]
+    H -. soundEvents .-> M[useSoundSync → SoundManager]
 ```
 
-| 层     | 目录              | 职责                                       |
-| ------ | ----------------- | ------------------------------------------ |
-| 纯逻辑 | `src/game/`       | 状态机 + 角色技能 + AI + 天气（零依赖）    |
-| 桥接   | `src/bridge/`     | 监听 gameState → 驱动 PIXI + GSAP          |
-| 渲染   | `src/pixi/`       | PixiJS v8 Application + 精灵 + 布局 + 粒子 |
-| UI     | `src/components/` | Vue 3 组件（ACtionBar、GameShell 等）      |
+| 层     | 目录                | 职责                                                             |
+| ------ | ------------------- | ---------------------------------------------------------------- |
+| 纯逻辑 | `src/game/`         | 状态机 + 角色技能 + AI + 天气 + 联赛/世界杯/比赛（零依赖）       |
+| 桥接   | `src/bridge/`       | 监听 gameState → 驱动 PIXI + GSAP + 音效                         |
+| 渲染   | `src/pixi/`         | PixiJS v8 Application + 精灵 + 布局 + 粒子                       |
+| 控制器 | `src/composables/`  | useGameController / useLeagueController / useWorldCupController  |
+| 音频   | `src/audio/`        | SoundManager 音效播放（由 `src/game/soundEvents.js` 触发）       |
+| UI     | `src/components/`   | Vue 3 组件（ActionBar、League*/WorldCup* 系列等）                |
+
+## 游戏模式
+
+| 模式     | 入口                     | 逻辑文件                                     | 说明                                                                                  |
+| -------- | ------------------------ | -------------------------------------------- | ------------------------------------------------------------------------------------- |
+| 经典对战 | `App.vue` gameMode       | `src/game/gameState.js`                      | 2-8 人扑克对战，选角色 + 天气                                                         |
+| 世界杯   | `App.vue` wcStarted      | `src/game/worldCup.js` + `matchState.js`     | 小组赛 A-H → 淘汰赛 R16/QF/SF/Final；常规 90 回合 + 加时 30；点球先得 5 分、每方抽 2 张 |
+| 联赛     | `App.vue` leagueStarted  | `src/game/league.js`                         | 10 支英超球队，tier 1-3（🏆争冠/⚔️欧战/🛡️保级）；队标 `public/team-badges/{teamId}.png` |
+
+比赛状态机 `matchState.js` 在 1v1 游戏之上叠加进球、重置、换人、加时、点球逻辑。
 
 ## 游戏状态机
 
@@ -82,17 +99,15 @@ PHASE: SETUP → PEACE(前N回合禁攻) → NORMAL(战斗) → GAME_OVER
 STEP:  pickAction → attackShowCard → pickTarget → ... → pickAction（循环）
 ```
 
-`STEP` 驱动 UI（ActionBar 中 `v-if` 判断 `state.step`）。
+`STEP` 驱动 UI（ActionBar 中 `v-if` 判断 `state.step`）。实际 STEP 值：
+`pickAction` / `pickTarget` / `attackShowCard` / `gamblePick` / `skillPickTarget` / `skillNahida` / `liniyaPick` / `caiyueangPick` / `allyPick` / `animating`。
 
-## Skills & 调试
+## 调试工具
 
 | 工具                  | 用途                                                                           |
 | --------------------- | ------------------------------------------------------------------------------ |
-| `/contract`           | **Player 字段表 + CHARACTERS 字典 + 函数签名 + ID 映射 + 公式速查**            |
-| `/debug`              | 六步调试法（复现→隔离→假设→测试→修复→记录），含症状→模块速查表                 |
-| `npm run test`        | 45 条 vitest 测试（damage 14 + alliance 8 + deck 9 + TableLayout 14），< 300ms |
-| `PostToolUse hook`    | `src/game/*` 编辑后自动跑 test，改字段当场暴露                                 |
-| Playwright MCP        | `browser_console_messages` 读日志 + `browser_evaluate` 读 PixiJS/游戏状态      |
+| `npm run test`        | 53 条 vitest 测试（damage 14 + alliance 8 + deck 9 + league 8 + TableLayout 14），< 400ms |
+| 手动跑 test             | 改 `src/game/*` 后必须跑 `npm run test`（项目无自动 hook，靠自觉）            |
 | `window.__PIXI_APP__` | 浏览器控制台访问 PIXI Application 内部状态                                     |
 | `[game]` 日志         | `console.debug` 输出结构化 JSON，`window.__GAME_LOG_LEVEL__` 动态控制等级      |
 
@@ -135,7 +150,7 @@ PlayerTableSprite `_updateStatus()` 依赖（注意嵌套路径）:
 `statusEffects.stealTarget`, `statusEffects.dotTarget`, `fightingSpirit`, `statusEffects.savepoint`,
 `statusEffects.extraAction`, `statusEffects.ignoreTrapThisTurn`, `relations.gamblePenalty`, `relations.consecutiveGambles`
 
-→ 新增状态标签时同步改 `_updateStatus()` 或 `_updateGambleWarn()`。字段结构详见 `/contract`。
+→ 新增状态标签时同步改 `_updateStatus()` 或 `_updateGambleWarn()`。
 
 ## 构建关键点
 
@@ -146,30 +161,34 @@ PlayerTableSprite `_updateStatus()` 依赖（注意嵌套路径）:
 
 ## 关键文件
 
-| 文件                             | 行数 | 说明                                         |
-| -------------------------------- | ---- | -------------------------------------------- |
-| `src/game/index.js`              | —    | **桶导出，外部统一入口**                     |
-| `src/game/constants.js`          | 213  | CHARACTERS 字典 + getCharData + 阶段/天气    |
-| `src/game/gameState.js`          | 455  | 状态创建 + 初始化 + 回合推进 + 统一导出      |
-| `src/game/player.js`             | 44   | Player 工厂函数                              |
-| `src/game/serialize.js`          | 170  | 游戏存档/读档                                |
-| `src/game/combat.js`             | 520  | 攻击/防御                                    |
-| `src/game/gamble.js`             | 100  | 赌命（抽牌+设陷阱）                          |
-| `src/game/skills.js`             | 395  | 11 个角色技能（路由 + 各角色实现）           |
-| `src/game/damage.js`             | 175  | 伤害结算 + 死亡 + 游戏结束判定               |
-| `src/game/alliance.js`           | 160  | 结盟/背刺/目标筛选                           |
-| `src/game/artifacts.js`          | 220  | 圣遗物系统（圣言自明+伤害加成+击破计数）     |
-| `src/game/caiyueang.js`          | 150  | 菜月昴死亡回归（存档/读档/深拷贝）           |
-| `src/game/ai/index.js`           | 160  | AI 公共 API + 共享工具                       |
-| `src/game/ai/skilled.js`         | 240  | AI 熟练难度                                  |
-| `src/game/ai/hell.js`            | 250  | AI 地狱难度（偷看牌库）                      |
-| `src/game/ai/easy.js`            | 50   | AI 简单难度                                  |
-| `src/game/weather.js`            | 44   | 天气牌堆 + getter                            |
-| `src/game/deck.js`               | 60   | 扑克牌创建/洗牌/抽牌/墓地重构                |
-| `src/game/gameLogger.js`         | 200  | 开发日志（零依赖，`[game]` JSON 到 console） |
-| `src/pixi/core/PIXIManager.js`   | 268  | Application 管理 + 场景树 + 粒子             |
-| `src/pixi/layout/TableLayout.js` | 203  | 自适应布局（横屏单/双行，竖屏2列）           |
-| `src/bridge/useAnimationFlow.js` | 352  | GSAP 动画触发 + 粒子调度                     |
+| 文件                                | 行数 | 说明                                             |
+| ----------------------------------- | ---- | ------------------------------------------------ |
+| `src/game/index.js`                 | 140  | **桶导出，外部统一入口**                         |
+| `src/game/constants.js`             | 213  | CHARACTERS 字典（11 角色）+ getCharData + 阶段/天气 |
+| `src/game/gameState.js`             | 541  | 状态创建 + 初始化 + 回合推进 + 统一导出          |
+| `src/game/player.js`                | 59   | Player 工厂函数                                  |
+| `src/game/serialize.js`             | 193  | 游戏存档/读档                                    |
+| `src/game/combat.js`                | 602  | 攻击/防御                                        |
+| `src/game/gamble.js`                | 131  | 赌命（抽牌+设陷阱）                              |
+| `src/game/skills.js`                | 411  | 11 个角色技能（路由 + 各角色实现）               |
+| `src/game/damage.js`                | 205  | 伤害结算 + 死亡 + 游戏结束判定                   |
+| `src/game/alliance.js`              | 166  | 结盟/背刺/目标筛选                               |
+| `src/game/artifacts.js`             | 207  | 圣遗物系统（圣言自明+伤害加成+击破计数）         |
+| `src/game/caiyueang.js`             | 175  | 菜月昴死亡回归（存档/读档/深拷贝）               |
+| `src/game/league.js`                | 415  | 联赛模式（10 支球队 + 赛程）                     |
+| `src/game/worldCup.js`              | 266  | 世界杯锦标赛状态机（小组赛→淘汰赛）             |
+| `src/game/matchState.js`            | 467  | 1v1 比赛状态机（进球/重置/换人/加时/点球）       |
+| `src/game/ai/index.js`              | 171  | AI 公共 API + 共享工具                           |
+| `src/game/ai/skilled.js`            | 305  | AI 熟练难度                                      |
+| `src/game/ai/hell.js`               | 305  | AI 地狱难度（偷看牌库）                          |
+| `src/game/ai/easy.js`               | 53   | AI 简单难度                                      |
+| `src/game/weather.js`               | 44   | 天气牌堆 + getter                                |
+| `src/game/deck.js`                  | 59   | 扑克牌创建/洗牌/抽牌/墓地重构                    |
+| `src/game/gameLogger.js`            | 371  | 开发日志（零依赖，`[game]` JSON 到 console）     |
+| `src/audio/SoundManager.js`         | 120  | 音效播放                                         |
+| `src/pixi/core/PIXIManager.js`      | 271  | Application 管理 + 场景树 + 粒子                 |
+| `src/pixi/layout/TableLayout.js`    | 203  | 自适应布局（横屏单/双行，竖屏2列）               |
+| `src/bridge/useAnimationFlow.js`    | 410  | GSAP 动画触发 + 粒子调度                         |
 
 ## 已修复的关键 Bug（禁止重复犯错）
 
@@ -215,7 +234,11 @@ window.__GAME_LOG_LEVEL__ = 2; // WARN，只看异常
 ### 排查 bug 示例
 
 ```
-▎ 用 Playwright 打开游戏，选4人，过3回合，读所有 [game] 日志，
+▎ 浏览器控制台打开游戏，选4人，过3回合，读所有 [game] 日志（Console Filter 输入 [game]），
 ▎ 筛选 type:'damage_calc' 检查联盟伤害分配是否正确
 ▎ 筛选 type:'hp_change' 对比 from/to 找出异常扣血
 ```
+
+## Notes
+
+- 拟定方案后先由用户审批

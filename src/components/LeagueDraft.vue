@@ -76,7 +76,7 @@
       <!-- 选人完成 -->
       <div v-if="draftStage === 'done'" class="league-draft__done">
         <p>选人完成！准备开始比赛</p>
-        <button class="league-draft__start-btn" @click="$emit('startMatch')">
+        <button class="league-draft__start-btn" @click="onStartMatch">
           ⚔️ 开始比赛
         </button>
       </div>
@@ -86,6 +86,7 @@
 
 <script setup>
 import { ref, computed } from "vue";
+import SoundManager from "../audio/SoundManager.js";
 import { CHARACTERS } from "../game/constants.js";
 
 const props = defineProps({
@@ -116,6 +117,7 @@ function getCharName(charId) {
 function onPickChar(charId) {
   if (draftStage.value !== "player" || isCharTaken(charId)) return;
 
+  SoundManager.play("click"); // 选角点击音效
   playerPicks.value.push(charId);
 
   if (playerPicks.value.length >= 3) {
@@ -128,13 +130,18 @@ function onPickChar(charId) {
     });
     return;
   }
-
   // AI选一个
   draftStage.value = "opponent";
   setTimeout(() => {
     aiPickOne();
     draftStage.value = "player";
   }, 400);
+}
+
+// 开始比赛（选角点击音效）
+function onStartMatch() {
+  SoundManager.play("click");
+  emit("startMatch");
 }
 
 function aiPickOne() {

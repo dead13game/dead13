@@ -165,8 +165,8 @@ export function executeAttack(state, targetIdx) {
     },
   );
 
-  // 联赛模式卡牌加成：根据等级差+主客场
-  if (state.leagueContext?.cardBonus) {
+  // 联赛模式卡牌加成：根据等级差+主客场（仅玩家队伍攻击享受，对手队不享受）
+  if (state.leagueContext?.cardBonus && attacker.teamId === 0) {
     const bonus = state.leagueContext.cardBonus.attackBonus || 0;
     if (bonus > 0) {
       attackValue += bonus;
@@ -540,8 +540,8 @@ export function executeDefense(state) {
     state.devLog.debug(CAT.WEATHER, `黑市交易 +2 → ${cardValue}`);
   }
 
-  // 联赛模式防御加成
-  if (state.leagueContext?.cardBonus) {
+  // 联赛模式防御加成（仅玩家队伍防御享受，对手队不享受）
+  if (state.leagueContext?.cardBonus && player.teamId === 0) {
     const defBonus = state.leagueContext.cardBonus.defenseBonus || 0;
     if (defBonus > 0) {
       cardValue += defBonus;

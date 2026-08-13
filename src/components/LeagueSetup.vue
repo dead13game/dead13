@@ -20,7 +20,7 @@
             'league-team-card--tier2': team.tier === 2,
             'league-team-card--tier3': team.tier === 3,
           }"
-          @click="$emit('update:selectedTeamId', team.id)"
+          @click="onSelectTeam(team.id)"
         >
           <TeamBadge :team-id="team.id" size="lg" />
           <span class="league-team-card__name">{{ team.name }}</span>
@@ -136,7 +136,7 @@
           artifactId == null ||
           (!useAI && opponentArtifactId == null)
         "
-        @click="$emit('start')"
+        @click="onStart"
       >
         ⚽ 开始联赛
       </button>
@@ -147,6 +147,7 @@
 
 <script setup>
 import { LEAGUE_TEAMS, TIER_LABELS } from "../game/leagueConstants.js";
+import SoundManager from "../audio/SoundManager.js";
 import { ARTIFACTS } from "../game/gameState.js";
 import TeamBadge from "./TeamBadge.vue";
 
@@ -158,7 +159,14 @@ defineProps({
   opponentArtifactId: { type: Number, default: null },
 });
 
-defineEmits([
+const teams = LEAGUE_TEAMS.filter(Boolean); // 去掉 null 占位
+
+const artifactList = Object.values(ARTIFACTS).map((a) => ({
+  ...a,
+  icon: a.type === "damage_boost" ? "⚔️" : "🎵",
+}));
+
+const emit = defineEmits([
   "update:selectedTeamId",
   "update:difficulty",
   "update:useAI",
@@ -167,12 +175,17 @@ defineEmits([
   "start",
 ]);
 
-const artifactList = Object.values(ARTIFACTS).map((a) => ({
-  ...a,
-  icon: a.type === "damage_boost" ? "⚔️" : "🎵",
-}));
+// 选择球队（主菜单点击音效）
+function onSelectTeam(teamId) {
+  SoundManager.play("click");
+  emit("update:selectedTeamId", teamId);
+}
 
-const teams = LEAGUE_TEAMS.filter(Boolean); // 去掉 null 占位
+// 开始联赛（主菜单点击音效）
+function onStart() {
+  SoundManager.play("click");
+  emit("start");
+}
 
 function tierLabel(tier) {
   return TIER_LABELS[tier] || "";

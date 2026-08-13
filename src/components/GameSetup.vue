@@ -165,7 +165,7 @@
       <button
         class="start-btn"
         :disabled="!allReady"
-        @click="$emit('startGame')"
+        @click="onStartGame"
       >
         开始游戏
       </button>
@@ -238,6 +238,7 @@
 
 <script setup>
 import { computed, ref } from "vue";
+import SoundManager from "../audio/SoundManager.js";
 import { CHARACTERS } from "../game/constants.js";
 import { ARTIFACTS, getArtifactData } from "../game/gameState.js";
 
@@ -343,7 +344,14 @@ function onCharCardClick(playerIdx, charId) {
   }
 
   // 正常选择角色
+  SoundManager.play("click"); // 主菜单选角点击音效
   emit("selectChar", playerIdx, charId);
+}
+
+// 开始游戏（主菜单点击音效）
+function onStartGame() {
+  SoundManager.play("click");
+  emit("startGame");
 }
 </script>
 

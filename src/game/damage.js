@@ -78,6 +78,7 @@ export function applyDamage(state, player, damage) {
   // 扣血
   if (remaining > 0) {
     player.hp -= remaining;
+    recordSound(state, "hit"); // 掉血命中（敌我均生效）
     state.messageLog.push(`${player.name} HP ${player.hp}`);
 
     if (player.hp < 0) {
@@ -198,8 +199,11 @@ export function checkGameOver(state) {
     state.phase = PHASE.GAME_OVER;
     if (alive.length === 1) {
       state.messageLog.push(`${alive[0].name} 获胜`);
+      // 玩家失败：胜者是 AI 时播放失败音效（胜利无素材，静默）
+      if (alive[0].isAI) recordSound(state, "lose");
     } else {
       state.messageLog.push("全员阵亡");
+      recordSound(state, "lose");
     }
   }
 }

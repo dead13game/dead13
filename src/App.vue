@@ -75,7 +75,7 @@
             🏅 联赛模式
             <span class="mode-btn__desc">10队双循环 · 18轮 · 3v3</span>
           </button>
-          <button class="mode-btn mode-btn--back" @click="gameMode = null">
+          <button class="mode-btn mode-btn--back" @click="backToMenu()">
             ↩ 返回
           </button>
         </div>
@@ -218,7 +218,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted } from "vue";
+import { ref, nextTick, onMounted, watch } from "vue";
 import GameShell from "./components/GameShell.vue";
 import GameSetup from "./components/GameSetup.vue";
 import WorldCupSetup from "./components/WorldCupSetup.vue";
@@ -272,19 +272,44 @@ onMounted(() => {
 
   // 主背景音乐：首次用户交互后启动（浏览器自动播放策略限制）
   const startBgm = () => {
-    SoundManager.playBgm();
+    SoundManager.playBgm("menu");
     window.removeEventListener("pointerdown", startBgm);
     window.removeEventListener("keydown", startBgm);
   };
   window.addEventListener("pointerdown", startBgm);
   window.addEventListener("keydown", startBgm);
+
+  // BGM 切换：任一模式进入战斗界面 → 随机战斗BGM；退回主菜单/选角 → 主菜单BGM
+  watch(
+    () => gameStarted.value || wcStarted.value || leagueStarted.value,
+    (inBattle) => {
+      if (inBattle) {
+        SoundManager.playBgm(Math.random() < 0.5 ? "battle1" : "battle2");
+      } else {
+        SoundManager.playBgm("menu");
+      }
+    },
+  );
 });
 
+// 主菜单点击音效（选择模式/选角，进入战斗后不播）
+function playClick() {
+  SoundManager.play("click");
+}
+
 function selectMode(mode) {
+  playClick();
   gameMode.value = mode;
 }
 
+// 足球模式返回按钮
+function backToMenu() {
+  playClick();
+  gameMode.value = null;
+}
+
 function selectFootballMode(subMode) {
+  playClick();
   if (subMode === "worldcup") {
     gameMode.value = "worldcup";
     // 随机选取3个AI队名用于小组赛
@@ -316,6 +341,7 @@ function handleNormalSave(saveData) {
 
 // 继续游戏（读档）
 function continueGame() {
+  playClick();
   const raw = localStorage.getItem("dead13_save");
   if (!raw) return;
   let saveData;
