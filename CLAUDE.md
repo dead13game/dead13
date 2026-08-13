@@ -79,6 +79,7 @@ graph TD
 | 桥接   | `src/bridge/`       | 监听 gameState → 驱动 PIXI + GSAP + 音效                         |
 | 渲染   | `src/pixi/`         | PixiJS v8 Application + 精灵 + 布局 + 粒子                       |
 | 控制器 | `src/composables/`  | useGameController / useLeagueController / useWorldCupController  |
+| 爬塔   | `src/solo/`         | 单机模式（logic/ 纯逻辑 + useSoloController + SoloShell）       |
 | 音频   | `src/audio/`        | SoundManager 音效播放（由 `src/game/soundEvents.js` 触发）       |
 | UI     | `src/components/`   | Vue 3 组件（ActionBar、League*/WorldCup* 系列等）                |
 
@@ -189,6 +190,10 @@ PlayerTableSprite `_updateStatus()` 依赖（注意嵌套路径）:
 | `src/pixi/core/PIXIManager.js`      | 271  | Application 管理 + 场景树 + 粒子                 |
 | `src/pixi/layout/TableLayout.js`    | 203  | 自适应布局（横屏单/双行，竖屏2列）               |
 | `src/bridge/useAnimationFlow.js`    | 410  | GSAP 动画触发 + 粒子调度                         |
+| `src/solo/logic/solo.js`            | —    | 单机模式状态机（地图/成长/卡组/金币/存档）       |
+| `src/solo/logic/soloCombat.js`      | —    | 单机战斗（抽3选2/牌堆坟场/护盾/斗志/AI）          |
+| `src/solo/logic/soloConstants.js`   | —    | 技能卡池 13 张 / 敌人 / 节点链 / 数值常量         |
+| `src/solo/SoloShell.vue`            | —    | 单机 UI 主壳（地图/战斗/商店/事件/营地/结算）     |
 
 ## 已修复的关键 Bug（禁止重复犯错）
 
@@ -229,6 +234,13 @@ window.__GAME_LOG_LEVEL__ = 2; // WARN，只看异常
 | `skill_use` / `skill_effect`                      | 技能                | characterId, targetIndex, effect              |
 | `ally_form` / `betrayal`                          | 联盟/背刺           | playerA, playerB, turns                       |
 | `weather_change` / `weather_effect`               | 天气                | from, to, effect                              |
+| `solo_node`                                       | 单机节点            | nodeType, enemyKey, playerHp                  |
+| `solo_poker_draw` / `solo_poker_pick`             | 单机抽3选2          | actionPoints, drawCount, spirit               |
+| `solo_skill_draw` / `solo_card_play`              | 单机抽牌/出牌       | cardId, count, cost, actionPointsLeft         |
+| `solo_damage` / `solo_shield` / `solo_spirit`     | 单机伤害/护盾/斗志  | dmg, shieldDmg, hpDmg, spiritGain             |
+| `solo_enemy_turn`                                 | 单机敌方回合        | actionPoints, hand, enemyHp, enemyShield      |
+| `solo_event`                                      | 单机事件检定        | eventId, check, outcome, gold, playerHp       |
+| `solo_end` / `solo_reward`                        | 单机胜负/奖励       | result, gold, exp, rarity, attrPoint          |
 | `anomaly`                                         | **异常检测**        | 伤害偏差、HP 负值、高值卡低伤害等             |
 
 ### 排查 bug 示例
@@ -242,3 +254,4 @@ window.__GAME_LOG_LEVEL__ = 2; // WARN，只看异常
 ## Notes
 
 - 拟定方案后先由用户审批
+- 尽可能避免硬编码

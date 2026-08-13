@@ -50,6 +50,10 @@
             ⚽ 足球模式
             <span class="mode-btn__desc">世界杯 · 联赛</span>
           </button>
+          <button class="mode-btn mode-btn--solo" @click="selectMode('solo')">
+            🧭 单机模式
+            <span class="mode-btn__desc">技能卡肉鸽 · 章节爬塔</span>
+          </button>
           <button class="mode-btn mode-btn--rules" @click="showRules = true">
             📖 规则说明
             <span class="mode-btn__desc">查看游戏详细规则</span>
@@ -114,6 +118,13 @@
         :state="gameState"
         @restart="resetGame"
         @saveAndQuit="handleNormalSave"
+      />
+
+      <!-- 单机模式 -->
+      <SoloShell
+        v-else-if="gameMode === 'solo'"
+        :solo="soloController"
+        @quit="gameMode = null"
       />
 
       <!-- 世界杯模式：设置界面 -->
@@ -224,8 +235,10 @@ import GameSetup from "./components/GameSetup.vue";
 import WorldCupSetup from "./components/WorldCupSetup.vue";
 import WorldCupShell from "./components/WorldCupShell.vue";
 import LeagueShell from "./components/LeagueShell.vue";
+import SoloShell from "./solo/SoloShell.vue";
 import OpeningVideo from "./components/OpeningVideo.vue";
 import { useGameController } from "./composables/useGameController.js";
+import { useSoloController } from "./solo/useSoloController.js";
 import { deserializeGameState } from "./game/gameState.js";
 import { AI_TEAM_NAMES } from "./game/worldCupConstants.js";
 import SoundManager from "./audio/SoundManager.js";
@@ -246,6 +259,9 @@ const {
   aiDifficulties,
   playerArtifacts,
 } = useGameController();
+
+// 单机模式控制器
+const soloController = useSoloController();
 
 // ---- 模式选择 ----
 const gameMode = ref(null); // null | 'normal' | 'football' | 'worldcup' | 'league'
@@ -281,7 +297,11 @@ onMounted(() => {
 
   // BGM 切换：任一模式进入战斗界面 → 随机战斗BGM；退回主菜单/选角 → 主菜单BGM
   watch(
-    () => gameStarted.value || wcStarted.value || leagueStarted.value,
+    () =>
+      gameStarted.value ||
+      wcStarted.value ||
+      leagueStarted.value ||
+      soloController.soloStarted.value,
     (inBattle) => {
       if (inBattle) {
         SoundManager.playBgm(Math.random() < 0.5 ? "battle1" : "battle2");
@@ -299,6 +319,9 @@ function playClick() {
 
 function selectMode(mode) {
   playClick();
+  if (mode === "solo") {
+    soloController.initSolo(); // 进入单机模式即开新局（默认角色）
+  }
   gameMode.value = mode;
 }
 

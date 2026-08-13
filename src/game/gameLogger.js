@@ -85,6 +85,21 @@ export const LOG_TYPE = {
   GAMBLE_CONSECUTIVE: "gamble_consecutive",
   GAME_SAVE: "game_save",
   GAME_LOAD: "game_load",
+  // ==== solo 单机模式（爬塔）====
+  SOLO_NODE: "solo_node",
+  SOLO_POKER_DRAW: "solo_poker_draw",
+  SOLO_POKER_PICK: "solo_poker_pick",
+  SOLO_SKILL_DRAW: "solo_skill_draw",
+  SOLO_CARD_PLAY: "solo_card_play",
+  SOLO_DAMAGE: "solo_damage",
+  SOLO_SHIELD: "solo_shield",
+  SOLO_SPIRIT: "solo_spirit",
+  SOLO_ENEMY_TURN: "solo_enemy_turn",
+  SOLO_REWARD: "solo_reward",
+  SOLO_EVENT: "solo_event",
+  SOLO_END: "solo_end",
+  SOLO_SAVE: "solo_save",
+  SOLO_LOAD: "solo_load",
 };
 
 // ===== 分类（中文标签，用于 DevLogPanel 过滤，兼容旧代码） =====
@@ -143,6 +158,20 @@ const TYPE_CAT_MAP = {
   gamble_consecutive: CAT.GAMBLE,
   game_save: CAT.STATE,
   game_load: CAT.STATE,
+  solo_node: CAT.STATE,
+  solo_poker_draw: CAT.DECK,
+  solo_poker_pick: CAT.DECK,
+  solo_skill_draw: CAT.DECK,
+  solo_card_play: CAT.ATTACK,
+  solo_damage: CAT.DAMAGE,
+  solo_shield: CAT.DEFENSE,
+  solo_spirit: CAT.STATE,
+  solo_enemy_turn: CAT.AI,
+  solo_reward: CAT.STATE,
+  solo_event: CAT.STATE,
+  solo_end: CAT.STATE,
+  solo_save: CAT.STATE,
+  solo_load: CAT.STATE,
 };
 
 // CAT → 默认 LOG_TYPE（向后兼容旧 CAT 调用）
