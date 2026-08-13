@@ -276,6 +276,7 @@ export function useSoloController() {
       battleMsg.value = "";
       eventResult.value = null;
       rewardClaimed.value = false;
+      soloState.soundQueue = []; // 清空存档残留的音效队列，避免读档瞬间重播
       // 恢复到保存时的界面状态
       if (soloState.gameOver) {
         uiMode.value = "gameover";

@@ -405,9 +405,11 @@ import { useSoundSync } from "../bridge/useSoundSync.js";
 onMounted(() => {
   // 调试钩子：浏览器控制台可查 solo 状态（window.__SOLO_STATE__）
   window.__SOLO_STATE__ = soloState;
-  // 音效桥接：监听 soloState.soundQueue → SoundManager 播放
-  useSoundSync(soloState);
 });
+
+// 音效桥接：监听 soloState.soundQueue → SoundManager 播放
+// 放在 setup 顶层（组件作用域内），卸载时 watch 自动清理，避免重复叠加
+useSoundSync(soloState);
 
 const props = defineProps({ solo: { type: Object, required: true } });
 const emit = defineEmits(["quit"]);
