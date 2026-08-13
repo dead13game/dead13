@@ -17,13 +17,12 @@ npm run build        # 生产构建（vite build → postbuild 内联）
 npm run preview      # 预览构建产物
 npm run test         # 运行 vitest 测试
 npm run tauri:dev    # Tauri 桌面开发
-
 ```
 
 ## 禁用操作
 
 PR以及gh CLI会导致用户GitHub账户封禁，禁止使用。
-禁用worktree分支，修改直接作用在main里
+**worktree 并行模式（已解封）**：剧情等长周期内容可用独立 worktree + 分支开发，物理隔离、不干扰 main 上的功能开发；worktree 分支不 push，合回 main 后由用户手动 push。功能开发仍直接作用在 main。
 禁止自己git push操作，更新完游戏提醒用户手动push
 禁止批量拉代码（git clone / git pull），如确实需要先向用户确认
 
@@ -54,7 +53,7 @@ PR以及gh CLI会导致用户GitHub账户封禁，禁止使用。
 
 > 「你说的『攻击伤害不对』，具体是哪个角色攻击哪个目标？伤害值预期多少、实际多少？控制台 `[game]` 日志里 `damage_calc` 那行输出是什么？」
 
-**善用question** — 不确定的地方不要猜测，question用户获得最准确的方向
+**善用question** — 不确定的地方不要猜测，question用户获得最准确的方向,不用担心question太多,有疑问无上限问
 
 ## 架构
 
@@ -74,23 +73,23 @@ graph TD
     H -. soundEvents .-> M[useSoundSync → SoundManager]
 ```
 
-| 层     | 目录                | 职责                                                             |
-| ------ | ------------------- | ---------------------------------------------------------------- |
-| 纯逻辑 | `src/game/`         | 状态机 + 角色技能 + AI + 天气 + 联赛/世界杯/比赛（零依赖）       |
-| 桥接   | `src/bridge/`       | 监听 gameState → 驱动 PIXI + GSAP + 音效                         |
-| 渲染   | `src/pixi/`         | PixiJS v8 Application + 精灵 + 布局 + 粒子                       |
-| 控制器 | `src/composables/`  | useGameController / useLeagueController / useWorldCupController  |
-| 爬塔   | `src/solo/`         | 单机模式（logic/ 纯逻辑 + useSoloController + SoloShell）       |
-| 音频   | `src/audio/`        | SoundManager 音效播放（由 `src/game/soundEvents.js` 触发）       |
-| UI     | `src/components/`   | Vue 3 组件（ActionBar、League*/WorldCup* 系列等）                |
+| 层     | 目录                 | 职责                                                            |
+| ------ | -------------------- | --------------------------------------------------------------- |
+| 纯逻辑 | `src/game/`        | 状态机 + 角色技能 + AI + 天气 + 联赛/世界杯/比赛（零依赖）      |
+| 桥接   | `src/bridge/`      | 监听 gameState → 驱动 PIXI + GSAP + 音效                       |
+| 渲染   | `src/pixi/`        | PixiJS v8 Application + 精灵 + 布局 + 粒子                      |
+| 控制器 | `src/composables/` | useGameController / useLeagueController / useWorldCupController |
+| 爬塔   | `src/solo/`        | 单机模式（logic/ 纯逻辑 + useSoloController + SoloShell）       |
+| 音频   | `src/audio/`       | SoundManager 音效播放（由`src/game/soundEvents.js` 触发）     |
+| UI     | `src/components/`  | Vue 3 组件（ActionBar、League*/WorldCup* 系列等）               |
 
 ## 游戏模式
 
-| 模式     | 入口                     | 逻辑文件                                     | 说明                                                                                  |
-| -------- | ------------------------ | -------------------------------------------- | ------------------------------------------------------------------------------------- |
-| 经典对战 | `App.vue` gameMode       | `src/game/gameState.js`                      | 2-8 人扑克对战，选角色 + 天气                                                         |
-| 世界杯   | `App.vue` wcStarted      | `src/game/worldCup.js` + `matchState.js`     | 小组赛 A-H → 淘汰赛 R16/QF/SF/Final；常规 90 回合 + 加时 30；点球先得 5 分、每方抽 2 张 |
-| 联赛     | `App.vue` leagueStarted  | `src/game/league.js`                         | 10 支英超球队，tier 1-3（🏆争冠/⚔️欧战/🛡️保级）；队标 `public/team-badges/{teamId}.png` |
+| 模式     | 入口                      | 逻辑文件                                     | 说明                                                                                         |
+| -------- | ------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| 经典对战 | `App.vue` gameMode      | `src/game/gameState.js`                    | 2-8 人扑克对战，选角色 + 天气                                                                |
+| 世界杯   | `App.vue` wcStarted     | `src/game/worldCup.js` + `matchState.js` | 小组赛 A-H → 淘汰赛 R16/QF/SF/Final；常规 90 回合 + 加时 30；点球先得 5 分、每方抽 2 张     |
+| 联赛     | `App.vue` leagueStarted | `src/game/league.js`                       | 10 支英超球队，tier 1-3（🏆争冠/⚔️欧战/🛡️保级）；队标`public/team-badges/{teamId}.png` |
 
 比赛状态机 `matchState.js` 在 1v1 游戏之上叠加进球、重置、换人、加时、点球逻辑。
 
@@ -106,19 +105,19 @@ STEP:  pickAction → attackShowCard → pickTarget → ... → pickAction（循
 
 ## 调试工具
 
-| 工具                  | 用途                                                                           |
-| --------------------- | ------------------------------------------------------------------------------ |
+| 工具                    | 用途                                                                                      |
+| ----------------------- | ----------------------------------------------------------------------------------------- |
 | `npm run test`        | 53 条 vitest 测试（damage 14 + alliance 8 + deck 9 + league 8 + TableLayout 14），< 400ms |
-| 手动跑 test             | 改 `src/game/*` 后必须跑 `npm run test`（项目无自动 hook，靠自觉）            |
-| `window.__PIXI_APP__` | 浏览器控制台访问 PIXI Application 内部状态                                     |
-| `[game]` 日志         | `console.debug` 输出结构化 JSON，`window.__GAME_LOG_LEVEL__` 动态控制等级      |
+| 手动跑 test             | 改`src/game/*` 后必须跑 `npm run test`（项目无自动 hook，靠自觉）                     |
+| `window.__PIXI_APP__` | 浏览器控制台访问 PIXI Application 内部状态                                                |
+| `[game]` 日志         | `console.debug` 输出结构化 JSON，`window.__GAME_LOG_LEVEL__` 动态控制等级             |
 
 ## gameState.js 导出函数签名
 
-| 函数                                               | 参数          | 调用方            |
-| -------------------------------------------------- | ------------- | ----------------- |
-| `createGameState()`                                | —             | App.vue           |
-| `initGame(state, chars, useWeather?, startRound?)` | —             | useGameController |
+| 函数                                                 | 参数          | 调用方            |
+| ---------------------------------------------------- | ------------- | ----------------- |
+| `createGameState()`                                | —            | App.vue           |
+| `initGame(state, chars, useWeather?, startRound?)` | —            | useGameController |
 | `currentPlayer(state)`                             | state         | 全部              |
 | `startAttack(state)`                               | state         | GameShell         |
 | `executeAttack(state, targetIdx)`                  | state, number | GameShell         |
@@ -137,12 +136,12 @@ STEP:  pickAction → attackShowCard → pickTarget → ... → pickAction（循
 
 ## PIXI ↔ Vue 桥接
 
-| 接口                                                 | 方向       |
-| ---------------------------------------------------- | ---------- |
+| 接口                                                   | 方向        |
+| ------------------------------------------------------ | ----------- |
 | `usePixiSync(state, getManager)`                     | Vue → PIXI |
 | `useAnimationFlow(state, getManager)`                | Vue → PIXI |
-| `PIXIManager.buildScene(players, deckCount)`         | PIXI       |
-| `PIXIManager.updatePlayer(index, player, isCurrent)` | PIXI       |
+| `PIXIManager.buildScene(players, deckCount)`         | PIXI        |
+| `PIXIManager.updatePlayer(index, player, isCurrent)` | PIXI        |
 | `GameShell.onRelayout()`                             | Vue → PIXI |
 
 ## player 对象渲染字段
@@ -163,38 +162,38 @@ PlayerTableSprite `_updateStatus()` 依赖（注意嵌套路径）:
 
 ## 关键文件
 
-| 文件                                | 行数 | 说明                                             |
-| ----------------------------------- | ---- | ------------------------------------------------ |
-| `src/game/index.js`                 | 140  | **桶导出，外部统一入口**                         |
-| `src/game/constants.js`             | 213  | CHARACTERS 字典（11 角色）+ getCharData + 阶段/天气 |
-| `src/game/gameState.js`             | 541  | 状态创建 + 初始化 + 回合推进 + 统一导出          |
-| `src/game/player.js`                | 59   | Player 工厂函数                                  |
-| `src/game/serialize.js`             | 193  | 游戏存档/读档                                    |
-| `src/game/combat.js`                | 602  | 攻击/防御                                        |
-| `src/game/gamble.js`                | 131  | 赌命（抽牌+设陷阱）                              |
-| `src/game/skills.js`                | 411  | 11 个角色技能（路由 + 各角色实现）               |
-| `src/game/damage.js`                | 205  | 伤害结算 + 死亡 + 游戏结束判定                   |
-| `src/game/alliance.js`              | 166  | 结盟/背刺/目标筛选                               |
-| `src/game/artifacts.js`             | 207  | 圣遗物系统（圣言自明+伤害加成+击破计数）         |
-| `src/game/caiyueang.js`             | 175  | 菜月昴死亡回归（存档/读档/深拷贝）               |
-| `src/game/league.js`                | 415  | 联赛模式（10 支球队 + 赛程）                     |
-| `src/game/worldCup.js`              | 266  | 世界杯锦标赛状态机（小组赛→淘汰赛）             |
-| `src/game/matchState.js`            | 467  | 1v1 比赛状态机（进球/重置/换人/加时/点球）       |
-| `src/game/ai/index.js`              | 171  | AI 公共 API + 共享工具                           |
-| `src/game/ai/skilled.js`            | 305  | AI 熟练难度                                      |
-| `src/game/ai/hell.js`               | 305  | AI 地狱难度（偷看牌库）                          |
-| `src/game/ai/easy.js`               | 53   | AI 简单难度                                      |
-| `src/game/weather.js`               | 44   | 天气牌堆 + getter                                |
-| `src/game/deck.js`                  | 59   | 扑克牌创建/洗牌/抽牌/墓地重构                    |
-| `src/game/gameLogger.js`            | 371  | 开发日志（零依赖，`[game]` JSON 到 console）     |
-| `src/audio/SoundManager.js`         | 120  | 音效播放                                         |
-| `src/pixi/core/PIXIManager.js`      | 271  | Application 管理 + 场景树 + 粒子                 |
-| `src/pixi/layout/TableLayout.js`    | 203  | 自适应布局（横屏单/双行，竖屏2列）               |
-| `src/bridge/useAnimationFlow.js`    | 410  | GSAP 动画触发 + 粒子调度                         |
-| `src/solo/logic/solo.js`            | —    | 单机模式状态机（地图/成长/卡组/金币/存档）       |
-| `src/solo/logic/soloCombat.js`      | —    | 单机战斗（抽3选2/牌堆坟场/护盾/斗志/AI）          |
-| `src/solo/logic/soloConstants.js`   | —    | 技能卡池 13 张 / 敌人 / 节点链 / 数值常量         |
-| `src/solo/SoloShell.vue`            | —    | 单机 UI 主壳（地图/战斗/商店/事件/营地/结算）     |
+| 文件                                | 行数 | 说明                                                |
+| ----------------------------------- | ---- | --------------------------------------------------- |
+| `src/game/index.js`               | 140  | **桶导出，外部统一入口**                      |
+| `src/game/constants.js`           | 213  | CHARACTERS 字典（11 角色）+ getCharData + 阶段/天气 |
+| `src/game/gameState.js`           | 541  | 状态创建 + 初始化 + 回合推进 + 统一导出             |
+| `src/game/player.js`              | 59   | Player 工厂函数                                     |
+| `src/game/serialize.js`           | 193  | 游戏存档/读档                                       |
+| `src/game/combat.js`              | 602  | 攻击/防御                                           |
+| `src/game/gamble.js`              | 131  | 赌命（抽牌+设陷阱）                                 |
+| `src/game/skills.js`              | 411  | 11 个角色技能（路由 + 各角色实现）                  |
+| `src/game/damage.js`              | 205  | 伤害结算 + 死亡 + 游戏结束判定                      |
+| `src/game/alliance.js`            | 166  | 结盟/背刺/目标筛选                                  |
+| `src/game/artifacts.js`           | 207  | 圣遗物系统（圣言自明+伤害加成+击破计数）            |
+| `src/game/caiyueang.js`           | 175  | 菜月昴死亡回归（存档/读档/深拷贝）                  |
+| `src/game/league.js`              | 415  | 联赛模式（10 支球队 + 赛程）                        |
+| `src/game/worldCup.js`            | 266  | 世界杯锦标赛状态机（小组赛→淘汰赛）                |
+| `src/game/matchState.js`          | 467  | 1v1 比赛状态机（进球/重置/换人/加时/点球）          |
+| `src/game/ai/index.js`            | 171  | AI 公共 API + 共享工具                              |
+| `src/game/ai/skilled.js`          | 305  | AI 熟练难度                                         |
+| `src/game/ai/hell.js`             | 305  | AI 地狱难度（偷看牌库）                             |
+| `src/game/ai/easy.js`             | 53   | AI 简单难度                                         |
+| `src/game/weather.js`             | 44   | 天气牌堆 + getter                                   |
+| `src/game/deck.js`                | 59   | 扑克牌创建/洗牌/抽牌/墓地重构                       |
+| `src/game/gameLogger.js`          | 371  | 开发日志（零依赖，`[game]` JSON 到 console）      |
+| `src/audio/SoundManager.js`       | 120  | 音效播放                                            |
+| `src/pixi/core/PIXIManager.js`    | 271  | Application 管理 + 场景树 + 粒子                    |
+| `src/pixi/layout/TableLayout.js`  | 203  | 自适应布局（横屏单/双行，竖屏2列）                  |
+| `src/bridge/useAnimationFlow.js`  | 410  | GSAP 动画触发 + 粒子调度                            |
+| `src/solo/logic/solo.js`          | —   | 单机模式状态机（地图/成长/卡组/金币/存档）          |
+| `src/solo/logic/soloCombat.js`    | —   | 单机战斗（抽3选2/牌堆坟场/护盾/斗志/AI）            |
+| `src/solo/logic/soloConstants.js` | —   | 技能卡池 13 张 / 敌人 / 节点链 / 数值常量           |
+| `src/solo/SoloShell.vue`          | —   | 单机 UI 主壳（地图/战斗/商店/事件/营地/结算）       |
 
 ## 已修复的关键 Bug（禁止重复犯错）
 
@@ -223,26 +222,26 @@ window.__GAME_LOG_LEVEL__ = 2; // WARN，只看异常
 
 ### 关键事件类型（`src/game/gameLogger.js` → `CAT`）
 
-| type                                              | 说明                | 关键字段                                      |
-| ------------------------------------------------- | ------------------- | --------------------------------------------- |
-| `turn_start` / `turn_end`                         | 回合推进            | round, playerIndex, playerName                |
-| `attack_start` / `attack_draw` / `attack_execute` | 攻击流程            | attackerIndex, targetIndex, cards, totalValue |
-| `damage_calc`                                     | 伤害计算            | rawValue, afterMinus2, allianceSplit          |
-| `hp_change`                                       | **HP 变化（统一）** | playerIndex, from, to, delta, reason          |
-| `defense_start` / `defense_draw`                  | 防御流程            | playerIndex, cards                            |
-| `gamble_start` / `gamble_result`                  | 赌命                | drawnCards, trapIdx, baitIdx                  |
-| `trap_trigger`                                    | 陷阱触发            | victimIndex, trapCard, trapValue              |
-| `skill_use` / `skill_effect`                      | 技能                | characterId, targetIndex, effect              |
-| `ally_form` / `betrayal`                          | 联盟/背刺           | playerA, playerB, turns                       |
-| `weather_change` / `weather_effect`               | 天气                | from, to, effect                              |
-| `solo_node`                                       | 单机节点            | nodeType, enemyKey, playerHp                  |
-| `solo_poker_draw` / `solo_poker_pick`             | 单机抽3选2          | actionPoints, drawCount, spirit               |
-| `solo_skill_draw` / `solo_card_play`              | 单机抽牌/出牌       | cardId, count, cost, actionPointsLeft         |
-| `solo_damage` / `solo_shield` / `solo_spirit`     | 单机伤害/护盾/斗志  | dmg, shieldDmg, hpDmg, spiritGain             |
-| `solo_enemy_turn`                                 | 单机敌方回合        | actionPoints, hand, enemyHp, enemyShield      |
-| `solo_event`                                      | 单机事件检定        | eventId, check, outcome, gold, playerHp       |
-| `solo_end` / `solo_reward`                        | 单机胜负/奖励       | result, gold, exp, rarity, attrPoint          |
-| `anomaly`                                         | **异常检测**        | 伤害偏差、HP 负值、高值卡低伤害等             |
+| type                                                    | 说明                      | 关键字段                                      |
+| ------------------------------------------------------- | ------------------------- | --------------------------------------------- |
+| `turn_start` / `turn_end`                           | 回合推进                  | round, playerIndex, playerName                |
+| `attack_start` / `attack_draw` / `attack_execute` | 攻击流程                  | attackerIndex, targetIndex, cards, totalValue |
+| `damage_calc`                                         | 伤害计算                  | rawValue, afterMinus2, allianceSplit          |
+| `hp_change`                                           | **HP 变化（统一）** | playerIndex, from, to, delta, reason          |
+| `defense_start` / `defense_draw`                    | 防御流程                  | playerIndex, cards                            |
+| `gamble_start` / `gamble_result`                    | 赌命                      | drawnCards, trapIdx, baitIdx                  |
+| `trap_trigger`                                        | 陷阱触发                  | victimIndex, trapCard, trapValue              |
+| `skill_use` / `skill_effect`                        | 技能                      | characterId, targetIndex, effect              |
+| `ally_form` / `betrayal`                            | 联盟/背刺                 | playerA, playerB, turns                       |
+| `weather_change` / `weather_effect`                 | 天气                      | from, to, effect                              |
+| `solo_node`                                           | 单机节点                  | nodeType, enemyKey, playerHp                  |
+| `solo_poker_draw` / `solo_poker_pick`               | 单机抽3选2                | actionPoints, drawCount, spirit               |
+| `solo_skill_draw` / `solo_card_play`                | 单机抽牌/出牌             | cardId, count, cost, actionPointsLeft         |
+| `solo_damage` / `solo_shield` / `solo_spirit`     | 单机伤害/护盾/斗志        | dmg, shieldDmg, hpDmg, spiritGain             |
+| `solo_enemy_turn`                                     | 单机敌方回合              | actionPoints, hand, enemyHp, enemyShield      |
+| `solo_event`                                          | 单机事件检定              | eventId, check, outcome, gold, playerHp       |
+| `solo_end` / `solo_reward`                          | 单机胜负/奖励             | result, gold, exp, rarity, attrPoint          |
+| `anomaly`                                             | **异常检测**        | 伤害偏差、HP 负值、高值卡低伤害等             |
 
 ### 排查 bug 示例
 
