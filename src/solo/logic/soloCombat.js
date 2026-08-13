@@ -473,7 +473,10 @@ export function enemyResolve(state) {
     c.enemyShield += shield * count;
   }
   c.enemyPendingPlay = null;
-  c.phase = "enemy-announce"; // 继续宣布下一张
+  // 若结算中玩家死亡/敌方已败（phase 已切终态），保持终态，不再继续宣布
+  if (c.phase !== "lost" && c.phase !== "won") {
+    c.phase = "enemy-announce"; // 继续宣布下一张
+  }
 }
 
 /** 敌方回合结束：回合推进、平局判定、回玩家回合 */

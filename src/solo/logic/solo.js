@@ -234,6 +234,8 @@ export function serializeSolo(state) {
 export function deserializeSolo(state, data) {
   if (!data) return false;
   Object.assign(state, JSON.parse(JSON.stringify(data)));
+  // JSON 序列化会丢失 devLog 的方法（只剩 entries 残壳），读档后重建
+  state.devLog = createGameLogger(() => state);
   return true;
 }
 

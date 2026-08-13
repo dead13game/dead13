@@ -353,6 +353,18 @@ describe("solo 单机模式", () => {
       expect(r2.playing).toBe(false); // 手牌空 → 结束
     });
 
+    it("玩家死亡后 phase 保持 lost（enemyResolve 不再覆盖回 enemy-announce）", () => {
+      const s = createSoloState();
+      startCombat(s, "normal");
+      const c = s.combat;
+      c.phase = "enemy-resolve";
+      c.enemyPendingPlay = { cardId: "zhongji", count: 5, cost: 45 };
+      s.player.hp = 3; // 重击 base 6 ×5 远超 3 HP
+      enemyResolve(s);
+      expect(c.phase).toBe("lost"); // 不被覆盖回 enemy-announce
+      expect(s.gameOver).toBe(true);
+    });
+
     it("reactive 状态（模拟控制器）下出牌队列正常更新", () => {
       // 与 useSoloController 相同：reactive(createSoloState())
       const s = reactive(createSoloState());
@@ -428,6 +440,17 @@ describe("solo 单机模式", () => {
       expect(s2.player.gold).toBe(50);
       expect(s2.player.level).toBe(2);
       expect(s2.player.deck).toEqual(s.player.deck);
+    });
+
+    it("读档后 devLog 可正常调用（不被 JSON 序列化残壳覆盖）", () => {
+      const s = createSoloState();
+      gainExp(s, 10);
+      const data = serializeSolo(s);
+      const s2 = createSoloState();
+      deserializeSolo(s2, data);
+      // 序列化会丢失 devLog 方法，读档必须重建——调用不应抛错
+      expect(() => s2.devLog.info("solo_node", "读档后日志", { ok: 1 })).not.toThrow();
+      expect(s2.devLog.entries.length).toBeGreaterThan(0);
     });
   });
 });
