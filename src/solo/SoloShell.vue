@@ -25,6 +25,9 @@
         </span>
         <span v-if="combat" class="hud-spirit">🔥斗志 {{ combat.fightingSpirit }}</span>
         <span class="hud-node">第 {{ soloState.nodeIndex + 1 }}/{{ soloState.mapNodes.length }} 节点</span>
+        <button class="solo-btn solo-btn--small hud-save" @click="saveAndQuit">
+          💾 保存并退出
+        </button>
       </div>
     </div>
 
@@ -321,7 +324,7 @@
         </div>
       </div>
       <div class="shop-actions">
-        <button class="solo-btn" @click="removeCard()">🗑 删卡（{{ removePrice }}💰）</button>
+        <button class="solo-btn" @click="removePicker = true">🗑 删卡（{{ removePrice }}💰）</button>
         <button class="solo-btn" @click="heal()">💖 回满（{{ healPrice }}💰）</button>
       </div>
       <p v-if="shopMsg" class="battle-msg">{{ shopMsg }}</p>
@@ -329,6 +332,29 @@
         ➡️ 前往下一节点（{{ nextNodeLabel }}）
       </button>
     </section>
+
+    <!-- 删卡选择弹层 -->
+    <div v-if="removePicker" class="played-detail" @click="removePicker = false">
+      <div class="played-detail__card" @click.stop>
+        <h3 class="detail-title">🗑 选择要删除的卡（{{ removePrice }}💰）</h3>
+        <div class="remove-list">
+          <button
+            v-for="(cnt, id) in player.deck"
+            :key="id"
+            class="solo-btn solo-btn--option"
+            @click="removeCardPick(id)"
+          >
+            {{ cardName(id) }} ×{{ cnt }}
+          </button>
+          <p v-if="Object.keys(player.deck).length === 0" class="enemy-hand-empty">
+            牌库为空，无卡可删
+          </p>
+        </div>
+        <button class="solo-btn solo-btn--small" @click="removePicker = false">
+          取消
+        </button>
+      </div>
+    </div>
 
     <!-- ═══ 营地 ═══ -->
     <section v-else-if="uiMode === 'camp'" class="solo-camp">
@@ -374,10 +400,13 @@ import { SOLO_CARDS, SOLO_ENEMIES, SHOP_PRICE, CARD_RARITY, DEFAULT_CHAR_ID, NOD
 import { rollCardCandidates, shopCatalog } from "./logic/solo.js";
 import { SOLO_EVENTS } from "./logic/soloEvents.js";
 import DevLogPanel from "../components/DevLogPanel.vue";
+import { useSoundSync } from "../bridge/useSoundSync.js";
 
 onMounted(() => {
   // 调试钩子：浏览器控制台可查 solo 状态（window.__SOLO_STATE__）
   window.__SOLO_STATE__ = soloState;
+  // 音效桥接：监听 soloState.soundQueue → SoundManager 播放
+  useSoundSync(soloState);
 });
 
 const props = defineProps({ solo: { type: Object, required: true } });
@@ -564,15 +593,12 @@ const removePrice = computed(() => {
     soloState.player.removedCount * SHOP_PRICE.removeIncrement
   );
 });
-function removeCard() {
-  // 简单：删除第一张可删的卡（实现删除选择弹层成本高，先删排第一的）
-  const ids = Object.keys(player.value.deck);
-  if (ids.length === 0) {
-    shopMsg.value = "没有卡可删";
-    return;
-  }
-  const r = solo.doShopRemove(ids[0]);
-  shopMsg.value = r.ok ? `删掉了 ${cardName(ids[0])}` : r.reason || "";
+// 删卡选择弹层
+const removePicker = ref(false);
+function removeCardPick(id) {
+  const r = solo.doShopRemove(id);
+  shopMsg.value = r.ok ? `删掉了 ${cardName(id)}` : r.reason || "";
+  removePicker.value = false;
 }
 const healPrice = computed(() => {
   const need = player.value.maxHp - player.value.hp;
@@ -603,6 +629,12 @@ function restart() {
 function goMenu() {
   solo.quitSolo();
   emit("quit");
+}
+
+// 保存并退出（回主菜单，主菜单可「继续单机」读档）
+function saveAndQuit() {
+  solo.saveSolo();
+  goMenu();
 }
 
 // 开发日志：钱袋连点 3 下（2 秒内）打开，点击时显示进度
@@ -685,6 +717,7 @@ function nodeName(node) {
 .hud-attrs { color: #74b9ff; }
 .hud-spirit { color: #ff9f43; }
 .hud-node { color: #888; }
+.hud-save { margin-left: 4px; background: #6c5ce7; color: #fff; }
 .attr-panel {
   background: #2d3436;
   border-radius: 10px;
@@ -860,6 +893,7 @@ function nodeName(node) {
 .detail--enemy { color: #ffd93d; }
 .detail-desc { color: #ccc; font-size: 14px; line-height: 1.6; margin: 8px 0; }
 .detail-meta { color: #888; font-size: 13px; margin-bottom: 10px; }
+.remove-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
 
 .poker-pick { text-align: center; margin: 10px 0; }
 .pick-hint { font-size: 14px; color: #aaa; }

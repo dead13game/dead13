@@ -47,6 +47,7 @@ export function createSoloState(charId = 6) {
     gameOver: false,
     victory: false,
     log: [],
+    soundQueue: [], // 音效事件队列（useSoundSync 桥接层消费）
   };
   // 结构化日志（[game] 控制台 + DevLogPanel），与多人模式同系统
   state.devLog = createGameLogger(() => state);

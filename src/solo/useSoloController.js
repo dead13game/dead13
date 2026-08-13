@@ -261,6 +261,11 @@ export function useSoloController() {
     return true;
   }
 
+  /** 是否存在单机存档 */
+  function hasSoloSave() {
+    return !!localStorage.getItem("dead13_solo_save");
+  }
+
   function loadSolo() {
     const raw = localStorage.getItem("dead13_solo_save");
     if (!raw) return false;
@@ -268,7 +273,29 @@ export function useSoloController() {
       const data = JSON.parse(raw);
       deserializeSolo(soloState, data);
       soloStarted.value = true;
-      uiMode.value = "map";
+      battleMsg.value = "";
+      eventResult.value = null;
+      rewardClaimed.value = false;
+      // 恢复到保存时的界面状态
+      if (soloState.gameOver) {
+        uiMode.value = "gameover";
+      } else if (
+        soloState.combat &&
+        (soloState.combat.phase === "play" ||
+          soloState.combat.phase === "pick-poker" ||
+          soloState.combat.phase === "draw-skill")
+      ) {
+        uiMode.value = "battle"; // 战斗中读档 → 回到战斗
+      } else if (soloState.combat?.phase === "won" && soloState.combat.lastReward) {
+        uiMode.value = "reward"; // 战斗胜利未领卡
+      } else {
+        // 非战斗节点：按节点类型恢复
+        const node = getCurrentNode(soloState);
+        if (node?.type === "event") uiMode.value = "event";
+        else if (node?.type === "shop") uiMode.value = "shop";
+        else if (node?.type === "camp") uiMode.value = "camp";
+        else uiMode.value = "map";
+      }
       return true;
     } catch {
       return false;
@@ -307,6 +334,7 @@ export function useSoloController() {
     doApplyAttr,
     saveSolo,
     loadSolo,
+    hasSoloSave,
     clearSoloSave,
   };
 }

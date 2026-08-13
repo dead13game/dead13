@@ -28,6 +28,7 @@ PR以及gh CLI会导致用户GitHub账户封禁，禁止使用。
 禁止批量拉代码（git clone / git pull），如确实需要先向用户确认
 
 > 以上 git push / gh CLI / git clone / git pull 已写入 `reasonix.toml` 的 `[permissions] deny`，任何模式（含 yolo）都会硬阻断。
+> **允许本地 commit**（`git commit` 可执行），仅 push 禁止——任务完成、测试通过后可自行提交。
 
 ## 核心设计原则（最重要，每次变更必须遵守）
 

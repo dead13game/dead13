@@ -4,6 +4,7 @@
 import { SOLO_CONST, SOLO_CARDS, SOLO_ENEMIES } from "./soloConstants.js";
 import { createFullDeck, shuffleDeck, drawCards } from "../../game/deck.js";
 import { LOG_TYPE } from "../../game/gameLogger.js";
+import { recordSound } from "../../game/soundEvents.js";
 import { getCardStats, awardBattleReward } from "./solo.js";
 
 // ---- 聚合工具 ----
@@ -246,6 +247,7 @@ export function playCard(state, cardId, count = 1) {
 
   if (card.type === "physical" || card.type === "magic") {
     // 攻击/治疗：攻击卡可多段（连击 hits）
+    recordSound(state, "attack");
     const dmg = card.base + attr[card.type === "physical" ? "str" : "mag"];
     const hits = card.hits || 1;
     for (let i = 0; i < count * hits; i++) {
@@ -255,6 +257,7 @@ export function playCard(state, cardId, count = 1) {
     if (card.heal) healSelf(state, card.base + attr.mag, count);
     if (card.actionDrain) c.enemyNextActionDrain = card.actionDrain;
   } else if (card.type === "defense") {
+    recordSound(state, "defense");
     const shield = card.base + attr.def;
     c.playerShield += shield * count;
     if (card.actionRefund) c.actionPoints += card.actionRefund;
@@ -341,6 +344,7 @@ function damagePlayer(state, dmg) {
   }
   state.player.hp -= d;
   if (state.player.hp < 0) state.player.hp = 0;
+  if (d > 0) recordSound(state, "hit"); // 玩家受伤音效
   state.devLog.debug(LOG_TYPE.SOLO_DAMAGE, `敌方攻击：${c.enemyName} -${dmg}`, {
     dmg,
     shieldDmg,
@@ -508,6 +512,7 @@ function endCombat(state, result) {
   if (!c || c.phase === "won" || c.phase === "lost") return;
   c.phase = result;
   if (result === "won") {
+    recordSound(state, "match_end");
     // 奖励
     const reward = awardBattleReward(state, c.enemyKey);
     c.lastReward = reward;
@@ -524,6 +529,7 @@ function endCombat(state, result) {
       level: state.player.level,
     });
   } else {
+    recordSound(state, "lose");
     state.gameOver = true;
     state.log.push(`败于 ${c.enemyName}，单机模式结束`);
     state.devLog.warn(LOG_TYPE.SOLO_END, `战斗失败：${c.enemyName}`, {

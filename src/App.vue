@@ -37,6 +37,14 @@
             <span class="mode-btn__desc">从上次离开继续</span>
           </button>
           <button
+            v-if="soloHasSave"
+            class="mode-btn mode-btn--solo-continue"
+            @click="continueSolo"
+          >
+            🧭 继续单机
+            <span class="mode-btn__desc">继续未完成的爬塔</span>
+          </button>
+          <button
             class="mode-btn mode-btn--normal"
             @click="selectMode('normal')"
           >
@@ -262,6 +270,7 @@ const {
 
 // 单机模式控制器
 const soloController = useSoloController();
+const soloHasSave = ref(false);
 
 // ---- 模式选择 ----
 const gameMode = ref(null); // null | 'normal' | 'football' | 'worldcup' | 'league'
@@ -285,6 +294,7 @@ const leagueShellRef = ref(null);
 const hasSave = ref(false);
 onMounted(() => {
   hasSave.value = !!localStorage.getItem("dead13_save");
+  soloHasSave.value = soloController.hasSoloSave();
 
   // 主背景音乐：首次用户交互后启动（浏览器自动播放策略限制）
   const startBgm = () => {
@@ -362,11 +372,18 @@ function handleNormalSave(saveData) {
   resetGame();
 }
 
+// 继续单机（读档）
+function continueSolo() {
+  playClick();
+  if (soloController.loadSolo()) {
+    gameMode.value = "solo";
+  }
+}
+
 // 继续游戏（读档）
 function continueGame() {
   playClick();
-  const raw = localStorage.getItem("dead13_save");
-  if (!raw) return;
+  const raw = localStorage.getItem("dead13_save");  if (!raw) return;
   let saveData;
   try {
     saveData = JSON.parse(raw);
