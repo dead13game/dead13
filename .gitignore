@@ -28,3 +28,6 @@ dist-ssr
 !src/**/*.png
 
 scripts/
+
+# 音效源素材（已复制到 public/sfx/，源文件不入库）
+Sounds/
