@@ -22,7 +22,7 @@ npm run tauri:dev    # Tauri 桌面开发
 ## 禁用操作
 
 PR以及gh CLI会导致用户GitHub账户封禁，禁止使用。
-**worktree 并行模式（已解封）**：剧情等长周期内容可用独立 worktree + 分支开发，物理隔离、不干扰 main 上的功能开发；worktree 分支不 push，合回 main 后由用户手动 push。功能开发仍直接作用在 main。
+禁用worktree分支，修改直接作用在main里
 禁止自己git push操作，更新完游戏提醒用户手动push
 禁止批量拉代码（git clone / git pull），如确实需要先向用户确认
 
