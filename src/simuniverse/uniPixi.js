@@ -222,6 +222,98 @@ export class UniEffects {
   }
 
   /**
+   * 技能专属演出（11 角色配色/形态）
+   * @param {number} charId 角色 id
+   * @param {{x:number,y:number}} center 施放位置（角色卡中心）
+   * @param {{x:number,y:number}} [target] 目标位置（敌人/队友）
+   */
+  skillFx(charId, center, target) {
+    this._whenReady(() => this._skillFx(charId, center, target));
+  }
+  _skillFx(charId, center, target) {
+    if (!this.app) return;
+    const tgt = target || center;
+    switch (charId) {
+      case 1: // 温迪：青绿牌浪（扩散环 + 上升粒子）
+        this._ring(center.x, center.y, 0x7fe8c8, 26, 3.2);
+        this.burst(center.x, center.y, { color: 0x9ff5da, count: 26, speed: 300, lifetime: 0.8, size: 3 });
+        break;
+      case 2: // 钟离：金色护盾环（双环包住全队中心）
+        this._ring(center.x, center.y, 0xffd27a, 34, 2.2);
+        this._ring(center.x, center.y, 0xffb347, 50, 3.4);
+        this.burst(center.x, center.y, { color: 0xffd27a, count: 20, speed: 140, lifetime: 0.9, size: 3 });
+        break;
+      case 3: // 雷电将军：紫雷斩击（垂直光条 + 闪电粒子）
+        this._beam(center.x, center.y, 0xc07cff, target);
+        this.burst(tgt.x, tgt.y, { color: 0xd9a6ff, count: 34, speed: 380, lifetime: 0.7, size: 3.4 });
+        break;
+      case 4: // 纳西妲：翠绿藤蔓（上升光点 + 环绕）
+        this._ring(center.x, center.y, 0x8fe87f, 30, 2.6);
+        this.burst(center.x, center.y, { color: 0xa9f29a, count: 24, speed: 120, lifetime: 1.1, size: 3, gravity: -30 });
+        break;
+      case 5: // 芙宁娜：水蓝波光（扩散波纹 + 治疗光点）
+        this._ring(center.x, center.y, 0x8fd0ff, 28, 3);
+        this.burst(center.x, center.y, { color: 0xbfe8ff, count: 28, speed: 200, lifetime: 1, size: 3.2, gravity: -60 });
+        break;
+      case 6: // 玛薇卡：烈焰爆发（大粒子 + 火环）
+        this._ring(center.x, center.y, 0xff8c3a, 36, 3);
+        this.burst(center.x, center.y, { color: 0xff9a4d, count: 40, speed: 340, lifetime: 0.9, size: 4.2 });
+        break;
+      case 7: // 哥伦比娅：银白光弧
+        this._ring(center.x, center.y, 0xe8e8ff, 24, 2.8);
+        this.burst(center.x, center.y, { color: 0xffffff, count: 22, speed: 280, lifetime: 0.6, size: 2.6 });
+        break;
+      case 8: // 风堇：风羽上升 + 全队回满光
+        this.burst(center.x, center.y, { color: 0xb8f0c0, count: 30, speed: 160, lifetime: 1.2, size: 3, gravity: -80 });
+        this._ring(center.x, center.y, 0x8fe89a, 30, 2.8);
+        break;
+      case 9: // 莉奈娅：音符青蓝（小圆点爆散，dot 紫雾）
+        this.burst(center.x, center.y, { color: 0x9fd8ff, count: 22, speed: 220, lifetime: 0.8, size: 2.8 });
+        this.burst(tgt.x, tgt.y, { color: 0x9a6ac9, count: 14, speed: 130, lifetime: 1.2, size: 3.6, gravity: -20 });
+        break;
+      case 10: // 爱蜜莉雅：冰蓝结晶（冻结环 + 冰粒子）
+        this._ring(center.x, center.y, 0x9fe0ff, 32, 2.6);
+        this.burst(center.x, center.y, { color: 0xc9f0ff, count: 26, speed: 200, lifetime: 0.9, size: 3 });
+        break;
+      case 11: // 菜月昴：时间环（紫色双环旋转感）
+        this._ring(center.x, center.y, 0x9a6ac9, 30, 3);
+        this._ring(center.x, center.y, 0x7a4ab0, 44, 2.2);
+        break;
+      default:
+        this._ring(center.x, center.y, 0xffd54f, 28, 2.6);
+        break;
+    }
+  }
+
+  /** 扩散圆环 */
+  _ring(x, y, color, size, scaleTo = 3) {
+    if (!this.app) return;
+    const g = new Graphics();
+    g.circle(0, 0, size).stroke({ width: 3, color });
+    g.position.set(x, y);
+    g.alpha = 0.9;
+    this.app.stage.addChild(g);
+    gsap.timeline()
+      .to(g, { scale: scaleTo, alpha: 0, duration: 0.4, ease: "power2.out", onComplete: () => g.destroy() });
+  }
+
+  /** 垂直斩击光条（雷/剑） */
+  _beam(x, y, color, target) {
+    if (!this.app) return;
+    const tgt = target || { x, y };
+    const g = new Graphics();
+    const len = Math.max(60, Math.abs(tgt.y - y) + 30);
+    g.rect(-3, -len / 2, 6, len).fill(color);
+    g.position.set(x, y);
+    g.alpha = 0;
+    g.rotation = (Math.random() - 0.5) * 0.5;
+    this.app.stage.addChild(g);
+    gsap.timeline()
+      .to(g, { alpha: 0.9, duration: 0.05 })
+      .to(g, { alpha: 0, y: tgt.y, scaleX: 1.6, duration: 0.22, ease: "power1.in", onComplete: () => g.destroy() });
+  }
+
+  /**
    * 发牌轨迹：从起点（牌堆）飞一个光点到目标
    * @param {{x:number,y:number}} from
    * @param {{x:number,y:number}} to

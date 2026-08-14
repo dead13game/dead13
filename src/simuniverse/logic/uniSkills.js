@@ -84,6 +84,11 @@ export function executeUniSkill(state, charIndex, payload = {}) {
 
   // 冷却置满（含开大当回合，之后每回合 -1）
   t.skillCooldown = val(sk.cd, lv) || 0;
+  // 记录最近施放的技能（UI 特效层按角色播放专属演出）
+  if (c) {
+    c.lastSkill = { charId: t.charId, actor: charIndex, seq: (c._skillSeq || 0) + 1 };
+    c._skillSeq = c._skillSeq || 0;
+  }
   // 祝福：引燃的炬火（下次攻击+50%）/ 线圈编织的罗琦（回 16%）
   triggerAfterSkill(state, charIndex);
   // 方程：蛰虫帝（施放终结技后对随机敌人造成 10% 生命上限伤害，需展开）

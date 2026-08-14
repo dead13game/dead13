@@ -875,6 +875,26 @@ onMounted(() => {
       }
     },
   );
+  // 开大 → 技能专属演出（施放者位置为中心，攻击类技能以敌人为目标）
+  watch(
+    () => uniState.combat?.lastSkill?.seq,
+    (seq) => {
+      if (seq == null || !fx.value) return;
+      const ls = uniState.combat.lastSkill;
+      const actorDom = fxCanvas.value?.parentElement?.querySelector(`.uni-member[data-idx="${ls.actor}"]`);
+      const center = fxPos(actorDom);
+      if (!center) return;
+      let target = null;
+      if (ls.charId === 1 || ls.charId === 3 || ls.charId === 9) {
+        const enemy = uniState.combat.enemies.find((e) => e.alive);
+        if (enemy) {
+          const eDom = fxCanvas.value?.parentElement?.querySelector(`.uni-enemy[data-id="${enemy.id}"]`);
+          target = fxPos(eDom);
+        }
+      }
+      fx.value.skillFx(ls.charId, center, target);
+    },
+  );
   // 战斗结束 → 闪光
   watch(
     () => uniState.combat?.phase,
