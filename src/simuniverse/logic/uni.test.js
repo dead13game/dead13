@@ -1195,6 +1195,62 @@ describe("模拟宇宙 M4：事件系统", () => {
     expect(s.shards).toBe(100);
     s.team.forEach((t) => expect(t.status.defensePile).toHaveLength(1));
   });
+  it("宏块抹除的航路：终结技伤害 +20%（仅开大，不作用于普攻）", () => {
+    const s = createUniState([3, 1, 2, 4]); // 雷电将军在前
+    gainBlessing(s, "hongkuai"); // 宏块：skillDmgMult +20%
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 3 }] };
+    startCombat(s);
+    s.combat.activeIdx = 0;
+    s.combat.turnIdx = s.combat.actionOrder.indexOf(0);
+    const enemy = s.combat.enemies[0];
+    const hpBefore = enemy.hp;
+    const r = playerSkill(s, enemy.id, {});
+    expect(r.ok).toBe(true);
+    expect(enemy.hp).toBe(Math.max(0, hpBefore - Math.floor(20 * 1.2))); // 雷电 lv1=20，×1.2=24
+  });
+
+  it("齿轮啮合的王座：每智识祝福终结技伤害 +5%（封顶）", () => {
+    const s = createUniState([3, 1, 2, 4]);
+    gainBlessing(s, "chilun"); // 智识
+    gainBlessing(s, "juhuo"); // 智识（引燃的炬火）
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 3 }] };
+    startCombat(s);
+    s.combat.activeIdx = 0;
+    s.combat.turnIdx = s.combat.actionOrder.indexOf(0);
+    const enemy = s.combat.enemies[0];
+    const hpBefore = enemy.hp;
+    playerSkill(s, enemy.id, {});
+    expect(enemy.hp).toBe(Math.max(0, hpBefore - Math.floor(20 * 1.1))); // 2 智识 ×5% = 10%
+  });
+
+  it("阈下知觉：首次终结技伤害 +50%（一次性）", () => {
+    const s = createUniState([3, 1, 2, 4]);
+    gainBlessing(s, "yuxia");
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 3 }] };
+    startCombat(s);
+    s.combat.activeIdx = 0;
+    s.combat.turnIdx = s.combat.actionOrder.indexOf(0);
+    const enemy = s.combat.enemies[0];
+    const hpBefore = enemy.hp;
+    playerSkill(s, enemy.id, {});
+    expect(enemy.hp).toBe(Math.max(0, hpBefore - Math.floor(20 * 1.5))); // 首次 ×1.5
+    expect(s.team[0].status.nextSkillBoost || 0).toBe(0); // 一次性已消耗
+  });
+
+  it("赐福残晶·理性：终结技伤害每星级 +2.5%（未实现回归）", () => {
+    const s = createUniState([3, 1, 2, 4]);
+    s.curios.push({ id: "canjing_lx", star: 2, enhanced: 1 });
+    gainBlessing(s, "huiguang"); // 1 星祝福 → starTotal = 1
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 3 }] };
+    startCombat(s);
+    s.combat.activeIdx = 0;
+    s.combat.turnIdx = s.combat.actionOrder.indexOf(0);
+    const enemy = s.combat.enemies[0];
+    const hpBefore = enemy.hp;
+    playerSkill(s, enemy.id, {});
+    expect(enemy.hp).toBe(Math.max(0, hpBefore - Math.floor(20 * 1.025))); // 1 星 ×2.5%
+  });
+
   it("开发者角色 myracler(12)：开大对敌方全体 1000 伤害，冷却 0", () => {
     const s = createUniState([12, 1, 2, 3]);
     startCombat(s);

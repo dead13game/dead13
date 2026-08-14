@@ -3,7 +3,7 @@
 
 import { UNI_SKILLS, LINIYA_SHIELD_VALUE } from "./uniConstants.js";
 import { drawPoker, damageEnemy, grantExtraAction } from "./uniCombat.js";
-import { getUniModifiers, triggerAfterSkill } from "./uniBuffs.js";
+import { getUniModifiers, triggerAfterSkill, blessingMult, BLESSINGS } from "./uniBuffs.js";
 import { LOG_TYPE } from "../../game/gameLogger.js";
 import { recordSound } from "../../game/soundEvents.js";
 /** 技能等级取值（数组按等级 1-10，越界取末项） */
@@ -65,7 +65,21 @@ export function executeUniSkill(state, charIndex, payload = {}) {
   if (t.skillCooldown > 0) return { ok: false, reason: `冷却 ${t.skillCooldown} 回合` };
 
   const lv = effectiveLevel(state, t);
+  // 阈下知觉：首次终结技（doSkill 前设置，使加成作用于本次开大伤害）
+  const yuxiaFx = BLESSINGS.yuxia?.fx;
+  let yuxiaBoost = 0;
+  if (yuxiaFx && blessingMult(state, "yuxia") > 0 && !state.uniFirstUltUsed) {
+    state.uniFirstUltUsed = true;
+    yuxiaBoost = (yuxiaFx.atkPct || 50) * blessingMult(state, "yuxia");
+    t.status.nextSkillBoost = (t.status.nextSkillBoost || 0) + yuxiaBoost;
+  }
   const effect = doSkill(state, t, sk, lv, payload);
+  if (!effect.ok && yuxiaBoost > 0) {
+    // 施放失败：回滚首次终结技标记
+    state.uniFirstUltUsed = false;
+    t.status.nextSkillBoost = Math.max(0, (t.status.nextSkillBoost || 0) - yuxiaBoost);
+    return effect;
+  }
   if (!effect.ok) return effect;
 
   // 冷却置满（含开大当回合，之后每回合 -1）
@@ -93,6 +107,14 @@ export function executeUniSkill(state, charIndex, payload = {}) {
 }
 
 /** 各角色技能实现 */
+/** 终结技（角色技能）伤害加成：常驻 skillDmgMult + 一次性 nextSkillBoost（阈下知觉），一次性标记消耗 */
+function skillDmgMult(state, t) {
+  const mods = getUniModifiers(state);
+  const oneShot = t.status.nextSkillBoost || 0;
+  if (t.status.nextSkillBoost) t.status.nextSkillBoost = 0;
+  return mods.skillDmgMult + oneShot;
+}
+
 function doSkill(state, t, sk, lv, payload) {
   const c = state.combat;
   switch (t.charId) {
@@ -101,7 +123,7 @@ function doSkill(state, t, sk, lv, payload) {
       const n = val(sk.values, lv);
       if (payload.targetIdx == null) return { ok: false, reason: "需要目标" };
       const cards = drawPoker(state, n);
-      const dmg = Math.max(0, cards.reduce((s, p) => s + p.value, 0) - 2);
+      const dmg = Math.max(0, Math.floor((cards.reduce((s, p) => s + p.value, 0) - 2) * (1 + skillDmgMult(state, t) / 100)));
       damageEnemy(state, payload.targetIdx, dmg, t.index);
       state.log.push(`${t.name} 爆发 ${n} 张牌（${dmg} 伤害）`);
       return { ok: true, summary: { cards: n, dmg } };
@@ -118,7 +140,7 @@ function doSkill(state, t, sk, lv, payload) {
     case 3: {
       // 雷电将军：单体伤害
       if (payload.targetIdx == null) return { ok: false, reason: "需要目标" };
-      const dmg = val(sk.values, lv);
+      const dmg = Math.floor(val(sk.values, lv) * (1 + skillDmgMult(state, t) / 100));
       damageEnemy(state, payload.targetIdx, dmg, t.index);
       state.log.push(`${t.name} 对目标造成 ${dmg} 伤害`);
       return { ok: true, summary: { dmg } };
@@ -175,7 +197,7 @@ function doSkill(state, t, sk, lv, payload) {
         const targets = c.enemies.filter((e) => e.alive);
         if (targets.length > 0) {
           const victim = targets[Math.floor(Math.random() * targets.length)];
-          damageEnemy(state, victim.id, bonusDmg, t.index);
+          damageEnemy(state, victim.id, Math.floor(bonusDmg * (1 + skillDmgMult(state, t) / 100)), t.index);
         }
       }
       state.log.push(`${t.name} 全队生命上限 +${pct}% 并回满（附加 ${bonusDmg} 伤害）`);
@@ -200,7 +222,7 @@ function doSkill(state, t, sk, lv, payload) {
         }
         // 1-5 级：立即伤害
         for (const e of c.enemies) {
-          if (e.alive) damageEnemy(state, e.id, dot, t.index);
+          if (e.alive) damageEnemy(state, e.id, Math.floor(dot * (1 + skillDmgMult(state, t) / 100)), t.index);
         }
         state.log.push(`${t.name} 全体敌人受 ${dot} 点伤害`);
         return { ok: true, summary: { branch: "dot", dot, turns: 0 } };
@@ -226,7 +248,7 @@ function doSkill(state, t, sk, lv, payload) {
       return { ok: false, reason: "被动技能（死亡回归）" };
     case 12: {
       // myracler(开发者)：对敌方全体造成 1000 点伤害（冷却 0）
-      const dmg = val(sk.values, lv);
+      const dmg = Math.floor(val(sk.values, lv) * (1 + skillDmgMult(state, t) / 100));
       for (const e of c.enemies) {
         if (e.alive) damageEnemy(state, e.id, dmg, t.index);
       }

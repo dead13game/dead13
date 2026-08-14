@@ -159,18 +159,21 @@ export function blessingMult(state, id) {
 
 /**
  * 聚合所有祝福修正（数据表 fx 驱动，数值只存于 BLESSINGS.fx）。
- * @returns {{ atkMult, atkNormalMult, dmgTakenMult, healMult, shieldMult, maxHpMult }}
+ * @returns {{ atkMult, atkNormalMult, skillDmgMult, dmgTakenMult, healMult, shieldMult, maxHpMult }}
  */
 export function getUniModifiers(state) {
   const mods = {
     atkMult: 0, // 全伤害 %
     atkNormalMult: 0, // 普攻额外 %
+    skillDmgMult: 0, // 终结技（角色技能）专属伤害 %
     dmgTakenMult: 0, // 受伤 %（正 = 减伤）
     healMult: 0,
     shieldMult: 0,
     maxHpMult: 0,
   };
-  if (!state.blessings?.length) return mods;
+  if (!state.blessings?.length) {
+    return applyCurioStarMods(state, mods); // 无祝福仍应用奇物（赐福残晶）
+  }
   const fateCount = (f) => state.blessings.filter((b) => BLESSINGS[b.id]?.fate === f).length;
   const zhishuCount = fateCount("智识");
   const fengraoCount = fateCount("丰饶");
@@ -181,8 +184,8 @@ export function getUniModifiers(state) {
     switch (b.id) {
       case "shouzhao": mods.atkMult += (fx.atkMult || 0) * m; break;
       case "jifeng": mods.atkMult += (fx.atkMult || 0) * m; break;
-      case "hongkuai": mods.atkMult += (fx.atkMult || 0) * m; break; // 终结技伤害（简化并入全伤害）
-      case "chilun": mods.atkMult += (fx.atkPer || 0) * Math.min(zhishuCount, fx.max || 5) * m; break;
+      case "hongkuai": mods.skillDmgMult += (fx.atkMult || 0) * m; break; // 终结技伤害
+      case "chilun": mods.skillDmgMult += (fx.atkPer || 0) * Math.min(zhishuCount, fx.max || 5) * m; break; // 终结技伤害
       case "ruchong": mods.atkMult += (fx.atkMult || 0) * m; break; // 蠕行之蛇：敌方受伤 +10%
       case "xingqiu":
         mods.atkMult += (fx.atkMult || 0) * m; // 行星碰碰车（简化并入全伤害）
@@ -211,6 +214,24 @@ export function getUniModifiers(state) {
       default:
         break;
     }
+  }
+  // 奇物：赐福残晶系列（星级 = 祝福星数和 + 方程星数和）
+  return applyCurioStarMods(state, mods);
+}
+
+/** 赐福残晶：浪漫(普攻)/理性(终结技)/纷争(对精英→简化全伤害)，每星级 +2.5% */
+function applyCurioStarMods(state, mods) {
+  const starTotal =
+    (state.blessings || []).reduce((a, b) => a + b.star, 0) +
+    (state.equations || []).reduce((a, e) => a + e.star, 0);
+  if (state.curios?.some((c) => c.id === "canjing_lm")) {
+    mods.atkNormalMult += (CURIO_FX.canjing_lm?.atkPerStar || 2.5) * starTotal; // 普攻
+  }
+  if (state.curios?.some((c) => c.id === "canjing_lx")) {
+    mods.skillDmgMult += (CURIO_FX.canjing_lx?.atkPerStar || 2.5) * starTotal; // 终结技
+  }
+  if (state.curios?.some((c) => c.id === "canjing_fz")) {
+    mods.atkMult += (CURIO_FX.canjing_fz?.atkPerStar || 2.5) * starTotal; // 对精英（简化并入全伤害）
   }
   return mods;
 }
@@ -381,11 +402,11 @@ export function triggerAfterSkill(state, charIndex) {
     t.maxHp = Math.floor(t.maxHp * (1 + (jiantiFx.maxHpPct || 20) / 100 * blessingMult(state, "jianti")));
     t.status.maxHpBuffTurns = jiantiFx.turns || 2;
   }
-  // 阈下知觉：首次终结技（简化为下次攻击加成）
-  const yuxiaFx = BLESSINGS.yuxia?.fx;
-  if (yuxiaFx && blessingMult(state, "yuxia") > 0 && !state.uniFirstUltUsed) {
-    state.uniFirstUltUsed = true;
-    t.status.nextAttackBoost = (t.status.nextAttackBoost || 0) + (yuxiaFx.atkPct || 50) * blessingMult(state, "yuxia");
+  // 延迟衍射的烛光：施放群攻技能（开大）后，造成的伤害 +10%，持续 2 回合
+  const yanchiFx = BLESSINGS.yanchi?.fx;
+  if (yanchiFx && blessingMult(state, "yanchi") > 0) {
+    t.status.dmgBuffPct = (t.status.dmgBuffPct || 0) + (yanchiFx.atkPct || 10) * blessingMult(state, "yanchi");
+    t.status.dmgBuffTurns = Math.max(t.status.dmgBuffTurns || 0, yanchiFx.turns || 2);
   }
   // 催化剂：终结技后全队伤害 +20%（1 回合，最多 3 层）
   const cuihuaFx = BLESSINGS.cuihua?.fx;
