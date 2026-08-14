@@ -21,6 +21,7 @@ import {
   enemyResolve,
   chooseThirdWave,
   drawPoker,
+  nextWave,
 } from "./logic/uniCombat.js";
 import {
   applyEventOption,
@@ -102,6 +103,7 @@ export function useUniController() {
     } else if (r.type === "battle" || r.type === "elite" || r.type === "transform") {
       // 战斗区域：未开战则自动开始（读档恢复战斗时不重启）
       if (!uniState.combat) startCombat(uniState);
+      if (finishIfBattleOver()) return;
       uiMode.value = "battle";
     } else if (r.type === "boss") {
       uiMode.value = "workbench"; // 首领战前造物调试台
@@ -131,9 +133,30 @@ export function useUniController() {
 
   // ---- 战斗 ----
 
+  /** 战斗结束状态 → 切奖励/终局视图；未结束返回 false */
+  function finishIfBattleOver() {
+    const c = uniState.combat;
+    if (!c) return false;
+    if (c.phase === "won") {
+      uiMode.value = "reward";
+      return true;
+    }
+    if (c.phase === "lost") {
+      uiMode.value = uniState.gameOver ? "gameover" : "reward";
+      return true;
+    }
+    // 敌人全死但 phase 未推进（读档/进场即灭等异常）→ 推进波次/胜利
+    if (c.enemies.length > 0 && c.enemies.every((e) => !e.alive) && c.phase !== "wave-clear") {
+      nextWave(uniState); // 最后波 → endCombat won；否则 spawn 下一波
+      return finishIfBattleOver();
+    }
+    return false;
+  }
+
   /** 从 workbench 或事件战斗进入战斗 */
   function startBattle() {
     startCombat(uniState);
+    if (finishIfBattleOver()) return;
     uiMode.value = "battle";
   }
 
