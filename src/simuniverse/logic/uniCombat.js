@@ -334,7 +334,9 @@ function finishPlayerAction(state) {
   if (c.kind === "boss") {
     const boss = c.enemies.find((e) => e.alive);
     if (boss) {
-      const tpl = ENEMY_PATTERNS.boss[boss.pattern];
+      // 首领 pattern 每回合轮转 A → B → C（三种技能都会用）
+      const pattern = bossPattern(c.round);
+      const tpl = ENEMY_PATTERNS.boss[pattern];
       if (c.turnCount === 2 && tpl.interlude) {
         queueEnemyAction(state, boss, { ...tpl.interlude }, `穿插·${tpl.interlude.type}`);
       } else if (c.turnCount === 4) {
@@ -367,6 +369,11 @@ function finishPlayerAction(state) {
 /** 敌人行动入队 */
 function queueEnemyAction(state, enemy, action, desc) {
   state.combat.enemyQueue.push({ enemyIdx: enemy.id, action, desc });
+}
+
+/** 首领技能轮转：第 1 回合 A，第 2 回合 B，第 3 回合 C，循环 */
+function bossPattern(round) {
+  return ["A", "B", "C"][(round - 1) % 3];
 }
 
 // ---- 敌人阶段 ----

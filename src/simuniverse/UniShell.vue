@@ -13,6 +13,35 @@
       <button class="uni-btn uni-btn--sm" @click="onQuit">🚪 退出</button>
     </header>
 
+    <!-- 选角 -->
+    <section v-if="uiMode === 'charsel'" class="uni-panel">
+      <h2 class="uni-panel__title">选择 4 名出战角色</h2>
+      <p class="uni-panel__desc">已选 {{ selectedCharsList.length }}/4 —— 点击角色卡加入或移除队伍</p>
+      <div class="uni-charsel">
+        <button
+          v-for="c in allChars"
+          :key="c.id"
+          class="uni-charsel__card"
+          :class="{ 'uni-charsel__card--selected': isSelected(c.id) }"
+          @click="uni.toggleChar(c.id)"
+        >
+          <div class="uni-charsel__avatar">
+            <img :src="c.icon" :alt="c.name" @error="onImgError" />
+            <span v-if="isSelected(c.id)" class="uni-charsel__check">✓</span>
+          </div>
+          <span class="uni-charsel__name">{{ c.name }}</span>
+          <span class="uni-charsel__info">{{ UNI_SKILLS[c.id]?.name }}</span>
+        </button>
+      </div>
+      <button
+        class="uni-btn uni-btn--primary uni-btn--big"
+        :disabled="selectedCharsList.length !== 4"
+        @click="confirmCharsel"
+      >
+        🚀 出发（{{ selectedCharsList.length }}/4）
+      </button>
+    </section>
+
     <!-- 普通层 2 选 1 -->
     <section v-if="uiMode === 'choice'" class="uni-panel uni-panel--choice">
       <h2 class="uni-panel__title">选择本层内容</h2>
@@ -158,6 +187,41 @@
         <div v-if="battleMsg" class="uni-battle__msg">{{ battleMsg }}</div>
       </div>
     </section>
+
+    <!-- 技能分支弹层（莉奈娅盾/dot、纳西妲选人） -->
+    <div v-if="skillBranch" class="uni-modal">
+      <div class="uni-modal__box">
+        <h3 v-if="skillBranch.type === 'liniya'" class="uni-modal__title">{{ active?.name }}：选择技能</h3>
+        <h3 v-else class="uni-modal__title">{{ active?.name }}：选择立即行动的角色（可 {{ nahidaMax }} 人）</h3>
+        <template v-if="skillBranch.type === 'liniya'">
+          <button class="uni-btn uni-btn--big" @click="doLiniyaBranch('shield')">🛡️ 一技能：全队获得盾</button>
+          <button class="uni-btn uni-btn--big" @click="doLiniyaBranch('dot')">🔥 二技能：敌方 dot</button>
+        </template>
+        <template v-else>
+          <div class="uni-modal__members">
+            <button
+              v-for="m in uniState.team"
+              :key="m.index"
+              class="uni-charsel__card"
+              :class="{
+                'uni-charsel__card--selected': skillBranch.selected.includes(m.index),
+                'uni-charsel__card--disabled': !m.alive,
+              }"
+              @click="toggleNahidaMember(m.index)"
+            >
+              <div class="uni-charsel__avatar">
+                <img :src="iconOf(m.index)" :alt="m.name" @error="onImgError" />
+              </div>
+              <span class="uni-charsel__name">{{ m.name }}</span>
+            </button>
+          </div>
+          <button class="uni-btn uni-btn--primary" :disabled="!skillBranch.selected.length" @click="confirmNahida">
+            确认（{{ skillBranch.selected.length }}/{{ nahidaMax }}）
+          </button>
+        </template>
+        <button class="uni-btn uni-btn--sm uni-modal__cancel" @click="skillBranch = null">取消</button>
+      </div>
+    </div>
 
     <!-- 转化第三波 -->
     <section v-if="uiMode === 'wave-clear'" class="uni-panel">
@@ -359,7 +423,8 @@
           </div>
         </div>
       </div>
-      <button class="uni-btn uni-btn--danger uni-btn--big" @click="uni.startBattle()">⚔️ 挑战首领</button>
+      <button class="uni-btn uni-btn--danger uni-btn--big" v-if="uniState.region?.type === 'boss'" @click="uni.startBattle()">⚔️ 挑战首领</button>
+      <button class="uni-btn uni-btn--primary uni-btn--big" v-if="uniState.region?.type === 'oddity'" @click="uni.goNext()">完成调试 →</button>
     </section>
 
     <!-- 奇遇 / 财富 -->
@@ -478,6 +543,42 @@ const pendingPick = computed(() => props.uni.currentBlessingPick());
 const upgradable = computed(() =>
   uniState.team.filter((t) => t.alive && t.charId !== 11),
 );
+
+// ---- 选角 ----
+const allChars = computed(() => Object.values(CHARACTERS));
+const selectedCharsList = computed(() => props.uni.selectedChars.value);
+function isSelected(charId) {
+  return selectedCharsList.value.includes(charId);
+}
+function confirmCharsel() {
+  props.uni.startUni();
+}
+
+// ---- 技能分支弹层（莉奈娅盾/dot、纳西妲选人） ----
+const skillBranch = ref(null); // { type: 'liniya' } | { type: 'nahida', selected: [] }
+const nahidaMax = computed(() => {
+  if (!active.value || active.value.charId !== 4) return 1;
+  const lv = Math.min(active.value.skillLevel, 10);
+  return UNI_SKILLS[4].values[lv - 1] || 1;
+});
+function doLiniyaBranch(branch) {
+  const r = props.uni.doSkill(undefined, { branch });
+  if (r.ok) skillBranch.value = null;
+}
+function toggleNahidaMember(idx) {
+  const s = skillBranch.value;
+  if (!s) return;
+  const i = s.selected.indexOf(idx);
+  if (i >= 0) s.selected.splice(i, 1);
+  else if (s.selected.length < nahidaMax.value) s.selected.push(idx);
+}
+function confirmNahida() {
+  const s = skillBranch.value;
+  if (!s || !s.selected.length) return;
+  const r = props.uni.doSkill(undefined, { members: s.selected });
+  if (r.ok) skillBranch.value = null;
+}
+
 const oddityText = computed(() => {
   const fx = uniState.region?.oddityEffect;
   if (fx === "shards") return "获得 800 宇宙碎片";
@@ -530,19 +631,14 @@ function onSkillClick() {
     battleMsg.value = "选择大招目标";
     return;
   }
-  // 纳西妲：选角色（简化：默认选第 1 个其他角色）
+  // 纳西妲：弹选人面板（选 1-N 人立即行动）
   if (t.charId === 4) {
-    const member = uniState.team.find((m) => m.alive && m.index !== t.index);
-    if (member) {
-      const r = props.uni.doSkill(undefined, { members: [member.index] });
-      if (r.ok) targetMode.value = null;
-    }
+    skillBranch.value = { type: "nahida", selected: [] };
     return;
   }
-  // 莉奈娅：弹分支（简化：默认盾）
+  // 莉奈娅：弹分支（一技能盾 / 二技能 dot）
   if (t.charId === 9) {
-    const r = props.uni.doSkill(undefined, { branch: "shield" });
-    if (r.ok) targetMode.value = null;
+    skillBranch.value = { type: "liniya" };
     return;
   }
   // 其余无目标技能直接放
@@ -1024,6 +1120,115 @@ function onQuit() {
   justify-content: center;
   flex-wrap: wrap;
   margin-bottom: 10px;
+}
+/* 选角 */
+.uni-charsel {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.uni-charsel__card {
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-radius: 12px;
+  padding: 10px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s;
+}
+.uni-charsel__card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 171, 0, 0.5);
+}
+.uni-charsel__card--selected {
+  border-color: #ffab00;
+  background: rgba(255, 171, 0, 0.15);
+  box-shadow: 0 0 10px rgba(255, 171, 0, 0.35);
+}
+.uni-charsel__card--disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.uni-charsel__avatar {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.06);
+}
+.uni-charsel__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.uni-charsel__check {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  background: #ffab00;
+  color: #000;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.uni-charsel__name {
+  font-size: 13px;
+  font-weight: 600;
+}
+.uni-charsel__info {
+  font-size: 11px;
+  color: #b7a8e8;
+}
+/* 模态弹层 */
+.uni-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(3px);
+}
+.uni-modal__box {
+  background: linear-gradient(160deg, #241a4e, #16102e);
+  border: 1px solid rgba(140, 120, 255, 0.35);
+  border-radius: 16px;
+  padding: 22px;
+  min-width: 320px;
+  max-width: 90vw;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+  animation: uniPop 0.2s ease;
+}
+.uni-modal__title {
+  margin: 0 0 6px;
+  color: #ffc94d;
+}
+.uni-modal__members {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.uni-modal__cancel {
+  margin-top: 6px;
+  opacity: 0.7;
 }
 @media (max-width: 640px) {
   .uni-battle__board {

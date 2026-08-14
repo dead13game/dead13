@@ -41,21 +41,44 @@ const AI_PLAY_DELAY = 1200; // 敌人慢放延迟（ms）
 export function useUniController() {
   const uniState = reactive(createUniState(DEFAULT_TEAM_IDS));
   const uniStarted = ref(false);
-  const uiMode = ref("battle"); // 创建即第 1 层固定战斗
+  const uiMode = ref("charsel"); // 初始进入选角
   const battleMsg = ref("");
   const eventResult = ref(null); // 事件结算结果
   const skillTargetPending = ref(null); // { count } 需要选角色升级
+  const selectedChars = ref([...DEFAULT_TEAM_IDS]); // 选角阶段已选角色
   const lastOutcome = ref(null);
 
   // ---- 开始 / 退出 ----
 
-  function initUni(charIds = DEFAULT_TEAM_IDS) {
-    Object.assign(uniState, createUniState(charIds));
+  /** 进入选角阶段（selectMode 调用） */
+  function initUni() {
     uniStarted.value = true;
+    uiMode.value = "charsel";
+    selectedChars.value = [...DEFAULT_TEAM_IDS];
     battleMsg.value = "";
     eventResult.value = null;
+  }
+
+  /** 选角：勾选/取消 1 个角色（最多 4 个） */
+  function toggleChar(charId) {
+    const list = selectedChars.value;
+    const idx = list.indexOf(charId);
+    if (idx >= 0) {
+      list.splice(idx, 1);
+    } else {
+      if (list.length >= 4) return false;
+      list.push(charId);
+    }
+    return true;
+  }
+
+  /** 确认选角 → 正式开始（创建状态） */
+  function startUni() {
+    if (selectedChars.value.length !== 4) return { ok: false, reason: "需选 4 名角色" };
+    Object.assign(uniState, createUniState(selectedChars.value));
     syncPassives(uniState);
     enterCurrentMode();
+    return { ok: true };
   }
 
   function quitUni() {
@@ -347,7 +370,10 @@ export function useUniController() {
     battleMsg,
     eventResult,
     skillTargetPending,
+    selectedChars,
     initUni,
+    toggleChar,
+    startUni,
     quitUni,
     enterCurrentMode,
     doChooseContent,

@@ -287,16 +287,41 @@ export function enterRegion(state) {
       state.log.push("和平的代价：+150 宇宙碎片");
     }
   } else if (r.type === "oddity") {
-    // 奇遇效果掷取（M5 的 workbench/strengthen 具体执行留待后续，先记录）
+    // 奇遇：随机一个效果（工作台/800碎片/强化 8 个随机祝福）
     const effect = pick(ODDITY_EFFECTS);
     r.oddityEffect = effect;
-    if (effect === "shards") addShards(state, ODDITY_SHARDS);
+    if (effect === "shards") {
+      addShards(state, ODDITY_SHARDS);
+    } else if (effect === "workbench") {
+      state.heat = UNI_CONST.BOSS_HEAT; // 可进行一次造物调试台
+    } else if (effect === "strengthen") {
+      // 强化 8 个随机祝福（效果 ×2）
+      const boosted = strengthenRandomBlessings(state, ODDITY_STRENGTHEN_COUNT);
+      r.boostedCount = boosted;
+    }
     state.devLog.info(LOG_TYPE.UNI_REGION, "奇遇", {
       floor: state.floor,
       effect,
       shards: state.shards,
+      boosted: r.boostedCount || 0,
     });
   }
+}
+
+/** 随机强化 N 个祝福（heatEnhanced ×2），返回实际强化数 */
+function strengthenRandomBlessings(state, n) {
+  const idxs = state.blessings.map((_, i) => i);
+  // 洗牌取前 n 个
+  for (let i = idxs.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [idxs[i], idxs[j]] = [idxs[j], idxs[i]];
+  }
+  const chosen = idxs.slice(0, Math.min(n, idxs.length));
+  for (const i of chosen) {
+    state.blessings[i].heatEnhanced = (state.blessings[i].heatEnhanced || 1) * 2;
+  }
+  state.log.push(`奇遇：强化了 ${chosen.length} 个随机祝福（效果 ×2）`);
+  return chosen.length;
 }
 
 /** 是否持有指定奇物 */

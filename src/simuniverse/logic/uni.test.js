@@ -578,7 +578,7 @@ describe("模拟宇宙 M2：首领穿插", () => {
     const s = createUniState();
     s.region = { type: "boss", name: "首领", waves: [{ kind: "boss", count: 1 }] };
     startCombat(s);
-    s.combat.enemies[0].pattern = "B";
+    s.combat.round = 2; // pattern 轮转：第 2 回合 = B（减疗/眩晕）
     playerDefense(s);
     playerDefense(s);
     enemyAnnounce(s);
