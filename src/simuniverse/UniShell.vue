@@ -337,10 +337,10 @@
             </span>
             <button
               class="uni-btn uni-btn--sm"
-              :disabled="item.sold || uniState.shards < shopPrice('blessing', item.star)"
+              :disabled="item.sold || uniState.shards < shopPrice(uniState, 'blessing', item.star)"
               @click="uni.doShopBuy('blessing', i)"
             >
-              {{ shopPrice('blessing', item.star) }} 🪙
+              {{ shopPrice(uniState, 'blessing', item.star) }} 🪙
             </button>
           </div>
         </div>
@@ -355,10 +355,10 @@
             </span>
             <button
               class="uni-btn uni-btn--sm"
-              :disabled="item.sold || uniState.shards < shopPrice('curio', item.star)"
+              :disabled="item.sold || uniState.shards < shopPrice(uniState, 'curio', item.star)"
               @click="uni.doShopBuy('curio', i)"
             >
-              {{ shopPrice('curio', item.star) }} 🪙
+              {{ shopPrice(uniState, 'curio', item.star) }} 🪙
             </button>
           </div>
         </div>
@@ -373,10 +373,10 @@
             </span>
             <button
               class="uni-btn uni-btn--sm"
-              :disabled="item.sold || uniState.shards < shopPrice('equation', item.star)"
+              :disabled="item.sold || uniState.shards < shopPrice(uniState, 'equation', item.star)"
               @click="uni.doShopBuy('equation', i)"
             >
-              {{ shopPrice('equation', item.star) }} 🪙
+              {{ shopPrice(uniState, 'equation', item.star) }} 🪙
             </button>
           </div>
         </div>
@@ -451,6 +451,7 @@ import { ref, computed, watch } from "vue";
 import DevLogPanel from "../components/DevLogPanel.vue";
 import { SHOP_PRICE, REGION_META, UNI_SKILLS } from "./logic/uniConstants.js";
 import { CHARACTERS } from "./logic/uniState.js";
+import { shopPrice as uniShopPrice } from "./logic/uniShop.js";
 
 const props = defineProps({
   uni: { type: Object, required: true },
@@ -602,8 +603,8 @@ function skillType(t) {
 function hpPct(t) {
   return Math.max(0, Math.min(100, (t.hp / t.maxHp) * 100));
 }
-function shopPrice(type, star) {
-  return SHOP_PRICE[type]?.[star] || 0;
+function shopPrice(state, type, star) {
+  return uniShopPrice(state, type, star);
 }
 
 function onAttackClick() {

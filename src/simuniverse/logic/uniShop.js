@@ -46,9 +46,28 @@ export function createShopStock(state) {
   return stock;
 }
 
-/** 商品价格 */
-export function shopPrice(type, star) {
-  return SHOP_PRICE[type][star] || 0;
+/** 商品价格（受奇物修正：公司/中等念头 +25%、邪恶卫星 -25%、铸铁齿轮 +30%） */
+export function shopPrice(state, type, star) {
+  let p = SHOP_PRICE[type][star] || 0;
+  if (state?.curios?.some((c) => c.id === "gongsi") || state?.curios?.some((c) => c.id === "zhongdeng")) {
+    p = Math.floor(p * 1.25);
+  }
+  if (state?.curios?.some((c) => c.id === "xiee")) {
+    p = Math.floor(p * 0.75);
+  }
+  if (state?.curios?.some((c) => c.id === "zhutie")) {
+    p = Math.floor(p * 1.3);
+  }
+  return p;
+}
+
+/** 覆写价格（受奇物修正：信仰债券 -30%、机动指环 -100%、末日复眼 +1000%） */
+export function overwritePrice(state) {
+  let p = state.overwritePrice;
+  if (state.curios?.some((c) => c.id === "xinyang")) p = Math.floor(p * 0.7);
+  if (state.curios?.some((c) => c.id === "jidong")) p = 0;
+  if (state.curios?.some((c) => c.id === "mori")) p = Math.floor(p * 11);
+  return p;
 }
 
 /** 购买商品（type: blessing/curio/equation） */
@@ -57,7 +76,7 @@ export function shopBuy(state, type, idx) {
   const item = stock?.[idx];
   if (!item) return { ok: false, reason: "无此商品" };
   if (item.sold) return { ok: false, reason: "已售出" };
-  const price = shopPrice(type, item.star);
+  const price = shopPrice(state, type, item.star);
   if (!spendShards(state, price)) return { ok: false, reason: "宇宙碎片不足" };
   item.sold = true;
   if (type === "blessing") gainBlessing(state, item.id);
@@ -95,7 +114,7 @@ export function heatStrengthen(state, blessingIdx) {
 export function overwriteBlessing(state, blessingIdx) {
   const b = state.blessings[blessingIdx];
   if (!b) return { ok: false, reason: "无此祝福" };
-  const price = state.overwritePrice;
+  const price = overwritePrice(state);
   if (!spendShards(state, price)) return { ok: false, reason: "宇宙碎片不足" };
   const pool = blessingPool(b.star, b.star).filter((x) => x.id !== b.id);
   if (pool.length === 0) return { ok: false, reason: "无可替换祝福" };
@@ -114,7 +133,7 @@ export function overwriteBlessing(state, blessingIdx) {
 export function overwriteEquation(state, eqIdx) {
   const eq = state.equations[eqIdx];
   if (!eq) return { ok: false, reason: "无此方程" };
-  const price = state.overwritePrice;
+  const price = overwritePrice(state);
   if (!spendShards(state, price)) return { ok: false, reason: "宇宙碎片不足" };
   const pool = Object.values(EQUATIONS).filter((e) => e.star === eq.star && e.id !== eq.id);
   if (pool.length === 0) return { ok: false, reason: "无可替换方程" };
@@ -127,9 +146,9 @@ export function overwriteEquation(state, eqIdx) {
   return { ok: true, price, nextId: next.id };
 }
 
-/** 首领层进入时重置热量与覆写价格（enterRegion 调用） */
+/** 首领层进入时重置热量与覆写价格（enterRegion 调用）；化作尘泥额外 +5 热量 */
 export function resetWorkbench(state) {
-  state.heat = UNI_CONST.BOSS_HEAT;
+  state.heat = UNI_CONST.BOSS_HEAT + (state.curios?.some((c) => c.id === "huacheng") ? 5 : 0);
   state.overwritePrice = UNI_CONST.OVERWRITE_BASE;
 }
 

@@ -59,6 +59,7 @@ import {
   gainCurio,
   gainEquation,
   blessingMult,
+  CURIOS,
 } from "./uniBuffs.js";
 import { enterRegion } from "./uniState.js";
 import { CHARACTERS } from "../../game/constants.js";
@@ -1142,7 +1143,7 @@ describe("模拟宇宙 M5：商店与造物调试台", () => {
     enterRegion(s);
     addShards(s, 500);
     const item = s.shopStock.blessing[0];
-    const price = shopPrice("blessing", item.star);
+    const price = shopPrice(s, "blessing", item.star);
     const r = shopBuy(s, "blessing", 0);
     expect(r.ok).toBe(true);
     expect(r.price).toBe(price);
@@ -1506,5 +1507,75 @@ describe("模拟宇宙 M7：全量祝福效果", () => {
     enemyAnnounce(s);
     enemyResolve(s);
     expect(s.team[0].hp).toBe(before - 2); // 5-3=2
+  });
+});
+
+describe("模拟宇宙 M8：全量奇物", () => {
+  it("奇物池全量：9 负面 + 27×1星 + 36×2星 + 7×3星 = 79", () => {
+    const all = Object.values(CURIOS);
+    expect(all).toHaveLength(79);
+    expect(all.filter((c) => c.negative)).toHaveLength(9);
+    expect(all.filter((c) => c.star === 1)).toHaveLength(27);
+    expect(all.filter((c) => c.star === 2)).toHaveLength(36);
+    expect(all.filter((c) => c.star === 3)).toHaveLength(7);
+  });
+
+  it("铸铁齿轮指环：获得碎片 +30%", () => {
+    const s = createUniState();
+    gainCurio(s, "zhutie");
+    addShards(s, 100);
+    expect(s.shards).toBe(130);
+  });
+
+  it("失金爪锚：获得时 +500 碎片", () => {
+    const s = createUniState();
+    gainCurio(s, "shijin");
+    expect(s.shards).toBe(500);
+  });
+
+  it("祭献投枪：进入战斗区域 +35 碎片", () => {
+    const s = createUniState();
+    gainCurio(s, "jixian");
+    s.region = { type: "battle", name: "战斗" };
+    enterRegion(s);
+    expect(s.shards).toBe(35);
+  });
+
+  it("临时赌资：5 个区域后损毁并 -450", () => {
+    const s = createUniState();
+    gainCurio(s, "linji");
+    addShards(s, 600);
+    for (let i = 0; i < 5; i++) {
+      s.region = { type: "fortune", name: "财富" };
+      enterRegion(s);
+    }
+    expect(s.curios.some((c) => c.id === "linji")).toBe(false);
+    expect(s.shards).toBe(600 + 300 + 5 * 300 - 450);
+  });
+
+  it("水上书：进入区域回满并复活死亡角色", () => {
+    const s = createUniState();
+    gainCurio(s, "shuishang");
+    s.team[0].hp = 1;
+    s.team[1].alive = false;
+    s.team[1].hp = 0;
+    s.region = { type: "fortune", name: "财富" };
+    enterRegion(s);
+    expect(s.team[0].hp).toBe(s.team[0].maxHp);
+    expect(s.team[1].alive).toBe(true);
+  });
+
+  it("邪恶机械卫星：商品价格 -25%", () => {
+    const s = createUniState();
+    gainCurio(s, "xiee");
+    expect(shopPrice(s, "blessing", 1)).toBe(Math.floor(80 * 0.75)); // 60
+  });
+
+  it("羊皮卷：进入战斗敌方全体受 30% 生命上限伤害", () => {
+    const s = createUniState();
+    gainCurio(s, "sheep");
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 1 }] };
+    startCombat(s);
+    expect(s.combat.enemies[0].hp).toBe(Math.max(0, 10 - Math.floor(10 * 0.3))); // 7
   });
 });

@@ -17,6 +17,8 @@ import {
   triggerOnEnemyDot,
   triggerOnAttackAfter,
   triggerOnEndTurn,
+  triggerCurioOnCombatStart,
+  triggerCurioOnWin,
   blessingMult,
   rollBlessingCandidates,
   rollBlessing,
@@ -120,6 +122,7 @@ export function startCombat(state) {
   }
   spawnWave(state);
   triggerOnCombatStart(state); // 祝福：构筑·哨戒
+  triggerCurioOnCombatStart(state); // 奇物：战斗开始效果
   startPlayerTurn(state);
   state.devLog.info(LOG_TYPE.UNI_INIT, `战斗开始：${r.name}`, {
     kind,
@@ -157,6 +160,13 @@ export function startPlayerTurn(state) {
   }
   tickTeamDots(state);
   tickEnemyDots(state);
+  // 奇物：虚构机兵（角色回合开始回复 20% 生命上限）
+  if (hasCurio(state, "xugou")) {
+    for (const t of state.team) {
+      if (!t.alive) continue;
+      t.hp = Math.min(t.maxHp, t.hp + Math.floor(t.maxHp * 0.2));
+    }
+  }
   // speed 降序（同速按队伍 index），存活角色参与
   c.actionOrder = state.team
     .map((t, i) => ({ i, speed: CHARACTERS[t.charId].speed }))
@@ -951,6 +961,8 @@ function endCombat(state, result) {
     // 一次性 buff 与临时等级在战斗结束后失效
     state.tempSkillBoost = 0;
     state.nextBattleBuffs = {};
+    // 奇物胜利钩子：埋点土/阿阮袋/降维骰子
+    triggerCurioOnWin(state);
     state.devLog.info(LOG_TYPE.UNI_FLOOR, `战斗胜利：${c.kind}`, {
       result,
       shards,

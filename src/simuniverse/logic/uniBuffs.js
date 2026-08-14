@@ -456,6 +456,100 @@ export function chargeJarBrain(state, n) {
   state.jarBrain = Math.min(100, (state.jarBrain || 0) + n);
 }
 
+/** 战斗开始奇物钩子：无限递归代码/羊皮卷/博士之袍/精确优雅代码/有梦/黑森林 */
+export function triggerCurioOnCombatStart(state) {
+  const c = state.combat;
+  // 无限递归的代码：生命上限 +20%
+  if (state.curios?.some((x) => x.id === "wuxian")) {
+    for (const t of state.team) {
+      t.maxHp = Math.floor(t.maxHp * 1.2);
+      t.hp = Math.min(t.hp, t.maxHp);
+    }
+  }
+  // 精确优雅的代码：防御/攻击/生命上限 +35%
+  if (state.curios?.some((x) => x.id === "jingque")) {
+    for (const t of state.team) {
+      t.maxHp = Math.floor(t.maxHp * 1.35);
+      t.status.atkBonus = (t.status.atkBonus || 0) + 5;
+    }
+  }
+  // 永不停嘴的羊皮卷：敌方全体受 30% 生命上限固定伤害
+  if (state.curios?.some((x) => x.id === "sheep")) {
+    for (const e of c.enemies) {
+      if (e.alive) {
+        e.hp = Math.max(0, e.hp - Math.floor(e.maxHp * 0.3));
+        if (e.hp <= 0) {
+          e.alive = false;
+          state.log.push(`羊皮卷：击败 ${e.name}`);
+        }
+      }
+    }
+  }
+  // 博士之袍：拥有 3 星方程 → 全队伤害 +25%
+  if (state.curios?.some((x) => x.id === "boshi") && state.equations?.some((e) => e.star === 3)) {
+    for (const t of state.team) {
+      t.status.dmgBuffPct = (t.status.dmgBuffPct || 0) + 25;
+      t.status.dmgBuffTurns = 1;
+    }
+  }
+  // 有梦-0110：全队伤害 +50%
+  if (state.curios?.some((x) => x.id === "youmeng")) {
+    for (const t of state.team) {
+      t.status.dmgBuffPct = (t.status.dmgBuffPct || 0) + 50;
+      t.status.dmgBuffTurns = 1;
+    }
+  }
+  // 黑森林咕咕钟：随机 1 名我方目标被攻击概率大幅提高（简化：标记 5 回合）
+  if (state.curios?.some((x) => x.id === "heisenlin")) {
+    const alive = state.team.filter((t) => t.alive);
+    if (alive.length) {
+      const target = alive[Math.floor(Math.random() * alive.length)];
+      target.status.taunt = 5;
+      state.log.push(`黑森林咕咕钟：${target.name} 被标记为集火目标`);
+    }
+  }
+}
+
+/** 战斗胜利奇物钩子：埋点土（3/6/9 场）/ 阿阮袋 / 降维骰子 */
+export function triggerCurioOnWin(state) {
+  // 埋点土：3/6/9 场胜利 +50/150/250，9 场损毁
+  const maidi = state.curios?.find((x) => x.id === "maidi");
+  if (maidi) {
+    maidi.wins = (maidi.wins || 0) + 1;
+    const w = maidi.wins;
+    let gain = 0;
+    if (w === 3) gain = 50;
+    else if (w === 6) gain = 150;
+    else if (w >= 9) gain = 250;
+    if (gain > 0) {
+      state.shards += gain;
+      state.log.push(`埋点土：+${gain} 碎片`);
+    }
+    if (w >= 9) {
+      state.curios = state.curios.filter((x) => x.id !== "maidi");
+      state.log.push("埋点土：损毁");
+    }
+  }
+  // 阿阮袋：2 次战斗后损毁
+  const aruan = state.curios?.find((x) => x.id === "aruan");
+  if (aruan) {
+    aruan.wins = (aruan.wins || 0) + 1;
+    if (aruan.wins >= 2) {
+      state.curios = state.curios.filter((x) => x.id !== "aruan");
+      state.log.push("阿阮袋：损毁");
+    }
+  }
+  // 降维骰子：2 次战斗后损毁
+  const jiangwei = state.curios?.find((x) => x.id === "jiangwei");
+  if (jiangwei) {
+    jiangwei.wins = (jiangwei.wins || 0) + 1;
+    if (jiangwei.wins >= 2) {
+      state.curios = state.curios.filter((x) => x.id !== "jiangwei");
+      state.log.push("降维骰子：损毁");
+    }
+  }
+}
+
 /** 敌方持续伤害结算后钩子：虚妄供品 → 全队回 2% 生命上限 */
 export function triggerOnEnemyDot(state) {
   const m = blessingMult(state, "gongpin");
@@ -483,21 +577,91 @@ export function applyHealSpread(state, healerIdx, amount) {
 
 // ================= 奇物（第一版基础池，效果 M5 完整接入） =================
 
-/** 奇物数据表（8 个：2 负面 + 4×1星 + 2×2星） */
+/** 奇物数据表（全量：9 负面 + 27×1星 + 36×2星 + 7×3星） */
 export const CURIOS = {
-  // 负面
-  posui: { id: "posui", name: "破碎咕咕钟", star: 0, negative: true, desc: "战斗胜利后获得的宇宙碎片降低 25%" },
+  // ── 负面 ──
+  posui: { id: "posui", name: "破碎咕咕钟", star: 0, negative: true, desc: "战斗胜利后获得的宇宙碎片降低 25%；展开 1 个方程后损毁" },
   yongdong: { id: "yongdong", name: "永动咕咕钟", star: 0, negative: true, desc: "每进入下一区域，失去 4% 当前持有的宇宙碎片" },
-  // 1 星
-  club: { id: "club", name: "俱乐部券", star: 1, desc: "战斗胜利后获得宇宙碎片提高 40%" },
-  cheese: { id: "cheese", name: "香涎干酪", star: 1, desc: "战斗胜利后，全队回复 100% 生命" },
+  kuaile: { id: "kuaile", name: "快乐电视机", star: 0, negative: true, desc: "连续进入相同区域时，失去 25 碎片和 1 个随机 1-3 星奇物" },
+  bobo: { id: "bobo", name: "菠萝", star: 0, negative: true, desc: "累计进入 3 个区域后损毁，使我方全体损失 99% 当前生命值" },
+  gongsi: { id: "gongsi", name: "公司咕咕钟", star: 0, negative: true, desc: "商品价格提高 25%" },
+  fenlie: { id: "fenlie", name: "分裂咕咕钟", star: 0, negative: true, desc: "角色攻击力降低 5%，战斗胜利后有概率分裂出 1 个复制体（最多 3 个）" },
+  zhongdeng: { id: "zhongdeng", name: "中等念头群体机", star: 0, negative: true, desc: "商品价格提高 25%" },
+  heisenlin: { id: "heisenlin", name: "黑森林咕咕钟", star: 0, negative: true, desc: "进入战斗时，随机 1 名我方目标被敌方攻击概率大幅提高，持续 5 回合" },
+  bushu: { id: "bushu", name: "卜签咕咕钟", star: 0, negative: true, desc: "战斗胜利后选择祝福时，可选择的祝福选项减少 1 个" },
+  // ── 1 星 ──
+  zhongduan: { id: "zhongduan", name: "终端卫士", star: 1, desc: "失去区域时获得 75 宇宙碎片（触发 3 次后损毁）" },
+  dabinggan: { id: "dabinggan", name: "大饼干", star: 1, desc: "区域升级时获得 1 个随机 1-2 星祝福（每个区域 1 次，触发 2 次后损毁）" },
   eye: { id: "eye", name: "监督之眼", star: 1, desc: "进入区域后失去 50 宇宙碎片；失去该奇物时获得 1 个随机 3 星奇物" },
-  peace: { id: "peace", name: "和平的代价", star: 1, desc: "进入商店区域时获得 150 宇宙碎片" },
-  // 2 星
-  fujiao: { id: "fujiao", name: "福灵胶", star: 2, desc: "战斗胜利后额外获得 1 个 3 星祝福（1 次后损毁）" },
-  lens: { id: "lens", name: "时空棱镜", star: 2, desc: "所有角色技能等级提高 2 级" },
+  anhai: { id: "anhai", name: "暗海碎饵", star: 1, desc: "获得或每 3 场战斗后，随机获得当前 15% 或失去当前 10% 的宇宙碎片" },
+  shui: { id: "shui", name: "睡眠和死亡", star: 1, desc: "进入区域时若碎片 ≤10，损毁并获得 400 宇宙碎片" },
+  lieyang: { id: "lieyang", name: "烈阳之舞", star: 1, desc: "奇物损毁时，获得 30 宇宙碎片" },
+  wulian: { id: "wulian", name: "无爱之尘", star: 1, desc: "进入区域时若奇物 ≥4，失去自身与其他 3 个随机奇物，获得 1 个 1-3 星方程" },
+  wuxian: { id: "wuxian", name: "无限递归的代码", star: 1, desc: "进入战斗时，我方目标生命上限提高 20%" },
+  zhutie: { id: "zhutie", name: "铸铁的齿轮指环", star: 1, desc: "获得宇宙碎片提高 30%，但商店售价与覆写消耗提高 30%" },
+  adaptive: { id: "adaptive", name: "自适应礼品盒", star: 1, desc: "获得时失去所有碎片，然后随机获得失去值 10%-200% 的碎片" },
+  jidong: { id: "jidong", name: "铸铁的机动指环", star: 1, desc: "获得碎片降低 50%，覆写消耗降低 100%，覆写次数上限降为 7" },
+  liangzi: { id: "liangzi", name: "量子大乐透", star: 1, desc: "每次进入区域有小概率获得负面奇物，也有小概率损毁（损毁时 +400 碎片）" },
+  jixian: { id: "jixian", name: "祭献投枪", star: 1, desc: "进入战斗/转化/精英/首领区域 +35 碎片；事件/奖励/冒险/财富区域 -35 碎片" },
+  yinhe: { id: "yinhe", name: "银河大乐透", star: 1, desc: "进入区域后小概率获得奇物，也有小概率损毁并使全队损失 99% 当前生命" },
+  linji: { id: "linji", name: "临时赌资", star: 1, desc: "立即获得 300 碎片，累计 5 个区域后损毁并失去 450 碎片" },
+  heping: { id: "heping", name: "和平的代价", star: 1, desc: "进入商店区域时获得 150 宇宙碎片" },
+  wanxiang: { id: "wanxiang", name: "万象无常骰", star: 1, desc: "获得后立即随机强化 2 个祝福" },
+  boshi: { id: "boshi", name: "博士之袍", star: 1, desc: "进入战斗时若拥有已展开的 3 星方程，激活终结技并使伤害提高 25%" },
+  club: { id: "club", name: "俱乐部券", star: 1, desc: "战斗胜利后获得宇宙碎片提高 40%" },
+  sheep: { id: "sheep", name: "永不停嘴的羊皮卷", star: 1, desc: "进入战斗时，敌方全体受到各自生命上限 30% 的固定伤害" },
+  cheese: { id: "cheese", name: "香涎干酪", star: 1, desc: "战斗胜利后，全队回复 100% 生命" },
+  yueqian: { id: "yueqian", name: "跃迁复眼", star: 1, desc: "战斗胜利后选择祝福时，强化所有 1 星祝福" },
+  zuotian: { id: "zuotian", name: "昨天的重量", star: 1, desc: "进入区域时获得 35 碎片，碎片减少累计 3 次后损毁" },
+  juedui: { id: "juedui", name: "绝对自灭药膏", star: 1, desc: "立即获得 2 个方程所需祝福，失去 2 个方程不需要的祝福" },
+  maidi: { id: "maidi", name: "埋点土", star: 1, desc: "获得 3/6/9 场战斗胜利后获得 50/150/250 碎片；9 场后损毁" },
+  youmeng: { id: "youmeng", name: "有梦-0110", star: 1, desc: "进入战斗时全队伤害提高 50%；15 回合后受到的伤害提高 10%" },
+  lubeite: { id: "lubeite", name: "鲁珀特帝国机械齿轮", star: 1, desc: "每次进入区域获得 50 碎片；碎片超过 750 时损毁并失去 750 碎片" },
+  // ── 2 星 ──
+  caikuang: { id: "caikuang", name: "采矿吸尘器（大型）", star: 2, desc: "进入重任/异堂区域后获得 1 个 1-2 星祝福（触发 5 次后损毁）" },
+  canjing_lm: { id: "canjing_lm", name: "赐福残晶·浪漫", star: 2, desc: "祝福和方程每有 1 个星级，普攻伤害提高 2.5%" },
+  canjing_lx: { id: "canjing_lx", name: "赐福残晶·理性", star: 2, desc: "祝福和方程每有 1 个星级，终结技伤害提高 2.5%" },
+  canjing_fz: { id: "canjing_fz", name: "赐福残晶·纷争", star: 2, desc: "祝福和方程每有 1 个星级，对精英敌人伤害提高 2.5%" },
+  shijin: { id: "shijin", name: "失金爪锚", star: 2, desc: "立即获得 500 碎片；5 个区域后损毁；碎片 <500 时失去 5 个随机祝福后损毁" },
+  hepingxiang: { id: "hepingxiang", name: "和平箱", star: 2, desc: "展开 1 个 2 星及以上方程后获得 1 个随机祝福（最多 4 次）" },
   luck: { id: "luck", name: "有形幸运", star: 2, desc: "进入区域时，若宇宙碎片小于 250，补足为 250" },
+  huacheng: { id: "huacheng", name: "化作尘泥", star: 2, desc: "在造物调试台中，额外获得 5 点可使用热量" },
+  xile: { id: "xile", name: "喜乐熏香", star: 2, desc: "获得时获得 2 个随机方程；首领区域战斗时每有 1 个未展开方程，敌方生命与攻击 +40%" },
+  haimian: { id: "haimian", name: "海绵王", star: 2, desc: "每进入一个区域全队损失 80% 当前生命，生命上限 +10%（4 次后损毁，上限加成保留）" },
+  fuhua: { id: "fuhua", name: "腐化异木果实", star: 2, desc: "角色抵抗所有控制类负面效果，每次抵抗消耗 20% 生命上限的生命" },
+  lixing: { id: "lixing", name: "理性的溃败", star: 2, desc: "获得时立即获得 3 个不同命运的随机 1 星祝福各 1 个" },
+  renzao: { id: "renzao", name: "人造陨石球", star: 2, desc: "获得时立即获得 1-3 个拥有祝福数量最多的命运的祝福" },
+  xugou: { id: "xugou", name: "虚构机兵", star: 2, desc: "角色回合开始时，回复其生命上限 20% 的生命值" },
+  huanzhe: { id: "huanzhe", name: "患者面具", star: 2, desc: "将所有祝福替换为随机祝福，强化情况保留，有概率替换为更高稀有度" },
+  tiancai: { id: "tiancai", name: "天才俱乐部普通八卦", star: 2, desc: "获得碎片时额外获得 50%，但战斗结束无法再获取祝福" },
+  shanyao: { id: "shanyao", name: "闪耀的偏方三八面骰", star: 2, desc: "获得后将所有奇物替换为随机奇物" },
+  fenlie_jb: { id: "fenlie_jb", name: "分裂金币", star: 2, desc: "每进入下一区域，获得当前持有碎片 5% 的碎片" },
+  fujiao: { id: "fujiao", name: "福灵胶", star: 2, desc: "战斗胜利后额外获得 1 个 3 星祝福（1 次后损毁）" },
+  jiangwei: { id: "jiangwei", name: "降维骰子", star: 2, desc: "战斗胜利后可额外选择 1 次祝福，但选项减少 1 个（2 次战斗后损毁）" },
+  louti: { id: "louti", name: "「楼梯上的水母」", star: 2, desc: "失去所有祝福，按失去祝福的星级之和获得碎片（每星级 80 碎片）" },
+  xiee: { id: "xiee", name: "邪恶机械卫星#900", star: 2, desc: "商品价格降低 25%" },
+  kongwu: { id: "kongwu", name: "空无烛剪", star: 2, desc: "获得后随机修复最多 2 个已损毁的 1-3 星奇物，剩余次数恢复初始" },
+  xinyang: { id: "xinyang", name: "信仰债券", star: 2, desc: "覆写祝福、覆写方程以及复活角色所需的碎片数量降低 30%" },
+  kaituo: { id: "kaituo", name: "开拓火漆", star: 2, desc: "获得时随机获得每个命运的祝福各 1 个；获得方程时获得 3 个所需祝福（每区域 1 次）" },
+  chuiyu: { id: "chuiyu", name: "垂语果实", star: 2, desc: "立即获得 1 个随机祝福；失去后再次获得并使奖励祝福 +1（最多 4 个）" },
+  zhizun: { id: "zhizun", name: "至尊胶", star: 2, desc: "获得祝福时有 10% 概率再随机获得 1 个 1-2 星祝福（最多 5 个）" },
+  jingshen: { id: "jingshen", name: "精神感应餐叉", star: 2, desc: "失去祝福时获得 50 宇宙碎片" },
+  zhenshi: { id: "zhenshi", name: "真实机兵", star: 2, desc: "失去奇物时获得 75 宇宙碎片" },
+  mori: { id: "mori", name: "末日复眼·先行版", star: 2, desc: "获得时获得 3 个拥有祝福数量最多的命运的祝福；覆写消耗提高 1000%" },
+  wuren: { id: "wuren", name: "无人通讯", star: 2, desc: "奇物损毁时使其恢复如新（触发 2 次后损毁）" },
+  aruan: { id: "aruan", name: "阿阮袋", star: 2, desc: "立即获得 3 个随机祝福；战斗胜利后选择祝福时选项变为 1（2 次战斗后损毁）" },
+  chunmei: { id: "chunmei", name: "纯美骑士精神", star: 2, desc: "获得时获得 1 个随机方程" },
   silver: { id: "silver", name: "分裂银币", star: 2, desc: "立即获得当前持有宇宙碎片 40% 的宇宙碎片" },
+  lens: { id: "lens", name: "时空棱镜", star: 2, desc: "所有角色技能等级提高 2 级" },
+  shuishang: { id: "shuishang", name: "水上书", star: 2, desc: "进入区域时，全队回复全部生命，并重置所有无法战斗的角色" },
+  // ── 3 星 ──
+  jingque: { id: "jingque", name: "精确优雅的代码", star: 3, desc: "进入战斗时防御/攻击/生命上限 +35%，攻击后对随机目标造成 350% 攻击力的附加伤害" },
+  xugao: { id: "xugao", name: "虚高一丈", star: 3, desc: "获得 1/2/3 星奇物时获得 20/40/120 碎片；每有 1 个 1/2/3 星奇物，战斗伤害 +3%/6%/20%" },
+  yusi: { id: "yusi", name: "与死重逢", star: 3, desc: "立即获得 1 个当前无法展开的方程；每展开 1 个方程后获得 1 个随机无法展开方程（最多 3 个）；每有 1 个展开方程，全队伤害 +10%" },
+  wenyi: { id: "wenyi", name: "瘟疫巢都", star: 3, desc: "立即获得 4 个随机负面奇物；进入区域时随机失去最多 2 个负面奇物并获得等量祝福；每因此失去 1 个负面奇物，战斗伤害 +10%" },
+  jiyi: { id: "jiyi", name: "记忆轮", star: 3, desc: "立即获得 2 个随机方程；每进入区域时将方程置换为随机同星级方程；进入战斗时获得所有未展开方程的效果" },
+  jiazu: { id: "jiazu", name: "家族缘结", star: 3, desc: "立即获得 2 个可损毁奇物；奇物损毁时获得 1 个可损毁奇物；每有 1 个已损毁奇物，战斗伤害 +30%" },
+  chunmei_pao: { id: "chunmei_pao", name: "纯美之袍", star: 3, desc: "进入战斗时每有 100 碎片全队伤害 +20%；进入战斗/精英/首领区域时获得当前碎片 10% 的碎片" },
 };
 
 /** 随机 1 个奇物（excludeNegative 排除负面） */
@@ -507,7 +671,7 @@ export function rollCurio(excludeNegative = false) {
   return pool[Math.floor(Math.random() * pool.length)].id;
 }
 
-/** 获得奇物：已有则强化（×2、×3…） */
+/** 获得奇物：已有则强化（×2、×3…）；部分奇物获得时立即生效 */
 export function gainCurio(state, id, opts = {}) {
   const c = CURIOS[id];
   if (!c) return { ok: false, reason: "无此奇物" };
@@ -532,6 +696,120 @@ export function gainCurio(state, id, opts = {}) {
     state.shards += gain;
     state.log.push(`分裂银币：+${gain} 宇宙碎片`);
   }
+  // 失金爪锚：+500
+  if (id === "shijin") {
+    state.shards += 500;
+    state.log.push("失金爪锚：+500 宇宙碎片");
+  }
+  // 临时赌资：+300
+  if (id === "linji") {
+    state.shards += 300;
+    state.log.push("临时赌资：+300 宇宙碎片");
+  }
+  // 自适应礼品盒：失去全部碎片，获得 10%-200% 随机
+  if (id === "adaptive") {
+    const lost = state.shards;
+    const pct = 0.1 + Math.random() * 1.9;
+    state.shards = Math.floor(lost * pct);
+    state.log.push(`自适应礼品盒：失去 ${lost}，获得 ${state.shards}`);
+  }
+  // 暗海碎饵：15% / -10% 随机
+  if (id === "anhai") {
+    if (Math.random() < 0.5) {
+      state.shards += Math.floor(state.shards * 0.15);
+    } else {
+      state.shards = Math.max(0, state.shards - Math.floor(state.shards * 0.1));
+    }
+  }
+  // 万象无常骰：强化 2 个随机祝福
+  if (id === "wanxiang") {
+    for (let i = 0; i < 2 && state.blessings.length; i++) {
+      const b = state.blessings[Math.floor(Math.random() * state.blessings.length)];
+      b.heatEnhanced = (b.heatEnhanced || 1) * 2;
+    }
+  }
+  // 理性的溃败：3 个不同命运的 1 星祝福
+  if (id === "lixing") {
+    const fates = ["存护", "丰饶", "智识", "毁灭", "繁育", "虚无"];
+    for (const f of fates) {
+      const pool = Object.values(BLESSINGS).filter((b) => b.star === 1 && b.fate === f);
+      if (pool.length) {
+        const b = pool[Math.floor(Math.random() * pool.length)];
+        gainBlessing(state, b.id, { silent: true });
+      }
+    }
+  }
+  // 纯美骑士精神：1 个随机方程
+  if (id === "chunmei" || id === "yusi") {
+    const eq = rollEquation(1, 3);
+    if (eq) gainEquation(state, eq);
+  }
+  // 喜乐熏香：2 个随机方程
+  if (id === "xile" || id === "jiyi") {
+    for (let i = 0; i < 2; i++) {
+      const eq = rollEquation(1, 3);
+      if (eq) gainEquation(state, eq);
+    }
+  }
+  // 阿阮袋：3 个随机祝福
+  if (id === "aruan" || id === "chuiyu" || id === "kaituo") {
+    for (let i = 0; i < (id === "aruan" ? 3 : 1); i++) {
+      const b = rollBlessing(1, 3);
+      if (b) gainBlessing(state, b, { silent: true });
+    }
+  }
+  // 开拓火漆：每个命运 1 个祝福
+  if (id === "kaituo") {
+    const fates = ["存护", "丰饶", "智识", "毁灭", "繁育", "虚无"];
+    for (const f of fates) {
+      const pool = Object.values(BLESSINGS).filter((b) => b.fate === f);
+      if (pool.length) {
+        const b = pool[Math.floor(Math.random() * pool.length)];
+        gainBlessing(state, b.id, { silent: true });
+      }
+    }
+  }
+  // 楼梯上的水母：失去全部祝福转碎片（每星级 80）
+  if (id === "louti") {
+    const starSum = state.blessings.reduce((a, b) => a + (b.star || 1) * (b.enhanced || 1), 0);
+    state.blessings = [];
+    state.shards += starSum * 80;
+    state.log.push(`楼梯上的水母：祝福转 ${starSum * 80} 碎片`);
+  }
+  // 患者面具：祝福全换（保留强化）
+  if (id === "huanzhe") {
+    state.blessings = state.blessings.map((b) => {
+      const pool = blessingPool(1, 3);
+      const next = pool[Math.floor(Math.random() * pool.length)];
+      return { id: next.id, star: next.star, enhanced: b.enhanced || 1, heatEnhanced: b.heatEnhanced };
+    });
+  }
+  // 闪耀骰：奇物全换
+  if (id === "shanyao") {
+    state.curios = state.curios.map((c) => {
+      const pool = Object.values(CURIOS);
+      const next = pool[Math.floor(Math.random() * pool.length)];
+      return { id: next.id, star: next.star, enhanced: c.enhanced || 1, broken: false };
+    });
+  }
+  // 绝对自灭药膏：+2 随机祝福 -2 随机祝福
+  if (id === "juedui") {
+    for (let i = 0; i < 2; i++) {
+      const b = rollBlessing(1, 3);
+      if (b) gainBlessing(state, b, { silent: true });
+    }
+    for (let i = 0; i < 2 && state.blessings.length; i++) {
+      state.blessings.splice(Math.floor(Math.random() * state.blessings.length), 1);
+    }
+  }
+  // 瘟疫巢都：4 个随机负面奇物
+  if (id === "wenyi") {
+    const negatives = Object.values(CURIOS).filter((c) => c.negative);
+    for (let i = 0; i < 4 && negatives.length; i++) {
+      const n = negatives[Math.floor(Math.random() * negatives.length)];
+      if (!state.curios.some((x) => x.id === n.id)) gainCurio(state, n.id, { silent: true });
+    }
+  }
   return { ok: true, star: c.star, silent: opts.silent };
 }
 
@@ -548,6 +826,11 @@ export function loseRandomCurio(state) {
       const next = pool[Math.floor(Math.random() * pool.length)];
       gainCurio(state, next.id);
     }
+  }
+  // 真实机兵：失去奇物时 +75 碎片
+  if (state.curios.some((c) => c.id === "zhenshi")) {
+    state.shards += 75;
+    state.log.push("真实机兵：+75 碎片");
   }
   return removed;
 }
