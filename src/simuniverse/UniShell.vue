@@ -62,6 +62,8 @@
 
     <!-- 战斗 -->
     <section v-if="uiMode === 'battle'" class="uni-battle">
+      <!-- PIXI 动态特效层（粒子/飘字/震屏/发牌） -->
+      <canvas ref="fxCanvas" class="uni-fx-canvas"></canvas>
       <!-- 行动顺序条 -->
       <div class="uni-order">
         <div
@@ -86,6 +88,7 @@
             v-for="t in uniState.team"
             :key="t.index"
             class="uni-member"
+            :data-idx="t.index"
             :class="{
               'uni-member--dead': !t.alive,
               'uni-member--active': activeIdx === t.index,
@@ -145,6 +148,7 @@
             v-for="e in uniState.combat?.enemies || []"
             :key="e.id"
             class="uni-enemy"
+            :data-id="e.id"
             :class="{
               'uni-enemy--dead': !e.alive,
               'uni-enemy--target': targetMode === 'enemy' && selectedEnemy === e.id,
@@ -702,13 +706,14 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
 import DevLogPanel from "../components/DevLogPanel.vue";
 import { SHOP_PRICE, REGION_META, UNI_SKILLS, ENEMY_PATTERNS } from "./logic/uniConstants.js";
 import { isEquationUnlocked } from "./logic/uniBuffs.js";
 import { CHARACTERS } from "./logic/uniState.js";
 import { BLESSINGS, CURIOS, EQUATIONS } from "./logic/uniBuffs.js";
 import { shopPrice as uniShopPrice } from "./logic/uniShop.js";
+import { createUniEffects } from "./uniPixi.js";
 
 const props = defineProps({
   uni: { type: Object, required: true },
@@ -747,6 +752,97 @@ const skillCdText = computed(() => {
   const info = props.uni.skillInfo(active.value.index);
   if (!info || info.type !== "active") return "";
   return info.cooldown > 0 ? `（冷却${info.cooldown}）` : "";
+});
+
+// ---- PIXI 动态特效层（粒子/飘字/震屏/发牌） ----
+const fxCanvas = ref(null);
+const fx = ref(null);
+
+/** DOM 元素中心 → canvas 坐标 */
+function fxPos(dom) {
+  if (!fxCanvas.value || !dom) return null;
+  const cr = fxCanvas.value.getBoundingClientRect();
+  const r = dom.getBoundingClientRect();
+  return { x: r.left - cr.left + r.width / 2, y: r.top - cr.top + r.height / 2 };
+}
+
+/** 战斗视图出现时初始化/恢复特效层 */
+async function ensureFx() {
+  if (!fxCanvas.value || fx.value) return;
+  const w = fxCanvas.value.clientWidth || fxCanvas.value.parentElement?.clientWidth || 800;
+  const h = fxCanvas.value.clientHeight || fxCanvas.value.parentElement?.clientHeight || 480;
+  fx.value = createUniEffects();
+  await fx.value.init(fxCanvas.value, w, h);
+}
+
+onMounted(() => {
+  // 进入战斗视图时初始化
+  watch(uiMode, async (m) => {
+    if (m === "battle") {
+      await nextTick();
+      ensureFx();
+    }
+  });
+  // 伤害结算 → 飘字 + 粒子 + 轻微震屏
+  watch(
+    () => uniState.combat?.lastDamage?.seq,
+    (seq) => {
+      if (seq == null || !fx.value) return;
+      const ld = uniState.combat.lastDamage;
+      const dom = ld.type === "member"
+        ? fxCanvas.value?.parentElement?.querySelector(`.uni-member[data-idx="${ld.idx}"]`)
+        : fxCanvas.value?.parentElement?.querySelector(`.uni-enemy[data-id="${ld.id}"]`);
+      const pos = fxPos(dom);
+      if (!pos) return;
+      const mine = ld.type === "member";
+      fx.value.floatText(`-${ld.dmg}`, pos.x, pos.y, {
+        color: mine ? 0xffb08a : 0xffe9b8,
+        size: mine ? 24 : 26,
+        crit: ld.dmg >= 12,
+      });
+      fx.value.burst(pos.x, pos.y, {
+        color: mine ? 0xc0553f : 0xd8b26a,
+        count: mine ? 10 : 16,
+        speed: mine ? 160 : 240,
+        lifetime: 0.55,
+        size: 3,
+      });
+      if (mine) fx.value.shake(5, 0.22);
+    },
+  );
+  // 抽牌 → 发牌轨迹（牌堆 → 当前行动者）
+  watch(
+    () => uniState.combat?.lastPoker?.value,
+    (v) => {
+      if (v == null || !fx.value || !active.value) return;
+      const actorDom = fxCanvas.value?.parentElement?.querySelector(`.uni-member[data-idx="${active.value.index}"]`);
+      const to = fxPos(actorDom);
+      if (!to) return;
+      const from = { x: fxCanvas.value.clientWidth * 0.5, y: fxCanvas.value.clientHeight - 18 };
+      fx.value.deployCard(from, to);
+    },
+  );
+  // 战斗结束 → 闪光
+  watch(
+    () => uniState.combat?.phase,
+    (p, old) => {
+      if (!fx.value) return;
+      if (p === "won" && old !== p) {
+        fx.value.flash(0xffe9b8, 0.3, 0.35);
+        fx.value.burst(fxCanvas.value.clientWidth / 2, fxCanvas.value.clientHeight / 2, {
+          color: 0xffd54f, count: 40, speed: 320, lifetime: 0.9, size: 4,
+        });
+      } else if (p === "lost" && old !== p) {
+        fx.value.flash(0xc0553f, 0.4, 0.4);
+        fx.value.shake(14, 0.5);
+      }
+    },
+  );
+});
+
+onBeforeUnmount(() => {
+  fx.value?.destroy();
+  fx.value = null;
 });
 
 // ---- 行动顺序条 ----
@@ -1320,11 +1416,23 @@ function onQuit() {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  position: relative;
+}
+/* PIXI 特效画布：覆盖战斗区，事件穿透 */
+.uni-fx-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
 }
 .uni-battle__board {
   display: grid;
   grid-template-columns: 1.15fr 1fr;
   gap: 12px;
+  position: relative;
+  z-index: 1;
 }
 .uni-battle__team,
 .uni-battle__enemies {
