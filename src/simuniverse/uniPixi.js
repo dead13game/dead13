@@ -178,6 +178,49 @@ export class UniEffects {
       .to(stage, seq[6]);
   }
 
+  /** 命中帧停（hitstop）：暂停 PIXI 渲染若干毫秒制造打击感 */
+  hitstop(ms = 70) {
+    this._whenReady(() => {
+      if (!this.app) return;
+      this.app.ticker.stop();
+      setTimeout(() => this.app?.ticker.start(), ms);
+    });
+  }
+
+  /** 冲击波圆环：从目标点扩散 */
+  impactRing(x, y, color = 0xfff0c0, size = 30) {
+    this._whenReady(() => {
+      if (!this.app) return;
+      const g = new Graphics();
+      g.circle(0, 0, size).stroke({ width: 3, color });
+      g.position.set(x, y);
+      g.alpha = 0.9;
+      this.app.stage.addChild(g);
+      gsap.timeline()
+        .to(g, { scale: 2.4, alpha: 0, duration: 0.32, ease: "power2.out", onComplete: () => g.destroy() });
+    });
+  }
+
+  /** 目标点白闪（命中高光） */
+  hitFlash(x, y, color = 0xffffff) {
+    this._whenReady(() => {
+      if (!this.app) return;
+      const g = new Graphics();
+      g.circle(0, 0, 16).fill(color);
+      g.position.set(x, y);
+      g.alpha = 0;
+      this.app.stage.addChild(g);
+      gsap.timeline()
+        .to(g, { alpha: 0.85, scale: 1.6, duration: 0.06 })
+        .to(g, { alpha: 0, scale: 2.2, duration: 0.18, onComplete: () => g.destroy() });
+    });
+  }
+
+  /** 护盾/治疗增益飘字（绿色 / 蓝色，带 + 前缀） */
+  gainFloat(text, x, y, color = 0x9fd0ff) {
+    this.floatText(`+${text}`, x, y, { color, size: 22 });
+  }
+
   /**
    * 发牌轨迹：从起点（牌堆）飞一个光点到目标
    * @param {{x:number,y:number}} from

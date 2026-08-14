@@ -5,7 +5,7 @@
       <span class="uni-topbar__title" title="连点 3 次打开开发日志" @click="onTitleClick">模拟宇宙</span>
       <span class="uni-topbar__info">位面 {{ uniState.plane }} · 第 {{ uniState.floor }} 层</span>
       <span class="uni-topbar__stat" title="宇宙碎片">{{ uniState.shards }}</span>
-      <span class="uni-topbar__stat" title="祝福">{{ uniState.blessings.length }}</span>
+      <span class="uni-topbar__stat uni-topbar__stat--bless" title="祝福">{{ uniState.blessings.length }}</span>
       <span class="uni-topbar__stat" title="奇物">{{ uniState.curios.length }}</span>
       <span class="uni-topbar__stat" title="方程">{{ uniState.equations.length }}</span>
       <span class="uni-topbar__spacer"></span>
@@ -480,7 +480,7 @@
             v-for="id in pendingPick.candidates"
             :key="id"
             class="uni-choice__card"
-            @click="uni.doBlessingPick(id)"
+            @click="onPickBlessing(id, $event)"
           >
             <span class="uni-choice__icon">🙏</span>
             <span class="uni-choice__name">{{ uni.blessingName(id) }}</span>
@@ -554,7 +554,7 @@
             v-for="id in pendingPick.candidates"
             :key="id"
             class="uni-choice__card"
-            @click="uni.doBlessingPick(id)"
+            @click="onPickBlessing(id, $event)"
           >
             <span class="uni-choice__name">{{ uni.blessingName(id) }}</span>
             <span class="uni-tag uni-tag--fate">{{ blessingFate(id) }}</span>
@@ -702,11 +702,22 @@
     </section>
 
     <DevLogPanel :entries="uniState.devLog?.entries || []" :open="logOpen" />
+
+    <!-- 祝福获取动画：背景变暗 → 卡放大显效果 → 飞向背包 -->
+    <div v-if="blessingAnim" class="uni-bless-overlay">
+      <div ref="blessCard" class="uni-bless-card" :class="'uni-bless-card--' + (blessingAnim.star || 1)">
+        <div class="uni-bless-card__star">{{ '★'.repeat(blessingAnim.star || 1) }}</div>
+        <div class="uni-bless-card__name">{{ blessingAnim.name }}</div>
+        <div class="uni-bless-card__fate">{{ blessingAnim.fate }}</div>
+        <div class="uni-bless-card__desc">{{ blessingAnim.desc }}</div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from "vue";
+import gsap from "gsap";
 import DevLogPanel from "../components/DevLogPanel.vue";
 import { SHOP_PRICE, REGION_META, UNI_SKILLS, ENEMY_PATTERNS } from "./logic/uniConstants.js";
 import { isEquationUnlocked } from "./logic/uniBuffs.js";
@@ -819,6 +830,12 @@ onMounted(() => {
         size: mine ? 24 : 26,
         crit: ld.dmg >= 12,
       });
+      // 打击感：我方攻击命中 → 帧停 + 冲击波 + 白闪；我方受击 → 红闪
+      if (!mine) {
+        fx.value.hitstop(ld.dmg >= 12 ? 90 : 60);
+        fx.value.impactRing(pos.x, pos.y, 0xfff0c0);
+        fx.value.hitFlash(pos.x, pos.y, 0xfff6e0);
+      }
       fx.value.burst(pos.x, pos.y, {
         color: mine ? 0xc0553f : 0xd8b26a,
         count: mine ? 16 : 22,
@@ -851,6 +868,11 @@ onMounted(() => {
       const from = { x: (fxCanvas.value.clientWidth || 800) * 0.5, y: (fxCanvas.value.clientHeight || 480) - 16 };
       const color = tgt?.type === "enemy" ? 0xf2c96b : 0x9fd0ff;
       fx.value.deployCard(from, to, color);
+      // 防御：目标成员卡显示 +护盾 蓝色飘字与蓝色光环
+      if (tgt?.type === "member") {
+        fx.value.gainFloat(String(poker.value || 0), to.x, to.y - 18, 0x9fd0ff);
+        fx.value.impactRing(to.x, to.y, 0x9fd0ff, 26);
+      }
     },
   );
   // 战斗结束 → 闪光
@@ -935,6 +957,65 @@ function fxCount(kind, targetIdx) {
 // ---- 事件 / 商店 ----
 const ev = computed(() => props.uni.getCurrentEvent());
 const pendingPick = computed(() => props.uni.currentBlessingPick());
+
+// ---- 祝福获取动画（变暗 → 放大显效果 → 飞向背包） ----
+const blessingAnim = ref(null); // { id, star, name, fate, desc, from:{x,y} }
+const blessCard = ref(null);
+let blessTween = null;
+function onPickBlessing(id, e) {
+  const btn = e.currentTarget;
+  const r = btn.getBoundingClientRect();
+  const b = BLESSINGS[id];
+  if (!b) return;
+  blessingAnim.value = {
+    id,
+    star: b.star,
+    name: b.name,
+    fate: b.fate,
+    desc: b.desc,
+    from: { x: r.left + r.width / 2, y: r.top + r.height / 2 },
+  };
+}
+watch(blessingAnim, async (a) => {
+  if (!a) return;
+  await nextTick();
+  const card = blessCard.value;
+  if (!card) return;
+  // 起点：点击处（小尺寸）
+  gsap.set(card, { x: a.from.x, y: a.from.y, scale: 0.25, opacity: 0 });
+  gsap.set(".uni-bless-card__desc", { opacity: 0 });
+  // 背包锚点（顶栏祝福统计）
+  const bagEl = fxCanvas.value?.parentElement?.querySelector(".uni-topbar__stat--bless")
+    || document.querySelector(".uni-topbar__stat--bless");
+  const br = bagEl ? bagEl.getBoundingClientRect() : { left: innerWidth / 2, top: 20, width: 0, height: 0 };
+  blessTween = gsap.timeline()
+    .to(card, { opacity: 1, duration: 0.1 })
+    // 放大到中央
+    .to(card, {
+      x: innerWidth / 2,
+      y: innerHeight / 2 - 30,
+      scale: 2.7,
+      duration: 0.32,
+      ease: "power2.out",
+    })
+    // 显示效果
+    .to(".uni-bless-card__desc", { opacity: 1, duration: 0.2 }, "+=0.18")
+    .to(".uni-bless-card__desc", { opacity: 0, duration: 0.12 }, "+=0.8")
+    // 缩小飞向背包
+    .to(card, {
+      x: br.left + br.width / 2,
+      y: br.top + br.height / 2,
+      scale: 0.2,
+      opacity: 0.45,
+      duration: 0.38,
+      ease: "power1.in",
+    })
+    .add(() => {
+      blessingAnim.value = null;
+      blessTween = null;
+      props.uni.doBlessingPick(a.id);
+    });
+});
 const hasNextEvent = computed(
   () =>
     uniState.region?.eventIds &&
@@ -1484,6 +1565,59 @@ function onQuit() {
   45% { transform: translateX(-5px); }
   60% { transform: translateX(4px); }
   75% { transform: translateX(-2px); }
+}
+/* 祝福获取动画 */
+.uni-bless-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(8, 6, 4, 0.72);
+  animation: uniBlessDim 0.25s ease forwards;
+  pointer-events: none;
+}
+@keyframes uniBlessDim {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.uni-bless-card {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 300px;
+  margin-left: -150px;
+  margin-top: -110px;
+  background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+  border: 2px solid var(--gold);
+  border-radius: 14px;
+  padding: 18px 20px;
+  text-align: center;
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.7);
+  will-change: transform, opacity;
+}
+.uni-bless-card--2 { border-color: #b08cff; }
+.uni-bless-card--3 { border-color: #ffc96b; box-shadow: 0 14px 44px rgba(255, 180, 60, 0.25); }
+.uni-bless-card__star {
+  color: var(--gold);
+  letter-spacing: 2px;
+  font-size: 14px;
+}
+.uni-bless-card__name {
+  font-size: 20px;
+  font-weight: bold;
+  color: var(--text);
+  margin: 6px 0 4px;
+  letter-spacing: 1px;
+}
+.uni-bless-card__fate {
+  font-size: 12px;
+  color: var(--gold);
+  margin-bottom: 10px;
+}
+.uni-bless-card__desc {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-dim);
+  opacity: 0;
 }
 /* 成员卡：暖暗底 + 金色顶部条 */
 .uni-member {
