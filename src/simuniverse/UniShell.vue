@@ -711,8 +711,8 @@
 
     <DevLogPanel :entries="uniState.devLog?.entries || []" :open="logOpen" />
 
-    <!-- 获得动画（祝福/奇物/方程）：背景变暗 → 卡放大显效果 → 飞向背包，单击跳过 -->
-    <div v-if="blessingAnim" class="uni-bless-overlay" title="点击跳过">
+    <!-- 获得动画（祝福/奇物/方程）：背景变暗 → 卡放大显效果 → 飞向背包，点击任意处跳过 -->
+    <div v-if="blessingAnim" class="uni-bless-overlay">
       <div ref="blessCard" class="uni-bless-card" :class="'uni-bless-card--' + (blessingAnim.type || 'blessing')">
         <div class="uni-bless-card__star">{{ '★'.repeat(blessingAnim.star || 1) }}</div>
         <div class="uni-bless-card__name">{{ blessingAnim.name }}</div>
@@ -967,6 +967,14 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  if (skipHandler) {
+    document.removeEventListener("click", skipHandler);
+    skipHandler = null;
+  }
+  if (blessTween) {
+    blessTween.kill();
+    blessTween = null;
+  }
   if (fxObserver) {
     fxObserver.disconnect();
     fxObserver = null;
@@ -1145,7 +1153,14 @@ function playCardAnim(card) {
       resolve();
     };
     // 单击跳过：终止当前动画立即完成
-    skipHandler = () => {
+    // 守卫：只响应「动画开始后」的点击 —— 触发本次获得的那个点击事件
+    // （timeStamp 早于 t0）冒泡到 document 时会被此处捕获，若不判断会把动画秒杀；
+    // Chrome/Edge 的 timeStamp 与 performance.now 同源，可直接比较；
+    // Firefox 为 epoch ms（>1e12），此判断恒为 false → 不误杀（跳过功能在其上失效，可接受）
+    const t0 = performance.now();
+    skipHandler = (e) => {
+      const et = e?.timeStamp || 0;
+      if (et && et < t0) return;
       if (blessTween) {
         blessTween.kill();
         blessTween = null;
@@ -1317,17 +1332,17 @@ function onExecuteAttack() {
   pendingSkill.value = false;
   targetMode.value = "enemy";
   selectedEnemy.value = null;
-  battleMsg.value = "选择目标敌人";
+  props.uni.battleMsg.value = "选择目标敌人";
 }
 function onExecuteDefense() {
   actionChoice.value = null;
   targetMode.value = "member";
-  battleMsg.value = "选择要加护盾的成员";
+  props.uni.battleMsg.value = "选择要加护盾的成员";
 }
 function onCancelAction() {
   if (uniState.combat) uniState.combat.pendingPoker = [];
   actionChoice.value = null;
-  battleMsg.value = "";
+  props.uni.battleMsg.value = "";
 }
 function onEnemyClick(enemyId) {
   if (targetMode.value !== "enemy") return;
@@ -1356,7 +1371,7 @@ function onSkillClick() {
     targetMode.value = "enemy";
     pendingSkill.value = true;
     selectedEnemy.value = null;
-    battleMsg.value = "选择大招目标";
+    props.uni.battleMsg.value = "选择大招目标";
     return;
   }
   // 纳西妲：弹选人面板（选 1-N 人立即行动）
@@ -1748,7 +1763,9 @@ function onQuit() {
   z-index: 200;
   background: rgba(8, 6, 4, 0.72);
   animation: uniBlessDim 0.25s ease forwards;
-  cursor: pointer;
+  /* 点击穿透：三选一/继续等按钮在动画期间可直接点击（选中即跳过当前动画）；
+     单击跳过由 playCardAnim 的 document 级监听生效，点击任意处即跳过 */
+  pointer-events: none;
 }
 @keyframes uniBlessDim {
   from { opacity: 0; }

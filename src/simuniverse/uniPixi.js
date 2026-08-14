@@ -1,7 +1,7 @@
 // 模拟宇宙动态视觉层 — PIXI 粒子 / 伤害飘字 / 震屏 / 发牌轨迹 / 氛围
 // 只做视觉：不依赖游戏逻辑，坐标由 UniShell 传入（DOM 元素中心 → canvas 坐标）
 
-import { Application, Container, Graphics, Text } from "pixi.js";
+import { Application, Container, Graphics, HTMLText } from "pixi.js";
 import { ParticleSystem } from "../pixi/effects/ParticleSystem.js";
 import gsap from "gsap";
 
@@ -73,6 +73,20 @@ export class UniEffects {
     this.flashLayer.interactive = false;
     this.app.stage.addChild(this.flashLayer);
 
+    // 渲染保护：个别 Text 渲染崩溃（getCanvasFillStyle/createPattern）不再中断整帧，
+    // 否则粒子/闪光等其余特效全部不显示，且控制台每帧刷屏
+    // 注意：ticker 回调绑定的是 app.render 原型方法的引用，替换实例属性无效，
+    // 必须包装 renderer.render（渲染指令收集与绘制都在它内部）
+    const renderer = this.app.renderer;
+    const origRendererRender = renderer.render.bind(renderer);
+    renderer.render = (...args) => {
+      try {
+        origRendererRender(...args);
+      } catch (e) {
+        console.warn("[uni-pixi] render error", e);
+      }
+    };
+
     // 常驻氛围：每 700ms 在随机位置飘一粒微尘
     this._ambientTimer = setInterval(() => {
       if (this._destroyed || !this.app) return;
@@ -116,16 +130,26 @@ export class UniEffects {
   _floatText(text, x, y, opts) {
     if (!this.app) return;
     const { color = 0xffd9a0, size = 26, crit = false } = opts;
-    const t = new Text({
-      text: String(text),
-      style: {
-        fontFamily: "Georgia, serif",
-        fontSize: crit ? size * 1.5 : size,
-        fontWeight: "bold",
-        fill: color,
-        stroke: { color: 0x1a1008, width: 4 },
-      },
-    });
+    let t;
+    try {
+      // PIXI v8 的 canvas 文本渲染（getCanvasFillStyle）在本环境会把 WHITE 纹理的
+      // Uint8Array resource 传给 createPattern 崩溃（getCanvasFillStyle.mjs:15），
+      // 用 HTMLText（DOM 渲染路径）彻底绕开 canvas fillStyle；
+      // 注意 HTMLText 不支持 stroke，传了会 warn，故去掉
+      const cssColor = "#" + Math.min(0xffffff, Math.max(0, color | 0)).toString(16).padStart(6, "0");
+      t = new HTMLText({
+        text: String(text),
+        style: {
+          fontFamily: "Georgia, serif",
+          fontSize: `${crit ? size * 1.5 : size}px`,
+          fontWeight: "bold",
+          fill: cssColor,
+        },
+      });
+    } catch (e) {
+      console.warn("[uni-pixi] floatText create failed", e, { text, color, size, crit });
+      return;
+    }
     t.anchor.set(0.5, 0.5);
     t.position.set(x, y);
     t.alpha = 0;
