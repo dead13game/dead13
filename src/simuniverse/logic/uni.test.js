@@ -1636,3 +1636,40 @@ describe("模拟宇宙 M9：全量方程", () => {
     expect(s.team[0].status.dmgBuffPct).toBeGreaterThanOrEqual(200);
   });
 });
+
+describe("模拟宇宙 M10：菜月昴回滚后重新开战", () => {
+  it("死亡回归回滚后 combat 清空、region 保留，可重新 startCombat", () => {
+    const s = createUniState([11, 2, 3, 4]);
+    startCombat(s); // 第 1 层 battle
+    expect(s.combat.phase).toBe("player-action");
+    // 全灭 → 触发回滚
+    s.team.forEach((t) => {
+      t.hp = 0;
+      t.alive = false;
+    });
+    s.combat.enemyQueue = [{ enemyIdx: 0, action: { type: "aoe", dmg: 3 }, desc: "x" }];
+    s.combat.phase = "enemy-announce";
+    enemyAnnounce(s);
+    enemyResolve(s);
+    expect(s.gameOver).toBe(false);
+    expect(s.combat).toBeNull(); // 回滚清空战斗
+    expect(s.region.type).toBe("battle"); // 区域保留
+    // 重新开战（控制器 enterCurrentMode 行为）
+    startCombat(s);
+    expect(s.combat.phase).toBe("player-action");
+    expect(s.team.every((t) => t.alive)).toBe(true);
+  });
+
+  it("读档后新字段默认值兜底（jarBrain/items 等不因旧存档丢失崩溃）", () => {
+    const s = createUniState();
+    const data = serializeUni(s);
+    delete data.jarBrain;
+    delete data.items;
+    const s2 = createUniState();
+    expect(deserializeUni(s2, data)).toBe(true);
+    // 兜底：createUniState 初始化值保留
+    expect(s2.jarBrain).toBe(0);
+    expect(s2.items).toBeTruthy();
+    expect(s2.items.medkit).toBe(0);
+  });
+});

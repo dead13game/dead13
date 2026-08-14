@@ -628,9 +628,11 @@ watch(
     if (!entries?.length) return;
     const last = entries[entries.length - 1];
     const d = last?.data || {};
-    if (d.enemyIdx != null && d.dmg != null) {
+    const msg = last?.msg || "";
+    // 只对「实际伤害结算」日志飘字（避免 playerAttack 声明日志重复飘字）
+    if (msg.includes("造成伤害") && d.enemyIdx != null && d.dmg != null) {
       spawnFx("enemy", d.enemyIdx, `-${d.dmg}`, d.dmg > 0 ? "dmg" : "shield");
-    } else if (d.memberIdx != null && d.hpDmg != null && d.hpDmg > 0) {
+    } else if (msg.includes("受到伤害") && d.memberIdx != null && d.hpDmg != null && d.hpDmg > 0) {
       spawnFx("member", d.memberIdx, `-${d.hpDmg}`, "dmg");
     }
   },

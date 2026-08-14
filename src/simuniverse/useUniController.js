@@ -171,6 +171,11 @@ export function useUniController() {
 
   /** 玩家行动后：胜利/失败/第三波询问/敌人阶段 */
   function afterPlayerAction() {
+    // 菜月昴死亡回归回滚后 combat 已清空 → 恢复到本层区域视图
+    if (!uniState.combat) {
+      enterCurrentMode();
+      return;
+    }
     const p = uniState.combat?.phase;
     if (p === "won") {
       uiMode.value = "reward";
@@ -192,6 +197,11 @@ export function useUniController() {
   /** 敌人慢放：宣布 → 延迟 → 结算 → 循环 */
   function scheduleEnemy() {
     const step = () => {
+      // 菜月昴死亡回归回滚后 combat 清空 → 恢复区域视图
+      if (!uniState.combat) {
+        enterCurrentMode();
+        return;
+      }
       const phase = uniState.combat?.phase;
       if (phase === "won" || phase === "lost" || phase === "wave-clear") {
         if (phase === "won") uiMode.value = "reward";
