@@ -9,6 +9,7 @@
       <span class="uni-topbar__stat" title="奇物">✨ {{ uniState.curios.length }}</span>
       <span class="uni-topbar__stat" title="方程">📐 {{ uniState.equations.length }}</span>
       <span class="uni-topbar__spacer"></span>
+      <button class="uni-btn uni-btn--sm" @click="bagOpen = true">🎒 背包</button>
       <button class="uni-btn uni-btn--sm" @click="uni.saveUni()">💾 存档</button>
       <button class="uni-btn uni-btn--sm" @click="onQuit">🚪 退出</button>
     </header>
@@ -187,6 +188,115 @@
         <div v-if="battleMsg" class="uni-battle__msg">{{ battleMsg }}</div>
       </div>
     </section>
+
+    <!-- 背包弹层：祝福 / 奇物 / 方程 -->
+    <div v-if="bagOpen" class="uni-modal">
+      <div class="uni-modal__box uni-modal__box--wide">
+        <h3 class="uni-modal__title">🎒 背包</h3>
+        <div class="uni-bag-tabs">
+          <button
+            class="uni-btn uni-btn--sm"
+            :class="{ 'uni-btn--active': bagTab === 'blessing' }"
+            @click="bagTab = 'blessing'"
+          >
+            🙏 祝福（{{ uniState.blessings.length }}）
+          </button>
+          <button
+            class="uni-btn uni-btn--sm"
+            :class="{ 'uni-btn--active': bagTab === 'curio' }"
+            @click="bagTab = 'curio'"
+          >
+            ✨ 奇物（{{ uniState.curios.length }}）
+          </button>
+          <button
+            class="uni-btn uni-btn--sm"
+            :class="{ 'uni-btn--active': bagTab === 'equation' }"
+            @click="bagTab = 'equation'"
+          >
+            📐 方程（{{ uniState.equations.length }}）
+          </button>
+        </div>
+        <!-- 祝福列表 -->
+        <div v-if="bagTab === 'blessing'" class="uni-bag-list">
+          <div v-if="!uniState.blessings.length" class="uni-bag-empty">尚未获得祝福</div>
+          <div
+            v-for="(b, i) in uniState.blessings"
+            :key="'b' + i"
+            class="uni-bag-item"
+            :class="{ 'uni-bag-item--open': expandedKey === 'blessing-' + i }"
+            @click="toggleDetail('blessing', i)"
+          >
+            <div class="uni-bag-item__head">
+              <span class="uni-bag-item__name">
+                <span class="uni-star">{{ '★'.repeat(b.star) }}</span>
+                {{ bagBlessing(b.id).name }}
+              </span>
+              <span class="uni-bag-item__meta">
+                <span v-if="(b.enhanced || 1) > 1 || b.heatEnhanced" class="uni-tag uni-tag--boost">
+                  强化 ×{{ b.enhanced || 1 }}{{ b.heatEnhanced ? '×' + b.heatEnhanced : '' }}
+                </span>
+                <span class="uni-tag">{{ bagBlessing(b.id).fate }}</span>
+                <span class="uni-bag-item__arrow">{{ expandedKey === 'blessing-' + i ? '▲' : '▼' }}</span>
+              </span>
+            </div>
+            <div v-if="expandedKey === 'blessing-' + i" class="uni-bag-item__desc">
+              {{ bagBlessing(b.id).desc }}
+            </div>
+          </div>
+        </div>
+        <!-- 奇物列表 -->
+        <div v-if="bagTab === 'curio'" class="uni-bag-list">
+          <div v-if="!uniState.curios.length" class="uni-bag-empty">尚未获得奇物</div>
+          <div
+            v-for="(c, i) in uniState.curios"
+            :key="'c' + i"
+            class="uni-bag-item"
+            :class="{ 'uni-bag-item--open': expandedKey === 'curio-' + i }"
+            @click="toggleDetail('curio', i)"
+          >
+            <div class="uni-bag-item__head">
+              <span class="uni-bag-item__name">
+                <span v-if="c.star > 0" class="uni-star">{{ '★'.repeat(c.star) }}</span>
+                {{ bagCurio(c.id).name }}
+              </span>
+              <span class="uni-bag-item__meta">
+                <span v-if="bagCurio(c.id).negative" class="uni-tag uni-tag--bad">负面</span>
+                <span class="uni-bag-item__arrow">{{ expandedKey === 'curio-' + i ? '▲' : '▼' }}</span>
+              </span>
+            </div>
+            <div v-if="expandedKey === 'curio-' + i" class="uni-bag-item__desc">
+              {{ bagCurio(c.id).desc }}
+            </div>
+          </div>
+        </div>
+        <!-- 方程列表 -->
+        <div v-if="bagTab === 'equation'" class="uni-bag-list">
+          <div v-if="!uniState.equations.length" class="uni-bag-empty">尚未获得方程</div>
+          <div
+            v-for="(e, i) in uniState.equations"
+            :key="'e' + i"
+            class="uni-bag-item"
+            :class="{ 'uni-bag-item--open': expandedKey === 'equation-' + i }"
+            @click="toggleDetail('equation', i)"
+          >
+            <div class="uni-bag-item__head">
+              <span class="uni-bag-item__name">
+                <span class="uni-star">{{ '★'.repeat(e.star) }}</span>
+                {{ bagEquation(e.id).name }}
+              </span>
+              <span class="uni-bag-item__meta">
+                <span class="uni-tag">{{ bagEquation(e.id).fate }}</span>
+                <span class="uni-bag-item__arrow">{{ expandedKey === 'equation-' + i ? '▲' : '▼' }}</span>
+              </span>
+            </div>
+            <div v-if="expandedKey === 'equation-' + i" class="uni-bag-item__desc">
+              {{ bagEquation(e.id).desc }}
+            </div>
+          </div>
+        </div>
+        <button class="uni-btn uni-btn--sm uni-modal__cancel" @click="bagOpen = false">关闭</button>
+      </div>
+    </div>
 
     <!-- 技能分支弹层（莉奈娅盾/dot、纳西妲选人） -->
     <div v-if="skillBranch" class="uni-modal">
@@ -451,6 +561,7 @@ import { ref, computed, watch } from "vue";
 import DevLogPanel from "../components/DevLogPanel.vue";
 import { SHOP_PRICE, REGION_META, UNI_SKILLS } from "./logic/uniConstants.js";
 import { CHARACTERS } from "./logic/uniState.js";
+import { BLESSINGS, CURIOS, EQUATIONS } from "./logic/uniBuffs.js";
 import { shopPrice as uniShopPrice } from "./logic/uniShop.js";
 
 const props = defineProps({
@@ -544,6 +655,24 @@ const pendingPick = computed(() => props.uni.currentBlessingPick());
 const upgradable = computed(() =>
   uniState.team.filter((t) => t.alive && t.charId !== 11),
 );
+
+// ---- 背包弹层 ----
+const bagOpen = ref(false);
+const bagTab = ref("blessing");
+const expandedKey = ref(null);
+function toggleDetail(kind, i) {
+  const key = kind + "-" + i;
+  expandedKey.value = expandedKey.value === key ? null : key;
+}
+function bagBlessing(id) {
+  return BLESSINGS[id] || { name: id, desc: "", fate: "" };
+}
+function bagCurio(id) {
+  return CURIOS[id] || { name: id, desc: "" };
+}
+function bagEquation(id) {
+  return EQUATIONS[id] || { name: id, desc: "", fate: "" };
+}
 
 // ---- 选角 ----
 const allChars = computed(() => Object.values(CHARACTERS));
@@ -1230,6 +1359,84 @@ function onQuit() {
 .uni-modal__cancel {
   margin-top: 6px;
   opacity: 0.7;
+}
+/* 背包 */
+.uni-modal__box--wide {
+  min-width: 440px;
+  max-width: 92vw;
+}
+.uni-bag-tabs {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.uni-btn--active {
+  background: rgba(255, 171, 0, 0.25);
+  border-color: #ffab00;
+  color: #ffc94d;
+}
+.uni-bag-list {
+  width: 100%;
+  max-height: 50vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 2px;
+}
+.uni-bag-empty {
+  color: #888;
+  padding: 20px;
+  text-align: center;
+}
+.uni-bag-item {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s, border-color 0.15s;
+}
+.uni-bag-item:hover {
+  background: rgba(255, 171, 0, 0.08);
+}
+.uni-bag-item--open {
+  border-color: rgba(255, 171, 0, 0.4);
+}
+.uni-bag-item__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.uni-bag-item__name {
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.uni-bag-item__meta {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.uni-bag-item__arrow {
+  color: #888;
+  font-size: 11px;
+}
+.uni-bag-item__desc {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  color: #cfc4f0;
+  font-size: 13px;
+  line-height: 1.6;
+  animation: uniPop 0.2s ease;
 }
 @media (max-width: 640px) {
   .uni-battle__board {
