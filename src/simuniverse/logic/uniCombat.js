@@ -1053,6 +1053,10 @@ function endCombat(state, result) {
         }
         state.pendingBlessingPicks = (state.pendingBlessingPicks || []).concat(picks);
       }
+      if (r.skillUpTarget) {
+        state.pendingSkillUpTarget = (state.pendingSkillUpTarget || 0) + r.skillUpTarget;
+        state.log.push(`事件战斗胜利：可指定角色技能等级 +${r.skillUpTarget}`);
+      }
       state.pendingEventReward = null;
     }
     // 一次性 buff 与临时等级在战斗结束后失效

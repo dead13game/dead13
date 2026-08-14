@@ -439,7 +439,21 @@
     <!-- 战斗胜利 -->
     <section v-if="uiMode === 'reward'" class="uni-panel">
       <h2 class="uni-panel__title">🎉 战斗胜利</h2>
-      <template v-if="pendingPick">
+      <template v-if="skillTargetPending">
+        <p class="uni-panel__desc">选择角色升级技能（+{{ skillTargetPending }} 级）</p>
+        <div class="uni-choice">
+          <button
+            v-for="t in upgradable"
+            :key="t.index"
+            class="uni-choice__card"
+            @click="uni.doSkillTarget(t.index)"
+          >
+            <img class="uni-choice__avatar" :src="iconOf(t.index)" :alt="t.name" @error="onImgError" />
+            <span class="uni-choice__name">{{ t.name }}（Lv{{ t.skillLevel }}）</span>
+          </button>
+        </div>
+      </template>
+      <template v-else-if="pendingPick">
         <p class="uni-panel__desc">选择祝福（{{ pendingPick.starRange[0] }}~{{ pendingPick.starRange[1] }} 星）</p>
         <div class="uni-choice">
           <button

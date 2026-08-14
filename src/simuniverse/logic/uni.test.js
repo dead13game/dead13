@@ -1041,6 +1041,21 @@ describe("模拟宇宙 M4：事件系统", () => {
     expect(["大吉", "中吉", "小吉", "凶"]).toContain(r.outcome.lottery.best);
   });
 
+  it("深渊裂缝 A：精英战胜利 → 指定角色技能 +2（事件战斗奖励 skillUpTarget 不再丢失）", () => {
+    const s = createUniState();
+    const r = applyEventOption(s, "abyss", 0);
+    expect(r.outcome.battle).toBeTruthy();
+    s.region = { type: "battle", name: "事件战斗", waves: r.outcome.battle.waves };
+    startCombat(s);
+    s.combat.enemies.forEach((e) => {
+      e.hp = 0;
+      e.alive = false;
+    });
+    playerDefense(s, 0);
+    expect(s.combat.phase).toBe("won");
+    expect(s.pendingSkillUpTarget).toBe(2); // 修复前此奖励被丢弃
+  });
+
   it("普通战斗胜利：生成 3 次祝福三选一候选（battle 区域奖励）", () => {
     const s = createUniState();
     s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 3 }] };

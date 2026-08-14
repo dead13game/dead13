@@ -213,6 +213,11 @@ export function useUniController() {
     }
     const p = uniState.combat?.phase;
     if (p === "won") {
+      // 事件战斗奖励：指定角色技能升级（深渊裂缝/封印之门等）
+      if (uniState.pendingSkillUpTarget) {
+        skillTargetPending.value = uniState.pendingSkillUpTarget;
+        uniState.pendingSkillUpTarget = 0;
+      }
       uiMode.value = "reward";
       return;
     }
