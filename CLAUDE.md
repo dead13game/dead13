@@ -80,6 +80,7 @@ graph TD
 | 渲染   | `src/pixi/`        | PixiJS v8 Application + 精灵 + 布局 + 粒子                      |
 | 控制器 | `src/composables/` | useGameController / useLeagueController / useWorldCupController |
 | 爬塔   | `src/solo/`        | 单机模式（logic/ 纯逻辑 + useSoloController + SoloShell）       |
+| 模拟宇宙 | `src/simuniverse/` | PVE 无尽深渊（logic/ 纯逻辑 + useUniController + UniShell，DOM 渲染，不依赖 PIXI） |
 | 音频   | `src/audio/`       | SoundManager 音效播放（由`src/game/soundEvents.js` 触发）     |
 | UI     | `src/components/`  | Vue 3 组件（ActionBar、League*/WorldCup* 系列等）               |
 
@@ -90,6 +91,8 @@ graph TD
 | 经典对战 | `App.vue` gameMode      | `src/game/gameState.js`                    | 2-8 人扑克对战，选角色 + 天气                                                                |
 | 世界杯   | `App.vue` wcStarted     | `src/game/worldCup.js` + `matchState.js` | 小组赛 A-H → 淘汰赛 R16/QF/SF/Final；常规 90 回合 + 加时 30；点球先得 5 分、每方抽 2 张     |
 | 联赛     | `App.vue` leagueStarted | `src/game/league.js`                       | 10 支英超球队，tier 1-3（🏆争冠/⚔️欧战/🛡️保级）；队标`public/team-badges/{teamId}.png` |
+| 单机     | `App.vue` gameMode='solo' | `src/solo/logic/solo.js`               | 技能卡肉鸽：章节爬塔/抽3选2/事件检定/商店营地（DOM 渲染） |
+| 模拟宇宙 | `App.vue` gameMode='simuniverse' | `src/simuniverse/logic/uniState.js` | PVE 无尽深渊：位面 1-10/11-30/31-60/61+ 循环；扑克牌普攻/防御/开大三选一；敌人模板行动；祝福/奇物/方程；商店/休整/造物调试台；存档 `dead13_uni_save`；设计文档 `docs/simuniverse-design.md` |
 
 比赛状态机 `matchState.js` 在 1v1 游戏之上叠加进球、重置、换人、加时、点球逻辑。
 
@@ -194,6 +197,13 @@ PlayerTableSprite `_updateStatus()` 依赖（注意嵌套路径）:
 | `src/solo/logic/soloCombat.js`    | —   | 单机战斗（抽3选2/牌堆坟场/护盾/斗志/AI）            |
 | `src/solo/logic/soloConstants.js` | —   | 技能卡池 13 张 / 敌人 / 节点链 / 数值常量           |
 | `src/solo/SoloShell.vue`          | —   | 单机 UI 主壳（地图/战斗/商店/事件/营地/结算）       |
+| `src/simuniverse/logic/uniState.js` | — | 模拟宇宙状态机（位面/层推进/区域生成/货币/存档/菜月昴读档） |
+| `src/simuniverse/logic/uniCombat.js` | — | 模拟宇宙战斗（扑克牌三选一/敌人模板/波次/转化及格线/首领穿插） |
+| `src/simuniverse/logic/uniSkills.js` | — | 11 角色 PVE 技能（等级 1-10 查表/冷却）             |
+| `src/simuniverse/logic/uniEvents.js` | — | 分支事件/奖励/冒险（9+8+3 个）                      |
+| `src/simuniverse/logic/uniBuffs.js` | —  | 祝福 20 / 奇物 10 / 方程 5 + modifier 聚合          |
+| `src/simuniverse/logic/uniShop.js` | —   | 商店/休整/造物调试台（热量强化/覆写）               |
+| `src/simuniverse/UniShell.vue`    | —   | 模拟宇宙 UI 主壳（2选1/战斗/事件/商店/工作台）      |
 
 ## 已修复的关键 Bug（禁止重复犯错）
 

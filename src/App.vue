@@ -62,6 +62,18 @@
             🧭 单机模式
             <span class="mode-btn__desc">技能卡肉鸽 · 章节爬塔</span>
           </button>
+          <button
+            v-if="uniHasSave"
+            class="mode-btn mode-btn--uni-continue"
+            @click="continueUni"
+          >
+            🌌 继续模拟宇宙
+            <span class="mode-btn__desc">继续无尽深渊</span>
+          </button>
+          <button class="mode-btn mode-btn--uni" @click="selectMode('simuniverse')">
+            🌌 模拟宇宙
+            <span class="mode-btn__desc">PVE 无尽深渊 · 位面爬塔</span>
+          </button>
           <button class="mode-btn mode-btn--rules" @click="showRules = true">
             📖 规则说明
             <span class="mode-btn__desc">查看游戏详细规则</span>
@@ -132,6 +144,13 @@
       <SoloShell
         v-else-if="gameMode === 'solo'"
         :solo="soloController"
+        @quit="gameMode = null"
+      />
+
+      <!-- 模拟宇宙 -->
+      <UniShell
+        v-else-if="gameMode === 'simuniverse'"
+        :uni="uniController"
         @quit="gameMode = null"
       />
 
@@ -244,9 +263,11 @@ import WorldCupSetup from "./components/WorldCupSetup.vue";
 import WorldCupShell from "./components/WorldCupShell.vue";
 import LeagueShell from "./components/LeagueShell.vue";
 import SoloShell from "./solo/SoloShell.vue";
+import UniShell from "./simuniverse/UniShell.vue";
 import OpeningVideo from "./components/OpeningVideo.vue";
 import { useGameController } from "./composables/useGameController.js";
 import { useSoloController } from "./solo/useSoloController.js";
+import { useUniController } from "./simuniverse/useUniController.js";
 import { deserializeGameState } from "./game/gameState.js";
 import { AI_TEAM_NAMES } from "./game/worldCupConstants.js";
 import SoundManager from "./audio/SoundManager.js";
@@ -272,6 +293,10 @@ const {
 const soloController = useSoloController();
 const soloHasSave = ref(false);
 
+// 模拟宇宙控制器
+const uniController = useUniController();
+const uniHasSave = ref(false);
+
 // ---- 模式选择 ----
 const gameMode = ref(null); // null | 'normal' | 'football' | 'worldcup' | 'league'
 const wcStarted = ref(false);
@@ -295,6 +320,7 @@ const hasSave = ref(false);
 onMounted(() => {
   hasSave.value = !!localStorage.getItem("dead13_save");
   soloHasSave.value = soloController.hasSoloSave();
+  uniHasSave.value = uniController.hasUniSave();
 
   // 主背景音乐：首次用户交互后启动（浏览器自动播放策略限制）
   const startBgm = () => {
@@ -311,7 +337,8 @@ onMounted(() => {
       gameStarted.value ||
       wcStarted.value ||
       leagueStarted.value ||
-      soloController.soloStarted.value,
+      soloController.soloStarted.value ||
+      uniController.uniStarted.value,
     (inBattle) => {
       if (inBattle) {
         SoundManager.playBgm(Math.random() < 0.5 ? "battle1" : "battle2");
@@ -331,6 +358,8 @@ function selectMode(mode) {
   playClick();
   if (mode === "solo") {
     soloController.initSolo(); // 进入单机模式即开新局（默认角色）
+  } else if (mode === "simuniverse") {
+    uniController.initUni(); // 进入模拟宇宙即开新局
   }
   gameMode.value = mode;
 }
@@ -377,6 +406,14 @@ function continueSolo() {
   playClick();
   if (soloController.loadSolo()) {
     gameMode.value = "solo";
+  }
+}
+
+// 继续模拟宇宙（读档）
+function continueUni() {
+  playClick();
+  if (uniController.loadUni()) {
+    gameMode.value = "simuniverse";
   }
 }
 
