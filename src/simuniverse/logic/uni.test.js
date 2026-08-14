@@ -1055,6 +1055,35 @@ describe("模拟宇宙 M4：事件系统", () => {
     expect(s.pendingBlessingPicks[0].starRange).toEqual([1, 2]);
   });
 
+  it("战斗胜利后进入下一层：combat 清空，精英房间正常开战（回归：残留 combat 直接胜利）", () => {
+    const s = createUniState();
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 3 }] };
+    startCombat(s);
+    s.combat.enemies.forEach((e) => {
+      e.hp = 0;
+      e.alive = false;
+    });
+    playerDefense(s, 0);
+    expect(s.combat.phase).toBe("won");
+    // 前往下一层（模拟 goNext → advanceFloor）
+    advanceFloor(s);
+    expect(s.combat).toBeNull(); // 关键：残留战斗必须清空
+    // 下一层是精英 → 重新开战（不再直接胜利）
+    s.region = { type: "elite", name: "精英", waves: [{ kind: "elite", count: 2 }] };
+    startCombat(s);
+    expect(s.combat.phase).toBe("player-action");
+    expect(s.combat.enemies.every((e) => e.alive)).toBe(true);
+  });
+
+  it("普通层 2 选 1 后 combat 清空（进入新内容前无战斗残留）", () => {
+    const s = createUniState();
+    startCombat(s); // 模拟上一场战斗残留
+    rollNormalChoice(s);
+    expect(s.pendingChoice).toBeTruthy();
+    chooseNormalContent(s, 0);
+    expect(s.combat).toBeNull();
+  });
+
   it("异常区域（无 waves 配置）startCombat 不崩溃 → 直接胜利", () => {
     const s = createUniState();
     s.region = { type: "event", name: "事件" }; // 事件区域未切战斗区域（回归：事件战斗 region bug）

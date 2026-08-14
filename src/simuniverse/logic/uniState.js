@@ -239,6 +239,7 @@ export function chooseNormalContent(state, idx) {
   const pc = state.pendingChoice;
   if (!pc || ![0, 1].includes(idx)) return { ok: false, reason: "无候选内容" };
   const type = pc.options[idx];
+  state.combat = null; // 进入本层内容：清空上一场战斗残留
   state.region = generateRegion(state, type);
   state.pendingChoice = null;
   state.devLog.info(LOG_TYPE.UNI_CHOOSE, `本层内容：${REGION_META[type].name}`, {
@@ -460,6 +461,7 @@ export function isNormalFloor(state) {
  */
 export function advanceFloor(state) {
   if (state.gameOver) return null;
+  state.combat = null; // 进入新层：清空上一场战斗残留（防止 enterCurrentMode 误判为战斗中/直接胜利）
   state.floor += 1;
   state.plane = getPlane(state.floor);
   state.region = null;
