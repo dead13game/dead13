@@ -351,9 +351,9 @@ const skillCdText = computed(() => {
   return info.cooldown > 0 ? `（冷却${info.cooldown}）` : "";
 });
 const battleMsg = computed(() => props.uni.battleMsg.value);
-const uiMode = computed(() => props.uiMode.value);
-const eventResult = computed(() => props.eventResult.value);
-const skillTargetPending = computed(() => props.skillTargetPending.value);
+const uiMode = computed(() => props.uni.uiMode.value);
+const eventResult = computed(() => props.uni.eventResult.value);
+const skillTargetPending = computed(() => props.uni.skillTargetPending.value);
 const ev = computed(() => props.uni.getCurrentEvent());
 const pendingPick = computed(() => props.uni.currentBlessingPick());
 const upgradable = computed(() =>
