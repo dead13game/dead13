@@ -420,8 +420,22 @@ export function useUniController() {
   // ---- 工具查询 ----
 
   function getCurrentEvent() {
-    const id = uniState.region?.eventId;
+    const r = uniState.region;
+    const id = r?.eventIds ? r.eventIds[r.eventIdx || 0] : r?.eventId;
     return id ? getEventDef(id) : null;
+  }
+
+  /** 事件区域：进入下一个事件（第 2 个）；无则前往下一区域 */
+  function goNextEvent() {
+    const r = uniState.region;
+    if (r?.eventIds && (r.eventIdx || 0) < r.eventIds.length - 1) {
+      r.eventIdx = (r.eventIdx || 0) + 1;
+      eventResult.value = null;
+      skillTargetPending.value = null;
+      enterCurrentMode();
+      return { ok: true, next: true };
+    }
+    return goNext();
   }
 
   function canSkill(charIndex) {
@@ -508,6 +522,7 @@ export function useUniController() {
     doOverwriteBlessing,
     doOverwriteEquation,
     goNext,
+    goNextEvent,
     getCurrentEvent,
     canSkill,
     skillInfo,

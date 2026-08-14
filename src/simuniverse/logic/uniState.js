@@ -216,8 +216,13 @@ export function generateRegion(state, type) {
   else if (type === "transform") region.waves = TRANSFORM_WAVES; // 转化 3 波
   else if (type === "boss") region.waves = [{ kind: "boss", count: 1 }]; // 首领 1 个
   else if (type === "event" || type === "reward" || type === "adventure") {
-    // 按类型池抽取具体事件（分支事件/奖励/冒险）
-    region.eventId = rollEvent(type);
+    // 按类型池抽取具体事件；事件区域 2 个事件依次处理（第九框架①第一个②第二个）
+    if (type === "event") {
+      region.eventIds = [rollEvent("event"), rollEvent("event")];
+      region.eventIdx = 0;
+    } else {
+      region.eventId = rollEvent(type);
+    }
   }
   return region;
 }

@@ -466,7 +466,7 @@
         </template>
         <template v-else>
           <p class="uni-panel__desc">无可升级角色，技能升级奖励已放弃</p>
-          <button class="uni-btn uni-btn--primary" @click="uni.goNext()">前往下一区域 →</button>
+          <button class="uni-btn uni-btn--primary" @click="onNext()">{{ nextBtn() }}</button>
         </template>
       </template>
       <template v-else-if="pendingPick">
@@ -491,7 +491,7 @@
         <p v-if="uniState.combat?.lastReward?.blessingPicks" class="uni-panel__desc">
           可进行 {{ uniState.combat.lastReward.blessingPicks }} 次祝福三选一
         </p>
-        <button class="uni-btn uni-btn--primary" @click="uni.goNext()">前往下一区域 →</button>
+        <button class="uni-btn uni-btn--primary" @click="onNext()">{{ nextBtn() }}</button>
       </template>
     </section>
 
@@ -540,7 +540,7 @@
         </template>
         <template v-else>
           <p class="uni-panel__desc">无可升级角色，技能升级奖励已放弃</p>
-          <button class="uni-btn uni-btn--primary" @click="uni.goNext()">前往下一区域 →</button>
+          <button class="uni-btn uni-btn--primary" @click="onNext()">{{ nextBtn() }}</button>
         </template>
       </template>
       <template v-else-if="pendingPick">
@@ -558,7 +558,7 @@
         </div>
       </template>
       <template v-else>
-        <button class="uni-btn uni-btn--primary" @click="uni.goNext()">前往下一区域 →</button>
+        <button class="uni-btn uni-btn--primary" @click="onNext()">{{ nextBtn() }}</button>
       </template>
     </section>
 
@@ -804,6 +804,18 @@ function fxCount(kind, targetIdx) {
 // ---- 事件 / 商店 ----
 const ev = computed(() => props.uni.getCurrentEvent());
 const pendingPick = computed(() => props.uni.currentBlessingPick());
+const hasNextEvent = computed(
+  () =>
+    uniState.region?.eventIds &&
+    (uniState.region.eventIdx || 0) < uniState.region.eventIds.length - 1,
+);
+function nextBtn() {
+  return hasNextEvent.value ? "下一个事件 →" : "前往下一区域 →";
+}
+function onNext() {
+  if (hasNextEvent.value) props.uni.goNextEvent();
+  else props.uni.goNext();
+}
 const upgradable = computed(() =>
   uniState.team.filter((t) => t.alive && t.charId !== 11),
 );

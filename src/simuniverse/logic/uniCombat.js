@@ -26,6 +26,8 @@ import {
   rollBlessingCandidates,
   rollBlessing,
   gainBlessing,
+  rollEquation,
+  gainEquation,
   EQUATIONS,
   CURIO_FX,
   BLESSINGS,
@@ -1041,6 +1043,16 @@ function endCombat(state, result) {
       }
       state.pendingBlessingPicks = (state.pendingBlessingPicks || []).concat(picks);
       state.log.push(`战斗胜利：可进行 ${reward.blessingPicks} 次祝福三选一`);
+    }
+    // 胜利后方程奖励（首领 2 个 2~3 星方程）
+    if (reward?.equations && !state.pendingEventReward) {
+      const eqStarRange = reward.equationStars || [1, 3];
+      let gained = 0;
+      for (let i = 0; i < reward.equations; i++) {
+        const eqId = rollEquation(eqStarRange[0], eqStarRange[1]);
+        if (eqId && gainEquation(state, eqId).ok) gained += 1;
+      }
+      if (gained > 0) state.log.push(`战斗胜利：获得 ${gained} 个方程（${eqStarRange[0]}~${eqStarRange[1]} 星）`);
     }
     // 事件战斗奖励（迷途商队护送/深渊裂缝/封印之门等）
     if (state.pendingEventReward) {

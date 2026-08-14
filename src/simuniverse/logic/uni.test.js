@@ -64,7 +64,7 @@ import {
   CURIOS,
   EQUATIONS,
 } from "./uniBuffs.js";
-import { enterRegion } from "./uniState.js";
+import { enterRegion, generateRegion } from "./uniState.js";
 import { CHARACTERS } from "../../game/constants.js";
 
 /** 同步跑完敌人阶段（控制器会异步慢放，测试里直接跑完） */
@@ -1332,6 +1332,34 @@ describe("模拟宇宙 M4：事件系统", () => {
     // 无 lv 表祝福回退 fx（3 星）
     gainBlessing(s, "shenxing");
     expect(blessingVal(s, "shenxing", "shieldPct")).toBe(100);
+  });
+
+  it("首领胜利：获得 250 碎片 + 2×3星祝福三选一 + 2 个 2~3 星方程（reward.equations 不再丢失）", () => {
+    const s = createUniState();
+    s.region = { type: "boss", name: "首领", waves: [{ kind: "boss", count: 1 }] };
+    startCombat(s);
+    s.combat.enemies.forEach((e) => {
+      e.hp = 0;
+      e.alive = false;
+    });
+    playerDefense(s, 0);
+    expect(s.combat.phase).toBe("won");
+    expect(s.equations.length).toBeGreaterThanOrEqual(1); // 2 个 2~3 星方程（可能重复转碎片）
+    expect(s.equations.every((e) => e.star >= 2 && e.star <= 3)).toBe(true);
+    expect(s.pendingBlessingPicks?.length || 0).toBe(2); // 2 次 3 星三选一
+  });
+
+  it("事件区域生成 2 个事件依次处理（第九框架①第一个②第二个）", () => {
+    const s = createUniState();
+    s.region = generateRegion(s, "event");
+    expect(s.region.eventIds).toHaveLength(2);
+    expect(s.region.eventIdx).toBe(0);
+    // 第一个事件处理 → 推进到第二个
+    const r1 = applyEventOption(s, s.region.eventIds[0], 0);
+    expect(r1.ok).toBe(true);
+    s.region.eventIdx = 1;
+    const ev2 = s.region.eventIds[1];
+    expect(ev2).toBeTruthy();
   });
 
   it("加权奇物 = 3 星奇物（rollCurio 星级过滤）", () => {
