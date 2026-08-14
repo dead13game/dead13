@@ -260,6 +260,8 @@ export function playerAttack(state, enemyIdx) {
   if (attacker.status.nextAttackBoost) attacker.status.nextAttackBoost = 0; // 炬火一次性
   recordSound(state, "attack");
   state.devLog.info(LOG_TYPE.UNI_REGION, `${attacker.name} 普攻 ${enemy.name}`, {
+    enemyIdx,
+    sourceIdx: c.activeIdx,
     cards: c.pendingPoker.map((p) => p.rank + p.suit),
     raw,
     flat,
@@ -604,6 +606,8 @@ export function damageEnemy(state, enemyIdx, dmg, sourceIdx = -1) {
   }
   enemy.hp = Math.max(0, enemy.hp - d);
   state.devLog.debug(LOG_TYPE.UNI_REGION, `对 ${enemy.name} 造成伤害`, {
+    enemyIdx,
+    sourceIdx,
     dmg,
     shieldDmg,
     hpLeft: enemy.hp,
@@ -722,6 +726,7 @@ function damageTeamMember(state, memberIdx, dmg) {
     }
   }
   state.devLog.debug(LOG_TYPE.UNI_REGION, `${t.name} 受到伤害`, {
+    memberIdx,
     dmg,
     taken,
     shieldConsumed: dmg - remaining,

@@ -3,105 +3,152 @@
     <!-- 顶栏 -->
     <header class="uni-topbar">
       <span class="uni-topbar__title">🌌 模拟宇宙</span>
-      <span>位面 {{ uniState.plane }}</span>
-      <span>第 {{ uniState.floor }} 层</span>
-      <span>🪙 {{ uniState.shards }}</span>
-      <span>🙏 {{ uniState.blessings.length }}</span>
-      <span>✨ {{ uniState.curios.length }}</span>
-      <span>📐 {{ uniState.equations.length }}</span>
-      <button class="uni-btn uni-btn--sm" @click="uni.saveUni()">存档</button>
-      <button class="uni-btn uni-btn--sm" @click="onQuit">退出</button>
+      <span class="uni-topbar__info">位面 {{ uniState.plane }} · 第 {{ uniState.floor }} 层</span>
+      <span class="uni-topbar__stat" title="宇宙碎片">🪙 {{ uniState.shards }}</span>
+      <span class="uni-topbar__stat" title="祝福">🙏 {{ uniState.blessings.length }}</span>
+      <span class="uni-topbar__stat" title="奇物">✨ {{ uniState.curios.length }}</span>
+      <span class="uni-topbar__stat" title="方程">📐 {{ uniState.equations.length }}</span>
+      <span class="uni-topbar__spacer"></span>
+      <button class="uni-btn uni-btn--sm" @click="uni.saveUni()">💾 存档</button>
+      <button class="uni-btn uni-btn--sm" @click="onQuit">🚪 退出</button>
     </header>
 
     <!-- 普通层 2 选 1 -->
-    <section v-if="uiMode === 'choice'" class="uni-panel">
-      <h2>选择本层内容</h2>
+    <section v-if="uiMode === 'choice'" class="uni-panel uni-panel--choice">
+      <h2 class="uni-panel__title">选择本层内容</h2>
+      <p class="uni-panel__desc">前方出现两条岔路，选择其一继续探索</p>
       <div class="uni-choice">
         <button
-          v-for="(opt, i) in uni.uniState.pendingChoice?.options || []"
+          v-for="(opt, i) in uniState.pendingChoice?.options || []"
           :key="i"
           class="uni-choice__card"
           @click="uni.doChooseContent(i)"
         >
           <span class="uni-choice__icon">{{ regionIcon(opt) }}</span>
-          <span>{{ regionName(opt) }}</span>
+          <span class="uni-choice__name">{{ regionName(opt) }}</span>
         </button>
       </div>
     </section>
 
     <!-- 战斗 -->
     <section v-if="uiMode === 'battle'" class="uni-battle">
-      <div class="uni-battle__team">
+      <!-- 行动顺序条 -->
+      <div class="uni-order">
         <div
-          v-for="t in uni.uniState.team"
-          :key="t.index"
-          class="uni-member"
-          :class="{
-            'uni-member--dead': !t.alive,
-            'uni-member--active': uni.uniState.combat?.activeIdx === t.index,
-          }"
+          v-for="(idx, i) in orderList"
+          :key="'o' + i"
+          class="uni-order__slot"
+          :class="orderClass(i, idx)"
         >
-          <div class="uni-member__name">{{ t.name }}</div>
-          <div class="uni-member__hp">
-            <div class="uni-bar">
-              <div
-                class="uni-bar__fill uni-bar__fill--hp"
-                :style="{ width: hpPct(t) + '%' }"
-              ></div>
-            </div>
-            <span>{{ t.hp }}/{{ t.maxHp }}</span>
-          </div>
-          <div v-if="t.shield > 0" class="uni-member__stat">🛡️{{ t.shield }}</div>
-          <div class="uni-member__stat">
-            {{ skillName(t) }}
-            <span v-if="t.skillCooldown > 0" class="uni-member__cd">冷却{{ t.skillCooldown }}</span>
-            <span v-else class="uni-member__ready">✔</span>
-          </div>
-          <div v-if="t.status.stunned" class="uni-member__flag">💫眩晕</div>
-          <div v-if="t.status.puppet" class="uni-member__flag">🎭傀儡</div>
-          <div v-if="t.status.dot > 0" class="uni-member__flag">🔥dot</div>
+          <img
+            class="uni-order__avatar"
+            :src="iconOf(idx)"
+            :alt="uniState.team[idx].name"
+            @error="onImgError"
+          />
+          <span class="uni-order__name">{{ uniState.team[idx].name }}</span>
         </div>
       </div>
 
-      <div class="uni-battle__enemies">
-        <div
-          v-for="e in uni.uniState.combat?.enemies || []"
-          :key="e.id"
-          class="uni-enemy"
-          :class="{
-            'uni-enemy--dead': !e.alive,
-            'uni-enemy--target': targetMode === 'enemy' && selectedEnemy === e.id,
-          }"
-          @click="onEnemyClick(e.id)"
-        >
-          <div class="uni-enemy__name">{{ e.name }}</div>
-          <div class="uni-enemy__hp">
-            <div class="uni-bar">
-              <div
-                class="uni-bar__fill uni-bar__fill--enemy"
-                :style="{ width: (e.hp / e.maxHp) * 100 + '%' }"
-              ></div>
+      <div class="uni-battle__board">
+        <div class="uni-battle__team">
+          <div
+            v-for="t in uniState.team"
+            :key="t.index"
+            class="uni-member"
+            :class="{
+              'uni-member--dead': !t.alive,
+              'uni-member--active': activeIdx === t.index,
+              'uni-member--hit': fxCount('member', t.index) > 0,
+            }"
+          >
+            <div class="uni-member__head">
+              <div class="uni-member__avatar">
+                <img :src="iconOf(t.index)" :alt="t.name" @error="onImgError" />
+                <span v-if="!t.alive" class="uni-member__skull">💀</span>
+              </div>
+              <div class="uni-member__main">
+                <div class="uni-member__name">{{ t.name }}</div>
+                <div class="uni-member__hp">
+                  <div class="uni-bar">
+                    <div
+                      class="uni-bar__fill uni-bar__fill--hp"
+                      :style="{ width: hpPct(t) + '%' }"
+                    ></div>
+                  </div>
+                  <span class="uni-member__hpnum">{{ t.hp }}/{{ t.maxHp }}</span>
+                </div>
+              </div>
             </div>
-            <span>{{ e.hp }}/{{ e.maxHp }}</span>
+            <div class="uni-member__flags">
+              <span v-if="t.shield > 0" class="uni-tag uni-tag--shield">🛡️{{ t.shield }}</span>
+              <span v-if="t.status.stunned" class="uni-tag uni-tag--bad">💫眩晕</span>
+              <span v-if="t.status.puppet" class="uni-tag uni-tag--bad">🎭傀儡</span>
+              <span v-if="t.status.dot > 0" class="uni-tag uni-tag--dot">🔥dot{{ t.status.dot }}</span>
+              <span v-if="t.status.healCut > 0" class="uni-tag uni-tag--bad">💉减疗</span>
+            </div>
+            <div class="uni-member__skill">
+              {{ skillName(t) }}
+              <span v-if="t.skillCooldown > 0" class="uni-member__cd">冷却{{ t.skillCooldown }}</span>
+              <span v-else-if="skillType(t) === 'active'" class="uni-member__ready">✓ 可用</span>
+              <span v-else class="uni-member__passive">被动</span>
+            </div>
+            <div v-for="f in fxFor('member', t.index)" :key="f.id" class="uni-fx" :class="'uni-fx--' + f.tone">
+              {{ f.text }}
+            </div>
           </div>
-          <div v-if="e.shield > 0" class="uni-enemy__shield">🛡️{{ e.shield }}</div>
-          <div v-if="e.stunnedTurns > 0" class="uni-enemy__flag">💫{{ e.stunnedTurns }}</div>
-          <div v-if="e.dotTurns > 0" class="uni-enemy__flag">🔥{{ e.dotTurns }}</div>
+        </div>
+
+        <div class="uni-battle__enemies">
+          <div
+            v-for="e in uniState.combat?.enemies || []"
+            :key="e.id"
+            class="uni-enemy"
+            :class="{
+              'uni-enemy--dead': !e.alive,
+              'uni-enemy--target': targetMode === 'enemy' && selectedEnemy === e.id,
+              'uni-enemy--hit': fxCount('enemy', e.id) > 0,
+            }"
+            @click="onEnemyClick(e.id)"
+          >
+            <div class="uni-enemy__name">{{ e.name }}</div>
+            <div class="uni-enemy__hp">
+              <div class="uni-bar">
+                <div
+                  class="uni-bar__fill uni-bar__fill--enemy"
+                  :style="{ width: (e.hp / e.maxHp) * 100 + '%' }"
+                ></div>
+              </div>
+              <span class="uni-enemy__hpnum">{{ e.hp }}/{{ e.maxHp }}</span>
+            </div>
+            <div class="uni-enemy__flags">
+              <span v-if="e.shield > 0" class="uni-tag uni-tag--shield">🛡️{{ e.shield }}</span>
+              <span v-if="e.stunnedTurns > 0" class="uni-tag uni-tag--bad">💫{{ e.stunnedTurns }}</span>
+              <span v-if="e.dotTurns > 0" class="uni-tag uni-tag--dot">🔥{{ e.dotTurns }}</span>
+              <span v-if="e.kind === 'elite'" class="uni-tag uni-tag--elite">精英</span>
+              <span v-if="e.kind === 'boss'" class="uni-tag uni-tag--boss">首领</span>
+            </div>
+            <div v-for="f in fxFor('enemy', e.id)" :key="f.id" class="uni-fx" :class="'uni-fx--' + f.tone">
+              {{ f.text }}
+            </div>
+          </div>
         </div>
       </div>
 
       <div class="uni-battle__action">
         <div v-if="active" class="uni-battle__actor">
-          <span>{{ active.name }} 的回合</span>
-          <span v-for="(c, i) in uni.uniState.combat.pendingPoker" :key="i" class="uni-poker">
-            {{ c.rank }}{{ c.suit }}
+          <span class="uni-battle__actorname">{{ active.name }} 的回合</span>
+          <span v-for="(c, i) in uniState.combat.pendingPoker" :key="i" class="uni-poker">
+            <span class="uni-poker__rank" :class="'uni-poker__rank--' + c.suit">{{ c.rank }}</span>
+            <span class="uni-poker__suit">{{ c.suit }}</span>
           </span>
+          <span class="uni-battle__turn">第 {{ uniState.combat.round }} 回合</span>
         </div>
         <div class="uni-battle__buttons">
-          <button class="uni-btn" :disabled="!canAct" @click="onAttackClick">⚔️ 普攻</button>
-          <button class="uni-btn" :disabled="!canAct" @click="uni.doDefense()">🛡️ 防御</button>
+          <button class="uni-btn uni-btn--attack" :disabled="!canAct" @click="onAttackClick">⚔️ 普攻</button>
+          <button class="uni-btn uni-btn--defense" :disabled="!canAct" @click="doDefense">🛡️ 防御</button>
           <button
-            class="uni-btn"
+            class="uni-btn uni-btn--skill"
             :disabled="!canSkill"
             @click="onSkillClick"
           >
@@ -114,19 +161,19 @@
 
     <!-- 转化第三波 -->
     <section v-if="uiMode === 'wave-clear'" class="uni-panel">
-      <h2>转化：两波已灭（及格）</h2>
-      <p>可以撤退保底，或挑战第三波精英（每消灭 1 个 +150 碎片）</p>
+      <h2 class="uni-panel__title">✅ 转化：两波已灭（及格）</h2>
+      <p class="uni-panel__desc">可以撤退保底，或挑战第三波精英（每消灭 1 个 +150 碎片）</p>
       <div class="uni-choice">
-        <button class="uni-btn" @click="uni.doThirdWave(false)">撤退（及格奖励）</button>
-        <button class="uni-btn" @click="uni.doThirdWave(true)">挑战第三波</button>
+        <button class="uni-btn uni-btn--primary" @click="uni.doThirdWave(false)">🏳️ 撤退（及格奖励）</button>
+        <button class="uni-btn uni-btn--danger" @click="uni.doThirdWave(true)">⚔️ 挑战第三波</button>
       </div>
     </section>
 
     <!-- 战斗胜利 -->
     <section v-if="uiMode === 'reward'" class="uni-panel">
-      <h2>🎉 战斗胜利</h2>
+      <h2 class="uni-panel__title">🎉 战斗胜利</h2>
       <template v-if="pendingPick">
-        <p>选择祝福（{{ pendingPick.starRange[0] }}~{{ pendingPick.starRange[1] }} 星）</p>
+        <p class="uni-panel__desc">选择祝福（{{ pendingPick.starRange[0] }}~{{ pendingPick.starRange[1] }} 星）</p>
         <div class="uni-choice">
           <button
             v-for="id in pendingPick.candidates"
@@ -134,24 +181,25 @@
             class="uni-choice__card"
             @click="uni.doBlessingPick(id)"
           >
-            {{ uni.blessingName(id) }}
+            <span class="uni-choice__icon">🙏</span>
+            <span class="uni-choice__name">{{ uni.blessingName(id) }}</span>
           </button>
         </div>
       </template>
       <template v-else>
-        <p v-if="uni.uniState.combat?.lastReward?.shards">
-          +{{ uni.uniState.combat.lastReward.shards }} 宇宙碎片
+        <p v-if="uniState.combat?.lastReward?.shards" class="uni-panel__gain">
+          +{{ uniState.combat.lastReward.shards }} 🪙
         </p>
-        <p v-if="uni.uniState.combat?.lastReward?.blessingPicks">
-          可进行 {{ uni.uniState.combat.lastReward.blessingPicks }} 次祝福三选一
+        <p v-if="uniState.combat?.lastReward?.blessingPicks" class="uni-panel__desc">
+          可进行 {{ uniState.combat.lastReward.blessingPicks }} 次祝福三选一
         </p>
-        <button class="uni-btn" @click="uni.goNext()">前往下一区域</button>
+        <button class="uni-btn uni-btn--primary" @click="uni.goNext()">前往下一区域 →</button>
       </template>
     </section>
 
     <!-- 事件 -->
     <section v-if="uiMode === 'event'" class="uni-panel">
-      <h2>{{ ev?.title }}</h2>
+      <h2 class="uni-panel__title">{{ ev?.title }}</h2>
       <p class="uni-panel__desc">{{ ev?.desc }}</p>
       <div class="uni-choice">
         <button
@@ -160,17 +208,17 @@
           class="uni-choice__card"
           @click="uni.doEventOption(i)"
         >
-          {{ opt.text }}
+          <span class="uni-choice__name">{{ opt.text }}</span>
         </button>
       </div>
     </section>
 
     <!-- 事件结果 -->
     <section v-if="uiMode === 'event-result'" class="uni-panel">
-      <h2>{{ eventResult?.eventTitle }}</h2>
-      <p>{{ eventResult?.outcome?.text }}</p>
+      <h2 class="uni-panel__title">{{ eventResult?.eventTitle }}</h2>
+      <p class="uni-panel__desc">{{ eventResult?.outcome?.text }}</p>
       <template v-if="skillTargetPending">
-        <p>选择角色升级技能（+{{ skillTargetPending }} 级）</p>
+        <p class="uni-panel__desc">选择角色升级技能（+{{ skillTargetPending }} 级）</p>
         <div class="uni-choice">
           <button
             v-for="t in upgradable"
@@ -178,12 +226,13 @@
             class="uni-choice__card"
             @click="uni.doSkillTarget(t.index)"
           >
-            {{ t.name }}（Lv{{ t.skillLevel }}）
+            <img class="uni-choice__avatar" :src="iconOf(t.index)" :alt="t.name" @error="onImgError" />
+            <span class="uni-choice__name">{{ t.name }}（Lv{{ t.skillLevel }}）</span>
           </button>
         </div>
       </template>
       <template v-else-if="pendingPick">
-        <p>选择祝福（{{ pendingPick.starRange[0] }}~{{ pendingPick.starRange[1] }} 星）</p>
+        <p class="uni-panel__desc">选择祝福（{{ pendingPick.starRange[0] }}~{{ pendingPick.starRange[1] }} 星）</p>
         <div class="uni-choice">
           <button
             v-for="id in pendingPick.candidates"
@@ -191,147 +240,170 @@
             class="uni-choice__card"
             @click="uni.doBlessingPick(id)"
           >
-            {{ uni.blessingName(id) }}
+            <span class="uni-choice__name">{{ uni.blessingName(id) }}</span>
           </button>
         </div>
       </template>
       <template v-else>
-        <button class="uni-btn" @click="uni.goNext()">前往下一区域</button>
+        <button class="uni-btn uni-btn--primary" @click="uni.goNext()">前往下一区域 →</button>
       </template>
     </section>
 
     <!-- 商店 / 休整 -->
     <section v-if="uiMode === 'shop' || uiMode === 'rest'" class="uni-panel">
-      <h2>{{ uiMode === 'shop' ? '🛒 商店' : '🏕️ 休整' }}</h2>
+      <h2 class="uni-panel__title">{{ uiMode === 'shop' ? '🛒 商店' : '🏕️ 休整' }}</h2>
       <p v-if="uiMode === 'rest'" class="uni-panel__desc">全队生命已回满；可购买奇物与祝福；死亡角色可用 150 碎片复活</p>
       <div v-if="uiMode === 'rest'" class="uni-rest-revive">
         <button
-          v-for="t in uni.uniState.team.filter((x) => !x.alive)"
+          v-for="t in uniState.team.filter((x) => !x.alive)"
           :key="t.index"
-          class="uni-btn"
+          class="uni-btn uni-btn--danger"
           @click="uni.doRevive(t.index)"
         >
           复活 {{ t.name }}（150 碎片）
         </button>
       </div>
       <div class="uni-shop-section">
-        <h3>祝福</h3>
+        <h3 class="uni-shop-section__title">🙏 祝福</h3>
         <div class="uni-shop-list">
-          <div v-for="(item, i) in uni.uniState.shopStock?.blessing || []" :key="i" class="uni-shop-item">
-            <span>{{ item.star }}星 · {{ uni.blessingName(item.id) }}</span>
+          <div v-for="(item, i) in uniState.shopStock?.blessing || []" :key="i" class="uni-shop-item">
+            <span class="uni-shop-item__name">
+              <span class="uni-star">{{ '★'.repeat(item.star) }}</span>
+              {{ uni.blessingName(item.id) }}
+            </span>
             <button
               class="uni-btn uni-btn--sm"
-              :disabled="item.sold || uni.uniState.shards < shopPrice('blessing', item.star)"
+              :disabled="item.sold || uniState.shards < shopPrice('blessing', item.star)"
               @click="uni.doShopBuy('blessing', i)"
             >
-              {{ shopPrice('blessing', item.star) }} 碎片
+              {{ shopPrice('blessing', item.star) }} 🪙
             </button>
           </div>
         </div>
       </div>
       <div class="uni-shop-section">
-        <h3>奇物</h3>
+        <h3 class="uni-shop-section__title">✨ 奇物</h3>
         <div class="uni-shop-list">
-          <div v-for="(item, i) in uni.uniState.shopStock?.curio || []" :key="i" class="uni-shop-item">
-            <span>{{ item.star }}星 · {{ uni.curioName(item.id) }}</span>
+          <div v-for="(item, i) in uniState.shopStock?.curio || []" :key="i" class="uni-shop-item">
+            <span class="uni-shop-item__name">
+              <span class="uni-star">{{ '★'.repeat(item.star) }}</span>
+              {{ uni.curioName(item.id) }}
+            </span>
             <button
               class="uni-btn uni-btn--sm"
-              :disabled="item.sold || uni.uniState.shards < shopPrice('curio', item.star)"
+              :disabled="item.sold || uniState.shards < shopPrice('curio', item.star)"
               @click="uni.doShopBuy('curio', i)"
             >
-              {{ shopPrice('curio', item.star) }} 碎片
+              {{ shopPrice('curio', item.star) }} 🪙
             </button>
           </div>
         </div>
       </div>
       <div v-if="uiMode === 'shop'" class="uni-shop-section">
-        <h3>方程</h3>
+        <h3 class="uni-shop-section__title">📐 方程</h3>
         <div class="uni-shop-list">
-          <div v-for="(item, i) in uni.uniState.shopStock?.equation || []" :key="i" class="uni-shop-item">
-            <span>{{ item.star }}星 · {{ uni.equationName(item.id) }}</span>
+          <div v-for="(item, i) in uniState.shopStock?.equation || []" :key="i" class="uni-shop-item">
+            <span class="uni-shop-item__name">
+              <span class="uni-star">{{ '★'.repeat(item.star) }}</span>
+              {{ uni.equationName(item.id) }}
+            </span>
             <button
               class="uni-btn uni-btn--sm"
-              :disabled="item.sold || uni.uniState.shards < shopPrice('equation', item.star)"
+              :disabled="item.sold || uniState.shards < shopPrice('equation', item.star)"
               @click="uni.doShopBuy('equation', i)"
             >
-              {{ shopPrice('equation', item.star) }} 碎片
+              {{ shopPrice('equation', item.star) }} 🪙
             </button>
           </div>
         </div>
       </div>
-      <button class="uni-btn" @click="uni.goNext()">离开</button>
+      <button class="uni-btn uni-btn--primary" @click="uni.goNext()">离开</button>
     </section>
 
     <!-- 造物调试台 -->
     <section v-if="uiMode === 'workbench'" class="uni-panel">
-      <h2>🔧 造物调试台（热量 {{ uni.uniState.heat }}）</h2>
+      <h2 class="uni-panel__title">🔧 造物调试台（热量 {{ uniState.heat }}）</h2>
       <p class="uni-panel__desc">强化祝福（效果 ×2）或覆写祝福/方程，然后挑战首领</p>
       <div class="uni-shop-section">
-        <h3>祝福强化（1/2/3 星需 1/2/3 热量）</h3>
+        <h3 class="uni-shop-section__title">🔥 祝福强化（1/2/3 星需 1/2/3 热量）</h3>
         <div class="uni-shop-list">
-          <div v-for="(b, i) in uni.uniState.blessings" :key="i" class="uni-shop-item">
-            <span>{{ uni.blessingName(b.id) }}（{{ b.star }}星 ×{{ b.enhanced || 1 }}{{ b.heatEnhanced ? '×' + b.heatEnhanced : '' }}）</span>
-            <button class="uni-btn uni-btn--sm" :disabled="uni.uniState.heat < b.star" @click="uni.doHeatStrengthen(i)">
+          <div v-for="(b, i) in uniState.blessings" :key="i" class="uni-shop-item">
+            <span class="uni-shop-item__name">
+              {{ uni.blessingName(b.id) }}
+              <span class="uni-star">{{ '★'.repeat(b.star) }}</span>
+              <span v-if="(b.enhanced || 1) > 1 || b.heatEnhanced" class="uni-tag uni-tag--boost">
+                ×{{ b.enhanced || 1 }}{{ b.heatEnhanced ? '×' + b.heatEnhanced : '' }}
+              </span>
+            </span>
+            <button class="uni-btn uni-btn--sm" :disabled="uniState.heat < b.star" @click="uni.doHeatStrengthen(i)">
               强化（{{ b.star }} 热量）
             </button>
           </div>
         </div>
       </div>
       <div class="uni-shop-section">
-        <h3>覆写祝福（{{ uni.uniState.overwritePrice }} 碎片，同星级随机替换）</h3>
+        <h3 class="uni-shop-section__title">♻️ 覆写祝福（{{ uniState.overwritePrice }} 🪙）</h3>
         <div class="uni-shop-list">
-          <div v-for="(b, i) in uni.uniState.blessings" :key="'o' + i" class="uni-shop-item">
-            <span>{{ uni.blessingName(b.id) }}</span>
+          <div v-for="(b, i) in uniState.blessings" :key="'o' + i" class="uni-shop-item">
+            <span class="uni-shop-item__name">{{ uni.blessingName(b.id) }}</span>
             <button class="uni-btn uni-btn--sm" @click="uni.doOverwriteBlessing(i)">覆写</button>
           </div>
         </div>
       </div>
       <div class="uni-shop-section">
-        <h3>覆写方程（{{ uni.uniState.overwritePrice }} 碎片）</h3>
+        <h3 class="uni-shop-section__title">♻️ 覆写方程（{{ uniState.overwritePrice }} 🪙）</h3>
         <div class="uni-shop-list">
-          <div v-for="(e, i) in uni.uniState.equations" :key="'e' + i" class="uni-shop-item">
-            <span>{{ uni.equationName(e.id) }}</span>
+          <div v-for="(e, i) in uniState.equations" :key="'eq' + i" class="uni-shop-item">
+            <span class="uni-shop-item__name">{{ uni.equationName(e.id) }}</span>
             <button class="uni-btn uni-btn--sm" @click="uni.doOverwriteEquation(i)">覆写</button>
           </div>
         </div>
       </div>
-      <button class="uni-btn uni-btn--primary" @click="uni.startBattle()">⚔️ 挑战首领</button>
+      <button class="uni-btn uni-btn--danger uni-btn--big" @click="uni.startBattle()">⚔️ 挑战首领</button>
     </section>
 
     <!-- 奇遇 / 财富 -->
     <section v-if="uiMode === 'oddity' || uiMode === 'fortune'" class="uni-panel">
-      <h2>{{ uiMode === 'oddity' ? '✨ 奇遇' : '💰 财富' }}</h2>
-      <p>{{ uiMode === 'oddity' ? oddityText : '获得 300 宇宙碎片' }}</p>
-      <button class="uni-btn" @click="uni.goNext()">前往下一区域</button>
+      <h2 class="uni-panel__title">{{ uiMode === 'oddity' ? '✨ 奇遇' : '💰 财富' }}</h2>
+      <p class="uni-panel__desc">{{ uiMode === 'oddity' ? oddityText : '获得 300 宇宙碎片' }}</p>
+      <button class="uni-btn uni-btn--primary" @click="uni.goNext()">前往下一区域 →</button>
     </section>
 
     <!-- 终局 -->
     <section v-if="uiMode === 'gameover'" class="uni-panel uni-panel--over">
-      <h2>💀 终局</h2>
-      <p>到达第 {{ uni.uniState.floor }} 层</p>
+      <h2 class="uni-panel__title">💀 终局</h2>
+      <p class="uni-panel__desc">到达第 {{ uniState.floor }} 层 · 位面 {{ uniState.plane }}</p>
+      <p class="uni-panel__desc">祝福 {{ uniState.blessings.length }} · 奇物 {{ uniState.curios.length }} · 方程 {{ uniState.equations.length }}</p>
       <button class="uni-btn" @click="onQuit">返回主菜单</button>
     </section>
 
-    <DevLogPanel :entries="uni.uniState.devLog?.entries || []" />
+    <DevLogPanel :entries="uniState.devLog?.entries || []" />
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import DevLogPanel from "../components/DevLogPanel.vue";
-import { SHOP_PRICE, REGION_META, ODDITY_EFFECTS } from "./logic/uniConstants.js";
-import { UNI_SKILLS } from "./logic/uniConstants.js";
+import { SHOP_PRICE, REGION_META, UNI_SKILLS } from "./logic/uniConstants.js";
+import { CHARACTERS } from "./logic/uniState.js";
 
 const props = defineProps({
   uni: { type: Object, required: true },
 });
 const emit = defineEmits(["quit"]);
 
-// ---- 状态 ----
+const uniState = props.uni.uniState;
+
+// ---- 视图状态（解包 ref） ----
+const battleMsg = computed(() => props.uni.battleMsg.value);
+const uiMode = computed(() => props.uni.uiMode.value);
+const eventResult = computed(() => props.uni.eventResult.value);
+const skillTargetPending = computed(() => props.uni.skillTargetPending.value);
+
+// ---- 战斗状态 ----
 const targetMode = ref(null); // null | 'enemy' | 'member'
 const selectedEnemy = ref(null);
-
-const uniState = props.uni.uniState;
+const activeIdx = computed(() => uniState.combat?.activeIdx ?? null);
 const active = computed(() => {
   const c = uniState.combat;
   return c && c.activeIdx != null ? uniState.team[c.activeIdx] : null;
@@ -341,8 +413,7 @@ const canAct = computed(
 );
 const canSkill = computed(() => {
   if (!active.value) return false;
-  const r = props.uni.canSkill(active.value.index);
-  return r.ok;
+  return props.uni.canSkill(active.value.index).ok;
 });
 const skillCdText = computed(() => {
   if (!active.value) return "";
@@ -350,10 +421,58 @@ const skillCdText = computed(() => {
   if (!info || info.type !== "active") return "";
   return info.cooldown > 0 ? `（冷却${info.cooldown}）` : "";
 });
-const battleMsg = computed(() => props.uni.battleMsg.value);
-const uiMode = computed(() => props.uni.uiMode.value);
-const eventResult = computed(() => props.uni.eventResult.value);
-const skillTargetPending = computed(() => props.uni.skillTargetPending.value);
+
+// ---- 行动顺序条 ----
+const orderList = computed(() => uniState.combat?.actionOrder || []);
+function orderClass(i, idx) {
+  const c = uniState.combat;
+  if (!c) return "";
+  if (!uniState.team[idx].alive) return "uni-order__slot--dead";
+  if (i < c.turnIdx) return "uni-order__slot--done";
+  if (i === c.turnIdx && c.phase === "player-action") return "uni-order__slot--current";
+  return "uni-order__slot--next";
+}
+
+// ---- 头像 ----
+function iconOf(idx) {
+  return CHARACTERS[uniState.team[idx].charId]?.icon || "";
+}
+function onImgError(e) {
+  e.target.style.visibility = "hidden"; // 图片缺失时隐藏，不显示破图
+}
+
+// ---- 飘字 / 受击动画（数据源：devLog 结构化条目） ----
+const fxList = ref([]);
+let fxSeq = 0;
+watch(
+  () => uniState.devLog?.entries?.length || 0,
+  () => {
+    const entries = uniState.devLog?.entries;
+    if (!entries?.length) return;
+    const last = entries[entries.length - 1];
+    const d = last?.data || {};
+    if (d.enemyIdx != null && d.dmg != null) {
+      spawnFx("enemy", d.enemyIdx, `-${d.dmg}`, d.dmg > 0 ? "dmg" : "shield");
+    } else if (d.memberIdx != null && d.hpDmg != null && d.hpDmg > 0) {
+      spawnFx("member", d.memberIdx, `-${d.hpDmg}`, "dmg");
+    }
+  },
+);
+function spawnFx(kind, targetIdx, text, tone = "dmg") {
+  const id = ++fxSeq;
+  fxList.value.push({ id, kind, targetIdx, text, tone });
+  setTimeout(() => {
+    fxList.value = fxList.value.filter((f) => f.id !== id);
+  }, 1000);
+}
+function fxFor(kind, targetIdx) {
+  return fxList.value.filter((f) => f.kind === kind && f.targetIdx === targetIdx);
+}
+function fxCount(kind, targetIdx) {
+  return fxFor(kind, targetIdx).length;
+}
+
+// ---- 事件 / 商店 ----
 const ev = computed(() => props.uni.getCurrentEvent());
 const pendingPick = computed(() => props.uni.currentBlessingPick());
 const upgradable = computed(() =>
@@ -376,6 +495,9 @@ function regionName(type) {
 function skillName(t) {
   return UNI_SKILLS[t.charId]?.name || "";
 }
+function skillType(t) {
+  return UNI_SKILLS[t.charId]?.type || "";
+}
 function hpPct(t) {
   return Math.max(0, Math.min(100, (t.hp / t.maxHp) * 100));
 }
@@ -393,6 +515,9 @@ function onEnemyClick(enemyId) {
     const r = props.uni.doAttack(enemyId);
     if (r.ok) targetMode.value = null;
   }
+}
+function doDefense() {
+  props.uni.doDefense();
 }
 function onSkillClick() {
   const t = active.value;
@@ -431,40 +556,77 @@ function onQuit() {
 
 <style scoped>
 .uni-shell {
-  max-width: 960px;
+  max-width: 1024px;
   margin: 0 auto;
   padding: 12px;
   color: #e8e8e8;
   font-size: 14px;
+  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  min-height: 100vh;
+  background: radial-gradient(ellipse at top, rgba(88, 60, 160, 0.25), transparent 60%);
 }
+/* 顶栏 */
 .uni-topbar {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   align-items: center;
-  padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
+  padding: 8px 14px;
+  background: rgba(30, 20, 60, 0.6);
+  border: 1px solid rgba(140, 120, 255, 0.25);
+  border-radius: 10px;
   margin-bottom: 12px;
   flex-wrap: wrap;
+  backdrop-filter: blur(4px);
 }
 .uni-topbar__title {
   font-weight: bold;
   color: #ffab00;
+  letter-spacing: 1px;
 }
-.uni-panel {
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+.uni-topbar__info {
+  color: #c9b8ff;
+}
+.uni-topbar__stat {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 8px;
   border-radius: 10px;
-  padding: 16px;
+  font-size: 13px;
+}
+.uni-topbar__spacer {
+  flex: 1;
+}
+/* 面板 */
+.uni-panel {
+  background: rgba(20, 14, 44, 0.72);
+  border: 1px solid rgba(140, 120, 255, 0.22);
+  border-radius: 14px;
+  padding: 20px;
   text-align: center;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  animation: uniPop 0.25s ease;
+}
+@keyframes uniPop {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.uni-panel__title {
+  margin: 0 0 6px;
+  color: #ffc94d;
 }
 .uni-panel__desc {
-  color: #cfcfcf;
+  color: #cfc4f0;
   margin: 8px 0 16px;
+}
+.uni-panel__gain {
+  font-size: 22px;
+  color: #ffc94d;
+  font-weight: bold;
 }
 .uni-panel--over {
   border-color: #ff6b6b;
 }
+/* 选择卡 */
 .uni-choice {
   display: flex;
   gap: 12px;
@@ -472,54 +634,125 @@ function onQuit() {
   flex-wrap: wrap;
 }
 .uni-choice__card {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.07);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: #fff;
-  border-radius: 8px;
-  padding: 12px 16px;
+  border-radius: 12px;
+  padding: 14px 18px;
   cursor: pointer;
-  min-width: 160px;
+  min-width: 170px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+  align-items: center;
   font-size: 14px;
+  transition: transform 0.15s, background 0.15s, border-color 0.15s;
 }
 .uni-choice__card:hover {
+  transform: translateY(-3px);
   background: rgba(255, 171, 0, 0.15);
+  border-color: rgba(255, 171, 0, 0.5);
 }
 .uni-choice__icon {
-  font-size: 22px;
+  font-size: 26px;
 }
+.uni-choice__name {
+  font-weight: 600;
+}
+.uni-choice__avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(255, 171, 0, 0.4);
+}
+/* 按钮 */
 .uni-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   color: #fff;
-  border-radius: 6px;
-  padding: 8px 16px;
+  border-radius: 8px;
+  padding: 8px 18px;
   cursor: pointer;
   font-size: 14px;
+  transition: transform 0.12s, background 0.12s;
 }
 .uni-btn:hover:not(:disabled) {
-  background: rgba(255, 171, 0, 0.2);
+  transform: translateY(-1px);
+  background: rgba(255, 171, 0, 0.22);
+}
+.uni-btn:active:not(:disabled) {
+  transform: scale(0.97);
 }
 .uni-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
-.uni-btn--sm {
+.uni-btn--sm { padding: 4px 10px; font-size: 12px; }
+.uni-btn--big { padding: 12px 28px; font-size: 16px; margin-top: 10px; }
+.uni-btn--primary { background: #8a5cff; border-color: #8a5cff; font-weight: bold; }
+.uni-btn--danger { background: #e04a4a; border-color: #e04a4a; font-weight: bold; }
+.uni-btn--attack { background: #c2452e; border-color: #c2452e; font-weight: bold; }
+.uni-btn--defense { background: #2e7cc2; border-color: #2e7cc2; font-weight: bold; }
+.uni-btn--skill { background: #7a3fc9; border-color: #7a3fc9; font-weight: bold; }
+/* 行动顺序条 */
+.uni-order {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding: 8px 12px;
+  background: rgba(20, 14, 44, 0.72);
+  border: 1px solid rgba(140, 120, 255, 0.22);
+  border-radius: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.uni-order__slot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 4px 10px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   font-size: 12px;
+  opacity: 0.6;
+  transition: all 0.25s;
 }
-.uni-btn--primary {
-  background: #ff8f00;
-  border-color: #ff8f00;
-  font-weight: bold;
-  margin-top: 8px;
+.uni-order__avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  object-fit: cover;
 }
-/* 战斗 */
+.uni-order__slot--current {
+  opacity: 1;
+  background: rgba(255, 171, 0, 0.25);
+  border-color: #ffab00;
+  box-shadow: 0 0 10px rgba(255, 171, 0, 0.5);
+  transform: scale(1.06);
+}
+.uni-order__slot--next {
+  opacity: 0.85;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+.uni-order__slot--done {
+  opacity: 0.35;
+  text-decoration: line-through;
+}
+.uni-order__slot--dead {
+  opacity: 0.2;
+  filter: grayscale(1);
+}
+/* 战斗板 */
 .uni-battle {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.uni-battle__board {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1.15fr 1fr;
   gap: 12px;
 }
 .uni-battle__team,
@@ -528,94 +761,239 @@ function onQuit() {
   flex-direction: column;
   gap: 8px;
 }
-.uni-member,
-.uni-enemy {
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 8px;
-  padding: 8px 10px;
+/* 成员卡 */
+.uni-member {
+  position: relative;
+  background: rgba(20, 14, 44, 0.72);
+  border: 1px solid rgba(140, 120, 255, 0.2);
+  border-radius: 12px;
+  padding: 10px 12px;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
 }
 .uni-member--active {
   border-color: #ffab00;
-  box-shadow: 0 0 8px rgba(255, 171, 0, 0.4);
+  box-shadow: 0 0 14px rgba(255, 171, 0, 0.45);
+  transform: scale(1.015);
 }
-.uni-member--dead,
-.uni-enemy--dead {
-  opacity: 0.35;
+.uni-member--dead {
+  opacity: 0.4;
+  filter: grayscale(0.8);
 }
-.uni-member__name,
-.uni-enemy__name {
+.uni-member--hit {
+  animation: uniHit 0.4s ease;
+}
+@keyframes uniHit {
+  0%, 100% { background: rgba(20, 14, 44, 0.72); }
+  30% { background: rgba(224, 74, 74, 0.45); }
+}
+.uni-member__head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.uni-member__avatar {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 2px solid rgba(255, 171, 0, 0.35);
+  background: rgba(255, 255, 255, 0.05);
+}
+.uni-member__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.uni-member__skull {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  background: rgba(0, 0, 0, 0.5);
+}
+.uni-member__main {
+  flex: 1;
+}
+.uni-member__name {
   font-weight: bold;
+  font-size: 15px;
 }
 .uni-bar {
-  height: 8px;
+  height: 9px;
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+  border-radius: 5px;
   overflow: hidden;
-  margin: 4px 0;
+  margin: 4px 0 2px;
 }
 .uni-bar__fill {
   height: 100%;
-  transition: width 0.3s;
+  transition: width 0.35s ease;
 }
 .uni-bar__fill--hp {
-  background: #4caf50;
+  background: linear-gradient(90deg, #4caf50, #8bc34a);
 }
 .uni-bar__fill--enemy {
-  background: #f44336;
+  background: linear-gradient(90deg, #f44336, #ff8a65);
 }
-.uni-member__stat,
-.uni-enemy__shield,
-.uni-enemy__flag,
-.uni-member__flag {
+.uni-member__hpnum,
+.uni-enemy__hpnum {
   font-size: 12px;
-  color: #cfcfcf;
+  color: #cfc4f0;
 }
-.uni-member__cd {
-  color: #ff8f00;
+.uni-member__flags,
+.uni-enemy__flags {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 6px;
 }
-.uni-member__ready {
-  color: #4caf50;
+.uni-tag {
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+}
+.uni-tag--shield { background: rgba(46, 124, 194, 0.35); }
+.uni-tag--bad { background: rgba(224, 74, 74, 0.4); }
+.uni-tag--dot { background: rgba(255, 120, 40, 0.4); }
+.uni-tag--elite { background: rgba(160, 60, 200, 0.45); }
+.uni-tag--boss { background: rgba(255, 171, 0, 0.45); color: #000; }
+.uni-tag--boost { background: rgba(255, 171, 0, 0.4); }
+.uni-member__skill {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #b7a8e8;
+}
+.uni-member__cd { color: #ff8f00; margin-left: 4px; }
+.uni-member__ready { color: #4caf50; margin-left: 4px; }
+.uni-member__passive { color: #888; margin-left: 4px; }
+/* 敌人卡 */
+.uni-enemy {
+  position: relative;
+  background: rgba(50, 16, 24, 0.7);
+  border: 1px solid rgba(255, 90, 90, 0.25);
+  border-radius: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.uni-enemy:hover {
+  border-color: rgba(255, 90, 90, 0.6);
+}
+.uni-enemy--dead {
+  opacity: 0.35;
+  filter: grayscale(1);
+  cursor: default;
 }
 .uni-enemy--target {
-  border-color: #ff8f00;
-  box-shadow: 0 0 8px rgba(255, 143, 0, 0.5);
+  border-color: #ffab00;
+  box-shadow: 0 0 12px rgba(255, 171, 0, 0.6);
+  transform: scale(1.03);
 }
+.uni-enemy--hit {
+  animation: uniHitEnemy 0.4s ease;
+}
+@keyframes uniHitEnemy {
+  0%, 100% { background: rgba(50, 16, 24, 0.7); }
+  30% { background: rgba(255, 235, 59, 0.3); }
+}
+.uni-enemy__name {
+  font-weight: bold;
+  color: #ffb0b0;
+}
+/* 飘字 */
+.uni-fx {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  font-size: 18px;
+  font-weight: bold;
+  color: #ff6b6b;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+  animation: uniFloat 1s ease-out forwards;
+  z-index: 5;
+}
+.uni-fx--shield { color: #6bb3ff; }
+@keyframes uniFloat {
+  0% { opacity: 1; transform: translateY(0) scale(1.1); }
+  100% { opacity: 0; transform: translateY(-30px) scale(1); }
+}
+/* 操作区 */
 .uni-battle__action {
-  grid-column: 1 / -1;
-  background: rgba(0, 0, 0, 0.4);
-  border-radius: 8px;
+  background: rgba(20, 14, 44, 0.75);
+  border: 1px solid rgba(140, 120, 255, 0.22);
+  border-radius: 12px;
   padding: 12px;
   text-align: center;
 }
 .uni-battle__actor {
-  margin-bottom: 8px;
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  align-items: center;
-}
-.uni-poker {
-  background: #fff;
-  color: #333;
-  border-radius: 4px;
-  padding: 2px 8px;
-  font-weight: bold;
-  display: inline-block;
-}
-.uni-battle__buttons {
+  margin-bottom: 10px;
   display: flex;
   gap: 10px;
   justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.uni-battle__actorname {
+  font-weight: bold;
+  color: #ffc94d;
+}
+.uni-battle__turn {
+  color: #888;
+  font-size: 12px;
+}
+.uni-poker {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  background: linear-gradient(160deg, #fff, #e8e4f8);
+  color: #222;
+  border-radius: 8px;
+  padding: 6px 12px;
+  min-width: 48px;
+  border: 2px solid rgba(255, 171, 0, 0.5);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+  animation: uniDeal 0.3s ease;
+}
+@keyframes uniDeal {
+  from { transform: translateY(-14px) rotate(-4deg); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.uni-poker__rank {
+  font-size: 22px;
+  font-weight: bold;
+  line-height: 1;
+}
+.uni-poker__suit {
+  font-size: 18px;
+}
+.uni-poker__rank--♥, .uni-poker__rank--♦ { color: #d32f2f; }
+.uni-poker__rank--♠, .uni-poker__rank--♣ { color: #1a1a2e; }
+.uni-battle__buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 .uni-battle__msg {
   margin-top: 8px;
   color: #ff8f00;
+  min-height: 18px;
 }
 /* 商店 */
 .uni-shop-section {
   text-align: left;
-  margin: 10px 0;
+  margin: 12px 0;
+}
+.uni-shop-section__title {
+  color: #ffc94d;
+  margin: 6px 0;
+  font-size: 15px;
 }
 .uni-shop-list {
   display: flex;
@@ -627,19 +1005,32 @@ function onQuit() {
   justify-content: space-between;
   align-items: center;
   background: rgba(255, 255, 255, 0.05);
-  padding: 6px 10px;
-  border-radius: 6px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.uni-shop-item__name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.uni-star {
+  color: #ffc94d;
+  letter-spacing: -1px;
 }
 .uni-rest-revive {
   display: flex;
   gap: 8px;
   justify-content: center;
   flex-wrap: wrap;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
-@media (max-width: 600px) {
-  .uni-battle {
+@media (max-width: 640px) {
+  .uni-battle__board {
     grid-template-columns: 1fr;
+  }
+  .uni-shell {
+    padding: 8px;
   }
 }
 </style>
