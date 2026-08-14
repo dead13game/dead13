@@ -213,7 +213,8 @@ const MAX_ENTRIES = 2000;
 const PRUNE_COUNT = 500;
 
 // ===== 数据清理 =====
-function sanitize(obj, depth = 3, seen = new WeakSet()) {
+// depth 5：确保事件 outcome.fx（第 3 层）等奖励数值在日志中完整可见（此前 3 层把 fx 截断为 [深度限制]）
+function sanitize(obj, depth = 5, seen = new WeakSet()) {
   if (depth <= 0) return "[深度限制]";
   if (obj === null || obj === undefined) return obj;
   if (typeof obj !== "object") return obj;
