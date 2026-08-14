@@ -182,6 +182,15 @@ export function getUniModifiers(state) {
       case "jifeng": mods.atkMult += 10 * m; break;
       case "hongkuai": mods.atkMult += 20 * m; break; // 终结技伤害（简化并入全伤害）
       case "chilun": mods.atkMult += 5 * Math.min(zhishuCount, 5) * m; break;
+      case "ruchong": mods.atkMult += 10 * m; break; // 蠕行之蛇：敌方受伤 +10%
+      case "xingqiu":
+        mods.atkMult += 5 * m; // 行星碰碰车：真实伤害（简化并入全伤害）
+        // dot 敌人额外 15%
+        if (state.combat?.enemies?.some((e) => e.alive && e.dotTurns > 0)) {
+          mods.atkMult += 15 * m;
+        }
+        break;
+      case "chitu": mods.atkMult += 10 * m; break; // 吃土绑架犯：附加伤害倍率（简化）
       case "xuansi": mods.atkNormalMult += 30 * m; break;
       case "penliu": mods.dmgTakenMult += 10 * m; break;
       case "fangshe":
@@ -304,6 +313,16 @@ export function triggerOnDamaged(state, memberIdx, hpLoss) {
   if (m5 > 0 && t.hp / t.maxHp <= 0.5 && !t.status.weixingUsed) {
     t.status.weixingUsed = true;
     t.shield += Math.floor(t.maxHp * 0.2 * m5);
+  }
+  // 方程：冰霜巨人（受击后生命 <40% 时消耗 5 层战意，回 25% + 伤害 +150% 2 回合，每回合 1 次）
+  if (state.equations?.some((e) => e.id === "bingkuang") && hpLoss > 0 && t.hp / t.maxHp < 0.4) {
+    if (t.status.zhandu >= 5) {
+      t.status.zhandu -= 5;
+      t.hp = Math.min(t.maxHp, t.hp + Math.floor(t.maxHp * 0.25));
+      t.status.dmgBuffPct = (t.status.dmgBuffPct || 0) + 150;
+      t.status.dmgBuffTurns = 2;
+      state.log.push("冰霜巨人：消耗 5 层战意，回复并强化");
+    }
   }
 }
 
@@ -837,13 +856,21 @@ export function loseRandomCurio(state) {
 
 // ================= 方程（第一版基础池，效果 M5 完整接入） =================
 
-/** 方程数据表（4 个：1×1星 + 2×2星 + 1×3星） */
+/** 方程数据表（全量：3×1星 + 5×2星 + 5×3星） */
 export const EQUATIONS = {
   shouzu: { id: "shouzu", name: "受诅教师", star: 1, fate: "毁灭", desc: "每消灭 1 名敌人，本场战斗伤害 +20%（最多 3 层）" },
   huanxin: { id: "huanxin", name: "换心魔", star: 1, fate: "毁灭", desc: "生命上限 +40%；进入战斗对敌全体造成第一位角色生命上限 20% 的伤害" },
+  xingqiu: { id: "xingqiu", name: "行星碰碰车", star: 1, fate: "繁育", desc: "真实伤害提高 35%；敌方目标若处于持续伤害状态，额外提高 15%" },
   chitu: { id: "chitu", name: "吃土绑架犯", star: 2, fate: "繁育", desc: "附加伤害和真实伤害的倍率提高 60%" },
   zhedi: { id: "zhedi", name: "蛰虫帝", star: 2, fate: "繁育", desc: "施放终结技后，对随机敌人造成其 10% 生命上限的伤害" },
-  pingguo: { id: "pingguo", name: "苹果！苹果！", star: 3, fate: "智识", desc: "每 3 回合结束后对敌方全体造成 2000% 基础伤害" },
+  bingkuang: { id: "bingkuang", name: "冰霜巨人", star: 2, fate: "毁灭", desc: "受击后生命 <40% 时消耗 5 层战意，回复 25% 生命上限并使伤害提高 150% 持续 2 回合（每回合 1 次）" },
+  yiji: { id: "yiji", name: "遗迹魔法师", star: 2, fate: "智识", desc: "角色施放攻击后为「罐中脑」充能 8%" },
+  chaoji: { id: "chaoji", name: "超级体育生", star: 2, fate: "智识", desc: "施放终结技后为「罐中脑」充能 30%；消灭敌方目标后充能 30%" },
+  pingguo: { id: "pingguo", name: "苹果！苹果！", star: 3, fate: "智识", desc: "每 3 回合结束后对敌方全体造成 2000% 冰属性基础伤害" },
+  xingzou: { id: "xingzou", name: "街道骑行官", star: 3, fate: "毁灭", desc: "我方累计发动 24 次攻击后，第一位角色获得额外回合（该回合攻击附加 160% 生命上限伤害）" },
+  chumo: { id: "chumo", name: "除魔士", star: 3, fate: "智识", desc: "每 4 回合施放 1 次，使我方伤害提高 200%（该回合攻击后对 <25% 血敌人附加 20% 生命上限伤害）" },
+  mengmo: { id: "mengmo", name: "梦魔主", star: 3, fate: "毁灭", desc: "我方每次施放攻击，可造成各自生命上限与护盾之和 10% 的附加伤害" },
+  ruchong: { id: "ruchong", name: "蠕行之蛇", star: 3, fate: "繁育", desc: "敌方全体受到的伤害提高 10%；第一回合我方额外造成原伤害 60% 的真实伤害" },
 };
 
 /** 随机 1 个方程（minStar-maxStar） */

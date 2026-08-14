@@ -19,6 +19,7 @@ import {
   triggerOnEndTurn,
   triggerCurioOnCombatStart,
   triggerCurioOnWin,
+  chargeJarBrain,
   blessingMult,
   rollBlessingCandidates,
   rollBlessing,
@@ -158,6 +159,15 @@ export function startPlayerTurn(state) {
       }
     }
   }
+  // 方程：除魔士（每 4 回合开始时全队伤害 +200%，1 回合）
+  if (hasEquation(state, "chumo") && c.round % 4 === 0) {
+    for (const t of state.team) {
+      if (!t.alive) continue;
+      t.status.dmgBuffPct = (t.status.dmgBuffPct || 0) + 200;
+      t.status.dmgBuffTurns = 1;
+    }
+    state.log.push("除魔士：全队伤害 +200%（本回合）");
+  }
   tickTeamDots(state);
   tickEnemyDots(state);
   // 奇物：虚构机兵（角色回合开始回复 20% 生命上限）
@@ -267,11 +277,14 @@ export function playerAttack(state, enemyIdx) {
     memberAtkMods(state, c.activeIdx) +
     nextBoost +
     killStacks * 20 +
+    (hasEquation(state, "ruchong") && c.round === 1 ? 60 : 0) + // 蠕行之蛇：第一回合 +60%
     (c.buffs?.includes("atkUp") ? 30 : 0) +
     (c.buffs?.includes("dmgUp50") ? 50 : 0);
   const dmg = Math.max(0, Math.floor((raw + flat) * (1 + totalPct / 100)) + spiritBonus);
   if (attacker.status.nextAttackBoost) attacker.status.nextAttackBoost = 0; // 炬火一次性
   recordSound(state, "attack");
+  // 方程：遗迹魔法师（攻击后罐中脑 +8%）
+  if (hasEquation(state, "yiji")) chargeJarBrain(state, 8);
   state.devLog.info(LOG_TYPE.UNI_REGION, `${attacker.name} 普攻 ${enemy.name}`, {
     enemyIdx,
     sourceIdx: c.activeIdx,
@@ -284,6 +297,19 @@ export function playerAttack(state, enemyIdx) {
   });
   c.pendingPoker = [];
   damageEnemy(state, enemyIdx, dmg, c.activeIdx);
+  // 方程：梦魔主（攻击附加生命上限+护盾 10%）
+  if (hasEquation(state, "mengmo")) {
+    c._pendingExtra = (c._pendingExtra || 0) + Math.floor((attacker.maxHp + attacker.shield) * 0.1);
+  }
+  // 方程：街道骑行官（累计 24 次攻击后第一位角色获得强化攻击）
+  c.attackCount = (c.attackCount || 0) + 1;
+  if (hasEquation(state, "xingzou") && c.attackCount % 24 === 0) {
+    const first = state.team.find((x) => x.alive);
+    if (first) {
+      first.status.nextAttackBoost = (first.status.nextAttackBoost || 0) + 160;
+      state.log.push("街道骑行官：第一位角色下一次攻击强化");
+    }
+  }
   // 攻击后祝福钩子（结膜/厌离邪秽苦/神性谐振/灾难性共振/裸脑质·飞溅蛊）
   triggerOnAttackAfter(state, c.activeIdx, enemyIdx, dmg);
   if (c._pendingExtra) {
@@ -665,6 +691,8 @@ export function damageEnemy(state, enemyIdx, dmg, sourceIdx = -1) {
     if (hasEquation(state, "shouzu")) {
       c.killStacks = (c.killStacks || 0) + 1;
     }
+    // 方程：超级体育生（消灭敌人罐中脑 +30%）
+    if (hasEquation(state, "chaoji")) chargeJarBrain(state, 30);
   }
 }
 

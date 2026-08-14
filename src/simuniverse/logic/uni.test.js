@@ -60,6 +60,7 @@ import {
   gainEquation,
   blessingMult,
   CURIOS,
+  EQUATIONS,
 } from "./uniBuffs.js";
 import { enterRegion } from "./uniState.js";
 import { CHARACTERS } from "../../game/constants.js";
@@ -1577,5 +1578,61 @@ describe("模拟宇宙 M8：全量奇物", () => {
     s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 1 }] };
     startCombat(s);
     expect(s.combat.enemies[0].hp).toBe(Math.max(0, 10 - Math.floor(10 * 0.3))); // 7
+  });
+});
+
+describe("模拟宇宙 M9：全量方程", () => {
+  it("方程池全量：3×1星 + 5×2星 + 5×3星 = 13", () => {
+    const all = Object.values(EQUATIONS);
+    expect(all).toHaveLength(13);
+    expect(all.filter((e) => e.star === 1)).toHaveLength(3);
+    expect(all.filter((e) => e.star === 2)).toHaveLength(5);
+    expect(all.filter((e) => e.star === 3)).toHaveLength(5);
+  });
+
+  it("梦魔主：攻击附加（生命上限+护盾）10% 伤害", () => {
+    const s = createUniState();
+    gainEquation(s, "mengmo");
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 2 }] };
+    startCombat(s);
+    const enemy = s.combat.enemies[0];
+    const hpBefore = enemy.hp;
+    setPoker(s, 5, 5); // raw 8
+    playerAttack(s, enemy.id);
+    // 伤害 = 8 + (maxHp+shield)10% ≈ 8+1 = 9
+    expect(enemy.hp).toBeLessThan(hpBefore - 8);
+  });
+
+  it("遗迹魔法师：攻击后罐中脑 +8%", () => {
+    const s = createUniState();
+    gainEquation(s, "yiji");
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 2 }] };
+    startCombat(s);
+    setPoker(s, 5, 5);
+    playerAttack(s, s.combat.enemies[0].id);
+    expect(s.jarBrain).toBeGreaterThanOrEqual(8);
+  });
+
+  it("蠕行之蛇：第一回合普攻伤害 +60%", () => {
+    const s = createUniState();
+    gainEquation(s, "ruchong");
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 2 }] };
+    startCombat(s);
+    const enemy = s.combat.enemies[0];
+    const hpBefore = enemy.hp;
+    setPoker(s, 5, 5); // raw 8 × 1.6 = 12
+    playerAttack(s, enemy.id);
+    expect(enemy.hp).toBe(Math.max(0, hpBefore - 12));
+  });
+
+  it("除魔士：每 4 回合全队伤害 +200%", () => {
+    const s = createUniState();
+    gainEquation(s, "chumo");
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 2 }] };
+    startCombat(s);
+    s.combat.round = 3;
+    // 新回合开始（round → 4）：除魔士触发
+    startPlayerTurn(s);
+    expect(s.team[0].status.dmgBuffPct).toBeGreaterThanOrEqual(200);
   });
 });
