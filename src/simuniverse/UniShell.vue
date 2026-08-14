@@ -152,7 +152,10 @@
             }"
             @click="onEnemyClick(e.id)"
           >
-            <div class="uni-enemy__name">{{ e.name }}</div>
+            <div class="uni-enemy__name">
+              {{ e.name }}
+              <span class="uni-tag uni-tag--pattern">类别{{ e.pattern }} · {{ patternName(e) }}</span>
+            </div>
             <div class="uni-enemy__hp">
               <div class="uni-bar">
                 <div
@@ -470,6 +473,7 @@
           >
             <span class="uni-choice__icon">🙏</span>
             <span class="uni-choice__name">{{ uni.blessingName(id) }}</span>
+            <span class="uni-tag uni-tag--fate">{{ blessingFate(id) }}</span>
           </button>
         </div>
       </template>
@@ -542,6 +546,7 @@
             @click="uni.doBlessingPick(id)"
           >
             <span class="uni-choice__name">{{ uni.blessingName(id) }}</span>
+            <span class="uni-tag uni-tag--fate">{{ blessingFate(id) }}</span>
           </button>
         </div>
       </template>
@@ -571,6 +576,7 @@
             <span class="uni-shop-item__name">
               <span class="uni-star">{{ '★'.repeat(item.star) }}</span>
               {{ uni.blessingName(item.id) }}
+              <span class="uni-tag uni-tag--fate">{{ blessingFate(item.id) }}</span>
             </span>
             <button
               class="uni-btn uni-btn--sm"
@@ -691,7 +697,7 @@
 <script setup>
 import { ref, computed, watch } from "vue";
 import DevLogPanel from "../components/DevLogPanel.vue";
-import { SHOP_PRICE, REGION_META, UNI_SKILLS } from "./logic/uniConstants.js";
+import { SHOP_PRICE, REGION_META, UNI_SKILLS, ENEMY_PATTERNS } from "./logic/uniConstants.js";
 import { CHARACTERS } from "./logic/uniState.js";
 import { BLESSINGS, CURIOS, EQUATIONS } from "./logic/uniBuffs.js";
 import { shopPrice as uniShopPrice } from "./logic/uniShop.js";
@@ -822,8 +828,13 @@ function toggleDetail(kind, i) {
   const key = kind + "-" + i;
   expandedKey.value = expandedKey.value === key ? null : key;
 }
-function bagBlessing(id) {
-  return BLESSINGS[id] || { name: id, desc: "", fate: "" };
+function bagBlessing(id) {  return BLESSINGS[id] || { name: id, desc: "", fate: "" };
+}
+function blessingFate(id) {
+  return BLESSINGS[id]?.fate || "";
+}
+function patternName(e) {
+  return ENEMY_PATTERNS?.[e.kind]?.[e.pattern]?.name || "";
 }
 function bagCurio(id) {
   return CURIOS[id] || { name: id, desc: "" };
@@ -1279,6 +1290,8 @@ function onQuit() {
 .uni-tag--dot { background: rgba(255, 120, 40, 0.4); }
 .uni-tag--spirit { background: rgba(255, 120, 40, 0.55); color: #ffd9a0; }
 .uni-tag--moon { background: rgba(150, 110, 255, 0.45); color: #d9c9ff; }
+.uni-tag--fate { background: rgba(90, 160, 255, 0.35); color: #bcdcff; font-size: 11px; }
+.uni-tag--pattern { background: rgba(255, 200, 80, 0.35); color: #ffe9b0; font-size: 11px; }
 .uni-tag--elite { background: rgba(160, 60, 200, 0.45); }
 .uni-tag--boss { background: rgba(255, 171, 0, 0.45); color: #000; }
 .uni-tag--boost { background: rgba(255, 171, 0, 0.4); }
