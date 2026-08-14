@@ -1055,6 +1055,13 @@ describe("模拟宇宙 M4：事件系统", () => {
     expect(s.pendingBlessingPicks[0].starRange).toEqual([1, 2]);
   });
 
+  it("异常区域（无 waves 配置）startCombat 不崩溃 → 直接胜利", () => {
+    const s = createUniState();
+    s.region = { type: "event", name: "事件" }; // 事件区域未切战斗区域（回归：事件战斗 region bug）
+    startCombat(s);
+    expect(s.combat.phase).toBe("won");
+  });
+
   it("迷途商队 B：护送 → 事件战斗 → 胜利后 2 次祝福三选一", () => {
     const s = createUniState();
     const r = applyEventOption(s, "caravan", 1);

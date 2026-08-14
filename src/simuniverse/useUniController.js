@@ -265,7 +265,14 @@ export function useUniController() {
       return r;
     }
     if (r.outcome?.battle) {
-      // 事件战斗：进入战斗（pendingEventReward 已挂起）
+      // 事件战斗：把 region 切换为战斗区域（startCombat 依赖 region.waves）
+      uniState.region = {
+        ...uniState.region,
+        type: "battle",
+        name: r.outcome.battle.desc,
+        waves: r.outcome.battle.waves,
+      };
+      // 进入战斗（pendingEventReward 已挂起）
       startBattle();
       return r;
     }

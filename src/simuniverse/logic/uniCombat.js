@@ -77,6 +77,11 @@ function createEnemy(state, kind, idx) {
 export function spawnWave(state) {
   const c = state.combat;
   const cfg = c.waves[c.wave];
+  if (!cfg) {
+    // 无波次配置（异常区域）→ 直接胜利，避免卡死
+    endCombat(state, "won");
+    return;
+  }
   c.enemies = [];
   for (let i = 0; i < cfg.count; i++) {
     c.enemies.push(createEnemy(state, cfg.kind, i));
@@ -89,6 +94,19 @@ export function spawnWave(state) {
   });
 }
 
+/** 波次敌人全灭检查（进场即死/羊皮卷等）：全灭则推进下一波或胜利，避免卡死 */
+function checkWaveClear(state) {
+  const c = state.combat;
+  if (!c || c.phase === "won" || c.phase === "lost" || c.phase === "wave-clear") return;
+  if (c.enemies.length > 0 && c.enemies.every((e) => !e.alive)) {
+    if (c.wave >= c.waves.length - 1) {
+      endCombat(state, "won");
+    } else {
+      nextWave(state);
+    }
+  }
+}
+
 // ---- 战斗开始 ----
 
 /** 开始一场战斗（依据 state.region 类型） */
@@ -97,7 +115,7 @@ export function startCombat(state) {
   const kind = r.type; // battle | elite | boss | transform
   state.combat = {
     kind,
-    waves: r.waves,
+    waves: r.waves || [],
     wave: 0,
     enemies: [],
     round: 0, // 已完成的玩家回合数（转化及格线按此计）
@@ -124,8 +142,18 @@ export function startCombat(state) {
     state.log.push("使用急救包，全队回复 10% 生命");
   }
   spawnWave(state);
+  checkWaveClear(state);
+  if (state.combat.phase === "won" || state.combat.phase === "lost") {
+    state.devLog.info(LOG_TYPE.UNI_INIT, `战斗开始即结束：${r.name}`, { result: state.combat.phase });
+    return state.combat;
+  }
   triggerOnCombatStart(state); // 祝福：构筑·哨戒
   triggerCurioOnCombatStart(state); // 奇物：战斗开始效果
+  checkWaveClear(state); // 战斗开始奇物可能对敌人造成伤害（羊皮卷等）
+  if (state.combat.phase === "won" || state.combat.phase === "lost") {
+    state.devLog.info(LOG_TYPE.UNI_INIT, `战斗开始即结束：${r.name}`, { result: state.combat.phase });
+    return state.combat;
+  }
   startPlayerTurn(state);
   state.devLog.info(LOG_TYPE.UNI_INIT, `战斗开始：${r.name}`, {
     kind,
@@ -738,6 +766,7 @@ export function nextWave(state) {
     return;
   }
   spawnWave(state);
+  checkWaveClear(state); // 新一波进场即全灭（羊皮卷等）→ 继续推进，避免卡死
 }
 
 /** 转化层：打完两波后玩家选择 撤退（及格保底）或 挑战第三波 */
