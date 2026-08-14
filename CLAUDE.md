@@ -201,7 +201,7 @@ PlayerTableSprite `_updateStatus()` 依赖（注意嵌套路径）:
 | `src/simuniverse/logic/uniCombat.js` | — | 模拟宇宙战斗（扑克牌三选一/敌人模板/波次/转化及格线/首领穿插） |
 | `src/simuniverse/logic/uniSkills.js` | — | 11 角色 PVE 技能（等级 1-10 查表/冷却）             |
 | `src/simuniverse/logic/uniEvents.js` | — | 分支事件/奖励/冒险（9+8+3 个）                      |
-| `src/simuniverse/logic/uniBuffs.js` | —  | 祝福 20 / 奇物 10 / 方程 5 + modifier 聚合          |
+| `src/simuniverse/logic/uniBuffs.js` | —  | 祝福 59 / 奇物 79 / 方程 13 全量数据+效果 + modifier 聚合 |
 | `src/simuniverse/logic/uniShop.js` | —   | 商店/休整/造物调试台（热量强化/覆写）               |
 | `src/simuniverse/UniShell.vue`    | —   | 模拟宇宙 UI 主壳（2选1/战斗/事件/商店/工作台）      |
 
