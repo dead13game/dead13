@@ -450,7 +450,7 @@ export function applyEventOption(state, eventId, optionIdx) {
   if (fx.planeMaxHp) {
     state.planeMaxHpBoost = fx.planeMaxHp;
     for (const t of state.team) {
-      t.maxHp = Math.floor((t.maxHp * (100 + fx.planeMaxHp)) / 100);
+      t.maxHp = Math.ceil((t.maxHp * (100 + fx.planeMaxHp)) / 100);
     }
   }
 

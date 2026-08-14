@@ -122,7 +122,7 @@ export function gainBlessing(state, id, opts = {}) {
   // 轨道红移：生命上限 +16%/层（一次性提升当前 maxHp）
   if (id === "hongyi") {
     for (const t of state.team) {
-      t.maxHp = Math.floor(t.maxHp * 1.16);
+      t.maxHp = Math.ceil(t.maxHp * 1.16);
       t.hp = Math.min(t.hp, t.maxHp);
     }
   }
@@ -291,15 +291,15 @@ export function triggerOnCombatStart(state) {
     if (!t.alive) continue;
     const shaojie = BLESSINGS.shaojie?.fx?.shieldPct || 0;
     if (blessingMult(state, "shaojie") > 0) {
-      t.shield += Math.floor((t.maxHp * shaojie) / 100 * blessingMult(state, "shaojie"));
+      t.shield += Math.ceil((t.maxHp * shaojie) / 100 * blessingMult(state, "shaojie"));
     }
     const chubei = BLESSINGS.chubei?.fx?.shieldPct || 0;
     if (blessingMult(state, "chubei") > 0) {
-      t.shield += Math.floor(((t.maxHp - t.hp) * chubei) / 100 * blessingMult(state, "chubei"));
+      t.shield += Math.ceil(((t.maxHp - t.hp) * chubei) / 100 * blessingMult(state, "chubei"));
     }
     const yanshou = BLESSINGS.yanshou?.fx?.healPct || 0;
     if (blessingMult(state, "yanshou") > 0) {
-      t.hp = Math.min(t.maxHp, t.hp + Math.floor((t.maxHp * yanshou) / 100 * blessingMult(state, "yanshou")));
+      t.hp = Math.min(t.maxHp, t.hp + Math.ceil((t.maxHp * yanshou) / 100 * blessingMult(state, "yanshou")));
     }
   }
 }
@@ -310,15 +310,15 @@ export function triggerOnDamaged(state, memberIdx, hpLoss) {
   if (!t) return;
   const mihe = BLESSINGS.mihe?.fx?.shieldPct || 0;
   if (mihe && blessingMult(state, "mihe") > 0 && hpLoss > 0) {
-    t.shield += Math.floor((hpLoss * mihe) / 100 * blessingMult(state, "mihe"));
+    t.shield += Math.ceil((hpLoss * mihe) / 100 * blessingMult(state, "mihe"));
   }
   const shanbianFx = BLESSINGS.shanbian?.fx;
   if (shanbianFx && blessingMult(state, "shanbian") > 0 && t.hp / t.maxHp < (shanbianFx.hpBelow || 35) / 100) {
-    t.hp = Math.min(t.maxHp, t.hp + Math.floor((t.maxHp * shanbianFx.healPct) / 100 * blessingMult(state, "shanbian")));
+    t.hp = Math.min(t.maxHp, t.hp + Math.ceil((t.maxHp * shanbianFx.healPct) / 100 * blessingMult(state, "shanbian")));
   }
   const chuanzhiFx = BLESSINGS.chuanzhi?.fx;
   if (chuanzhiFx && blessingMult(state, "chuanzhi") > 0) {
-    t.maxHp = Math.floor(t.maxHp * (1 + (chuanzhiFx.maxHpPct || 20) / 100 * blessingMult(state, "chuanzhi")));
+    t.maxHp = Math.ceil(t.maxHp * (1 + (chuanzhiFx.maxHpPct || 20) / 100 * blessingMult(state, "chuanzhi")));
     t.status.maxHpBuffTurns = chuanzhiFx.turns || 2;
   }
   const huanyuFx = BLESSINGS.huanyu?.fx;
@@ -328,14 +328,14 @@ export function triggerOnDamaged(state, memberIdx, hpLoss) {
   const weixingFx = BLESSINGS.weixing?.fx;
   if (weixingFx && blessingMult(state, "weixing") > 0 && t.hp / t.maxHp <= (weixingFx.hpBelow || 50) / 100 && !t.status.weixingUsed) {
     t.status.weixingUsed = true;
-    t.shield += Math.floor((t.maxHp * weixingFx.shieldPct) / 100 * blessingMult(state, "weixing"));
+    t.shield += Math.ceil((t.maxHp * weixingFx.shieldPct) / 100 * blessingMult(state, "weixing"));
   }
   // 方程：冰霜巨人
   const bingkuangFx = EQUATIONS.bingkuang?.fx;
   if (bingkuangFx && state.equations?.some((e) => e.id === "bingkuang") && hpLoss > 0 && t.hp / t.maxHp < (bingkuangFx.hpBelow || 40) / 100) {
     if ((t.status.zhandu || 0) >= (bingkuangFx.zhanduCost || 5)) {
       t.status.zhandu -= bingkuangFx.zhanduCost;
-      t.hp = Math.min(t.maxHp, t.hp + Math.floor((t.maxHp * bingkuangFx.healPct) / 100));
+      t.hp = Math.min(t.maxHp, t.hp + Math.ceil((t.maxHp * bingkuangFx.healPct) / 100));
       t.status.dmgBuffPct = (t.status.dmgBuffPct || 0) + (bingkuangFx.atkPct || 150);
       t.status.dmgBuffTurns = bingkuangFx.turns || 2;
       state.log.push("冰霜巨人：消耗战意，回复并强化");
@@ -355,7 +355,7 @@ export function triggerOnHeal(state, memberIdx, healAmount = 0) {
   }
   const boreFx = BLESSINGS.bore?.fx;
   if (boreFx && blessingMult(state, "bore") > 0 && healAmount > 0) {
-    t.hp = Math.min(t.maxHp, t.hp + Math.floor((healAmount * boreFx.healPct) / 100 * blessingMult(state, "bore")));
+    t.hp = Math.min(t.maxHp, t.hp + Math.ceil((healAmount * boreFx.healPct) / 100 * blessingMult(state, "bore")));
   }
   const baoguangFx = BLESSINGS.baoguang?.fx;
   if (baoguangFx && blessingMult(state, "baoguang") > 0) {
@@ -369,7 +369,7 @@ export function triggerOnKill(state, memberIdx) {
   const feihongFx = BLESSINGS.feihong?.fx;
   if (feihongFx && blessingMult(state, "feihong") > 0) {
     const t = state.team[memberIdx];
-    t.hp = Math.min(t.maxHp, t.hp + Math.floor((t.maxHp * feihongFx.healPct) / 100 * blessingMult(state, "feihong")));
+    t.hp = Math.min(t.maxHp, t.hp + Math.ceil((t.maxHp * feihongFx.healPct) / 100 * blessingMult(state, "feihong")));
   }
   const xingrenFx = BLESSINGS.xingren?.fx;
   if (xingrenFx && blessingMult(state, "xingren") > 0) {
@@ -387,19 +387,19 @@ export function triggerAfterSkill(state, charIndex) {
   }
   const luoqiFx = BLESSINGS.luoqi?.fx;
   if (luoqiFx && blessingMult(state, "luoqi") > 0) {
-    t.hp = Math.min(t.maxHp, t.hp + Math.floor((t.maxHp * luoqiFx.healPct) / 100 * blessingMult(state, "luoqi")));
+    t.hp = Math.min(t.maxHp, t.hp + Math.ceil((t.maxHp * luoqiFx.healPct) / 100 * blessingMult(state, "luoqi")));
   }
   const guangxueFx = BLESSINGS.guangxue?.fx;
   if (guangxueFx && blessingMult(state, "guangxue") > 0) {
-    t.hp = Math.min(t.maxHp, t.hp + Math.floor((t.maxHp * guangxueFx.healPct) / 100 * blessingMult(state, "guangxue")));
+    t.hp = Math.min(t.maxHp, t.hp + Math.ceil((t.maxHp * guangxueFx.healPct) / 100 * blessingMult(state, "guangxue")));
   }
   const weihaiFx = BLESSINGS.weihai?.fx;
   if (weihaiFx && blessingMult(state, "weihai") > 0) {
-    t.shield += Math.floor(((t.maxHp - t.hp) * weihaiFx.shieldPct) / 100 * blessingMult(state, "weihai"));
+    t.shield += Math.ceil(((t.maxHp - t.hp) * weihaiFx.shieldPct) / 100 * blessingMult(state, "weihai"));
   }
   const jiantiFx = BLESSINGS.jianti?.fx;
   if (jiantiFx && blessingMult(state, "jianti") > 0) {
-    t.maxHp = Math.floor(t.maxHp * (1 + (jiantiFx.maxHpPct || 20) / 100 * blessingMult(state, "jianti")));
+    t.maxHp = Math.ceil(t.maxHp * (1 + (jiantiFx.maxHpPct || 20) / 100 * blessingMult(state, "jianti")));
     t.status.maxHpBuffTurns = jiantiFx.turns || 2;
   }
   // 延迟衍射的烛光：施放群攻技能（开大）后，造成的伤害 +10%，持续 2 回合
@@ -440,19 +440,19 @@ export function triggerOnAttackAfter(state, memberIdx, targetEnemyId, baseDmg) {
   }
   const yanliFx = BLESSINGS.yanli?.fx;
   if (yanliFx && blessingMult(state, "yanli") > 0) {
-    const extra = Math.floor((target.hp * yanliFx.hpPct) / 100 * blessingMult(state, "yanli"));
+    const extra = Math.ceil((target.hp * yanliFx.hpPct) / 100 * blessingMult(state, "yanli"));
     if (extra > 0) c._pendingExtra = (c._pendingExtra || 0) + extra;
   }
   const shenxingFx = BLESSINGS.shenxing?.fx;
   if (shenxingFx && blessingMult(state, "shenxing") > 0 && t.shield > 0) {
-    c._pendingExtra = (c._pendingExtra || 0) + Math.floor((t.shield * shenxingFx.shieldPct) / 100 * blessingMult(state, "shenxing"));
+    c._pendingExtra = (c._pendingExtra || 0) + Math.ceil((t.shield * shenxingFx.shieldPct) / 100 * blessingMult(state, "shenxing"));
   }
   const zainanFx = BLESSINGS.zainan?.fx;
   if (zainanFx && blessingMult(state, "zainan") > 0 && (t.status.zhandu || 0) > 0) {
-    const cost = Math.floor((t.hp * zainanFx.costPct) / 100);
+    const cost = Math.ceil((t.hp * zainanFx.costPct) / 100);
     t.hp -= cost;
     const lost = t.maxHp - t.hp;
-    c._pendingExtra = (c._pendingExtra || 0) + Math.floor((lost * zainanFx.dmgPct) / 100 * blessingMult(state, "zainan"));
+    c._pendingExtra = (c._pendingExtra || 0) + Math.ceil((lost * zainanFx.dmgPct) / 100 * blessingMult(state, "zainan"));
   }
   // 裸脑质/飞溅蛊：普攻溅射随机相邻敌人
   const luonao = BLESSINGS.luonao?.fx?.splashPct || 0;
@@ -462,7 +462,7 @@ export function triggerOnAttackAfter(state, memberIdx, targetEnemyId, baseDmg) {
     const others = c.enemies.filter((e) => e.alive && e.id !== targetEnemyId);
     if (others.length > 0) {
       const vic = others[Math.floor(Math.random() * others.length)];
-      c._pendingSplash = (c._pendingSplash || 0) + Math.floor((baseDmg * splash) / 100);
+      c._pendingSplash = (c._pendingSplash || 0) + Math.ceil((baseDmg * splash) / 100);
       c._splashTarget = vic.id;
     }
   }
@@ -474,7 +474,7 @@ export function triggerOnEndTurn(state) {
   if (huikuiFx && blessingMult(state, "huikui") > 0 && Math.random() < (huikuiFx.chance || 0.8)) {
     for (const t of state.team) {
       if (!t.alive) continue;
-      t.shield += Math.floor((t.maxHp * huikuiFx.shieldPct) / 100 * blessingMult(state, "huikui"));
+      t.shield += Math.ceil((t.maxHp * huikuiFx.shieldPct) / 100 * blessingMult(state, "huikui"));
     }
   }
   const huanyuFx = BLESSINGS.huanyu?.fx;
@@ -496,14 +496,14 @@ export function triggerCurioOnCombatStart(state) {
   // 无限递归的代码：生命上限 +20%
   if (state.curios?.some((x) => x.id === "wuxian")) {
     for (const t of state.team) {
-      t.maxHp = Math.floor(t.maxHp * (1 + (CURIO_FX.wuxian?.maxHpMult || 20) / 100));
+      t.maxHp = Math.ceil(t.maxHp * (1 + (CURIO_FX.wuxian?.maxHpMult || 20) / 100));
       t.hp = Math.min(t.hp, t.maxHp);
     }
   }
   // 精确优雅的代码：防御/攻击/生命上限 +35%
   if (state.curios?.some((x) => x.id === "jingque")) {
     for (const t of state.team) {
-      t.maxHp = Math.floor(t.maxHp * (1 + (CURIO_FX.jingque?.atkDefHpPct || 35) / 100));
+      t.maxHp = Math.ceil(t.maxHp * (1 + (CURIO_FX.jingque?.atkDefHpPct || 35) / 100));
       t.status.atkBonus = (t.status.atkBonus || 0) + 5;
     }
   }
@@ -511,7 +511,7 @@ export function triggerCurioOnCombatStart(state) {
   if (state.curios?.some((x) => x.id === "sheep")) {
     for (const e of c.enemies) {
       if (e.alive) {
-        e.hp = Math.max(0, e.hp - Math.floor(e.maxHp * ((CURIO_FX.sheep?.hpPct || 30) / 100)));
+        e.hp = Math.max(0, e.hp - Math.ceil(e.maxHp * ((CURIO_FX.sheep?.hpPct || 30) / 100)));
         if (e.hp <= 0) {
           e.alive = false;
           state.log.push(`羊皮卷：击败 ${e.name}`);
@@ -591,7 +591,7 @@ export function triggerOnEnemyDot(state) {
   if (gongpinFx && m > 0) {
     for (const t of state.team) {
       if (!t.alive) continue;
-      t.hp = Math.min(t.maxHp, t.hp + Math.floor((t.maxHp * gongpinFx.healPct) / 100 * m));
+      t.hp = Math.min(t.maxHp, t.hp + Math.ceil((t.maxHp * gongpinFx.healPct) / 100 * m));
     }
   }
 }
@@ -604,7 +604,7 @@ export function applyHealSpread(state, healerIdx, amount) {
   let spread = 0;
   for (const t of state.team) {
     if (!t.alive || t.index === healerIdx) continue;
-    const heal = Math.floor((amount * yifajieFx.spreadPct) / 100 * m);
+    const heal = Math.ceil((amount * yifajieFx.spreadPct) / 100 * m);
     t.hp = Math.min(t.maxHp, t.hp + heal);
     spread += heal;
   }
@@ -810,7 +810,7 @@ export function gainCurio(state, id, opts = {}) {
   }
   // 分裂银币：立即获得当前碎片 40%
   if (id === "silver") {
-    const gain = Math.floor(state.shards * ((CURIO_FX.silver?.shardsPct || 40) / 100));
+    const gain = Math.ceil(state.shards * ((CURIO_FX.silver?.shardsPct || 40) / 100));
     state.shards += gain;
     state.log.push(`分裂银币：+${gain} 宇宙碎片`);
   }
@@ -830,15 +830,15 @@ export function gainCurio(state, id, opts = {}) {
     const minP = CURIO_FX.adaptive?.minPct || 10;
     const maxP = CURIO_FX.adaptive?.maxPct || 200;
     const pct = (minP + Math.random() * (maxP - minP)) / 100;
-    state.shards = Math.floor(lost * pct);
+    state.shards = Math.ceil(lost * pct);
     state.log.push(`自适应礼品盒：失去 ${lost}，获得 ${state.shards}`);
   }
   // 暗海碎饵：15% / -10% 随机
   if (id === "anhai") {
     if (Math.random() < 0.5) {
-      state.shards += Math.floor(state.shards * ((CURIO_FX.anhai?.gainPct || 15) / 100));
+      state.shards += Math.ceil(state.shards * ((CURIO_FX.anhai?.gainPct || 15) / 100));
     } else {
-      state.shards = Math.max(0, state.shards - Math.floor(state.shards * ((CURIO_FX.anhai?.lossPct || 10) / 100)));
+      state.shards = Math.max(0, state.shards - Math.ceil(state.shards * ((CURIO_FX.anhai?.lossPct || 10) / 100)));
     }
   }
   // 万象无常骰：强化 2 个随机祝福
@@ -996,7 +996,7 @@ export function gainEquation(state, id, opts = {}) {
   // 换心魔：生命上限 +40%
   if (id === "huanxin") {
     for (const t of state.team) {
-      t.maxHp = Math.floor(t.maxHp * 1.4);
+      t.maxHp = Math.ceil(t.maxHp * 1.4);
       t.hp = Math.min(t.hp, t.maxHp);
     }
     state.log.push("换心魔：全队生命上限 +40%");

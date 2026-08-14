@@ -137,7 +137,7 @@ export function startCombat(state) {
   if (state.items?.medkit > 0) {
     state.items.medkit -= 1;
     for (const t of state.team) {
-      if (t.alive) t.hp = Math.min(t.maxHp, t.hp + Math.floor(t.maxHp * 0.1));
+      if (t.alive) t.hp = Math.min(t.maxHp, t.hp + Math.ceil(t.maxHp * 0.1));
     }
     state.log.push("使用急救包，全队回复 10% 生命");
   }
@@ -209,7 +209,7 @@ export function startPlayerTurn(state) {
   if (hasCurio(state, "xugou")) {
     for (const t of state.team) {
       if (!t.alive) continue;
-      t.hp = Math.min(t.maxHp, t.hp + Math.floor(t.maxHp * 0.2));
+      t.hp = Math.min(t.maxHp, t.hp + Math.ceil(t.maxHp * 0.2));
     }
   }
   // speed 降序（同速按队伍 index），存活角色参与
@@ -300,7 +300,7 @@ export function playerAttack(state, enemyIdx) {
   const mods = getUniModifiers(state);
   const flat = attacker.status.atkBonus || 0;
   const pct = attacker.status.dmgBuffPct || 0;
-  const spiritBonus = Math.floor((attacker.status.spirit || 0) / SPIRIT_PER_5);
+  const spiritBonus = Math.ceil((attacker.status.spirit || 0) / SPIRIT_PER_5);
   const nextBoost = attacker.status.nextAttackBoost || 0;
   // 方程：受诅教师（每消灭 1 敌人本场伤害 +20%，最多 3 层）
   const shouzuFx = EQUATIONS.shouzu?.fx;
@@ -316,7 +316,7 @@ export function playerAttack(state, enemyIdx) {
     (hasEquation(state, "ruchong") && c.round === 1 ? (EQUATIONS.ruchong?.fx?.firstAtkMult || 60) : 0) +
     (c.buffs?.includes("atkUp") ? 30 : 0) +
     (c.buffs?.includes("dmgUp50") ? 50 : 0);
-  const dmg = Math.max(0, Math.floor((raw + flat) * (1 + totalPct / 100)) + spiritBonus);
+  const dmg = Math.max(0, Math.ceil((raw + flat) * (1 + totalPct / 100)) + spiritBonus);
   if (attacker.status.nextAttackBoost) attacker.status.nextAttackBoost = 0; // 炬火一次性
   recordSound(state, "attack");
   // 方程：遗迹魔法师（攻击后罐中脑 +8%）
@@ -337,7 +337,7 @@ export function playerAttack(state, enemyIdx) {
   damageEnemy(state, enemyIdx, dmg, c.activeIdx);
   // 方程：梦魔主（攻击附加生命上限+护盾 10%）
   if (hasEquation(state, "mengmo")) {
-    c._pendingExtra = (c._pendingExtra || 0) + Math.floor(((attacker.maxHp + attacker.shield) * (EQUATIONS.mengmo?.fx?.hpShieldPct || 10)) / 100);
+    c._pendingExtra = (c._pendingExtra || 0) + Math.ceil(((attacker.maxHp + attacker.shield) * (EQUATIONS.mengmo?.fx?.hpShieldPct || 10)) / 100);
   }
   // 方程：街道骑行官（累计 24 次攻击后第一位角色获得强化攻击）
   c.attackCount = (c.attackCount || 0) + 1;
@@ -613,11 +613,11 @@ function resolveEnemyAction(state, enemy, action) {
       if (state.team[i].alive) damageTeamMember(state, i, dmg);
     }
   } else if (type === "shield") {
-    const shield = Math.floor(enemy.maxHp * (action.pct || 0.3));
+    const shield = Math.ceil(enemy.maxHp * (action.pct || 0.3));
     enemy.shield += shield;
     state.devLog.info(LOG_TYPE.UNI_REGION, `${enemy.name} 获得护盾`, { shield });
   } else if (type === "heal") {
-    const heal = Math.floor(enemy.maxHp * (action.pct || 0.1));
+    const heal = Math.ceil(enemy.maxHp * (action.pct || 0.1));
     enemy.hp = Math.min(enemy.maxHp, enemy.hp + heal);
     state.devLog.info(LOG_TYPE.UNI_REGION, `${enemy.name} 恢复`, { heal, hp: enemy.hp });
   } else if (type === "lock") {
@@ -804,7 +804,7 @@ function damageTeamMember(state, memberIdx, dmg) {
     taken = 0;
     state.log.push("免疫符文生效：本次伤害无效");
   }
-  const finalDmg = Math.max(0, Math.floor(dmg * taken));
+  const finalDmg = Math.max(0, Math.ceil(dmg * taken));
   let remaining = finalDmg;
   // 1. 独立护盾（钟离/莉奈娅/风堇技能护盾）
   if (t.shield > 0) {
@@ -872,7 +872,7 @@ function damageTeamMember(state, memberIdx, dmg) {
     // 回光效应：受致命攻击免死，回复 1% 生命（全队单场一次）
     if (blessingMult(state, "huiguang") > 0 && !t.status.huiguangUsed) {
       t.status.huiguangUsed = true;
-      t.hp = Math.max(1, Math.floor(t.maxHp * 0.01));
+      t.hp = Math.max(1, Math.ceil(t.maxHp * 0.01));
       t.status.defensePile = [];
       state.log.push(`回光效应：${t.name} 免于阵亡！`);
     } else {
@@ -1000,8 +1000,8 @@ function endCombat(state, result) {
     if (reward) {
       shards = reward.shards || 0;
       // 奇物修正：破碎咕咕钟（-25%）/ 俱乐部券（+40%）
-      if (hasCurio(state, "posui")) shards = Math.floor(shards * 0.75);
-      if (hasCurio(state, "club")) shards = Math.floor(shards * 1.4);
+      if (hasCurio(state, "posui")) shards = Math.ceil(shards * 0.75);
+      if (hasCurio(state, "club")) shards = Math.ceil(shards * 1.4);
       addShards(state, shards);
     }
     // 奇物：香涎干酪（胜利后全队回满）

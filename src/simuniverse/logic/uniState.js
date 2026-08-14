@@ -261,7 +261,7 @@ export function enterRegion(state) {
   if (!r) return;
   // 奇物：永动咕咕钟（每进入下一区域 -4%）
   if (hasCurio(state, "yongdong")) {
-    const loss = Math.floor(state.shards * ((CURIO_FX.yongdong?.shardsPct || 4) / 100));
+    const loss = Math.ceil(state.shards * ((CURIO_FX.yongdong?.shardsPct || 4) / 100));
     state.shards = Math.max(0, state.shards - loss);
     state.log.push(`永动咕咕钟：失去 ${loss} 宇宙碎片`);
   }
@@ -350,7 +350,7 @@ function applyCurioRegionHooks(state, r) {
   }
   // 分裂金币：+5% 碎片
   if (hasCurio(state, "fenlie_jb")) {
-    addShards(state, Math.floor(state.shards * ((CURIO_FX.fenlie_jb?.shardsPct || 5) / 100)));
+    addShards(state, Math.ceil(state.shards * ((CURIO_FX.fenlie_jb?.shardsPct || 5) / 100)));
   }
   // 昨天的重量：+35，碎片减少累计 3 次损毁
   if (hasCurio(state, "zuotian")) {
@@ -384,8 +384,8 @@ function applyCurioRegionHooks(state, r) {
   if (hasCurio(state, "haimian")) {
     for (const t of state.team) {
       if (!t.alive) continue;
-      t.hp = Math.max(1, Math.floor(t.hp * (1 - (CURIO_FX.haimian?.hpCut || 0.8))));
-      t.maxHp = Math.floor(t.maxHp * (1 + (CURIO_FX.haimian?.maxHpMult || 10) / 100));
+      t.hp = Math.max(1, Math.ceil(t.hp * (1 - (CURIO_FX.haimian?.hpCut || 0.8))));
+      t.maxHp = Math.ceil(t.maxHp * (1 + (CURIO_FX.haimian?.maxHpMult || 10) / 100));
     }
     state.haimianCount = (state.haimianCount || 0) + 1;
     if (state.haimianCount >= (CURIO_FX.haimian?.triggers || 4)) removeCurio("haimian");
@@ -395,7 +395,7 @@ function applyCurioRegionHooks(state, r) {
     state.boboCount = (state.boboCount || 0) + 1;
     if (state.boboCount >= 3) {
       removeCurio("bobo");
-      for (const t of state.team) t.hp = Math.max(1, Math.floor(t.hp * 0.01));
+      for (const t of state.team) t.hp = Math.max(1, Math.ceil(t.hp * 0.01));
       state.log.push("菠萝：损毁，全队损失 99% 生命");
     }
   }
@@ -405,7 +405,7 @@ function applyCurioRegionHooks(state, r) {
       t.hp = t.maxHp;
       if (!t.alive) {
         t.alive = true;
-        t.hp = Math.max(1, Math.floor(t.maxHp * 0.5));
+        t.hp = Math.max(1, Math.ceil(t.maxHp * 0.5));
       }
       t.status.stunned = false;
       t.status.puppet = null;
@@ -421,7 +421,7 @@ function applyCurioRegionHooks(state, r) {
   }
   // 纯美之袍：战斗类区域 +10% 碎片
   if (hasCurio(state, "chunmei_pao") && battleLike) {
-    addShards(state, Math.floor(state.shards * ((CURIO_FX.chunmei_pao?.shardsPct || 10) / 100)));
+    addShards(state, Math.ceil(state.shards * ((CURIO_FX.chunmei_pao?.shardsPct || 10) / 100)));
   }
   // 快乐电视机：连续同区域 -25 碎片 -1 奇物
   if (hasCurio(state, "kuaile") && state.lastRegionType === r.type) {
@@ -493,9 +493,9 @@ export function hasCurio(state, id) {
 /** 获得碎片（受奇物修正：铸铁齿轮指环 +30% / 机动指环 -50% / 天才八卦 +50%） */
 export function addShards(state, n) {
   if (n > 0) {
-    if (hasCurio(state, "zhutie")) n = Math.floor(n * (CURIO_FX.zhutie?.shardsMult || 1.3));
-    if (hasCurio(state, "jidong")) n = Math.floor(n * (1 - (CURIO_FX.jidong?.shardsCut || 0.5)));
-    if (hasCurio(state, "tiancai")) n = Math.floor(n * (CURIO_FX.tiancai?.shardsMult || 1.5));
+    if (hasCurio(state, "zhutie")) n = Math.ceil(n * (CURIO_FX.zhutie?.shardsMult || 1.3));
+    if (hasCurio(state, "jidong")) n = Math.ceil(n * (1 - (CURIO_FX.jidong?.shardsCut || 0.5)));
+    if (hasCurio(state, "tiancai")) n = Math.ceil(n * (CURIO_FX.tiancai?.shardsMult || 1.5));
   }
   state.shards = Math.max(0, state.shards + n);
   if (n !== 0) {
@@ -528,7 +528,7 @@ export function reviveAtRest(state, charIndex) {
     return { ok: false, reason: "宇宙碎片不足" };
   }
   t.alive = true;
-  t.hp = Math.max(1, Math.floor(t.maxHp * 0.5)); // 复活后 50% 生命（最低 1）
+  t.hp = Math.max(1, Math.ceil(t.maxHp * 0.5)); // 复活后 50% 生命（最低 1）
   t.status.defensePile = [];
   t.status.stunned = false;
   t.status.puppet = null;

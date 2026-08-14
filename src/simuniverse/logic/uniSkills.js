@@ -91,7 +91,7 @@ export function executeUniSkill(state, charIndex, payload = {}) {
     const aliveEnemies = c.enemies.filter((e) => e.alive);
     if (aliveEnemies.length > 0) {
       const victim = aliveEnemies[Math.floor(Math.random() * aliveEnemies.length)];
-      const dmg = Math.floor(t.maxHp * 0.1);
+      const dmg = Math.ceil(t.maxHp * 0.1);
       damageEnemy(state, victim.id, dmg, charIndex);
     }
   }
@@ -123,7 +123,7 @@ function doSkill(state, t, sk, lv, payload) {
       const n = val(sk.values, lv);
       if (payload.targetIdx == null) return { ok: false, reason: "需要目标" };
       const cards = drawPoker(state, n);
-      const dmg = Math.max(0, Math.floor((cards.reduce((s, p) => s + p.value, 0) - 2) * (1 + skillDmgMult(state, t) / 100)));
+      const dmg = Math.max(0, Math.ceil((cards.reduce((s, p) => s + p.value, 0) - 2) * (1 + skillDmgMult(state, t) / 100)));
       damageEnemy(state, payload.targetIdx, dmg, t.index);
       state.log.push(`${t.name} 爆发 ${n} 张牌（${dmg} 伤害）`);
       return { ok: true, summary: { cards: n, dmg } };
@@ -132,7 +132,7 @@ function doSkill(state, t, sk, lv, payload) {
       // 钟离：全队护盾（乘祝福护盾加成）
       const shield = val(sk.values, lv);
       const mods = getUniModifiers(state);
-      const gain = Math.floor(shield * (1 + mods.shieldMult / 100));
+      const gain = Math.ceil(shield * (1 + mods.shieldMult / 100));
       for (const m of state.team) if (m.alive) m.shield += gain;
       state.log.push(`${t.name} 全队 +${gain} 护盾`);
       return { ok: true, summary: { shield: gain } };
@@ -140,7 +140,7 @@ function doSkill(state, t, sk, lv, payload) {
     case 3: {
       // 雷电将军：单体伤害
       if (payload.targetIdx == null) return { ok: false, reason: "需要目标" };
-      const dmg = Math.floor(val(sk.values, lv) * (1 + skillDmgMult(state, t) / 100));
+      const dmg = Math.ceil(val(sk.values, lv) * (1 + skillDmgMult(state, t) / 100));
       damageEnemy(state, payload.targetIdx, dmg, t.index);
       state.log.push(`${t.name} 对目标造成 ${dmg} 伤害`);
       return { ok: true, summary: { dmg } };
@@ -162,14 +162,14 @@ function doSkill(state, t, sk, lv, payload) {
       const pct = val(sk.values, lv);
       const healPct = val(sk.heal, lv);
       const mods = getUniModifiers(state);
-      const healBase = Math.floor((t.maxHp * healPct) / 100);
-      const healAmount = Math.floor(healBase * (1 + mods.healMult / 100));
+      const healBase = Math.ceil((t.maxHp * healPct) / 100);
+      const healAmount = Math.ceil(healBase * (1 + mods.healMult / 100));
       for (const m of state.team) {
         if (!m.alive) continue;
         m.status.dmgBuffPct = Math.max(m.status.dmgBuffPct || 0, pct);
         m.status.dmgBuffTurns = 3;
         let amount = healAmount;
-        if (m.status.healCut > 0) amount = Math.floor(amount * (1 - m.status.healCut));
+        if (m.status.healCut > 0) amount = Math.ceil(amount * (1 - m.status.healCut));
         m.hp = Math.min(m.maxHp, m.hp + amount);
       }
       state.log.push(`${t.name} 全队增伤 ${pct}%（3 回合），治疗 ${healAmount}`);
@@ -185,19 +185,19 @@ function doSkill(state, t, sk, lv, payload) {
       for (const m of state.team) {
         if (!m.alive) continue;
         m.status.origMaxHp = m.maxHp;
-        const newMax = Math.floor((m.maxHp * (100 + pct)) / 100);
+        const newMax = Math.ceil((m.maxHp * (100 + pct)) / 100);
         m.status.maxHpBuffPct = pct;
         m.status.maxHpBuffTurns = 3;
         totalHealed += newMax - m.hp;
         m.maxHp = newMax;
         m.hp = newMax; // 回满
       }
-      const bonusDmg = Math.floor(totalHealed * 0.1);
+      const bonusDmg = Math.ceil(totalHealed * 0.1);
       if (bonusDmg > 0) {
         const targets = c.enemies.filter((e) => e.alive);
         if (targets.length > 0) {
           const victim = targets[Math.floor(Math.random() * targets.length)];
-          damageEnemy(state, victim.id, Math.floor(bonusDmg * (1 + skillDmgMult(state, t) / 100)), t.index);
+          damageEnemy(state, victim.id, Math.ceil(bonusDmg * (1 + skillDmgMult(state, t) / 100)), t.index);
         }
       }
       state.log.push(`${t.name} 全队生命上限 +${pct}% 并回满（附加 ${bonusDmg} 伤害）`);
@@ -222,14 +222,14 @@ function doSkill(state, t, sk, lv, payload) {
         }
         // 1-5 级：立即伤害
         for (const e of c.enemies) {
-          if (e.alive) damageEnemy(state, e.id, Math.floor(dot * (1 + skillDmgMult(state, t) / 100)), t.index);
+          if (e.alive) damageEnemy(state, e.id, Math.ceil(dot * (1 + skillDmgMult(state, t) / 100)), t.index);
         }
         state.log.push(`${t.name} 全体敌人受 ${dot} 点伤害`);
         return { ok: true, summary: { branch: "dot", dot, turns: 0 } };
       }
       // 盾：全队获得 N 张盾（每张值 LINIYA_SHIELD_VALUE，乘祝福护盾加成）
       const mods = getUniModifiers(state);
-      const shield = Math.floor(n * LINIYA_SHIELD_VALUE * (1 + mods.shieldMult / 100));
+      const shield = Math.ceil(n * LINIYA_SHIELD_VALUE * (1 + mods.shieldMult / 100));
       for (const m of state.team) if (m.alive) m.shield += shield;
       state.log.push(`${t.name} 全队 +${n} 张盾（${shield} 护盾）`);
       return { ok: true, summary: { branch: "shield", shields: n, shield } };
@@ -248,7 +248,7 @@ function doSkill(state, t, sk, lv, payload) {
       return { ok: false, reason: "被动技能（死亡回归）" };
     case 12: {
       // myracler(开发者)：对敌方全体造成 1000 点伤害（冷却 0）
-      const dmg = Math.floor(val(sk.values, lv) * (1 + skillDmgMult(state, t) / 100));
+      const dmg = Math.ceil(val(sk.values, lv) * (1 + skillDmgMult(state, t) / 100));
       for (const e of c.enemies) {
         if (e.alive) damageEnemy(state, e.id, dmg, t.index);
       }

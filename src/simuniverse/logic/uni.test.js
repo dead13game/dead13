@@ -306,7 +306,7 @@ describe("模拟宇宙 M1：货币与复活", () => {
     expect(r.cost).toBe(150);
     expect(s.shards).toBe(50);
     expect(s.team[0].alive).toBe(true);
-    expect(s.team[0].hp).toBe(Math.floor(s.team[0].maxHp * 0.5));
+    expect(s.team[0].hp).toBe(Math.ceil(s.team[0].maxHp * 0.5));
   });
 
   it("复活：碎片不足 / 目标存活 拒绝", () => {
@@ -769,7 +769,7 @@ describe("模拟宇宙 M3：角色技能", () => {
     const hpBefore = enemy.hp;
     setPoker(s, 10, 10); // raw = 18
     playerAttack(s, enemy.id);
-    expect(enemy.hp).toBe(Math.max(0, hpBefore - Math.floor(18 * 1.2)));
+    expect(enemy.hp).toBe(Math.max(0, hpBefore - Math.ceil(18 * 1.2)));
   });
 
   it("被动同步：玛薇卡斗志上限 + 少女攻防加成", () => {
@@ -854,11 +854,11 @@ describe("模拟宇宙 M3：角色技能", () => {
     const r = playerSkill(s);
     expect(r.ok).toBe(true);
     s.team.forEach((t) => {
-      expect(t.maxHp).toBe(Math.floor(t.status.origMaxHp * 1.1));
+      expect(t.maxHp).toBe(Math.ceil(t.status.origMaxHp * 1.1));
       expect(t.hp).toBe(t.maxHp); // 回满
     });
-    // 附加伤害打随机 1 个敌人（totalHealed 14 → bonus 1）
-    expect(s.combat.enemies.reduce((a, e) => a + e.hp, 0)).toBe(hpSumBefore - 1);
+    // 附加伤害打随机 1 个敌人（totalHealed 13 → bonus 向上取整 2）
+    expect(s.combat.enemies.reduce((a, e) => a + e.hp, 0)).toBe(hpSumBefore - 2);
     // 3 回合后还原
     s.combat.round = 2;
     startPlayerTurn(s);
@@ -1117,7 +1117,7 @@ describe("模拟宇宙 M4：事件系统", () => {
     s.team[0].hp = 5;
     startCombat(s);
     expect(s.items.medkit).toBe(0);
-    expect(s.team[0].hp).toBe(5 + Math.floor(s.team[0].maxHp * 0.1));
+    expect(s.team[0].hp).toBe(5 + Math.ceil(s.team[0].maxHp * 0.1));
   });
 
   it("战术手册·进攻战术：下次战斗全队伤害 +30%", () => {
@@ -1131,7 +1131,7 @@ describe("模拟宇宙 M4：事件系统", () => {
     const enemy = s.combat.enemies[0];
     const hpBefore = enemy.hp;
     playerAttack(s, enemy.id);
-    expect(enemy.hp).toBe(hpBefore - Math.floor(5 * 1.3));
+    expect(enemy.hp).toBe(hpBefore - Math.ceil(5 * 1.3));
     // 战斗结束 buff 失效
     s.combat.enemies.forEach((e) => {
       e.hp = 0;
@@ -1206,7 +1206,7 @@ describe("模拟宇宙 M4：事件系统", () => {
     const hpBefore = enemy.hp;
     const r = playerSkill(s, enemy.id, {});
     expect(r.ok).toBe(true);
-    expect(enemy.hp).toBe(Math.max(0, hpBefore - Math.floor(20 * 1.2))); // 雷电 lv1=20，×1.2=24
+    expect(enemy.hp).toBe(Math.max(0, hpBefore - Math.ceil(20 * 1.2))); // 雷电 lv1=20，×1.2=24
   });
 
   it("齿轮啮合的王座：每智识祝福终结技伤害 +5%（封顶）", () => {
@@ -1220,7 +1220,7 @@ describe("模拟宇宙 M4：事件系统", () => {
     const enemy = s.combat.enemies[0];
     const hpBefore = enemy.hp;
     playerSkill(s, enemy.id, {});
-    expect(enemy.hp).toBe(Math.max(0, hpBefore - Math.floor(20 * 1.1))); // 2 智识 ×5% = 10%
+    expect(enemy.hp).toBe(Math.max(0, hpBefore - Math.ceil(20 * 1.1))); // 2 智识 ×5% = 10%
   });
 
   it("阈下知觉：首次终结技伤害 +50%（一次性）", () => {
@@ -1233,7 +1233,7 @@ describe("模拟宇宙 M4：事件系统", () => {
     const enemy = s.combat.enemies[0];
     const hpBefore = enemy.hp;
     playerSkill(s, enemy.id, {});
-    expect(enemy.hp).toBe(Math.max(0, hpBefore - Math.floor(20 * 1.5))); // 首次 ×1.5
+    expect(enemy.hp).toBe(Math.max(0, hpBefore - Math.ceil(20 * 1.5))); // 首次 ×1.5
     expect(s.team[0].status.nextSkillBoost || 0).toBe(0); // 一次性已消耗
   });
 
@@ -1248,7 +1248,7 @@ describe("模拟宇宙 M4：事件系统", () => {
     const enemy = s.combat.enemies[0];
     const hpBefore = enemy.hp;
     playerSkill(s, enemy.id, {});
-    expect(enemy.hp).toBe(Math.max(0, hpBefore - Math.floor(20 * 1.025))); // 1 星 ×2.5%
+    expect(enemy.hp).toBe(Math.max(0, hpBefore - Math.ceil(20 * 1.025))); // 1 星 ×2.5%
   });
 
   it("开发者角色 myracler(12)：开大对敌方全体 1000 伤害，冷却 0", () => {
@@ -1372,7 +1372,7 @@ describe("模拟宇宙 M5：奇物与方程效果", () => {
     });
     playerDefense(s, 0);
     expect(s.combat.phase).toBe("won");
-    expect(s.shards).toBe(Math.floor(30 * 1.4)); // 30 × 1.4 = 42
+    expect(s.shards).toBe(Math.ceil(30 * 1.4)); // 30 × 1.4 = 42
   });
 
   it("破碎咕咕钟：战斗胜利碎片 -25%", () => {
@@ -1385,7 +1385,7 @@ describe("模拟宇宙 M5：奇物与方程效果", () => {
       e.alive = false;
     });
     playerDefense(s, 0);
-    expect(s.shards).toBe(Math.floor(30 * 0.75)); // 22
+    expect(s.shards).toBe(Math.ceil(30 * 0.75)); // 22
   });
 
   it("香涎干酪：胜利后全队回满", () => {
@@ -1435,7 +1435,7 @@ describe("模拟宇宙 M5：奇物与方程效果", () => {
   it("换心魔：获得时全队生命上限 +40%", () => {
     const s = createUniState();
     gainEquation(s, "huanxin");
-    s.team.forEach((t) => expect(t.maxHp).toBe(Math.floor(CHARACTERS[t.charId].hp * 1.4)));
+    s.team.forEach((t) => expect(t.maxHp).toBe(Math.ceil(CHARACTERS[t.charId].hp * 1.4)));
   });
 
   it("受诅教师：每消灭敌人本场伤害 +20%（最多 3 层）", () => {
@@ -1723,7 +1723,7 @@ describe("模拟宇宙 M8：全量奇物", () => {
   it("邪恶机械卫星：商品价格 -25%", () => {
     const s = createUniState();
     gainCurio(s, "xiee");
-    expect(shopPrice(s, "blessing", 1)).toBe(Math.floor(80 * 0.75)); // 60
+    expect(shopPrice(s, "blessing", 1)).toBe(Math.ceil(80 * 0.75)); // 60
   });
 
   it("羊皮卷：进入战斗敌方全体受 30% 生命上限伤害", () => {
@@ -1731,7 +1731,7 @@ describe("模拟宇宙 M8：全量奇物", () => {
     gainCurio(s, "sheep");
     s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 1 }] };
     startCombat(s);
-    expect(s.combat.enemies[0].hp).toBe(Math.max(0, 10 - Math.floor(10 * 0.3))); // 7
+    expect(s.combat.enemies[0].hp).toBe(Math.max(0, 10 - Math.ceil(10 * 0.3))); // 7
   });
 });
 

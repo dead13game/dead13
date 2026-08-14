@@ -52,13 +52,13 @@ export function shopPrice(state, type, star) {
   let p = SHOP_PRICE[type][star] || 0;
   const priceUp = Math.max(CURIO_FX.gongsi?.priceMult || 0, CURIO_FX.zhongdeng?.priceMult || 0);
   if (state?.curios?.some((c) => c.id === "gongsi" || c.id === "zhongdeng") && priceUp) {
-    p = Math.floor(p * priceUp);
+    p = Math.ceil(p * priceUp);
   }
   if (state?.curios?.some((c) => c.id === "xiee") && CURIO_FX.xiee?.priceCut) {
-    p = Math.floor(p * CURIO_FX.xiee.priceCut);
+    p = Math.ceil(p * CURIO_FX.xiee.priceCut);
   }
   if (state?.curios?.some((c) => c.id === "zhutie") && CURIO_FX.zhutie?.priceMult) {
-    p = Math.floor(p * CURIO_FX.zhutie.priceMult);
+    p = Math.ceil(p * CURIO_FX.zhutie.priceMult);
   }
   return p;
 }
@@ -66,9 +66,9 @@ export function shopPrice(state, type, star) {
 /** 覆写价格（受奇物修正：信仰债券 -30%、机动指环 -100%、末日复眼 +1000%） */
 export function overwritePrice(state) {
   let p = state.overwritePrice;
-  if (state.curios?.some((c) => c.id === "xinyang") && CURIO_FX.xinyang?.costCut) p = Math.floor(p * CURIO_FX.xinyang.costCut);
+  if (state.curios?.some((c) => c.id === "xinyang") && CURIO_FX.xinyang?.costCut) p = Math.ceil(p * CURIO_FX.xinyang.costCut);
   if (state.curios?.some((c) => c.id === "jidong") && CURIO_FX.jidong?.overwriteFree) p = 0;
-  if (state.curios?.some((c) => c.id === "mori") && CURIO_FX.mori?.priceMult) p = Math.floor(p * CURIO_FX.mori.priceMult);
+  if (state.curios?.some((c) => c.id === "mori") && CURIO_FX.mori?.priceMult) p = Math.ceil(p * CURIO_FX.mori.priceMult);
   return p;
 }
 
