@@ -20,6 +20,7 @@ import {
   enemyAnnounce,
   enemyResolve,
   chooseThirdWave,
+  drawPoker,
 } from "./logic/uniCombat.js";
 import {
   applyEventOption,
@@ -134,6 +135,17 @@ export function useUniController() {
   function startBattle() {
     startCombat(uniState);
     uiMode.value = "battle";
+  }
+
+  /** 选择行动（普攻/防御）→ 立即抽 1 张牌展示，玩家确认后结算 */
+  function chooseAction(action) {
+    if (uniState.combat?.phase !== "player-action") {
+      return { ok: false, reason: "非行动时机" };
+    }
+    uniState.combat.pendingPoker = drawPoker(uniState, 1);
+    const card = uniState.combat.pendingPoker[0];
+    battleMsg.value = "";
+    return { ok: true, card };
   }
 
   function doAttack(enemyId) {
@@ -396,6 +408,7 @@ export function useUniController() {
     doAttack,
     doDefense,
     doSkill,
+    chooseAction,
     doThirdWave,
     enterOddityWorkbench,
     doEventOption,

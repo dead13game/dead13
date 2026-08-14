@@ -265,8 +265,8 @@ export function playerAttack(state, enemyIdx) {
   }
   const enemy = c.enemies.find((e) => e.id === enemyIdx && e.alive);
   if (!enemy) return { ok: false, reason: "目标无效" };
-  // 先选行动后抽牌：抽 1 张
-  c.pendingPoker = drawPoker(state, POKER_DRAW);
+  // 先选行动后抽牌：若 UI 已抽牌展示则用已抽的，否则补抽 1 张
+  if (!c.pendingPoker.length) c.pendingPoker = drawPoker(state, POKER_DRAW);
   const attacker = state.team[c.activeIdx];
   // 伤害修正：技能被动（少女 atkBonus / 芙宁娜 dmgBuffPct / 玛薇卡斗志）+ 祝福（atkMult/普攻/动态/炬火）
   const mods = getUniModifiers(state);
@@ -345,8 +345,8 @@ export function playerDefense(state, targetIdx) {
   }
   const target = state.team[targetIdx];
   if (!target || !target.alive) return { ok: false, reason: "目标无效" };
-  // 先选行动后抽牌：抽 1 张
-  c.pendingPoker = drawPoker(state, POKER_DRAW);
+  // 先选行动后抽牌：若 UI 已抽牌展示则用已抽的，否则补抽 1 张
+  if (!c.pendingPoker.length) c.pendingPoker = drawPoker(state, POKER_DRAW);
   const poker = c.pendingPoker[0];
   const shield = poker?.value || 0;
   const actor = state.team[c.activeIdx];

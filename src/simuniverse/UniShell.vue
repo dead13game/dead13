@@ -170,24 +170,37 @@
       <div class="uni-battle__action">
         <div v-if="active" class="uni-battle__actor">
           <span class="uni-battle__actorname">{{ active.name }} 的回合</span>
-          <span v-if="lastPoker" class="uni-poker">
-            <span class="uni-poker__rank" :class="'uni-poker__rank--' + lastPoker.suit">{{ lastPoker.rank }}</span>
-            <span class="uni-poker__suit">{{ lastPoker.suit }}</span>
+          <span v-if="drawnPoker" class="uni-poker">
+            <span class="uni-poker__rank" :class="'uni-poker__rank--' + drawnPoker.suit">{{ drawnPoker.rank }}</span>
+            <span class="uni-poker__suit">{{ drawnPoker.suit }}</span>
           </span>
           <span v-if="targetMode === 'enemy'" class="uni-battle__hint">→ 点击敌人目标</span>
           <span v-else-if="targetMode === 'member'" class="uni-battle__hint">→ 点击要加护盾的成员</span>
+          <span v-else-if="actionChoice" class="uni-battle__hint">抽到 {{ drawnPoker?.rank }}{{ drawnPoker?.suit }}（{{ drawnPoker?.value }} 点）</span>
           <span class="uni-battle__turn">第 {{ uniState.combat.round }} 回合</span>
         </div>
-        <div class="uni-battle__buttons">
-          <button class="uni-btn uni-btn--attack" :disabled="!canAct || targetMode" @click="onAttackClick">⚔️ 普攻</button>
-          <button class="uni-btn uni-btn--defense" :disabled="!canAct || targetMode" @click="onDefenseClick">🛡️ 防御</button>
+        <div v-if="!actionChoice && !targetMode" class="uni-battle__buttons">
+          <button class="uni-btn uni-btn--attack" :disabled="!canAct" @click="onAttackClick">⚔️ 普攻</button>
+          <button class="uni-btn uni-btn--defense" :disabled="!canAct" @click="onDefenseClick">🛡️ 防御</button>
           <button
             class="uni-btn uni-btn--skill"
-            :disabled="!canSkill || targetMode"
+            :disabled="!canSkill"
             @click="onSkillClick"
           >
             💥 开大{{ skillCdText }}
           </button>
+        </div>
+        <div v-else-if="actionChoice && !targetMode" class="uni-battle__buttons">
+          <button
+            class="uni-btn uni-btn--attack"
+            @click="onExecuteAttack"
+          >
+            ⚔️ 执行攻击（{{ drawnPoker?.value }}）
+          </button>
+          <button v-if="actionChoice === 'defense'" class="uni-btn uni-btn--defense" @click="onExecuteDefense">
+            🛡️ 执行防御（{{ drawnPoker?.value }}）
+          </button>
+          <button class="uni-btn uni-btn--cancel" @click="onCancelAction">✖ 取消</button>
         </div>
         <div v-if="battleMsg" class="uni-battle__msg">{{ battleMsg }}</div>
       </div>
@@ -588,6 +601,9 @@ const skillTargetPending = computed(() => props.uni.skillTargetPending.value);
 
 // ---- 战斗状态 ----
 const targetMode = ref(null); // null | 'enemy' | 'member'
+const actionChoice = ref(null); // null | 'attack' | 'defense'（已抽牌等待确认）
+const pendingSkill = ref(false); // 当前 enemy 目标选择是否用于开大（温迪/雷电）
+const drawnPoker = computed(() => uniState.combat?.pendingPoker?.[0] || null);
 const selectedEnemy = ref(null);
 const activeIdx = computed(() => uniState.combat?.activeIdx ?? null);
 const active = computed(() => {
@@ -597,7 +613,6 @@ const active = computed(() => {
 const canAct = computed(
   () => uniState.combat?.phase === "player-action" && active.value?.alive,
 );
-const lastPoker = computed(() => uniState.combat?.lastPoker || null);
 const canSkill = computed(() => {
   if (!active.value) return false;
   return props.uni.canSkill(active.value.index).ok;
@@ -749,19 +764,40 @@ function shopPrice(state, type, star) {
 }
 
 function onAttackClick() {
+  const r = props.uni.chooseAction("attack");
+  if (r.ok) actionChoice.value = "attack";
+}
+function onDefenseClick() {
+  const r = props.uni.chooseAction("defense");
+  if (r.ok) actionChoice.value = "defense";
+}
+function onExecuteAttack() {
+  actionChoice.value = null;
+  pendingSkill.value = false;
   targetMode.value = "enemy";
   selectedEnemy.value = null;
   battleMsg.value = "选择目标敌人";
 }
-function onEnemyClick(enemyId) {
-  if (targetMode.value === "enemy") {
-    const r = props.uni.doAttack(enemyId);
-    if (r.ok) targetMode.value = null;
-  }
-}
-function onDefenseClick() {
+function onExecuteDefense() {
+  actionChoice.value = null;
   targetMode.value = "member";
   battleMsg.value = "选择要加护盾的成员";
+}
+function onCancelAction() {
+  if (uniState.combat) uniState.combat.pendingPoker = [];
+  actionChoice.value = null;
+  battleMsg.value = "";
+}
+function onEnemyClick(enemyId) {
+  if (targetMode.value !== "enemy") return;
+  // 开大选目标（温迪/雷电）→ 施放技能；否则 → 普攻
+  const r = pendingSkill.value
+    ? props.uni.doSkill(enemyId, {})
+    : props.uni.doAttack(enemyId);
+  if (r.ok) {
+    targetMode.value = null;
+    pendingSkill.value = false;
+  }
 }
 function onMemberClick(memberIdx) {
   if (targetMode.value === "member") {
@@ -773,9 +809,11 @@ function onSkillClick() {
   const t = active.value;
   const info = props.uni.skillInfo(t.index);
   if (!info) return;
+  pendingSkill.value = false;
   // 需要选目标的技能：温迪/雷电将军（选敌人）
   if ([1, 3].includes(t.charId)) {
     targetMode.value = "enemy";
+    pendingSkill.value = true;
     selectedEnemy.value = null;
     battleMsg.value = "选择大招目标";
     return;
@@ -792,7 +830,10 @@ function onSkillClick() {
   }
   // 其余无目标技能直接放
   const r = props.uni.doSkill(undefined, {});
-  if (r.ok) targetMode.value = null;
+  if (r.ok) {
+    targetMode.value = null;
+    pendingSkill.value = false;
+  }
 }
 function onQuit() {
   emit("quit");
