@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="uni-shell">
     <!-- 顶栏 -->
     <header class="uni-topbar">
@@ -1018,8 +1018,11 @@ function onQuit() {
 </script>
 
 <style scoped>
-/* ===== 暖暗色视觉体系（月圆之夜/杀戮尖塔参考，去 AI 味） ===== */
+/* ===== 暖暗色视觉体系（月圆之夜/杀戮尖塔参考） ===== */
+/* SVG 噪点材质（feTurbulence 生成纸/布/颗粒纹理，程序化材质感） */
 .uni-shell {
+  --noise-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
+  --noise-cloth: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='c'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.045 0.07' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23c)' opacity='0.8'/%3E%3C/svg%3E");
   --bg-0: #131110;
   --bg-1: #1a1713;
   --bg-2: #211d17;
@@ -1049,22 +1052,59 @@ function onQuit() {
     linear-gradient(180deg, #141210 0%, #100e0c 100%);
 }
 /* 极淡纸纹噪点（替代星星闪烁） */
+/* 全局布纹材质（低频噪点，模拟旧布/石材基底） */
 .uni-shell::before {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.5;
-  background-image: repeating-linear-gradient(
-    0deg,
-    rgba(255, 255, 255, 0.012) 0px,
-    rgba(255, 255, 255, 0.012) 1px,
-    transparent 1px,
-    transparent 3px
-  );
+  opacity: 0.16;
+  background-image: var(--noise-cloth);
+  mix-blend-mode: soft-light;
+}
+/* 四角暗角（vignette，做旧） */
+.uni-shell::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(ellipse at 50% 42%, transparent 55%, rgba(0, 0, 0, 0.42) 100%);
 }
 .uni-shell > * {
+  position: relative;
+  z-index: 1;
+}
+/* ===== 卡片材质层：颗粒噪点 + 边缘暗角（做旧纸感） ===== */
+.uni-panel::after,
+.uni-topbar::after,
+.uni-member::after,
+.uni-enemy::after,
+.uni-choice__card::after,
+.uni-modal__box::after,
+.uni-bag-item::after,
+.uni-shop-item::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    var(--noise-grain),
+    radial-gradient(ellipse at 50% 35%, transparent 50%, rgba(0, 0, 0, 0.4) 100%);
+  background-blend-mode: overlay, normal;
+  opacity: 0.12;
+}
+.uni-panel > *,
+.uni-topbar > *,
+.uni-member > *,
+.uni-enemy > *,
+.uni-choice__card > *,
+.uni-modal__box > *,
+.uni-bag-item > *,
+.uni-shop-item > * {
   position: relative;
   z-index: 1;
 }
@@ -1489,7 +1529,9 @@ function onQuit() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(155deg, #f5eeda 0%, #e8dfc4 60%, #d9cdaa 100%);
+  background:
+    radial-gradient(ellipse at 50% 30%, rgba(255, 252, 240, 0.5), transparent 60%),
+    linear-gradient(155deg, #f5eeda 0%, #e8dfc4 60%, #d9cdaa 100%);
   color: #2a2115;
   border-radius: 7px;
   padding: 6px 13px 5px;
@@ -1499,10 +1541,28 @@ function onQuit() {
   box-shadow:
     0 3px 8px rgba(0, 0, 0, 0.5),
     inset 0 1px 0 rgba(255, 255, 255, 0.6),
-    inset 0 0 0 1px rgba(120, 90, 40, 0.15);
+    inset 0 0 0 1px rgba(120, 90, 40, 0.15),
+    inset 0 4px 10px rgba(90, 60, 20, 0.18);
   position: relative;
   animation: uniDeal 0.25s ease;
   transform: rotate(-1.5deg);
+  overflow: hidden;
+}
+/* 羊皮纸噪点 + 四角暗角 */
+.uni-poker::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    var(--noise-grain),
+    radial-gradient(ellipse at 50% 40%, transparent 55%, rgba(90, 60, 20, 0.25) 100%);
+  opacity: 0.22;
+}
+.uni-poker__rank,
+.uni-poker__suit {
+  position: relative;
+  z-index: 1;
 }
 @keyframes uniDeal {
   from { transform: translateY(-12px) rotate(-5deg); opacity: 0; }
