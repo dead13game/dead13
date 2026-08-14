@@ -6,8 +6,8 @@
       <span class="uni-topbar__info">位面 {{ uniState.plane }} · 第 {{ uniState.floor }} 层</span>
       <span class="uni-topbar__stat" title="宇宙碎片">{{ uniState.shards }}</span>
       <span class="uni-topbar__stat uni-topbar__stat--bless" title="祝福">{{ uniState.blessings.length }}</span>
-      <span class="uni-topbar__stat" title="奇物">{{ uniState.curios.length }}</span>
-      <span class="uni-topbar__stat" title="方程">{{ uniState.equations.length }}</span>
+      <span class="uni-topbar__stat uni-topbar__stat--curio" title="奇物">{{ uniState.curios.length }}</span>
+      <span class="uni-topbar__stat uni-topbar__stat--equation" title="方程">{{ uniState.equations.length }}</span>
       <span class="uni-topbar__spacer"></span>
       <button class="uni-btn uni-btn--sm" @click="bagOpen = true">背包</button>
       <button class="uni-btn uni-btn--sm" @click="uni.saveUni()">💾 存档</button>
@@ -711,12 +711,12 @@
 
     <DevLogPanel :entries="uniState.devLog?.entries || []" :open="logOpen" />
 
-    <!-- 祝福获取动画：背景变暗 → 卡放大显效果 → 飞向背包 -->
-    <div v-if="blessingAnim" class="uni-bless-overlay">
-      <div ref="blessCard" class="uni-bless-card" :class="'uni-bless-card--' + (blessingAnim.star || 1)">
+    <!-- 获得动画（祝福/奇物/方程）：背景变暗 → 卡放大显效果 → 飞向背包，单击跳过 -->
+    <div v-if="blessingAnim" class="uni-bless-overlay" title="点击跳过">
+      <div ref="blessCard" class="uni-bless-card" :class="'uni-bless-card--' + (blessingAnim.type || 'blessing')">
         <div class="uni-bless-card__star">{{ '★'.repeat(blessingAnim.star || 1) }}</div>
         <div class="uni-bless-card__name">{{ blessingAnim.name }}</div>
-        <div class="uni-bless-card__fate">{{ blessingAnim.fate }}</div>
+        <div class="uni-bless-card__fate">{{ blessingAnim.fate || (blessingAnim.negative ? '负面' : '') }}</div>
         <div class="uni-bless-card__desc">{{ blessingAnim.desc }}</div>
       </div>
     </div>
@@ -1036,70 +1036,138 @@ const transformLeft = computed(() => {
   return Math.max(0, 20 - c.round);
 });
 
-// ---- 祝福获取动画（变暗 → 放大显效果 → 飞向背包） ----
-const blessingAnim = ref(null); // { id, star, name, fate, desc, from:{x,y} }
+// ---- 获得动画队列（祝福/奇物/方程：变暗 → 放大显效果 → 飞向背包，逐个播放，单击跳过） ----
+const animQueue = ref([]); // [{ type, id }]
+const blessingAnim = ref(null); // 当前播放项 { type, star, name, fate, desc, negative }
 const blessCard = ref(null);
+const lastPickPos = ref(null); // 三选一按钮点击位置（动画起点）
+let animPlaying = false;
 let blessTween = null;
+let skipHandler = null;
+
+function itemData(type, id) {
+  const src = type === "curio" ? CURIOS : type === "equation" ? EQUATIONS : BLESSINGS;
+  return src[id];
+}
+
+/** 三选一：记录点击位置并结算（动画由获得 watch 队列统一播放） */
 function onPickBlessing(id, e) {
   const btn = e.currentTarget;
   const r = btn.getBoundingClientRect();
-  const b = BLESSINGS[id];
-  if (!b) return;
-  blessingAnim.value = {
-    id,
-    star: b.star,
-    name: b.name,
-    fate: b.fate,
-    desc: b.desc,
-    from: { x: r.left + r.width / 2, y: r.top + r.height / 2 },
-  };
+  lastPickPos.value = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  props.uni.doBlessingPick(id);
 }
-watch(blessingAnim, async (a) => {
-  if (!a) return;
-  await nextTick();
-  const card = blessCard.value;
-  if (!card) return;
-  // 起点：点击处（小尺寸）
-  gsap.set(card, { x: a.from.x, y: a.from.y, scale: 0.25, opacity: 0 });
-  gsap.set(".uni-bless-card__desc", { opacity: 0 });
-  // 背包锚点（顶栏祝福统计）
-  const bagEl = fxCanvas.value?.parentElement?.querySelector(".uni-topbar__stat--bless")
-    || document.querySelector(".uni-topbar__stat--bless");
-  const br = bagEl ? bagEl.getBoundingClientRect() : { left: innerWidth / 2, top: 20, width: 0, height: 0 };
-  blessTween = gsap.timeline()
-    .to(card, { opacity: 1, duration: 0.1 })
-    // 放大到中央
-    .to(card, {
-      x: innerWidth / 2,
-      y: innerHeight / 2 - 30,
-      scale: 2.7,
-      duration: 0.32,
-      ease: "power2.out",
-    })
-    // 显示效果
-    .to(".uni-bless-card__desc", { opacity: 1, duration: 0.2 }, "+=0.18")
-    .to(".uni-bless-card__desc", { opacity: 0, duration: 0.12 }, "+=0.8")
-    // 缩小飞向背包
-    .to(card, {
-      x: br.left + br.width / 2,
-      y: br.top + br.height / 2,
-      scale: 0.2,
-      opacity: 0.45,
-      duration: 0.38,
-      ease: "power1.in",
-    })
-    .add(() => {
-      blessingAnim.value = null;
-      blessTween = null;
-      props.uni.doBlessingPick(a.id);
-      // C2：获得祝福 → 金色粒子反馈（背包位置）
-      if (fx.value && br) {
-        fx.value.burst(br.left + br.width / 2, br.top + br.height / 2, {
-          color: 0xffd54f, count: 14, speed: 180, lifetime: 0.7, size: 3,
-        });
+
+/** 追踪获得：祝福/奇物/方程新增或强化 → 入队逐个播放 */
+function trackGains(getSeq, type) {
+  watch(getSeq, (str, old) => {
+    if (old == null) return;
+    const parse = (s) => {
+      const m = new Map();
+      (s || "").split(",").filter(Boolean).forEach((x) => {
+        const [id, ver] = x.split("@");
+        m.set(id, ver);
+      });
+      return m;
+    };
+    const now = parse(str);
+    const prev = parse(old);
+    for (const [id, ver] of now) {
+      if (!prev.has(id) || prev.get(id) !== ver) {
+        animQueue.value.push({ type, id });
+        playNext();
       }
+    }
+  });
+}
+trackGains(() => uniState.blessings.map((b) => `${b.id}@${b.enhanced || 1}x${b.heatEnhanced || 1}`).join(","), "blessing");
+trackGains(() => uniState.curios.map((c) => `${c.id}@${c.enhanced || 1}`).join(","), "curio");
+trackGains(() => uniState.equations.map((e) => `${e.id}@${e.enhanced || 1}`).join(","), "equation");
+
+/** 逐个播放队列 */
+async function playNext() {
+  if (animPlaying || !animQueue.value.length) return;
+  animPlaying = true;
+  const item = animQueue.value.shift();
+  const d = itemData(item.type, item.id);
+  if (!d) {
+    animPlaying = false;
+    playNext();
+    return;
+  }
+  blessingAnim.value = {
+    type: item.type,
+    star: d.star,
+    name: d.name,
+    fate: d.fate,
+    desc: d.desc,
+    negative: d.negative,
+  };
+  await nextTick();
+  if (blessCard.value) await playCardAnim(blessCard.value);
+  blessingAnim.value = null;
+  // C2：飞入背包后金色粒子反馈
+  if (fx.value) {
+    const bagEl = document.querySelector(".uni-topbar__stat--bless");
+    const br = bagEl ? bagEl.getBoundingClientRect() : { left: innerWidth / 2, top: 24, width: 0, height: 0 };
+    fx.value.burst(br.left + br.width / 2, br.top + br.height / 2, {
+      color: 0xffd54f, count: 12, speed: 160, lifetime: 0.65, size: 3,
     });
-});
+  }
+  animPlaying = false;
+  playNext();
+}
+
+/** 播放单个动画（自适应缩放，单击跳过） */
+function playCardAnim(card) {
+  return new Promise((resolve) => {
+    const a = blessingAnim.value;
+    // 自适应放大：保证不超出屏幕
+    const scale = Math.min((innerWidth * 0.72) / 300, (innerHeight * 0.55) / 210, 2.4);
+    const cx = innerWidth / 2;
+    const cy = innerHeight / 2 - 16;
+    const from = lastPickPos.value || { x: cx, y: innerHeight - 60 };
+    lastPickPos.value = null;
+    gsap.set(card, { x: from.x, y: from.y, scale: 0.25, opacity: 0 });
+    gsap.set(".uni-bless-card__desc", { opacity: 0 });
+    // 背包锚点：按类型飞向对应统计格
+    const anchorSel = { blessing: ".uni-topbar__stat--bless", curio: ".uni-topbar__stat--curio", equation: ".uni-topbar__stat--equation" }[a.type] || ".uni-topbar__stat--bless";
+    const bagEl = document.querySelector(anchorSel);
+    const br = bagEl ? bagEl.getBoundingClientRect() : { left: innerWidth / 2, top: 24, width: 0, height: 0 };
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      if (skipHandler) {
+        document.removeEventListener("click", skipHandler);
+        skipHandler = null;
+      }
+      resolve();
+    };
+    // 单击跳过：终止当前动画立即完成
+    skipHandler = () => {
+      if (blessTween) {
+        blessTween.kill();
+        blessTween = null;
+      }
+      finish();
+    };
+    document.addEventListener("click", skipHandler);
+    blessTween = gsap.timeline({ onComplete: finish })
+      .to(card, { opacity: 1, duration: 0.1 })
+      .to(card, { x: cx, y: cy, scale, duration: 0.3, ease: "power2.out" })
+      .to(".uni-bless-card__desc", { opacity: 1, duration: 0.18 }, "+=0.15")
+      .to(".uni-bless-card__desc", { opacity: 0, duration: 0.1 }, "+=0.75")
+      .to(card, {
+        x: br.left + br.width / 2,
+        y: br.top + br.height / 2,
+        scale: 0.2,
+        opacity: 0.45,
+        duration: 0.35,
+        ease: "power1.in",
+      });
+  });
+}
 const hasNextEvent = computed(
   () =>
     uniState.region?.eventIds &&
@@ -1673,14 +1741,14 @@ function onQuit() {
   60% { transform: translateX(4px); }
   75% { transform: translateX(-2px); }
 }
-/* 祝福获取动画 */
+/* 获得动画（祝福/奇物/方程） */
 .uni-bless-overlay {
   position: fixed;
   inset: 0;
   z-index: 200;
   background: rgba(8, 6, 4, 0.72);
   animation: uniBlessDim 0.25s ease forwards;
-  pointer-events: none;
+  cursor: pointer;
 }
 @keyframes uniBlessDim {
   from { opacity: 0; }
@@ -1692,7 +1760,7 @@ function onQuit() {
   top: 0;
   width: 300px;
   margin-left: -150px;
-  margin-top: -110px;
+  margin-top: -105px;
   background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
   border: 2px solid var(--gold);
   border-radius: 14px;
@@ -1700,14 +1768,17 @@ function onQuit() {
   text-align: center;
   box-shadow: 0 14px 44px rgba(0, 0, 0, 0.7);
   will-change: transform, opacity;
+  pointer-events: none;
 }
-.uni-bless-card--2 { border-color: #b08cff; }
-.uni-bless-card--3 { border-color: #ffc96b; box-shadow: 0 14px 44px rgba(255, 180, 60, 0.25); }
+.uni-bless-card--curio { border-color: #8fd0c0; }
+.uni-bless-card--equation { border-color: #b08cff; }
 .uni-bless-card__star {
   color: var(--gold);
   letter-spacing: 2px;
   font-size: 14px;
 }
+.uni-bless-card--curio .uni-bless-card__star { color: #8fd0c0; }
+.uni-bless-card--equation .uni-bless-card__star { color: #b08cff; }
 .uni-bless-card__name {
   font-size: 20px;
   font-weight: bold;
@@ -1720,6 +1791,8 @@ function onQuit() {
   color: var(--gold);
   margin-bottom: 10px;
 }
+.uni-bless-card--curio .uni-bless-card__fate { color: #8fd0c0; }
+.uni-bless-card--equation .uni-bless-card__fate { color: #b08cff; }
 .uni-bless-card__desc {
   font-size: 13px;
   line-height: 1.7;
