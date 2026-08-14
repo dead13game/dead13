@@ -1130,21 +1130,41 @@ describe("模拟宇宙 M4：事件系统", () => {
     s.team.forEach((t) => (t.hp = t.maxHp));
     const r = applyEventOption(s, "altar", 0);
     expect(r.ok).toBe(true);
-    expect(s.equations).toHaveLength(1);
-    expect(s.equations[0].star).toBe(3);
+    // 至少 1 个 3 星方程（奇物「纯美骑士精神」可能额外给方程）
+    expect(s.equations.some((e) => e.star === 3)).toBe(true);
     // 2 次奇物获得（可能含重复强化合并）
     const curioGained = s.curios.reduce((a, c) => a + (c.enhanced || 1), 0);
     expect(curioGained).toBe(2);
     s.team.forEach((t) => expect(t.hp).toBe(Math.max(1, t.maxHp - Math.floor((t.maxHp * 60) / 100))));
   });
 
-  it("神秘箱子 B：500 碎片但失去所有防御（护盾清零）", () => {
+  it("神秘箱子 B：500 碎片但失去所有防御牌（defensePile 清空）", () => {
     const s = createUniState();
-    s.team[0].shield = 30;
+    s.team.forEach((t) => {
+      t.status.defensePile.push({ value: 2, rank: "?", suit: "♠" }, { value: 4, rank: "?", suit: "♠" });
+    });
     const r = applyEventOption(s, "box", 1);
     expect(r.ok).toBe(true);
     expect(s.shards).toBe(500);
-    expect(s.team.every((t) => t.shield === 0)).toBe(true);
+    expect(s.team.every((t) => t.status.defensePile.length === 0)).toBe(true);
+  });
+
+  it("防护卷轴 A：全队获得 5 张防御牌（defensePile）", () => {
+    const s = createUniState();
+    const r = applyEventOption(s, "scroll", 0);
+    expect(r.ok).toBe(true);
+    s.team.forEach((t) => expect(t.status.defensePile).toHaveLength(5));
+  });
+
+  it("迷途商队 C：100 碎片但全队失去 1 张防御牌", () => {
+    const s = createUniState();
+    s.team.forEach((t) => {
+      t.status.defensePile.push({ value: 2, rank: "?", suit: "♠" }, { value: 4, rank: "?", suit: "♠" });
+    });
+    const r = applyEventOption(s, "caravan", 2);
+    expect(r.ok).toBe(true);
+    expect(s.shards).toBe(100);
+    s.team.forEach((t) => expect(t.status.defensePile).toHaveLength(1));
   });
 });
 

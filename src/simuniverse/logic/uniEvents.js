@@ -47,14 +47,25 @@ function loseTeamHpPct(state, pct) {
   }
 }
 
-/** 全队获得/失去防御牌（±N 张 × 2 护盾） */
+/** 全队获得/失去防御牌（±N 张，加入/移出 defensePile，与战斗内防御牌机制一致） */
 function teamDefenseCards(state, n) {
-  const shield = n * DEF_CARD_SHIELD;
+  if (n >= 0) {
+    for (const t of state.team) {
+      if (!t.alive) continue;
+      for (let i = 0; i < n; i++) {
+        t.status.defensePile.push({ value: DEF_CARD_SHIELD, rank: "?", suit: "♠" });
+      }
+    }
+    return n;
+  }
+  // 失去 |n| 张防御牌（从防御堆末尾移除）
   for (const t of state.team) {
     if (!t.alive) continue;
-    t.shield = Math.max(0, t.shield + shield);
+    for (let i = 0; i < -n && t.status.defensePile.length > 0; i++) {
+      t.status.defensePile.pop();
+    }
   }
-  return shield;
+  return n;
 }
 
 /** 提升角色技能等级（n 级，上限 10），同步被动 */
@@ -369,7 +380,7 @@ export function applyEventOption(state, eventId, optionIdx) {
   // 防御牌（±）
   if (fx.defenseCards) teamDefenseCards(state, fx.defenseCards);
   if (fx.loseAllDefense) {
-    for (const t of state.team) t.shield = 0;
+    for (const t of state.team) t.status.defensePile = [];
   }
 
   // 祝福
