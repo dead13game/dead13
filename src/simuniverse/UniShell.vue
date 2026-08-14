@@ -795,17 +795,24 @@ onMounted(() => {
       ensureFx();
     }
   }, { immediate: true });
-  // 伤害结算 → 飘字 + 粒子 + 轻微震屏
+  // 伤害结算 → 飘字 + 粒子 + 轻微震屏 + 受击卡抖动
   watch(
     () => uniState.combat?.lastDamage?.seq,
     (seq) => {
-      if (seq == null || !fx.value) return;
+      if (seq == null) return;
       const ld = uniState.combat.lastDamage;
       const dom = ld.type === "member"
         ? fxCanvas.value?.parentElement?.querySelector(`.uni-member[data-idx="${ld.idx}"]`)
         : fxCanvas.value?.parentElement?.querySelector(`.uni-enemy[data-id="${ld.id}"]`);
+      // 受击抖动：目标卡位移抖动（确定性触发，不依赖日志）
+      if (dom) {
+        dom.classList.remove("uni-hit-shake");
+        void dom.offsetWidth; // 强制重排以重触发动画
+        dom.classList.add("uni-hit-shake");
+        setTimeout(() => dom.classList.remove("uni-hit-shake"), 400);
+      }
       const pos = fxPos(dom);
-      if (!pos) return;
+      if (!fx.value || !pos) return;
       const mine = ld.type === "member";
       fx.value.floatText(`-${ld.dmg}`, pos.x, pos.y, {
         color: mine ? 0xffb08a : 0xffe9b8,
@@ -1465,6 +1472,18 @@ function onQuit() {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+/* 受击抖动（成员/敌人通用，lastDamage 确定性触发） */
+.uni-hit-shake {
+  animation: uniShakeHard 0.35s ease;
+}
+@keyframes uniShakeHard {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-8px) rotate(-0.7deg); }
+  30% { transform: translateX(7px) rotate(0.6deg); }
+  45% { transform: translateX(-5px); }
+  60% { transform: translateX(4px); }
+  75% { transform: translateX(-2px); }
 }
 /* 成员卡：暖暗底 + 金色顶部条 */
 .uni-member {
