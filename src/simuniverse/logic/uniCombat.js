@@ -143,6 +143,8 @@ export function startPlayerTurn(state) {
   const c = state.combat;
   if (!c || c.phase === "won" || c.phase === "lost") return;
   c.round += 1;
+  // 进入玩家回合（dot 结算若触发 wave-clear/全灭会覆盖 phase，由下方检查拦截）
+  c.phase = "player-action";
   // 技能冷却递减（开大当回合已置满，之后每回合 -1）
   for (const t of state.team) {
     if (t.skillCooldown > 0) t.skillCooldown -= 1;
