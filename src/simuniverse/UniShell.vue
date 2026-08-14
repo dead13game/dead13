@@ -947,6 +947,23 @@ onMounted(() => {
       }
     },
   );
+  // B4 敌人行动前兆：宣布行动时对应敌人卡红框脉冲
+  watch(
+    () => uniState.combat?.enemyPending?.enemyIdx,
+    (idx, old) => {
+      const parent = fxCanvas.value?.parentElement;
+      if (!parent) return;
+      if (old != null) {
+        parent.querySelector(`.uni-enemy[data-id="${old}"]`)?.classList.remove("uni-enemy--warn");
+      }
+      if (idx == null) return;
+      const dom = parent.querySelector(`.uni-enemy[data-id="${idx}"]`);
+      if (dom) {
+        dom.classList.add("uni-enemy--warn");
+        setTimeout(() => dom.classList.remove("uni-enemy--warn"), 900);
+      }
+    },
+  );
 });
 
 onBeforeUnmount(() => {
@@ -1862,6 +1879,15 @@ function onQuit() {
 }
 .uni-enemy--hit {
   animation: uniHitEnemy 0.3s ease;
+}
+/* B4 行动前兆：红框脉冲 */
+.uni-enemy--warn {
+  animation: uniWarnPulse 0.5s ease-in-out infinite;
+  border-color: var(--enemy);
+}
+@keyframes uniWarnPulse {
+  0%, 100% { box-shadow: 0 0 0 rgba(192, 85, 63, 0); }
+  50% { box-shadow: 0 0 12px rgba(192, 85, 63, 0.65); }
 }
 @keyframes uniHitEnemy {
   0%, 100% { transform: translateX(0); }
