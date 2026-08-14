@@ -320,7 +320,12 @@ export function useUniController() {
       equations: s.equations.map((e) => e.id).sort().join(","),
       skillLevel: s.team.reduce((a, t) => a + (t.skillLevel || 1), 0),
       hp: s.team.reduce((a, t) => a + t.hp, 0),
+      maxHp: s.team.reduce((a, t) => a + t.maxHp, 0),
       alive: s.team.filter((t) => t.alive).length,
+      defPile: s.team.reduce((a, t) => a + t.status.defensePile.length, 0),
+      medkit: s.items?.medkit || 0,
+      buffs: Object.keys(s.nextBattleBuffs || {}).length,
+      tempBoost: s.tempSkillBoost || 0,
     };
   }
 
@@ -345,6 +350,13 @@ export function useUniController() {
     const dHp = after.hp - before.hp;
     if (dHp < 0) out.push(`💔 生命 -${-dHp}`);
     else if (dHp > 0) out.push(`💚 生命 +${dHp}`);
+    const dMax = after.maxHp - before.maxHp;
+    if (dMax > 0) out.push(`⬆️ 生命上限 +${dMax}`);
+    if (after.defPile > before.defPile) out.push(`🛡️ 防御牌 +${after.defPile - before.defPile}`);
+    else if (after.defPile < before.defPile) out.push(`🛡️ 防御牌 -${before.defPile - after.defPile}`);
+    if (after.medkit > before.medkit) out.push(`💊 急救包 +${after.medkit - before.medkit}`);
+    if (after.buffs > before.buffs) out.push(`⚔️ 下次战斗获得加成`);
+    if (after.tempBoost > before.tempBoost) out.push(`📈 下次战斗技能等级 +${after.tempBoost - before.tempBoost}`);
     if (after.alive < before.alive) out.push(`☠️ 有角色无法战斗`);
     return out.length ? out : ["（无效果）"];
   }
