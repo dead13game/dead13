@@ -1054,8 +1054,14 @@ function endCombat(state, result) {
         state.pendingBlessingPicks = (state.pendingBlessingPicks || []).concat(picks);
       }
       if (r.skillUpTarget) {
-        state.pendingSkillUpTarget = (state.pendingSkillUpTarget || 0) + r.skillUpTarget;
-        state.log.push(`事件战斗胜利：可指定角色技能等级 +${r.skillUpTarget}`);
+        // 无可升级角色（全灭只剩菜月昴等）→ 放弃该奖励，避免 reward 面板卡死
+        const upgradable = state.team.some((t) => t.alive && t.charId !== 11);
+        if (!upgradable) {
+          state.log.push("无可升级角色，放弃技能升级奖励");
+        } else {
+          state.pendingSkillUpTarget = (state.pendingSkillUpTarget || 0) + r.skillUpTarget;
+          state.log.push(`事件战斗胜利：可指定角色技能等级 +${r.skillUpTarget}`);
+        }
       }
       state.pendingEventReward = null;
     }

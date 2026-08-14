@@ -97,7 +97,7 @@ export function createUniState(charIds = DEFAULT_TEAM_IDS) {
     curios: [],
     equations: [],
     heat: 0, // 造物调试台热量（首领层重置为 5）
-    overwritePrice: UNI_CONST.OVERWRITE_BASE, // 覆写价格（全局累计递增）
+    overwritePrice: UNI_CONST.OVERWRITE_BASE, // 覆写价格（每层重置，不跨层累计）
     savepoints: [], // 菜月昴读档快照（M3 启用）
     caiyueangLoads: 0, // 已用读档次数
     gameOver: false,

@@ -1056,6 +1056,24 @@ describe("模拟宇宙 M4：事件系统", () => {
     expect(s.pendingSkillUpTarget).toBe(2); // 修复前此奖励被丢弃
   });
 
+  it("无可升级角色（只剩菜月昴）→ 技能升级奖励放弃，不卡死", () => {
+    const s = createUniState([11, 11, 11, 11]); // 全队菜月昴
+    s.team.slice(1).forEach((t) => (t.alive = false));
+    const r = applyEventOption(s, "expScroll", 0); // 经验卷轴 A：指定角色技能 +2
+    expect(r.ok).toBe(true);
+    expect(r.outcome.needSkillTarget).toBeUndefined(); // 放弃奖励
+    // 事件战斗奖励同样放弃
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 3 }] };
+    startCombat(s);
+    s.combat.enemies.forEach((e) => {
+      e.hp = 0;
+      e.alive = false;
+    });
+    playerDefense(s, 0);
+    expect(s.combat.phase).toBe("won");
+    expect(s.pendingSkillUpTarget).toBeUndefined(); // 不设置 → reward 面板不会卡在选人
+  });
+
   it("普通战斗胜利：生成 3 次祝福三选一候选（battle 区域奖励）", () => {
     const s = createUniState();
     s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 3 }] };

@@ -432,7 +432,12 @@ export function applyEventOption(state, eventId, optionIdx) {
     randomSkillUp(state, fx.skillUpRandom);
   }
   if (fx.skillUpTarget) {
-    outcome.needSkillTarget = fx.skillUpTarget; // UI 选角色后调 applySkillUp
+    // 无可升级角色（全灭只剩菜月昴等）→ 放弃奖励，避免选人面板卡死
+    if (state.team.some((t) => t.alive && t.charId !== 11)) {
+      outcome.needSkillTarget = fx.skillUpTarget; // UI 选角色后调 applySkillUp
+    } else {
+      state.log.push("无可升级角色，放弃技能升级奖励");
+    }
   }
   if (fx.skillUpAll) {
     for (const t of state.team) {
