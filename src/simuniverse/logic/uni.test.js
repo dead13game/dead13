@@ -80,11 +80,11 @@ function runEnemyPhase(s) {
   }
 }
 
-/** 手动指定当前行动角色的 2 张牌（控制测试确定性） */
+/** 控制牌堆顶牌（drawPoker 从尾部 pop：写入 [v2, v1] 使抽到第一张 v1） */
 function setPoker(s, v1, v2) {
-  s.combat.pendingPoker = [
+  s.combat.pokerDeck = [
+    { value: v2 ?? v1, rank: "?", suit: "♠" },
     { value: v1, rank: "?", suit: "♠" },
-    { value: v2, rank: "?", suit: "♠" },
   ];
 }
 
@@ -96,7 +96,7 @@ function allDefend(s) {
     if (!p || p === "won" || p === "lost" || p === "wave-clear") break;
     if (p !== "player-action") break;
     if (s.combat.pendingPoker.length === 0) break;
-    playerDefense(s);
+    playerDefense(s, 0);
   }
 }
 
@@ -349,7 +349,7 @@ describe("模拟宇宙 M2：战斗开始与波次", () => {
       expect(e.maxHp).toBe(10);
     });
     expect(c.phase).toBe("player-action");
-    expect(c.pendingPoker).toHaveLength(2);
+    expect(c.pendingPoker).toHaveLength(0); // 先选行动后抽牌，行动前无牌
   });
 
   it("位面 2：敌人 HP 翻倍（20）", () => {
@@ -390,34 +390,36 @@ describe("模拟宇宙 M2：战斗开始与波次", () => {
 });
 
 describe("模拟宇宙 M2：玩家行动", () => {
-  it("普攻：伤害 = 两牌面值之和 - 2", () => {
+  it("普攻：抽 1 张牌，伤害 = 牌面值", () => {
     const s = createUniState();
     startCombat(s);
-    setPoker(s, 5, 7);
+    setPoker(s, 5);
     const before = s.combat.enemies[0].hp;
     const r = playerAttack(s, 0);
     expect(r.ok).toBe(true);
-    expect(r.dmg).toBe(10); // 5+7-2
-    expect(s.combat.enemies[0].hp).toBe(before - 10);
+    expect(r.dmg).toBe(5); // 单牌 5
+    expect(s.combat.enemies[0].hp).toBe(before - 5);
   });
 
   it("普攻打死敌人后推进到下一名角色", () => {
     const s = createUniState();
     startCombat(s);
     const first = s.combat.activeIdx;
-    setPoker(s, 9, 9); // 16 伤害 > 10 HP
+    setPoker(s, 13); // 13 伤害 > 10 HP
     playerAttack(s, 0);
     expect(s.combat.enemies[0].alive).toBe(false);
     expect(s.combat.activeIdx).not.toBe(first); // 下一名角色行动
   });
 
-  it("防御：2 张牌进入防御堆", () => {
+  it("防御：抽 1 张牌为指定目标添加护盾", () => {
     const s = createUniState();
     startCombat(s);
-    const idx = s.combat.activeIdx;
-    const before = s.team[idx].status.defensePile.length;
-    playerDefense(s);
-    expect(s.team[idx].status.defensePile.length).toBe(before + 2);
+    setPoker(s, 7);
+    const target = s.team[0];
+    const before = target.shield;
+    const r = playerDefense(s, 0);
+    expect(r.ok).toBe(true);
+    expect(target.shield).toBe(before + 7); // 牌面值 7 作为护盾
   });
 
   it("防御牌抵扣伤害", () => {
@@ -563,8 +565,8 @@ describe("模拟宇宙 M2：首领穿插", () => {
     // 强制首领 pattern 为 A（便于断言）
     s.combat.enemies[0].pattern = "A";
     // 前 2 名玩家行动（防御）
-    playerDefense(s);
-    playerDefense(s);
+    playerDefense(s, 0);
+    playerDefense(s, 0);
     expect(s.combat.turnCount).toBe(2);
     expect(s.combat.phase).toBe("enemy-announce");
     expect(s.combat.enemyQueue).toHaveLength(1); // interlude（aoe 8）
@@ -572,8 +574,8 @@ describe("模拟宇宙 M2：首领穿插", () => {
     enemyAnnounce(s);
     enemyResolve(s);
     // 剩余 2 名玩家行动
-    playerDefense(s);
-    playerDefense(s);
+    playerDefense(s, 0);
+    playerDefense(s, 0);
     expect(s.combat.phase).toBe("enemy-announce");
     expect(s.combat.enemyQueue).toHaveLength(2); // 行动1（single 12）+ 行动2（heal）
   });
@@ -583,15 +585,15 @@ describe("模拟宇宙 M2：首领穿插", () => {
     s.region = { type: "boss", name: "首领", waves: [{ kind: "boss", count: 1 }] };
     startCombat(s);
     s.combat.round = 2; // pattern 轮转：第 2 回合 = B（减疗/眩晕）
-    playerDefense(s);
-    playerDefense(s);
+    playerDefense(s, 0);
+    playerDefense(s, 0);
     enemyAnnounce(s);
     enemyResolve(s);
     // 减疗 50%
     expect(s.team.every((t) => t.status.healCut === 0.5)).toBe(true);
     // 剩余 2 名行动后：全体 6 + 眩晕 1 人
-    playerDefense(s);
-    playerDefense(s);
+    playerDefense(s, 0);
+    playerDefense(s, 0);
     expect(s.combat.enemyQueue).toHaveLength(2);
     enemyAnnounce(s);
     enemyResolve(s); // aoe 6
@@ -648,7 +650,7 @@ describe("模拟宇宙 M2：转化及格线", () => {
       { id: 0, kind: "normal", name: "普通敌人1", pattern: "A", hp: 0, maxHp: 10, shield: 0, locked: [], round: 1, alive: false },
     ];
     s.combat.turnCount = 1;
-    playerDefense(s); // 触发 finishPlayerAction 的波次检查
+    playerDefense(s, 0); // 触发 finishPlayerAction 的波次检查
     expect(s.combat.phase).toBe("wave-clear");
     // 撤退
     const r = chooseThirdWave(s, false);
@@ -665,7 +667,7 @@ describe("模拟宇宙 M2：转化及格线", () => {
       { id: 0, kind: "normal", name: "普通敌人1", pattern: "A", hp: 0, maxHp: 10, shield: 0, locked: [], round: 1, alive: false },
     ];
     s.combat.turnCount = 1;
-    playerDefense(s);
+    playerDefense(s, 0);
     expect(s.combat.phase).toBe("wave-clear");
     chooseThirdWave(s, true);
     expect(s.combat.wave).toBe(2);
@@ -799,11 +801,11 @@ describe("模拟宇宙 M3：角色技能", () => {
     s.combat.activeIdx = 1;
     s.combat.turnIdx = 0;
     s.team[1].status.spiritCap = 0;
-    setPoker(s, 5, 5); // raw = 8
+    setPoker(s, 5); // raw = 5
     const enemy = s.combat.enemies[0];
     const hpBefore = enemy.hp;
     playerAttack(s, enemy.id);
-    expect(enemy.hp).toBe(hpBefore - 10); // 8 + 2（少女攻）
+    expect(enemy.hp).toBe(hpBefore - 7); // 5 + 2（少女攻）
   });
 
   it("莉奈娅：一技能全队盾 / 二技能 dot", () => {
@@ -1053,7 +1055,7 @@ describe("模拟宇宙 M4：事件系统", () => {
       e.hp = 0;
       e.alive = false;
     });
-    playerDefense(s);
+    playerDefense(s, 0);
     expect(s.combat.phase).toBe("won");
     expect(s.pendingEventReward).toBeNull();
     expect(s.pendingBlessingPicks).toHaveLength(2);
@@ -1075,17 +1077,17 @@ describe("模拟宇宙 M4：事件系统", () => {
     s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 1 }] };
     startCombat(s);
     expect(s.combat.buffs).toContain("atkUp");
-    setPoker(s, 5, 5); // raw = 8
+    setPoker(s, 5); // raw = 5
     const enemy = s.combat.enemies[0];
     const hpBefore = enemy.hp;
     playerAttack(s, enemy.id);
-    expect(enemy.hp).toBe(hpBefore - Math.floor(8 * 1.3));
+    expect(enemy.hp).toBe(hpBefore - Math.floor(5 * 1.3));
     // 战斗结束 buff 失效
     s.combat.enemies.forEach((e) => {
       e.hp = 0;
       e.alive = false;
     });
-    playerDefense(s);
+    playerDefense(s, 0);
     expect(s.combat.phase).toBe("won");
     expect(s.nextBattleBuffs).toEqual({});
   });
@@ -1218,7 +1220,7 @@ describe("模拟宇宙 M5：奇物与方程效果", () => {
       e.hp = 0;
       e.alive = false;
     });
-    playerDefense(s);
+    playerDefense(s, 0);
     expect(s.combat.phase).toBe("won");
     expect(s.shards).toBe(Math.floor(30 * 1.4)); // 30 × 1.4 = 42
   });
@@ -1232,7 +1234,7 @@ describe("模拟宇宙 M5：奇物与方程效果", () => {
       e.hp = 0;
       e.alive = false;
     });
-    playerDefense(s);
+    playerDefense(s, 0);
     expect(s.shards).toBe(Math.floor(30 * 0.75)); // 22
   });
 
@@ -1246,7 +1248,7 @@ describe("模拟宇宙 M5：奇物与方程效果", () => {
       e.hp = 0;
       e.alive = false;
     });
-    playerDefense(s);
+    playerDefense(s, 0);
     expect(s.team[0].hp).toBe(s.team[0].maxHp);
   });
 
@@ -1259,7 +1261,7 @@ describe("模拟宇宙 M5：奇物与方程效果", () => {
       e.hp = 0;
       e.alive = false;
     });
-    playerDefense(s);
+    playerDefense(s, 0);
     expect(s.blessings.some((b) => b.star === 3)).toBe(true);
     expect(s.curios.some((c) => c.id === "fujiao")).toBe(false); // 损毁
   });
@@ -1299,9 +1301,9 @@ describe("模拟宇宙 M5：奇物与方程效果", () => {
     // 下一名角色普攻敌人 2（还活着）：伤害 +20%
     const enemy2 = s.combat.enemies[1];
     const hpBefore = enemy2.hp;
-    setPoker(s, 5, 5); // raw = 8，+20% → 9
+    setPoker(s, 5); // raw = 5，+20% → 6
     playerAttack(s, enemy2.id);
-    expect(enemy2.hp).toBe(hpBefore - 9);
+    expect(enemy2.hp).toBe(hpBefore - 6);
   });
 
   it("蛰虫帝：施放终结技后对随机敌人 10% 生命上限伤害", () => {
@@ -1336,7 +1338,7 @@ describe("模拟宇宙集成：跑 10 层流程", () => {
             e.hp = 0;
             e.alive = false;
           });
-          playerDefense(s);
+          playerDefense(s, 0);
         } else if (c.phase === "enemy-announce") {
           const a = enemyAnnounce(s);
           if (a.playing) enemyResolve(s);
@@ -1367,7 +1369,7 @@ describe("模拟宇宙集成：跑 10 层流程", () => {
               e.hp = 0;
               e.alive = false;
             });
-            playerDefense(s);
+            playerDefense(s, 0);
           } else if (c.phase === "enemy-announce") {
             const a = enemyAnnounce(s);
             if (a.playing) enemyResolve(s);
@@ -1432,7 +1434,7 @@ describe("模拟宇宙 M7：全量祝福效果", () => {
     startCombat(s);
     const attackerIdx = s.combat.activeIdx;
     const before = s.team[attackerIdx].status.defensePile.length;
-    setPoker(s, 5, 5);
+    setPoker(s, 5);
     playerAttack(s, s.combat.enemies[0].id);
     expect(s.team[attackerIdx].status.defensePile.length).toBe(before + 3);
   });
@@ -1599,10 +1601,10 @@ describe("模拟宇宙 M9：全量方程", () => {
     startCombat(s);
     const enemy = s.combat.enemies[0];
     const hpBefore = enemy.hp;
-    setPoker(s, 5, 5); // raw 8
+    setPoker(s, 5);
     playerAttack(s, enemy.id);
     // 伤害 = 8 + (maxHp+shield)10% ≈ 8+1 = 9
-    expect(enemy.hp).toBeLessThan(hpBefore - 8);
+    expect(enemy.hp).toBeLessThan(hpBefore - 5);
   });
 
   it("遗迹魔法师：攻击后罐中脑 +8%", () => {
@@ -1610,7 +1612,7 @@ describe("模拟宇宙 M9：全量方程", () => {
     gainEquation(s, "yiji");
     s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 2 }] };
     startCombat(s);
-    setPoker(s, 5, 5);
+    setPoker(s, 5);
     playerAttack(s, s.combat.enemies[0].id);
     expect(s.jarBrain).toBeGreaterThanOrEqual(8);
   });
@@ -1622,9 +1624,9 @@ describe("模拟宇宙 M9：全量方程", () => {
     startCombat(s);
     const enemy = s.combat.enemies[0];
     const hpBefore = enemy.hp;
-    setPoker(s, 5, 5); // raw 8 × 1.6 = 12
+    setPoker(s, 5); // raw 5 × 1.6 = 8
     playerAttack(s, enemy.id);
-    expect(enemy.hp).toBe(Math.max(0, hpBefore - 12));
+    expect(enemy.hp).toBe(Math.max(0, hpBefore - 8));
   });
 
   it("除魔士：每 4 回合全队伤害 +200%", () => {

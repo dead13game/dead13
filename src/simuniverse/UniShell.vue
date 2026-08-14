@@ -90,7 +90,9 @@
               'uni-member--dead': !t.alive,
               'uni-member--active': activeIdx === t.index,
               'uni-member--hit': fxCount('member', t.index) > 0,
+              'uni-member--target': targetMode === 'member' && t.alive,
             }"
+            @click="onMemberClick(t.index)"
           >
             <div class="uni-member__head">
               <div class="uni-member__avatar">
@@ -168,18 +170,20 @@
       <div class="uni-battle__action">
         <div v-if="active" class="uni-battle__actor">
           <span class="uni-battle__actorname">{{ active.name }} 的回合</span>
-          <span v-for="(c, i) in uniState.combat.pendingPoker" :key="i" class="uni-poker">
-            <span class="uni-poker__rank" :class="'uni-poker__rank--' + c.suit">{{ c.rank }}</span>
-            <span class="uni-poker__suit">{{ c.suit }}</span>
+          <span v-if="lastPoker" class="uni-poker">
+            <span class="uni-poker__rank" :class="'uni-poker__rank--' + lastPoker.suit">{{ lastPoker.rank }}</span>
+            <span class="uni-poker__suit">{{ lastPoker.suit }}</span>
           </span>
+          <span v-if="targetMode === 'enemy'" class="uni-battle__hint">→ 点击敌人目标</span>
+          <span v-else-if="targetMode === 'member'" class="uni-battle__hint">→ 点击要加护盾的成员</span>
           <span class="uni-battle__turn">第 {{ uniState.combat.round }} 回合</span>
         </div>
         <div class="uni-battle__buttons">
-          <button class="uni-btn uni-btn--attack" :disabled="!canAct" @click="onAttackClick">⚔️ 普攻</button>
-          <button class="uni-btn uni-btn--defense" :disabled="!canAct" @click="doDefense">🛡️ 防御</button>
+          <button class="uni-btn uni-btn--attack" :disabled="!canAct || targetMode" @click="onAttackClick">⚔️ 普攻</button>
+          <button class="uni-btn uni-btn--defense" :disabled="!canAct || targetMode" @click="onDefenseClick">🛡️ 防御</button>
           <button
             class="uni-btn uni-btn--skill"
-            :disabled="!canSkill"
+            :disabled="!canSkill || targetMode"
             @click="onSkillClick"
           >
             💥 开大{{ skillCdText }}
@@ -593,6 +597,7 @@ const active = computed(() => {
 const canAct = computed(
   () => uniState.combat?.phase === "player-action" && active.value?.alive,
 );
+const lastPoker = computed(() => uniState.combat?.lastPoker || null);
 const canSkill = computed(() => {
   if (!active.value) return false;
   return props.uni.canSkill(active.value.index).ok;
@@ -754,8 +759,15 @@ function onEnemyClick(enemyId) {
     if (r.ok) targetMode.value = null;
   }
 }
-function doDefense() {
-  props.uni.doDefense();
+function onDefenseClick() {
+  targetMode.value = "member";
+  battleMsg.value = "选择要加护盾的成员";
+}
+function onMemberClick(memberIdx) {
+  if (targetMode.value === "member") {
+    const r = props.uni.doDefense(memberIdx);
+    if (r.ok) targetMode.value = null;
+  }
 }
 function onSkillClick() {
   const t = active.value;

@@ -45,8 +45,7 @@ import {
   SPIRIT_PER_5,
 } from "./uniConstants.js";
 
-const POKER_DRAW = 2; // 每名角色行动抽 2 张扑克
-const ATK_MINUS = 2; // 普攻修正（沿用经典 -2）
+const POKER_DRAW = 1; // 每次行动抽 1 张扑克（先选行动再抽牌）
 
 // ---- 敌人 ----
 
@@ -237,12 +236,10 @@ function nextPlayerAction(state) {
     finishPlayerAction(state);
     return;
   }
-  // 抽 2 张扑克
-  c.pendingPoker = drawPoker(state, POKER_DRAW);
+  // 轮到角色：等待选择行动（先选行动，选定后抽 1 张牌结算）
+  c.pendingPoker = [];
   c.phase = "player-action";
-  state.devLog.debug(LOG_TYPE.UNI_REGION, `${t.name} 行动：抽 2 张扑克`, {
-    cards: c.pendingPoker.map((p) => `${p.rank}${p.suit}(${p.value})`),
-  });
+  state.devLog.debug(LOG_TYPE.UNI_REGION, `${t.name} 行动：选择行动`, {});
 }
 
 /** 从共享牌堆抽 n 张，抽空重建 */
@@ -258,14 +255,16 @@ export function drawPoker(state, n) {
 
 // ---- 玩家三选一 ----
 
-/** 普攻：伤害 = 两牌面值之和 - 2，目标敌人 */
+/** 普攻：先抽 1 张牌，伤害 = 牌面值（+各类修正），目标敌人 */
 export function playerAttack(state, enemyIdx) {
   const c = state.combat;
-  if (c.phase !== "player-action" || !c.pendingPoker.length) {
+  if (c.phase !== "player-action") {
     return { ok: false, reason: "非行动时机" };
   }
   const enemy = c.enemies.find((e) => e.id === enemyIdx && e.alive);
   if (!enemy) return { ok: false, reason: "目标无效" };
+  // 先选行动后抽牌：抽 1 张
+  c.pendingPoker = drawPoker(state, POKER_DRAW);
   const attacker = state.team[c.activeIdx];
   // 伤害修正：技能被动（少女 atkBonus / 芙宁娜 dmgBuffPct / 玛薇卡斗志）+ 祝福（atkMult/普攻/动态/炬火）
   const mods = getUniModifiers(state);
@@ -276,7 +275,7 @@ export function playerAttack(state, enemyIdx) {
   // 方程：受诅教师（每消灭 1 敌人本场伤害 +20%，最多 3 层）
   const shouzuFx = EQUATIONS.shouzu?.fx;
   const killStacks = hasEquation(state, "shouzu") && shouzuFx ? Math.min(c.killStacks || 0, shouzuFx.maxStacks || 3) : 0;
-  const raw = Math.max(0, c.pendingPoker.reduce((s, p) => s + p.value, 0) - ATK_MINUS);
+  const raw = c.pendingPoker[0]?.value || 0; // 单牌面值即基础伤害
   const totalPct =
     pct +
     mods.atkMult +
@@ -292,16 +291,18 @@ export function playerAttack(state, enemyIdx) {
   recordSound(state, "attack");
   // 方程：遗迹魔法师（攻击后罐中脑 +8%）
   if (hasEquation(state, "yiji")) chargeJarBrain(state, EQUATIONS.yiji?.fx?.jarBrain || 8);
+  const poker = c.pendingPoker[0];
   state.devLog.info(LOG_TYPE.UNI_REGION, `${attacker.name} 普攻 ${enemy.name}`, {
     enemyIdx,
     sourceIdx: c.activeIdx,
-    cards: c.pendingPoker.map((p) => p.rank + p.suit),
+    card: poker ? poker.rank + poker.suit : "",
     raw,
     flat,
     pct,
     spiritBonus,
     dmg,
   });
+  c.lastPoker = poker; // UI 展示最近抽牌
   c.pendingPoker = [];
   damageEnemy(state, enemyIdx, dmg, c.activeIdx);
   // 方程：梦魔主（攻击附加生命上限+护盾 10%）
@@ -334,25 +335,34 @@ export function playerAttack(state, enemyIdx) {
   return { ok: true, dmg };
 }
 
-/** 防御：2 张牌进入防御堆 */
-export function playerDefense(state) {
+/** 防御：先抽 1 张牌，为指定目标（含自己）添加护盾 = 牌面值 */
+export function playerDefense(state, targetIdx) {
   const c = state.combat;
-  if (c.phase !== "player-action" || !c.pendingPoker.length) {
+  if (c.phase !== "player-action") {
     return { ok: false, reason: "非行动时机" };
   }
-  const t = state.team[c.activeIdx];
-  recordSound(state, "defense");
-  t.status.defensePile.push(...c.pendingPoker);
-  // 少女防御加成：额外独立护盾
-  if (t.status.defBonus > 0) t.shield += t.status.defBonus;
-  state.devLog.info(LOG_TYPE.UNI_REGION, `${t.name} 防御`, {
-    cards: c.pendingPoker.map((p) => p.rank + p.suit),
-    defCount: t.status.defensePile.length,
-    defBonus: t.status.defBonus || 0,
-  });
+  const target = state.team[targetIdx];
+  if (!target || !target.alive) return { ok: false, reason: "目标无效" };
+  // 先选行动后抽牌：抽 1 张
+  c.pendingPoker = drawPoker(state, POKER_DRAW);
+  const poker = c.pendingPoker[0];
+  const shield = poker?.value || 0;
+  const actor = state.team[c.activeIdx];
+  // 少女防御加成：防御者（少女被动受益者）额外护盾
+  const defBonus = actor.status.defBonus || 0;
+  target.shield += shield + defBonus;
+  c.lastPoker = poker;
   c.pendingPoker = [];
+  recordSound(state, "defense");
+  state.devLog.info(LOG_TYPE.UNI_REGION, `${actor.name} 为 ${target.name} 添加护盾`, {
+    targetIdx,
+    card: poker ? poker.rank + poker.suit : "",
+    shield,
+    defBonus,
+    targetShield: target.shield,
+  });
   finishPlayerAction(state);
-  return { ok: true };
+  return { ok: true, shield: shield + defBonus };
 }
 
 /** 开大：执行角色 PVE 技能（uniSkills.js），成功后推进行动 */

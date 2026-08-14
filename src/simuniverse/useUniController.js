@@ -147,8 +147,8 @@ export function useUniController() {
     return r;
   }
 
-  function doDefense() {
-    const r = playerDefense(uniState);
+  function doDefense(targetIdx) {
+    const r = playerDefense(uniState, targetIdx);
     if (!r.ok) {
       battleMsg.value = r.reason || "无法防御";
       return r;
