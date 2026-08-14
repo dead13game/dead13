@@ -74,6 +74,21 @@ export const BLESSINGS = {
 /** 命运列表（事件/商店按命运筛选用） */
 export const FATES = ["存护", "丰饶", "智识", "毁灭", "繁育", "虚无"];
 
+/**
+ * 方程是否已展开：当前祝福命途统计满足 EQUATIONS[id].require
+ * （文档「6记忆4智识」等组合需求；未满足 = 未展开，方程无效果）
+ */
+export function isEquationUnlocked(state, id) {
+  const eq = EQUATIONS[id];
+  if (!eq || !eq.require) return true; // 无需求 → 视为已展开
+  const counts = {};
+  for (const b of state.blessings || []) {
+    const fate = BLESSINGS[b.id]?.fate;
+    if (fate) counts[fate] = (counts[fate] || 0) + 1;
+  }
+  return Object.entries(eq.require).every(([f, n]) => (counts[f] || 0) >= n);
+}
+
 /** 随机取 1 个 */
 function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -994,19 +1009,19 @@ export function loseRandomCurio(state) {
 
 /** 方程数据表（全量：3×1星 + 5×2星 + 5×3星，fx = 数值参数） */
 export const EQUATIONS = {
-  shouzu: { id: "shouzu", name: "受诅教师", star: 1, fate: "毁灭", desc: "每消灭 1 名敌人，本场战斗伤害 +20%（最多 3 层）", fx: { atkPerKill: 20, maxStacks: 3 } },
-  huanxin: { id: "huanxin", name: "换心魔", star: 1, fate: "毁灭", desc: "生命上限 +40%；进入战斗对敌全体造成第一位角色生命上限 20% 的伤害", fx: { maxHpMult: 40, firstHpPct: 20 } },
-  xingqiu: { id: "xingqiu", name: "行星碰碰车", star: 1, fate: "记忆", desc: "真实伤害提高 35%；敌方目标若处于持续伤害状态，额外提高 15%", fx: { atkMult: 5, dotAtkMult: 15 } },
-  chitu: { id: "chitu", name: "吃土绑架犯", star: 2, fate: "繁育", desc: "附加伤害和真实伤害的倍率提高 60%", fx: { atkMult: 10 } },
-  zhedi: { id: "zhedi", name: "蛰虫帝", star: 2, fate: "繁育", desc: "施放终结技后，对随机敌人造成其 10% 生命上限的伤害", fx: { maxHpPct: 10 } },
-  bingkuang: { id: "bingkuang", name: "冰霜巨人", star: 2, fate: "毁灭", desc: "受击后生命 <40% 时消耗 5 层战意，回复 25% 生命上限并使伤害提高 150% 持续 2 回合（每回合 1 次）", fx: { hpBelow: 40, zhanduCost: 5, healPct: 25, atkPct: 150, turns: 2 } },
-  yiji: { id: "yiji", name: "遗迹魔法师", star: 2, fate: "智识", desc: "角色施放攻击后为「罐中脑」充能 8%", fx: { jarBrain: 8 } },
-  chaoji: { id: "chaoji", name: "超级体育生", star: 2, fate: "智识", desc: "施放终结技后为「罐中脑」充能 30%；消灭敌方目标后充能 30%", fx: { jarBrainUlt: 30, jarBrainKill: 30 } },
-  pingguo: { id: "pingguo", name: "苹果！苹果！", star: 3, fate: "记忆", desc: "每 3 回合结束后对敌方全体造成 2000% 冰属性基础伤害", fx: { dmgMult: 20, every: 3 } },
-  xingzou: { id: "xingzou", name: "街道骑行官", star: 3, fate: "毁灭", desc: "我方累计发动 24 次攻击后，第一位角色获得额外回合（该回合攻击附加 160% 生命上限伤害）", fx: { every: 24, atkPct: 160 } },
-  chumo: { id: "chumo", name: "除魔士", star: 3, fate: "智识", desc: "每 4 回合施放 1 次，使我方伤害提高 200%（该回合攻击后对 <25% 血敌人附加 20% 生命上限伤害）", fx: { every: 4, atkPct: 200, killHpPct: 25 } },
-  mengmo: { id: "mengmo", name: "梦魔主", star: 3, fate: "毁灭", desc: "我方每次施放攻击，可造成各自生命上限与护盾之和 10% 的附加伤害", fx: { hpShieldPct: 10 } },
-  ruchong: { id: "ruchong", name: "蠕行之蛇", star: 3, fate: "繁育", desc: "敌方全体受到的伤害提高 10%；第一回合我方额外造成原伤害 60% 的真实伤害", fx: { atkMult: 10, firstAtkMult: 60 } },
+  shouzu: { id: "shouzu", name: "受诅教师", star: 1, fate: "毁灭", desc: "每消灭 1 名敌人，本场战斗伤害 +20%（最多 3 层）", fx: { atkPerKill: 20, maxStacks: 3 }, require: { "毁灭": 2, "智识": 2 } },
+  huanxin: { id: "huanxin", name: "换心魔", star: 1, fate: "毁灭", desc: "生命上限 +40%；进入战斗对敌全体造成第一位角色生命上限 20% 的伤害", fx: { maxHpMult: 40, firstHpPct: 20 }, require: { "毁灭": 5 } },
+  xingqiu: { id: "xingqiu", name: "行星碰碰车", star: 1, fate: "繁育", desc: "真实伤害提高 35%；敌方目标若处于持续伤害状态，额外提高 15%", fx: { atkMult: 5, dotAtkMult: 15 }, require: { "繁育": 2, "虚无": 2 } },
+  chitu: { id: "chitu", name: "吃土绑架犯", star: 2, fate: "繁育", desc: "附加伤害和真实伤害的倍率提高 60%", fx: { atkMult: 10 }, require: { "繁育": 4, "毁灭": 2 } },
+  zhedi: { id: "zhedi", name: "蛰虫帝", star: 2, fate: "繁育", desc: "施放终结技后，对随机敌人造成其 10% 生命上限的伤害", fx: { maxHpPct: 10 }, require: { "繁育": 4, "智识": 2 } },
+  bingkuang: { id: "bingkuang", name: "冰霜巨人", star: 2, fate: "毁灭", desc: "受击后生命 <40% 时消耗 5 层战意，回复 25% 生命上限并使伤害提高 150% 持续 2 回合（每回合 1 次）", fx: { hpBelow: 40, zhanduCost: 5, healPct: 25, atkPct: 150, turns: 2 }, require: { "毁灭": 7 } },
+  yiji: { id: "yiji", name: "遗迹魔法师", star: 2, fate: "智识", desc: "角色施放攻击后为「罐中脑」充能 8%", fx: { jarBrain: 8 }, require: { "智识": 4, "繁育": 2 } },
+  chaoji: { id: "chaoji", name: "超级体育生", star: 2, fate: "智识", desc: "施放终结技后为「罐中脑」充能 30%；消灭敌方目标后充能 30%", fx: { jarBrainUlt: 30, jarBrainKill: 30 }, require: { "智识": 5 } },
+  pingguo: { id: "pingguo", name: "苹果！苹果！", star: 3, fate: "毁灭", desc: "每 3 回合结束后对敌方全体造成 2000% 冰属性基础伤害", fx: { dmgMult: 20, every: 3 }, require: { "毁灭": 6, "智识": 4 } },
+  xingzou: { id: "xingzou", name: "街道骑行官", star: 3, fate: "毁灭", desc: "我方累计发动 24 次攻击后，第一位角色获得额外回合（该回合攻击附加 160% 生命上限伤害）", fx: { every: 24, atkPct: 160 }, require: { "毁灭": 6, "繁育": 4 } },
+  chumo: { id: "chumo", name: "除魔士", star: 3, fate: "智识", desc: "每 4 回合施放 1 次，使我方伤害提高 200%（该回合攻击后对 <25% 血敌人附加 20% 生命上限伤害）", fx: { every: 4, atkPct: 200, killHpPct: 25 }, require: { "智识": 6, "繁育": 4 } },
+  mengmo: { id: "mengmo", name: "梦魔主", star: 3, fate: "毁灭", desc: "我方每次施放攻击，可造成各自生命上限与护盾之和 10% 的附加伤害", fx: { hpShieldPct: 10 }, require: { "毁灭": 10 } },
+  ruchong: { id: "ruchong", name: "蠕行之蛇", star: 3, fate: "繁育", desc: "敌方全体受到的伤害提高 10%；第一回合我方额外造成原伤害 60% 的真实伤害", fx: { atkMult: 10, firstAtkMult: 60 }, require: { "繁育": 6, "虚无": 4 } },
 };
 
 /** 随机 1 个方程（minStar-maxStar） */

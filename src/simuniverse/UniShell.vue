@@ -302,6 +302,11 @@
                 </span>
                 <span class="uni-bag-item__meta">
                   <span v-if="albumKind === 'blessing' || albumKind === 'equation'" class="uni-tag">{{ item.fate }}</span>
+                  <span
+                    v-if="albumKind === 'equation' && isOwned('equation', item.id)"
+                    class="uni-tag"
+                    :class="isEquationUnlocked(uniState, item.id) ? 'uni-tag--boost' : 'uni-tag--bad'"
+                  >{{ isEquationUnlocked(uniState, item.id) ? '已展开' : '未展开' }}</span>
                   <span v-if="albumKind === 'curio' && item.negative" class="uni-tag uni-tag--bad">负面</span>
                   <span class="uni-bag-item__arrow">{{ expandedKey === 'album-' + i ? '▲' : '▼' }}</span>
                 </span>
@@ -379,6 +384,8 @@
               <span class="uni-bag-item__name">
                 <span class="uni-star">{{ '★'.repeat(e.star) }}</span>
                 {{ bagEquation(e.id).name }}
+                <span v-if="!isEquationUnlocked(uniState, e.id)" class="uni-tag uni-tag--bad">未展开</span>
+                <span v-else class="uni-tag uni-tag--boost">已展开</span>
               </span>
               <span class="uni-bag-item__meta">
                 <span class="uni-tag">{{ bagEquation(e.id).fate }}</span>
@@ -698,6 +705,7 @@
 import { ref, computed, watch } from "vue";
 import DevLogPanel from "../components/DevLogPanel.vue";
 import { SHOP_PRICE, REGION_META, UNI_SKILLS, ENEMY_PATTERNS } from "./logic/uniConstants.js";
+import { isEquationUnlocked } from "./logic/uniBuffs.js";
 import { CHARACTERS } from "./logic/uniState.js";
 import { BLESSINGS, CURIOS, EQUATIONS } from "./logic/uniBuffs.js";
 import { shopPrice as uniShopPrice } from "./logic/uniShop.js";

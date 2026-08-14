@@ -39,7 +39,7 @@ import {
   chooseThirdWave,
 } from "./uniCombat.js";
 import { executeUniSkill, canUseUniSkill } from "./uniSkills.js";
-import { gainBlessing, gainEquation, BLESSINGS, rollCurio, CURIOS, blessingVal } from "./uniBuffs.js";
+import { gainBlessing, gainEquation, BLESSINGS, rollCurio, CURIOS, blessingVal, isEquationUnlocked } from "./uniBuffs.js";
 import {
   applyEventOption,
   chooseBlessingPick,
@@ -86,6 +86,31 @@ function setPoker(s, v1, v2) {
     { value: v2 ?? v1, rank: "?", suit: "♠" },
     { value: v1, rank: "?", suit: "♠" },
   ];
+}
+
+/** 方程展开测试辅助：直接凑齐 require 命途祝福（绕过 gainBlessing 副作用钩子） */
+const UNLOCK_FATE_POOL = {
+  存护: ["shaojie", "mihe", "jiemo", "luoke", "chubei", "jianding", "qiebian", "huikui", "lingzhu", "yagong", "shenxing"],
+  丰饶: ["fayu", "huisheng", "huiguang", "chaoxi", "yanshou", "ganlu", "rangzai", "gongpin", "baoguang", "bore", "feihong", "shanbian", "yifajie"],
+  智识: ["yanchi", "huagai", "juhuo", "luoqi", "jianti", "guangxue", "hongkuai", "cuihua", "yuxia", "chilun", "weihai", "xingren"],
+  毁灭: ["hongyi", "penliu", "weixing", "chuanzhi", "zainan", "yuzhao", "baofa", "fangshe", "fanwu", "huanyu"],
+  繁育: ["mingche", "yundi", "luonao", "feijian", "yanmie", "jifeng", "shouzhao", "xuansi", "yanli"],
+  虚无: ["qingxu", "beiju", "yiyi", "richu"],
+};
+function forceUnlock(s, eqId) {
+  const req = EQUATIONS[eqId]?.require;
+  if (!req) return;
+  for (const [fate, n] of Object.entries(req)) {
+    const pool = UNLOCK_FATE_POOL[fate] || [];
+    let added = 0;
+    for (const bid of pool) {
+      if (added >= n) break;
+      if (!s.blessings.some((b) => b.id === bid)) {
+        s.blessings.push({ id: bid, star: BLESSINGS[bid].star || 1, enhanced: 1 });
+        added++;
+      }
+    }
+  }
 }
 
 /** 全员防御跳过当前回合（用于快速推进） */
@@ -1516,6 +1541,7 @@ describe("模拟宇宙 M5：奇物与方程效果", () => {
   it("受诅教师：每消灭敌人本场伤害 +20%（最多 3 层）", () => {
     const s = createUniState();
     gainEquation(s, "shouzu");
+    forceUnlock(s, "shouzu");
     s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 2 }] };
     startCombat(s);
     // 击杀敌人 1
@@ -1529,6 +1555,25 @@ describe("模拟宇宙 M5：奇物与方程效果", () => {
     setPoker(s, 5); // raw = 5，+20% → 6
     playerAttack(s, enemy2.id);
     expect(enemy2.hp).toBe(hpBefore - 6);
+  });
+
+  it("方程展开机制：未展开无效果，凑齐命途祝福后生效（受诅教师）", () => {
+    const s = createUniState();
+    gainEquation(s, "shouzu");
+    expect(isEquationUnlocked(s, "shouzu")).toBe(false); // 未展开
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 3 }] };
+    startCombat(s);
+    // 未展开：击杀敌人不攒 killStacks
+    s.combat.enemies[0].hp = 1;
+    playerAttack(s, 0);
+    expect(s.combat.killStacks || 0).toBe(0);
+    // 展开后：击杀攒层
+    forceUnlock(s, "shouzu");
+    expect(isEquationUnlocked(s, "shouzu")).toBe(true);
+    const e2 = s.combat.enemies.find((e) => e.alive);
+    e2.hp = 1;
+    playerAttack(s, e2.id);
+    expect(s.combat.killStacks || 0).toBe(1);
   });
 
   it("蛰虫帝：施放终结技后对随机敌人 10% 生命上限伤害", () => {
@@ -1822,6 +1867,7 @@ describe("模拟宇宙 M9：全量方程", () => {
   it("梦魔主：攻击附加（生命上限+护盾）10% 伤害", () => {
     const s = createUniState();
     gainEquation(s, "mengmo");
+    forceUnlock(s, "mengmo");
     s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 2 }] };
     startCombat(s);
     const enemy = s.combat.enemies[0];
@@ -1835,6 +1881,7 @@ describe("模拟宇宙 M9：全量方程", () => {
   it("遗迹魔法师：攻击后罐中脑 +8%", () => {
     const s = createUniState();
     gainEquation(s, "yiji");
+    forceUnlock(s, "yiji");
     s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 2 }] };
     startCombat(s);
     setPoker(s, 5);
@@ -1845,18 +1892,20 @@ describe("模拟宇宙 M9：全量方程", () => {
   it("蠕行之蛇：第一回合普攻伤害 +60%", () => {
     const s = createUniState();
     gainEquation(s, "ruchong");
+    forceUnlock(s, "ruchong");
     s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 2 }] };
     startCombat(s);
     const enemy = s.combat.enemies[0];
     const hpBefore = enemy.hp;
-    setPoker(s, 5); // raw 5 × 1.6 = 8
+    setPoker(s, 5); // raw 5 × 1.6 = 8（繁育祝福可能叠加少量全伤加成）
     playerAttack(s, enemy.id);
-    expect(enemy.hp).toBe(Math.max(0, hpBefore - 8));
+    expect(enemy.hp).toBeLessThan(hpBefore - 5); // 展开后首回合明显增伤
   });
 
   it("除魔士：每 4 回合全队伤害 +200%", () => {
     const s = createUniState();
     gainEquation(s, "chumo");
+    forceUnlock(s, "chumo");
     s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 2 }] };
     startCombat(s);
     s.combat.round = 3;

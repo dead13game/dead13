@@ -3,7 +3,7 @@
 
 import { UNI_SKILLS, LINIYA_SHIELD_VALUE } from "./uniConstants.js";
 import { drawPoker, damageEnemy, grantExtraAction } from "./uniCombat.js";
-import { getUniModifiers, triggerAfterSkill, blessingMult, blessingVal, BLESSINGS } from "./uniBuffs.js";
+import { getUniModifiers, triggerAfterSkill, blessingMult, blessingVal, BLESSINGS, isEquationUnlocked } from "./uniBuffs.js";
 import { LOG_TYPE } from "../../game/gameLogger.js";
 import { recordSound } from "../../game/soundEvents.js";
 /** 技能等级取值（数组按等级 1-10，越界取末项） */
@@ -86,8 +86,8 @@ export function executeUniSkill(state, charIndex, payload = {}) {
   t.skillCooldown = val(sk.cd, lv) || 0;
   // 祝福：引燃的炬火（下次攻击+50%）/ 线圈编织的罗琦（回 16%）
   triggerAfterSkill(state, charIndex);
-  // 方程：蛰虫帝（施放终结技后对随机敌人造成 10% 生命上限伤害）
-  if (state.equations?.some((e) => e.id === "zhedi")) {
+  // 方程：蛰虫帝（施放终结技后对随机敌人造成 10% 生命上限伤害，需展开）
+  if (isEquationUnlocked(state, "zhedi") && state.equations?.some((e) => e.id === "zhedi")) {
     const aliveEnemies = c.enemies.filter((e) => e.alive);
     if (aliveEnemies.length > 0) {
       const victim = aliveEnemies[Math.floor(Math.random() * aliveEnemies.length)];
