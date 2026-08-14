@@ -22,6 +22,7 @@ import {
 import { createShopStock, resetWorkbench } from "./uniShop.js";
 import { rollEvent } from "./uniEvents.js";
 import {
+  CURIO_FX,
   gainBlessing,
   rollBlessing,
   gainCurio,
@@ -258,19 +259,19 @@ export function enterRegion(state) {
   if (!r) return;
   // 奇物：永动咕咕钟（每进入下一区域 -4%）
   if (hasCurio(state, "yongdong")) {
-    const loss = Math.floor(state.shards * 0.04);
+    const loss = Math.floor(state.shards * ((CURIO_FX.yongdong?.shardsPct || 4) / 100));
     state.shards = Math.max(0, state.shards - loss);
     state.log.push(`永动咕咕钟：失去 ${loss} 宇宙碎片`);
   }
   // 奇物：监督之眼（进入区域 -50）
   if (hasCurio(state, "eye")) {
-    state.shards = Math.max(0, state.shards - 50);
-    state.log.push("监督之眼：失去 50 宇宙碎片");
+    state.shards = Math.max(0, state.shards - (CURIO_FX.eye?.cost || 50));
+    state.log.push("监督之眼：失去碎片");
   }
   // 奇物：有形幸运（碎片 <250 补足 250）
   if (hasCurio(state, "luck") && state.shards < 250) {
-    addShards(state, 250 - state.shards);
-    state.log.push("有形幸运：宇宙碎片补足至 250");
+    addShards(state, (CURIO_FX.luck?.floor || 250) - state.shards);
+    state.log.push("有形幸运：宇宙碎片补足");
   }
   if (r.type === "fortune") {
     addShards(state, REGION_REWARD.fortune.shards);
@@ -293,8 +294,8 @@ export function enterRegion(state) {
     createShopStock(state);
     // 奇物：和平的代价（进入商店 +150）
     if (hasCurio(state, "heping")) {
-      addShards(state, 150);
-      state.log.push("和平的代价：+150 宇宙碎片");
+      addShards(state, CURIO_FX.heping?.gain || 150);
+      state.log.push("和平的代价：+碎片");
     }
   } else if (r.type === "oddity") {
     // 奇遇：随机一个效果（工作台/800碎片/强化 8 个随机祝福）
@@ -331,49 +332,49 @@ function applyCurioRegionHooks(state, r) {
   // 祭献投枪：战斗类 +35 / 软性类 -35（连续进入额外 +35）
   if (hasCurio(state, "jixian")) {
     if (battleLike) {
-      addShards(state, 35 + (state.lastRegionType === r.type ? 35 : 0));
+      addShards(state, (CURIO_FX.jixian?.battleGain || 35) + (state.lastRegionType === r.type ? (CURIO_FX.jixian?.chainGain || 35) : 0));
     } else if (softLike) {
-      addShards(state, -35);
+      addShards(state, -(CURIO_FX.jixian?.softLoss || 35));
     }
   }
   // 鲁珀特帝国机械齿轮：+50，超过 750 损毁并 -750
   if (hasCurio(state, "lubeite")) {
-    addShards(state, 50);
-    if (state.shards > 750) {
+    addShards(state, CURIO_FX.lubeite?.gain || 50);
+    if (state.shards > (CURIO_FX.lubeite?.cap || 750)) {
       removeCurio("lubeite");
-      addShards(state, -750);
+      addShards(state, -(CURIO_FX.lubeite?.penalty || 750));
       state.log.push("鲁珀特帝国机械齿轮损毁");
     }
   }
   // 分裂金币：+5% 碎片
   if (hasCurio(state, "fenlie_jb")) {
-    addShards(state, Math.floor(state.shards * 0.05));
+    addShards(state, Math.floor(state.shards * ((CURIO_FX.fenlie_jb?.shardsPct || 5) / 100)));
   }
   // 昨天的重量：+35，碎片减少累计 3 次损毁
   if (hasCurio(state, "zuotian")) {
-    addShards(state, 35);
+    addShards(state, CURIO_FX.zuotian?.gain || 35);
     state.zuotianShrinks = (state.zuotianShrinks || 0) + 1;
-    if (state.zuotianShrinks >= 3) removeCurio("zuotian");
+    if (state.zuotianShrinks >= (CURIO_FX.zuotian?.triggers || 3)) removeCurio("zuotian");
   }
   // 睡眠和死亡：碎片 ≤10 损毁 +400
-  if (hasCurio(state, "shui") && state.shards <= 10) {
+  if (hasCurio(state, "shui") && state.shards <= (CURIO_FX.shui?.shardsMax || 10)) {
     removeCurio("shui");
-    addShards(state, 400);
+    addShards(state, CURIO_FX.shui?.gain || 400);
     state.log.push("睡眠和死亡：损毁并 +400 碎片");
   }
   // 无爱之尘：奇物 ≥4 失去 3 个随机奇物 + 1 方程
-  if (hasCurio(state, "wulian") && state.curios.length >= 4) {
+  if (hasCurio(state, "wulian") && state.curios.length >= (CURIO_FX.wulian?.minCurios || 4)) {
     removeCurio("wulian");
-    for (let i = 0; i < 3 && state.curios.length > 0; i++) loseRandomCurio(state);
+    for (let i = 0; i < (CURIO_FX.wulian?.loseCount || 3) && state.curios.length > 0; i++) loseRandomCurio(state);
     const eq = rollEquation(1, 3);
     if (eq) gainEquation(state, eq);
   }
   // 临时赌资：累计 5 区域损毁 -450
   if (hasCurio(state, "linji")) {
     state.linjiRegions = (state.linjiRegions || 0) + 1;
-    if (state.linjiRegions >= 5) {
+    if (state.linjiRegions >= (CURIO_FX.linji?.regions || 5)) {
       removeCurio("linji");
-      addShards(state, -450);
+      addShards(state, -(CURIO_FX.linji?.penalty || 450));
       state.log.push("临时赌资：损毁并 -450 碎片");
     }
   }
@@ -381,11 +382,11 @@ function applyCurioRegionHooks(state, r) {
   if (hasCurio(state, "haimian")) {
     for (const t of state.team) {
       if (!t.alive) continue;
-      t.hp = Math.max(1, Math.floor(t.hp * 0.2));
-      t.maxHp = Math.floor(t.maxHp * 1.1);
+      t.hp = Math.max(1, Math.floor(t.hp * (1 - (CURIO_FX.haimian?.hpCut || 0.8))));
+      t.maxHp = Math.floor(t.maxHp * (1 + (CURIO_FX.haimian?.maxHpMult || 10) / 100));
     }
     state.haimianCount = (state.haimianCount || 0) + 1;
-    if (state.haimianCount >= 4) removeCurio("haimian");
+    if (state.haimianCount >= (CURIO_FX.haimian?.triggers || 4)) removeCurio("haimian");
   }
   // 菠萝：累计 3 区域损毁 -99% 生命
   if (hasCurio(state, "bobo")) {
@@ -411,18 +412,18 @@ function applyCurioRegionHooks(state, r) {
   }
   // 大饼干：区域升级 1 个 1-2 星祝福（2 次损毁）
   if (hasCurio(state, "dabinggan")) {
-    const id = rollBlessing(1, 2);
+    const id = rollBlessing(...(CURIO_FX.dabinggan?.starRange || [1, 2]));
     if (id) gainBlessing(state, id);
     state.dabingganCount = (state.dabingganCount || 0) + 1;
-    if (state.dabingganCount >= 2) removeCurio("dabinggan");
+    if (state.dabingganCount >= (CURIO_FX.dabinggan?.triggers || 2)) removeCurio("dabinggan");
   }
   // 纯美之袍：战斗类区域 +10% 碎片
   if (hasCurio(state, "chunmei_pao") && battleLike) {
-    addShards(state, Math.floor(state.shards * 0.1));
+    addShards(state, Math.floor(state.shards * ((CURIO_FX.chunmei_pao?.shardsPct || 10) / 100)));
   }
   // 快乐电视机：连续同区域 -25 碎片 -1 奇物
   if (hasCurio(state, "kuaile") && state.lastRegionType === r.type) {
-    addShards(state, -25);
+    addShards(state, -(CURIO_FX.kuaile?.cost || 25));
     loseRandomCurio(state);
   }
   // 记录上次区域类型（连续区域判定）
@@ -489,9 +490,9 @@ export function hasCurio(state, id) {
 /** 获得碎片（受奇物修正：铸铁齿轮指环 +30% / 机动指环 -50% / 天才八卦 +50%） */
 export function addShards(state, n) {
   if (n > 0) {
-    if (hasCurio(state, "zhutie")) n = Math.floor(n * 1.3);
-    if (hasCurio(state, "jidong")) n = Math.floor(n * 0.5);
-    if (hasCurio(state, "tiancai")) n = Math.floor(n * 1.5);
+    if (hasCurio(state, "zhutie")) n = Math.floor(n * (CURIO_FX.zhutie?.shardsMult || 1.3));
+    if (hasCurio(state, "jidong")) n = Math.floor(n * (1 - (CURIO_FX.jidong?.shardsCut || 0.5)));
+    if (hasCurio(state, "tiancai")) n = Math.floor(n * (CURIO_FX.tiancai?.shardsMult || 1.5));
   }
   state.shards = Math.max(0, state.shards + n);
   if (n !== 0) {

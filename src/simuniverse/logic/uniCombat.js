@@ -24,6 +24,9 @@ import {
   rollBlessingCandidates,
   rollBlessing,
   gainBlessing,
+  EQUATIONS,
+  CURIO_FX,
+  BLESSINGS,
 } from "./uniBuffs.js";
 import {
   ENEMY_BASE,
@@ -160,10 +163,11 @@ export function startPlayerTurn(state) {
     }
   }
   // 方程：除魔士（每 4 回合开始时全队伤害 +200%，1 回合）
-  if (hasEquation(state, "chumo") && c.round % 4 === 0) {
+  const chumoFx = EQUATIONS.chumo?.fx;
+  if (hasEquation(state, "chumo") && chumoFx && c.round % (chumoFx.every || 4) === 0) {
     for (const t of state.team) {
       if (!t.alive) continue;
-      t.status.dmgBuffPct = (t.status.dmgBuffPct || 0) + 200;
+      t.status.dmgBuffPct = (t.status.dmgBuffPct || 0) + (chumoFx.atkPct || 200);
       t.status.dmgBuffTurns = 1;
     }
     state.log.push("除魔士：全队伤害 +200%（本回合）");
@@ -268,7 +272,8 @@ export function playerAttack(state, enemyIdx) {
   const spiritBonus = Math.floor((attacker.status.spirit || 0) / SPIRIT_PER_5);
   const nextBoost = attacker.status.nextAttackBoost || 0;
   // 方程：受诅教师（每消灭 1 敌人本场伤害 +20%，最多 3 层）
-  const killStacks = hasEquation(state, "shouzu") ? Math.min(c.killStacks || 0, 3) : 0;
+  const shouzuFx = EQUATIONS.shouzu?.fx;
+  const killStacks = hasEquation(state, "shouzu") && shouzuFx ? Math.min(c.killStacks || 0, shouzuFx.maxStacks || 3) : 0;
   const raw = Math.max(0, c.pendingPoker.reduce((s, p) => s + p.value, 0) - ATK_MINUS);
   const totalPct =
     pct +
@@ -276,15 +281,15 @@ export function playerAttack(state, enemyIdx) {
     mods.atkNormalMult +
     memberAtkMods(state, c.activeIdx) +
     nextBoost +
-    killStacks * 20 +
-    (hasEquation(state, "ruchong") && c.round === 1 ? 60 : 0) + // 蠕行之蛇：第一回合 +60%
+    killStacks * (shouzuFx?.atkPerKill || 20) +
+    (hasEquation(state, "ruchong") && c.round === 1 ? (EQUATIONS.ruchong?.fx?.firstAtkMult || 60) : 0) +
     (c.buffs?.includes("atkUp") ? 30 : 0) +
     (c.buffs?.includes("dmgUp50") ? 50 : 0);
   const dmg = Math.max(0, Math.floor((raw + flat) * (1 + totalPct / 100)) + spiritBonus);
   if (attacker.status.nextAttackBoost) attacker.status.nextAttackBoost = 0; // 炬火一次性
   recordSound(state, "attack");
   // 方程：遗迹魔法师（攻击后罐中脑 +8%）
-  if (hasEquation(state, "yiji")) chargeJarBrain(state, 8);
+  if (hasEquation(state, "yiji")) chargeJarBrain(state, EQUATIONS.yiji?.fx?.jarBrain || 8);
   state.devLog.info(LOG_TYPE.UNI_REGION, `${attacker.name} 普攻 ${enemy.name}`, {
     enemyIdx,
     sourceIdx: c.activeIdx,
@@ -299,14 +304,15 @@ export function playerAttack(state, enemyIdx) {
   damageEnemy(state, enemyIdx, dmg, c.activeIdx);
   // 方程：梦魔主（攻击附加生命上限+护盾 10%）
   if (hasEquation(state, "mengmo")) {
-    c._pendingExtra = (c._pendingExtra || 0) + Math.floor((attacker.maxHp + attacker.shield) * 0.1);
+    c._pendingExtra = (c._pendingExtra || 0) + Math.floor(((attacker.maxHp + attacker.shield) * (EQUATIONS.mengmo?.fx?.hpShieldPct || 10)) / 100);
   }
   // 方程：街道骑行官（累计 24 次攻击后第一位角色获得强化攻击）
   c.attackCount = (c.attackCount || 0) + 1;
-  if (hasEquation(state, "xingzou") && c.attackCount % 24 === 0) {
+  const xingzouFx = EQUATIONS.xingzou?.fx;
+  if (hasEquation(state, "xingzou") && xingzouFx && c.attackCount % (xingzouFx.every || 24) === 0) {
     const first = state.team.find((x) => x.alive);
     if (first) {
-      first.status.nextAttackBoost = (first.status.nextAttackBoost || 0) + 160;
+      first.status.nextAttackBoost = (first.status.nextAttackBoost || 0) + (xingzouFx.atkPct || 160);
       state.log.push("街道骑行官：第一位角色下一次攻击强化");
     }
   }
@@ -692,7 +698,7 @@ export function damageEnemy(state, enemyIdx, dmg, sourceIdx = -1) {
       c.killStacks = (c.killStacks || 0) + 1;
     }
     // 方程：超级体育生（消灭敌人罐中脑 +30%）
-    if (hasEquation(state, "chaoji")) chargeJarBrain(state, 30);
+    if (hasEquation(state, "chaoji")) chargeJarBrain(state, EQUATIONS.chaoji?.fx?.jarBrainKill || 30);
   }
 }
 
@@ -915,8 +921,9 @@ function finishEnemyTurn(state) {
   // 祝福回合结束钩子：回馈庇护护盾 / 寰宇热寂失去战意
   triggerOnEndTurn(state);
   // 方程：苹果！苹果！（每 3 回合结束后对敌方全体造成 2000% 基础伤害，简化 = 20 × 伤害膨胀）
-  if (hasEquation(state, "pingguo") && c.round % 3 === 0) {
-    const dmg = 20 * dmgMult(state.plane);
+  const pingguoFx = EQUATIONS.pingguo?.fx;
+  if (hasEquation(state, "pingguo") && pingguoFx && c.round % (pingguoFx.every || 3) === 0) {
+    const dmg = (pingguoFx.dmgMult || 20) * dmgMult(state.plane);
     for (const e of c.enemies) {
       if (e.alive) damageEnemy(state, e.id, dmg, -1);
     }

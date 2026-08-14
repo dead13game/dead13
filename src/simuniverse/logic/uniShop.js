@@ -5,6 +5,7 @@ import { LOG_TYPE } from "../../game/gameLogger.js";
 import { UNI_CONST, SHOP_PRICE, SHOP_STOCK } from "./uniConstants.js";
 import {
   BLESSINGS,
+  CURIO_FX,
   CURIOS,
   EQUATIONS,
   blessingPool,
@@ -49,14 +50,15 @@ export function createShopStock(state) {
 /** 商品价格（受奇物修正：公司/中等念头 +25%、邪恶卫星 -25%、铸铁齿轮 +30%） */
 export function shopPrice(state, type, star) {
   let p = SHOP_PRICE[type][star] || 0;
-  if (state?.curios?.some((c) => c.id === "gongsi") || state?.curios?.some((c) => c.id === "zhongdeng")) {
-    p = Math.floor(p * 1.25);
+  const priceUp = Math.max(CURIO_FX.gongsi?.priceMult || 0, CURIO_FX.zhongdeng?.priceMult || 0);
+  if (state?.curios?.some((c) => c.id === "gongsi" || c.id === "zhongdeng") && priceUp) {
+    p = Math.floor(p * priceUp);
   }
-  if (state?.curios?.some((c) => c.id === "xiee")) {
-    p = Math.floor(p * 0.75);
+  if (state?.curios?.some((c) => c.id === "xiee") && CURIO_FX.xiee?.priceCut) {
+    p = Math.floor(p * CURIO_FX.xiee.priceCut);
   }
-  if (state?.curios?.some((c) => c.id === "zhutie")) {
-    p = Math.floor(p * 1.3);
+  if (state?.curios?.some((c) => c.id === "zhutie") && CURIO_FX.zhutie?.priceMult) {
+    p = Math.floor(p * CURIO_FX.zhutie.priceMult);
   }
   return p;
 }
@@ -64,9 +66,9 @@ export function shopPrice(state, type, star) {
 /** 覆写价格（受奇物修正：信仰债券 -30%、机动指环 -100%、末日复眼 +1000%） */
 export function overwritePrice(state) {
   let p = state.overwritePrice;
-  if (state.curios?.some((c) => c.id === "xinyang")) p = Math.floor(p * 0.7);
-  if (state.curios?.some((c) => c.id === "jidong")) p = 0;
-  if (state.curios?.some((c) => c.id === "mori")) p = Math.floor(p * 11);
+  if (state.curios?.some((c) => c.id === "xinyang") && CURIO_FX.xinyang?.costCut) p = Math.floor(p * CURIO_FX.xinyang.costCut);
+  if (state.curios?.some((c) => c.id === "jidong") && CURIO_FX.jidong?.overwriteFree) p = 0;
+  if (state.curios?.some((c) => c.id === "mori") && CURIO_FX.mori?.priceMult) p = Math.floor(p * CURIO_FX.mori.priceMult);
   return p;
 }
 
@@ -148,7 +150,7 @@ export function overwriteEquation(state, eqIdx) {
 
 /** 首领层进入时重置热量与覆写价格（enterRegion 调用）；化作尘泥额外 +5 热量 */
 export function resetWorkbench(state) {
-  state.heat = UNI_CONST.BOSS_HEAT + (state.curios?.some((c) => c.id === "huacheng") ? 5 : 0);
+  state.heat = UNI_CONST.BOSS_HEAT + (state.curios?.some((c) => c.id === "huacheng") ? (CURIO_FX.huacheng?.heat || 5) : 0);
   state.overwritePrice = UNI_CONST.OVERWRITE_BASE;
 }
 
