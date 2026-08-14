@@ -259,6 +259,8 @@ export function chooseNormalContent(state, idx) {
 export function enterRegion(state) {
   const r = state.region;
   if (!r) return;
+  // 约定：覆写价格递增每层重置，不跨层累计
+  state.overwritePrice = UNI_CONST.OVERWRITE_BASE;
   // 奇物：永动咕咕钟（每进入下一区域 -4%）
   if (hasCurio(state, "yongdong")) {
     const loss = Math.ceil(state.shards * ((CURIO_FX.yongdong?.shardsPct || 4) / 100));

@@ -39,7 +39,7 @@ import {
   chooseThirdWave,
 } from "./uniCombat.js";
 import { executeUniSkill, canUseUniSkill } from "./uniSkills.js";
-import { gainBlessing, gainEquation, BLESSINGS } from "./uniBuffs.js";
+import { gainBlessing, gainEquation, BLESSINGS, rollCurio, CURIOS } from "./uniBuffs.js";
 import {
   applyEventOption,
   chooseBlessingPick,
@@ -1249,6 +1249,23 @@ describe("模拟宇宙 M4：事件系统", () => {
     const hpBefore = enemy.hp;
     playerSkill(s, enemy.id, {});
     expect(enemy.hp).toBe(Math.max(0, hpBefore - Math.ceil(20 * 1.025))); // 1 星 ×2.5%
+  });
+
+  it("加权奇物 = 3 星奇物（rollCurio 星级过滤）", () => {
+    for (let i = 0; i < 50; i++) {
+      const id = rollCurio(false, 3, 3);
+      expect(id).toBeTruthy();
+      expect(CURIOS[id].star).toBe(3);
+    }
+    expect(rollCurio(false, 4, 4)).toBeNull(); // 无 4 星奇物
+  });
+
+  it("覆写价格每层重置（enterRegion 不跨层累计）", () => {
+    const s = createUniState();
+    s.overwritePrice = 200; // 模拟本层已多次覆写
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 3 }] };
+    enterRegion(s);
+    expect(s.overwritePrice).toBe(25); // UNI_CONST.OVERWRITE_BASE
   });
 
   it("开发者角色 myracler(12)：开大对敌方全体 1000 伤害，冷却 0", () => {

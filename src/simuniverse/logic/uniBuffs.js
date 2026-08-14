@@ -783,8 +783,10 @@ export const CURIO_FX = {
 };
 
 /** 随机 1 个奇物（excludeNegative 排除负面） */
-export function rollCurio(excludeNegative = false) {
-  const pool = Object.values(CURIOS).filter((c) => !excludeNegative || !c.negative);
+export function rollCurio(excludeNegative = false, minStar = 1, maxStar = 3) {
+  const pool = Object.values(CURIOS).filter(
+    (c) => (!excludeNegative || !c.negative) && c.star >= minStar && c.star <= maxStar,
+  );
   if (!pool.length) return null;
   return pool[Math.floor(Math.random() * pool.length)].id;
 }
@@ -961,13 +963,13 @@ export function loseRandomCurio(state) {
 export const EQUATIONS = {
   shouzu: { id: "shouzu", name: "受诅教师", star: 1, fate: "毁灭", desc: "每消灭 1 名敌人，本场战斗伤害 +20%（最多 3 层）", fx: { atkPerKill: 20, maxStacks: 3 } },
   huanxin: { id: "huanxin", name: "换心魔", star: 1, fate: "毁灭", desc: "生命上限 +40%；进入战斗对敌全体造成第一位角色生命上限 20% 的伤害", fx: { maxHpMult: 40, firstHpPct: 20 } },
-  xingqiu: { id: "xingqiu", name: "行星碰碰车", star: 1, fate: "繁育", desc: "真实伤害提高 35%；敌方目标若处于持续伤害状态，额外提高 15%", fx: { atkMult: 5, dotAtkMult: 15 } },
+  xingqiu: { id: "xingqiu", name: "行星碰碰车", star: 1, fate: "记忆", desc: "真实伤害提高 35%；敌方目标若处于持续伤害状态，额外提高 15%", fx: { atkMult: 5, dotAtkMult: 15 } },
   chitu: { id: "chitu", name: "吃土绑架犯", star: 2, fate: "繁育", desc: "附加伤害和真实伤害的倍率提高 60%", fx: { atkMult: 10 } },
   zhedi: { id: "zhedi", name: "蛰虫帝", star: 2, fate: "繁育", desc: "施放终结技后，对随机敌人造成其 10% 生命上限的伤害", fx: { maxHpPct: 10 } },
   bingkuang: { id: "bingkuang", name: "冰霜巨人", star: 2, fate: "毁灭", desc: "受击后生命 <40% 时消耗 5 层战意，回复 25% 生命上限并使伤害提高 150% 持续 2 回合（每回合 1 次）", fx: { hpBelow: 40, zhanduCost: 5, healPct: 25, atkPct: 150, turns: 2 } },
   yiji: { id: "yiji", name: "遗迹魔法师", star: 2, fate: "智识", desc: "角色施放攻击后为「罐中脑」充能 8%", fx: { jarBrain: 8 } },
   chaoji: { id: "chaoji", name: "超级体育生", star: 2, fate: "智识", desc: "施放终结技后为「罐中脑」充能 30%；消灭敌方目标后充能 30%", fx: { jarBrainUlt: 30, jarBrainKill: 30 } },
-  pingguo: { id: "pingguo", name: "苹果！苹果！", star: 3, fate: "智识", desc: "每 3 回合结束后对敌方全体造成 2000% 冰属性基础伤害", fx: { dmgMult: 20, every: 3 } },
+  pingguo: { id: "pingguo", name: "苹果！苹果！", star: 3, fate: "记忆", desc: "每 3 回合结束后对敌方全体造成 2000% 冰属性基础伤害", fx: { dmgMult: 20, every: 3 } },
   xingzou: { id: "xingzou", name: "街道骑行官", star: 3, fate: "毁灭", desc: "我方累计发动 24 次攻击后，第一位角色获得额外回合（该回合攻击附加 160% 生命上限伤害）", fx: { every: 24, atkPct: 160 } },
   chumo: { id: "chumo", name: "除魔士", star: 3, fate: "智识", desc: "每 4 回合施放 1 次，使我方伤害提高 200%（该回合攻击后对 <25% 血敌人附加 20% 生命上限伤害）", fx: { every: 4, atkPct: 200, killHpPct: 25 } },
   mengmo: { id: "mengmo", name: "梦魔主", star: 3, fate: "毁灭", desc: "我方每次施放攻击，可造成各自生命上限与护盾之和 10% 的附加伤害", fx: { hpShieldPct: 10 } },

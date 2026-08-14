@@ -551,7 +551,8 @@ function drawLotteryOne(state) {
     return { level: 4, name: "大吉" };
   }
   if (r < 0.3) {
-    const id = rollCurio(false);
+    // 中吉：1 个加权奇物（约定：加权奇物 = 3 星奇物）
+    const id = rollCurio(false, 3, 3);
     if (id) gainCurio(state, id, { silent: true });
     return { level: 3, name: "中吉" };
   }
