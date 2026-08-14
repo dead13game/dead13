@@ -24,10 +24,12 @@ import {
   BATTLE_WAVES,
   ELITE_BATTLE,
   TRANSFORM_WAVES,
+  ENEMY_PATTERNS,
 } from "./uniConstants.js";
 import {
   startCombat,
   startPlayerTurn,
+  resolvePatternActions,
   playerAttack,
   playerDefense,
   playerSkill,
@@ -1671,5 +1673,56 @@ describe("模拟宇宙 M10：菜月昴回滚后重新开战", () => {
     expect(s2.jarBrain).toBe(0);
     expect(s2.items).toBeTruthy();
     expect(s2.items.medkit).toBe(0);
+  });
+});
+
+describe("模拟宇宙 M11：审查修复回归", () => {
+  it("奇遇 strengthen 分支不崩溃且强化祝福（修复 ODDITY_STRENGTHEN_COUNT 未导入）", () => {
+    const s = createUniState();
+    gainBlessing(s, "ganlu");
+    gainBlessing(s, "shouzhao");
+    const orig1 = s.blessings[0].heatEnhanced;
+    const orig2 = s.blessings[1].heatEnhanced;
+    // 固定随机 → oddityEffect = 'strengthen'（ODDITY_EFFECTS[2]）
+    vi.spyOn(Math, "random").mockReturnValue(0.9);
+    s.region = { type: "oddity" };
+    enterRegion(s);
+    vi.restoreAllMocks();
+    expect(s.region.oddityEffect).toBe("strengthen");
+    // 强化 8 个随机祝福（2 个全部强化 ×2）
+    expect(s.blessings[0].heatEnhanced).toBe((orig1 || 1) * 2);
+    expect(s.blessings[1].heatEnhanced).toBe((orig2 || 1) * 2);
+  });
+
+  it("精英 B 锁定不累积：新一轮重新锁定清空旧目标", () => {
+    const s = createUniState();
+    startCombat(s);
+    const enemy = s.combat.enemies[0];
+    enemy.kind = "elite";
+    enemy.pattern = "B";
+    enemy.round = 1;
+    const tpl = ENEMY_PATTERNS.elite.B;
+    // 第 1 回合：生成 lock 行动（锁定在 resolveEnemyAction 执行，这里模拟已锁定 2 人）
+    const r1 = resolvePatternActions(s, enemy, tpl);
+    expect(r1).toHaveLength(2);
+    enemy.locked = [0, 2]; // 模拟第 1 回合已锁定 2 人
+    // 第 3 回合：循环重新锁定 → resolvePatternActions 清空旧目标
+    enemy.round = 3;
+    resolvePatternActions(s, enemy, tpl);
+    expect(enemy.locked).toHaveLength(0); // 旧目标已清空，不会累积
+  });
+
+  it("转化 dot 全灭第二波 → wave-clear 不被回合推进覆盖", () => {
+    const s = createUniState();
+    s.region = { type: "transform", name: "转化", waves: TRANSFORM_WAVES };
+    startCombat(s);
+    s.combat.wave = 1; // 第二波
+    s.combat.enemies = [
+      { id: 0, kind: "normal", name: "普通敌人1", pattern: "A", hp: 0, maxHp: 10, shield: 0, locked: [], round: 1, alive: true, dotDmg: 5, dotTurns: 1 },
+    ];
+    // 新回合开始：dot 结算清空第二波 → wave-clear，且不被后续玩家行动推进覆盖
+    startPlayerTurn(s);
+    expect(s.combat.phase).toBe("wave-clear");
+    expect(s.combat.turnIdx).toBe(0); // 未被推进到下一名角色（修复前会变 1）
   });
 });

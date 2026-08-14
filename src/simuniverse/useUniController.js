@@ -235,6 +235,11 @@ export function useUniController() {
     return r;
   }
 
+  /** 奇遇「造物调试台」分支：进入工作台视图（不挑战首领） */
+  function enterOddityWorkbench() {
+    uiMode.value = "workbench";
+  }
+
   // ---- 事件 ----
 
   function doEventOption(optionIdx) {
@@ -392,6 +397,7 @@ export function useUniController() {
     doDefense,
     doSkill,
     doThirdWave,
+    enterOddityWorkbench,
     doEventOption,
     doSkillTarget,
     doBlessingPick,

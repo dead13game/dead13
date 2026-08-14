@@ -174,6 +174,8 @@ export function startPlayerTurn(state) {
   }
   tickTeamDots(state);
   tickEnemyDots(state);
+  // dot 结算可能清空波次（wave-clear）或全灭（lost）→ 不再继续本回合
+  if (c.phase !== "player-action") return;
   // 奇物：虚构机兵（角色回合开始回复 20% 生命上限）
   if (hasCurio(state, "xugou")) {
     for (const t of state.team) {
@@ -479,11 +481,12 @@ function startEnemyPhase(state) {
  * 生成敌人本回合的行动列表：
  * 普通：actions 全部 1 次；精英：actions 2 次（B/C 按轮次循环）。
  */
-function resolvePatternActions(state, enemy, tpl) {
+export function resolvePatternActions(state, enemy, tpl) {
   const actions = tpl.actions;
   if (enemy.kind === "elite" && tpl.special === "lock") {
-    // B：单数回合锁定 ×2，双数回合对锁定者 16 点 ×2
+    // B：单数回合锁定 ×2（新一轮清空旧目标），双数回合对锁定者 16 点 ×2
     if (enemy.round % 2 === 1) {
+      enemy.locked = []; // 文档：第 3 回合循环重新锁定 → 清空上一周期目标
       return [{ type: "lock" }, { type: "lock" }];
     }
     return [

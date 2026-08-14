@@ -541,7 +541,12 @@
     <section v-if="uiMode === 'oddity' || uiMode === 'fortune'" class="uni-panel">
       <h2 class="uni-panel__title">{{ uiMode === 'oddity' ? '✨ 奇遇' : '💰 财富' }}</h2>
       <p class="uni-panel__desc">{{ uiMode === 'oddity' ? oddityText : '获得 300 宇宙碎片' }}</p>
-      <button class="uni-btn uni-btn--primary" @click="uni.goNext()">前往下一区域 →</button>
+      <template v-if="uiMode === 'oddity' && uniState.region?.oddityEffect === 'workbench'">
+        <button class="uni-btn uni-btn--primary" @click="uni.enterOddityWorkbench()">🔧 进入造物调试台</button>
+      </template>
+      <template v-else>
+        <button class="uni-btn uni-btn--primary" @click="uni.goNext()">前往下一区域 →</button>
+      </template>
     </section>
 
     <!-- 终局 -->
