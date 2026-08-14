@@ -337,6 +337,7 @@ export function playerAttack(state, enemyIdx) {
     dmg,
   });
   c.lastPoker = poker; // UI 展示最近抽牌
+  c.lastPokerTarget = { type: "enemy", id: enemyIdx }; // 飞牌落点：攻击目标敌人
   c.pendingPoker = [];
   damageEnemy(state, enemyIdx, dmg, c.activeIdx);
   // 方程：梦魔主（攻击附加生命上限+护盾 10%）
@@ -386,6 +387,7 @@ export function playerDefense(state, targetIdx) {
   const defBonus = actor.status.defBonus || 0;
   target.shield += shield + defBonus;
   c.lastPoker = poker;
+  c.lastPokerTarget = { type: "member", id: targetIdx }; // 飞牌落点：被加护盾的成员
   c.pendingPoker = [];
   recordSound(state, "defense");
   state.devLog.info(LOG_TYPE.UNI_REGION, `${actor.name} 为 ${target.name} 添加护盾`, {

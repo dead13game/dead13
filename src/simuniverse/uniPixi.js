@@ -20,6 +20,22 @@ export class UniEffects {
     this.flashLayer = null;
     this._ambientTimer = null;
     this._destroyed = false;
+    this._queue = []; // init 未完成时的特效调用缓存（避免丢失开场伤害）
+  }
+
+  /** init 未就绪时缓存调用，就绪后重放 */
+  _whenReady(fn) {
+    if (this.app) fn();
+    else this._queue.push(fn);
+  }
+
+  /** init 完成后重放缓存的调用 */
+  _flush() {
+    const q = this._queue;
+    this._queue = [];
+    for (const fn of q) {
+      try { fn(); } catch { /* 重放失败忽略 */ }
+    }
   }
 
   /** 初始化 PIXI Application（透明背景，覆盖战斗区，不拦截点击） */
@@ -66,6 +82,7 @@ export class UniEffects {
         { color: 0xd8c89a, count: 1, speed: 6, spread: 40, lifetime: 3.2, size: 1.4, gravity: -4 },
       );
     }, 700);
+    this._flush();
     return this;
   }
 
@@ -79,6 +96,9 @@ export class UniEffects {
 
   /** 粒子爆发（打击/技能/护盾） */
   burst(x, y, opts = {}) {
+    this._whenReady(() => this._burst(x, y, opts));
+  }
+  _burst(x, y, opts) {
     if (!this.particles) return;
     this.particles.emit(x, y, opts);
   }
@@ -91,6 +111,9 @@ export class UniEffects {
    * @param {object} opts - { color, size, crit }
    */
   floatText(text, x, y, opts = {}) {
+    this._whenReady(() => this._floatText(text, x, y, opts));
+  }
+  _floatText(text, x, y, opts) {
     if (!this.app) return;
     const { color = 0xffd9a0, size = 26, crit = false } = opts;
     const t = new Text({
@@ -120,6 +143,9 @@ export class UniEffects {
 
   /** 全屏闪光（击杀 / 首领狂暴） */
   flash(color = 0xffe9b8, alpha = 0.35, duration = 0.25) {
+    this._whenReady(() => this._flash(color, alpha, duration));
+  }
+  _flash(color, alpha, duration) {
     if (!this.app) return;
     this.flashLayer.tint = color;
     gsap.to(this.flashLayer, { alpha, duration: 0.05, onComplete: () => {
@@ -129,6 +155,9 @@ export class UniEffects {
 
   /** 屏幕震动（受击反馈） */
   shake(intensity = 10, duration = 0.3) {
+    this._whenReady(() => this._shake(intensity, duration));
+  }
+  _shake(intensity, duration) {
     if (!this.app) return;
     const stage = this.app.stage;
     gsap.killTweensOf(stage);
@@ -156,6 +185,9 @@ export class UniEffects {
    * @param {number} color
    */
   deployCard(from, to, color = 0xf5eeda) {
+    this._whenReady(() => this._deployCard(from, to, color));
+  }
+  _deployCard(from, to, color) {
     if (!this.app) return;
     const g = new Graphics();
     g.circle(0, 0, 7).fill(color);

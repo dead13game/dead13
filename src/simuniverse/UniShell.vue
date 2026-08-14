@@ -814,24 +814,36 @@ onMounted(() => {
       });
       fx.value.burst(pos.x, pos.y, {
         color: mine ? 0xc0553f : 0xd8b26a,
-        count: mine ? 10 : 16,
-        speed: mine ? 160 : 240,
-        lifetime: 0.55,
-        size: 3,
+        count: mine ? 16 : 22,
+        speed: mine ? 200 : 300,
+        lifetime: 0.6,
+        size: mine ? 3.2 : 3.6,
       });
-      if (mine) fx.value.shake(5, 0.22);
+      if (mine) {
+        fx.value.shake(6, 0.25);
+        fx.value.flash(0xc0553f, 0.1, 0.15); // 受击红闪
+      }
     },
   );
-  // 抽牌 → 发牌轨迹（牌堆 → 当前行动者）
+  // 抽牌 → 发牌轨迹（牌堆 → 行动目标：攻击飞向敌人 / 防御飞向被加盾成员）
   watch(
-    () => uniState.combat?.lastPoker?.value,
-    (v) => {
-      if (v == null || !fx.value || !active.value) return;
-      const actorDom = fxCanvas.value?.parentElement?.querySelector(`.uni-member[data-idx="${active.value.index}"]`);
-      const to = fxPos(actorDom);
+    () => uniState.combat?.lastPoker,
+    (poker) => {
+      if (!poker || !fx.value) return;
+      const tgt = uniState.combat?.lastPokerTarget;
+      let dom = null;
+      if (tgt?.type === "enemy") {
+        dom = fxCanvas.value?.parentElement?.querySelector(`.uni-enemy[data-id="${tgt.id}"]`);
+      } else if (tgt?.type === "member") {
+        dom = fxCanvas.value?.parentElement?.querySelector(`.uni-member[data-idx="${tgt.id}"]`);
+      } else if (active.value) {
+        dom = fxCanvas.value?.parentElement?.querySelector(`.uni-member[data-idx="${active.value.index}"]`);
+      }
+      const to = fxPos(dom);
       if (!to) return;
-      const from = { x: fxCanvas.value.clientWidth * 0.5, y: fxCanvas.value.clientHeight - 18 };
-      fx.value.deployCard(from, to);
+      const from = { x: (fxCanvas.value.clientWidth || 800) * 0.5, y: (fxCanvas.value.clientHeight || 480) - 16 };
+      const color = tgt?.type === "enemy" ? 0xf2c96b : 0x9fd0ff;
+      fx.value.deployCard(from, to, color);
     },
   );
   // 战斗结束 → 闪光
