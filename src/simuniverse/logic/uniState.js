@@ -101,6 +101,8 @@ export function createUniState(charIds = DEFAULT_TEAM_IDS) {
     planeMaxHpBoost: 0, // 本位面生命上限加成%（生命结晶 A）
     nextBattleBuffs: {}, // 下次战斗 buff（战术手册/防护卷轴/附魔武器）
     tempSkillBoost: 0, // 下次战斗技能等级 +N（经验卷轴 C，战斗结束失效）
+    jarBrain: 0, // 罐中脑充能（0-100，SMR杏仁核等充能）
+    uniFirstUltUsed: false, // 阈下知觉：首次终结技标记
   };
   state.devLog = createGameLogger(() => state);
   state.devLog.info(LOG_TYPE.UNI_INIT, "模拟宇宙开始", {

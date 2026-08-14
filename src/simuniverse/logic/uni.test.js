@@ -1407,3 +1407,104 @@ describe("模拟宇宙集成：跑 10 层流程", () => {
     expect(getLayerType(20)).toBe("boss");
   });
 });
+
+describe("模拟宇宙 M7：全量祝福效果", () => {
+  it("祝福池全量：1星 29 + 2星 23 + 3星 7 = 59", () => {
+    const all = Object.values(BLESSINGS);
+    expect(all).toHaveLength(59);
+    expect(all.filter((b) => b.star === 1)).toHaveLength(29);
+    expect(all.filter((b) => b.star === 2)).toHaveLength(23);
+    expect(all.filter((b) => b.star === 3)).toHaveLength(7);
+    // 六命运全覆盖
+    ["存护", "丰饶", "智识", "毁灭", "繁育", "虚无"].forEach((f) => {
+      expect(all.some((b) => b.fate === f)).toBe(true);
+    });
+  });
+
+  it("结膜：普攻后获得 3 张防御牌", () => {
+    const s = createUniState();
+    gainBlessing(s, "jiemo");
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 2 }] };
+    startCombat(s);
+    const attackerIdx = s.combat.activeIdx;
+    const before = s.team[attackerIdx].status.defensePile.length;
+    setPoker(s, 5, 5);
+    playerAttack(s, s.combat.enemies[0].id);
+    expect(s.team[attackerIdx].status.defensePile.length).toBe(before + 3);
+  });
+
+  it("回光效应：受致命攻击免死回复 1%", () => {
+    const s = createUniState();
+    gainBlessing(s, "huiguang");
+    s.team.forEach((t, i) => {
+      if (i !== 0) {
+        t.alive = false;
+        t.hp = 0;
+      }
+    });
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 1 }] };
+    startCombat(s);
+    s.team[0].hp = 3;
+    // 敌人打 10 点（> hp）
+    s.combat.enemyQueue = [{ enemyIdx: 0, action: { type: "single", dmg: 10 }, desc: "x" }];
+    s.combat.phase = "enemy-announce";
+    enemyAnnounce(s);
+    enemyResolve(s);
+    expect(s.team[0].alive).toBe(true);
+    expect(s.team[0].hp).toBeGreaterThan(0);
+  });
+
+  it("湮灭回归不等式：伤害由全队分担", () => {
+    const s = createUniState();
+    gainBlessing(s, "yanmie");
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 1 }] };
+    startCombat(s);
+    s.team.forEach((t) => (t.hp = t.maxHp));
+    s.combat.enemyQueue = [{ enemyIdx: 0, action: { type: "single", dmg: 8 }, desc: "x" }];
+    s.combat.phase = "enemy-announce";
+    enemyAnnounce(s);
+    enemyResolve(s);
+    // 全员都掉血（分担）
+    s.team.forEach((t) => expect(t.hp).toBeLessThan(t.maxHp));
+  });
+
+  it("寰宇热寂：受击获得 4 层战意（伤害+4%）", () => {
+    const s = createUniState();
+    gainBlessing(s, "huanyu");
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 2 }] };
+    startCombat(s);
+    // 让敌人打成员 0
+    s.team.forEach((t, i) => {
+      if (i !== 0) {
+        t.alive = false;
+        t.hp = 0;
+      }
+    });
+    s.combat.enemyQueue = [{ enemyIdx: 0, action: { type: "single", dmg: 2 }, desc: "x" }];
+    s.combat.phase = "enemy-announce";
+    enemyAnnounce(s);
+    enemyResolve(s);
+    expect(s.team[0].status.zhandu).toBeGreaterThanOrEqual(4);
+  });
+
+  it("意义质询：dot 敌人造成的伤害降低 3 点", () => {
+    const s = createUniState();
+    gainBlessing(s, "yiyi");
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 1 }] };
+    startCombat(s);
+    s.combat.enemies[0].dotTurns = 3;
+    s.combat.enemies[0].dotDmg = 2;
+    s.team.forEach((t, i) => {
+      if (i !== 0) {
+        t.alive = false;
+        t.hp = 0;
+      }
+    });
+    const before = s.team[0].hp;
+    s.combat.enemyQueue = [{ enemyIdx: 0, action: { type: "single", dmg: 5 }, desc: "x" }];
+    s.combat.phase = "enemy-announce";
+    enemyAnnounce(s);
+    enemyResolve(s);
+    expect(s.team[0].hp).toBe(before - 2); // 5-3=2
+  });
+});

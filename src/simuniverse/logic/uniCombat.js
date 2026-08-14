@@ -15,6 +15,9 @@ import {
   triggerOnDamaged,
   triggerOnKill,
   triggerOnEnemyDot,
+  triggerOnAttackAfter,
+  triggerOnEndTurn,
+  blessingMult,
   rollBlessingCandidates,
   rollBlessing,
   gainBlessing,
@@ -271,6 +274,17 @@ export function playerAttack(state, enemyIdx) {
   });
   c.pendingPoker = [];
   damageEnemy(state, enemyIdx, dmg, c.activeIdx);
+  // 攻击后祝福钩子（结膜/厌离邪秽苦/神性谐振/灾难性共振/裸脑质·飞溅蛊）
+  triggerOnAttackAfter(state, c.activeIdx, enemyIdx, dmg);
+  if (c._pendingExtra) {
+    damageEnemy(state, enemyIdx, c._pendingExtra, c.activeIdx);
+    c._pendingExtra = 0;
+  }
+  if (c._splashTarget != null) {
+    damageEnemy(state, c._splashTarget, c._pendingSplash, c.activeIdx);
+    c._pendingSplash = 0;
+    c._splashTarget = null;
+  }
   if (c.phase === "won" || c.phase === "lost") return { ok: true, dmg };
   finishPlayerAction(state);
   return { ok: true, dmg };
@@ -500,11 +514,15 @@ function resolveEnemyAction(state, enemy, action) {
   if (type === "single") {
     const target = pickAliveMember(state);
     if (target === null) return;
-    const dmg = action.dmg * dmgMultNow;
+    // 意义质询：陷入持续伤害状态的敌人造成的伤害降低 3 点
+    const yiyiCut = enemy.dotTurns > 0 ? 3 * blessingMult(state, "yiyi") : 0;
+    const dmg = Math.max(0, action.dmg * dmgMultNow - yiyiCut);
     state.devLog.info(LOG_TYPE.UNI_REGION, `${enemy.name} 攻击 ${state.team[target].name}`, { dmg });
     damageTeamMember(state, target, dmg);
   } else if (type === "aoe") {
-    const dmg = action.dmg * dmgMultNow;
+    // 意义质询：dot 敌人 AOE 伤害 -3
+    const yiyiCut = enemy.dotTurns > 0 ? 3 * blessingMult(state, "yiyi") : 0;
+    const dmg = Math.max(0, action.dmg * dmgMultNow - yiyiCut);
     state.devLog.info(LOG_TYPE.UNI_REGION, `${enemy.name} 全体攻击`, { dmg });
     for (let i = 0; i < state.team.length; i++) {
       if (state.team[i].alive) damageTeamMember(state, i, dmg);
@@ -720,10 +738,28 @@ function damageTeamMember(state, memberIdx, dmg) {
     }
   }
   const hpDmg = Math.min(t.hp, remaining);
-  t.hp -= hpDmg;
+  // 湮灭回归不等式：HP 伤害由我方全体分担
+  let finalHpDmg = hpDmg;
+  if (blessingMult(state, "yanmie") > 0 && hpDmg > 0) {
+    const alive = state.team.filter((x) => x.alive);
+    if (alive.length > 1) {
+      const share = Math.ceil(hpDmg / alive.length);
+      for (const x of alive) {
+        if (x === t) continue;
+        x.hp = Math.max(0, x.hp - share);
+        if (x.hp <= 0) {
+          x.hp = 0;
+          x.alive = false;
+          state.log.push(`${x.name} 因伤害分担倒下`);
+        }
+      }
+      finalHpDmg = share;
+    }
+  }
+  t.hp -= finalHpDmg;
   if (remaining > 0) recordSound(state, "hit");
   // 祝福：构筑·弥合（受击回盾）/ 戒律性闪变（残血回复）
-  if (hpDmg > 0) triggerOnDamaged(state, memberIdx, hpDmg);
+  if (finalHpDmg > 0) triggerOnDamaged(state, memberIdx, finalHpDmg);
   // 反伤符文：反弹 100% 伤害给随机敌人
   if (hpDmg > 0 && c.buffs?.includes("reflect")) {
     const aliveEnemies = c.enemies.filter((e) => e.alive);
@@ -741,11 +777,19 @@ function damageTeamMember(state, memberIdx, dmg) {
     hp: t.hp,
   });
   if (t.hp <= 0) {
-    t.hp = 0;
-    t.alive = false;
-    t.status.defensePile = [];
-    state.log.push(`${t.name} 无法战斗`);
-    state.devLog.warn(LOG_TYPE.UNI_REGION, `${t.name} 无法战斗`, { memberIdx });
+    // 回光效应：受致命攻击免死，回复 1% 生命（全队单场一次）
+    if (blessingMult(state, "huiguang") > 0 && !t.status.huiguangUsed) {
+      t.status.huiguangUsed = true;
+      t.hp = Math.max(1, Math.floor(t.maxHp * 0.01));
+      t.status.defensePile = [];
+      state.log.push(`回光效应：${t.name} 免于阵亡！`);
+    } else {
+      t.hp = 0;
+      t.alive = false;
+      t.status.defensePile = [];
+      state.log.push(`${t.name} 无法战斗`);
+      state.devLog.warn(LOG_TYPE.UNI_REGION, `${t.name} 无法战斗`, { memberIdx });
+    }
     if (state.team.every((x) => !x.alive)) {
       endCombat(state, "lost");
     }
@@ -775,13 +819,17 @@ function tickEnemyDots(state) {
   const c = state.combat;
   if (!c) return;
   let anyTicked = false;
+  let totalDotDmg = 0;
   for (const e of c.enemies) {
     if (!e.alive || !e.dotTurns) continue;
     anyTicked = true;
-    e.hp = Math.max(0, e.hp - e.dotDmg);
+    // 悲剧讲座：持续伤害 +1 点
+    const dotDmg = e.dotDmg + (blessingMult(state, "beiju") > 0 ? 1 : 0);
+    totalDotDmg += dotDmg;
+    e.hp = Math.max(0, e.hp - dotDmg);
     e.dotTurns -= 1;
     state.devLog.debug(LOG_TYPE.UNI_REGION, `${e.name} 受持续伤害`, {
-      dot: e.dotDmg,
+      dot: dotDmg,
       hp: e.hp,
     });
     if (e.hp <= 0) {
@@ -797,7 +845,16 @@ function tickEnemyDots(state) {
     }
   }
   // 祝福：虚妄供品（敌方受持续伤害 → 全队回 2%）
-  if (anyTicked) triggerOnEnemyDot(state);
+  if (anyTicked) {
+    triggerOnEnemyDot(state);
+    // 日出之前：我方每次造成持续伤害时回复同等生命
+    if (blessingMult(state, "richu") > 0 && totalDotDmg > 0) {
+      for (const t of state.team) {
+        if (!t.alive) continue;
+        t.hp = Math.min(t.maxHp, t.hp + totalDotDmg);
+      }
+    }
+  }
   if (c.enemies.length > 0 && c.enemies.every((e) => !e.alive)) {
     // 波次清空（dot 造成的全灭在回合开始处理）
     if (c.kind === "transform" && c.wave === 1) {
@@ -817,6 +874,8 @@ function finishEnemyTurn(state) {
   if (!c || c.phase === "won" || c.phase === "lost") return;
   c.enemyQueue = [];
   c.enemyPending = null;
+  // 祝福回合结束钩子：回馈庇护护盾 / 寰宇热寂失去战意
+  triggerOnEndTurn(state);
   // 方程：苹果！苹果！（每 3 回合结束后对敌方全体造成 2000% 基础伤害，简化 = 20 × 伤害膨胀）
   if (hasEquation(state, "pingguo") && c.round % 3 === 0) {
     const dmg = 20 * dmgMult(state.plane);
