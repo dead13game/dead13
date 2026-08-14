@@ -14,7 +14,7 @@
     </header>
 
     <!-- 普通层 2 选 1 -->
-    <section v-if="uni.uiMode === 'choice'" class="uni-panel">
+    <section v-if="uiMode === 'choice'" class="uni-panel">
       <h2>选择本层内容</h2>
       <div class="uni-choice">
         <button
@@ -30,7 +30,7 @@
     </section>
 
     <!-- 战斗 -->
-    <section v-if="uni.uiMode === 'battle'" class="uni-battle">
+    <section v-if="uiMode === 'battle'" class="uni-battle">
       <div class="uni-battle__team">
         <div
           v-for="t in uni.uniState.team"
@@ -113,7 +113,7 @@
     </section>
 
     <!-- 转化第三波 -->
-    <section v-if="uni.uiMode === 'wave-clear'" class="uni-panel">
+    <section v-if="uiMode === 'wave-clear'" class="uni-panel">
       <h2>转化：两波已灭（及格）</h2>
       <p>可以撤退保底，或挑战第三波精英（每消灭 1 个 +150 碎片）</p>
       <div class="uni-choice">
@@ -123,7 +123,7 @@
     </section>
 
     <!-- 战斗胜利 -->
-    <section v-if="uni.uiMode === 'reward'" class="uni-panel">
+    <section v-if="uiMode === 'reward'" class="uni-panel">
       <h2>🎉 战斗胜利</h2>
       <template v-if="pendingPick">
         <p>选择祝福（{{ pendingPick.starRange[0] }}~{{ pendingPick.starRange[1] }} 星）</p>
@@ -150,7 +150,7 @@
     </section>
 
     <!-- 事件 -->
-    <section v-if="uni.uiMode === 'event'" class="uni-panel">
+    <section v-if="uiMode === 'event'" class="uni-panel">
       <h2>{{ ev?.title }}</h2>
       <p class="uni-panel__desc">{{ ev?.desc }}</p>
       <div class="uni-choice">
@@ -166,11 +166,11 @@
     </section>
 
     <!-- 事件结果 -->
-    <section v-if="uni.uiMode === 'event-result'" class="uni-panel">
-      <h2>{{ uni.eventResult?.eventTitle }}</h2>
-      <p>{{ uni.eventResult?.outcome?.text }}</p>
-      <template v-if="uni.skillTargetPending">
-        <p>选择角色升级技能（+{{ uni.skillTargetPending }} 级）</p>
+    <section v-if="uiMode === 'event-result'" class="uni-panel">
+      <h2>{{ eventResult?.eventTitle }}</h2>
+      <p>{{ eventResult?.outcome?.text }}</p>
+      <template v-if="skillTargetPending">
+        <p>选择角色升级技能（+{{ skillTargetPending }} 级）</p>
         <div class="uni-choice">
           <button
             v-for="t in upgradable"
@@ -201,10 +201,10 @@
     </section>
 
     <!-- 商店 / 休整 -->
-    <section v-if="uni.uiMode === 'shop' || uni.uiMode === 'rest'" class="uni-panel">
-      <h2>{{ uni.uiMode === 'shop' ? '🛒 商店' : '🏕️ 休整' }}</h2>
-      <p v-if="uni.uiMode === 'rest'" class="uni-panel__desc">全队生命已回满；可购买奇物与祝福；死亡角色可用 150 碎片复活</p>
-      <div v-if="uni.uiMode === 'rest'" class="uni-rest-revive">
+    <section v-if="uiMode === 'shop' || uiMode === 'rest'" class="uni-panel">
+      <h2>{{ uiMode === 'shop' ? '🛒 商店' : '🏕️ 休整' }}</h2>
+      <p v-if="uiMode === 'rest'" class="uni-panel__desc">全队生命已回满；可购买奇物与祝福；死亡角色可用 150 碎片复活</p>
+      <div v-if="uiMode === 'rest'" class="uni-rest-revive">
         <button
           v-for="t in uni.uniState.team.filter((x) => !x.alive)"
           :key="t.index"
@@ -244,7 +244,7 @@
           </div>
         </div>
       </div>
-      <div v-if="uni.uiMode === 'shop'" class="uni-shop-section">
+      <div v-if="uiMode === 'shop'" class="uni-shop-section">
         <h3>方程</h3>
         <div class="uni-shop-list">
           <div v-for="(item, i) in uni.uniState.shopStock?.equation || []" :key="i" class="uni-shop-item">
@@ -263,7 +263,7 @@
     </section>
 
     <!-- 造物调试台 -->
-    <section v-if="uni.uiMode === 'workbench'" class="uni-panel">
+    <section v-if="uiMode === 'workbench'" class="uni-panel">
       <h2>🔧 造物调试台（热量 {{ uni.uniState.heat }}）</h2>
       <p class="uni-panel__desc">强化祝福（效果 ×2）或覆写祝福/方程，然后挑战首领</p>
       <div class="uni-shop-section">
@@ -299,14 +299,14 @@
     </section>
 
     <!-- 奇遇 / 财富 -->
-    <section v-if="uni.uiMode === 'oddity' || uni.uiMode === 'fortune'" class="uni-panel">
-      <h2>{{ uni.uiMode === 'oddity' ? '✨ 奇遇' : '💰 财富' }}</h2>
-      <p>{{ uni.uiMode === 'oddity' ? oddityText : '获得 300 宇宙碎片' }}</p>
+    <section v-if="uiMode === 'oddity' || uiMode === 'fortune'" class="uni-panel">
+      <h2>{{ uiMode === 'oddity' ? '✨ 奇遇' : '💰 财富' }}</h2>
+      <p>{{ uiMode === 'oddity' ? oddityText : '获得 300 宇宙碎片' }}</p>
       <button class="uni-btn" @click="uni.goNext()">前往下一区域</button>
     </section>
 
     <!-- 终局 -->
-    <section v-if="uni.uiMode === 'gameover'" class="uni-panel uni-panel--over">
+    <section v-if="uiMode === 'gameover'" class="uni-panel uni-panel--over">
       <h2>💀 终局</h2>
       <p>到达第 {{ uni.uniState.floor }} 层</p>
       <button class="uni-btn" @click="onQuit">返回主菜单</button>
@@ -351,6 +351,9 @@ const skillCdText = computed(() => {
   return info.cooldown > 0 ? `（冷却${info.cooldown}）` : "";
 });
 const battleMsg = computed(() => props.uni.battleMsg.value);
+const uiMode = computed(() => props.uiMode.value);
+const eventResult = computed(() => props.eventResult.value);
+const skillTargetPending = computed(() => props.skillTargetPending.value);
 const ev = computed(() => props.uni.getCurrentEvent());
 const pendingPick = computed(() => props.uni.currentBlessingPick());
 const upgradable = computed(() =>
