@@ -119,10 +119,14 @@
             </div>
             <div class="uni-member__flags">
               <span v-if="t.shield > 0" class="uni-tag uni-tag--shield">🛡️{{ t.shield }}</span>
+              <span v-if="t.status.spirit > 0" class="uni-tag uni-tag--spirit">🔥战意{{ t.status.spirit }}/{{ t.status.spiritCap }}</span>
+              <span v-if="t.status.zhandu > 0" class="uni-tag uni-tag--spirit">⚡战意{{ t.status.zhandu }}层</span>
+              <span v-if="(t.status.atkBonus || 0) > 0 || (t.status.defBonus || 0) > 0" class="uni-tag uni-tag--moon">🌙月相+{{ t.status.atkBonus || t.status.defBonus }}</span>
               <span v-if="t.status.stunned" class="uni-tag uni-tag--bad">💫眩晕</span>
               <span v-if="t.status.puppet" class="uni-tag uni-tag--bad">🎭傀儡</span>
               <span v-if="t.status.dot > 0" class="uni-tag uni-tag--dot">🔥dot{{ t.status.dot }}</span>
               <span v-if="t.status.healCut > 0" class="uni-tag uni-tag--bad">💉减疗</span>
+              <span v-if="t.status.taunt > 0" class="uni-tag uni-tag--bad">🎯集火{{ t.status.taunt }}</span>
             </div>
             <div class="uni-member__skill">
               {{ skillName(t) }}
@@ -167,6 +171,7 @@
               <span v-if="e.shield > 0" class="uni-tag uni-tag--shield">🛡️{{ e.shield }}</span>
               <span v-if="e.stunnedTurns > 0" class="uni-tag uni-tag--bad">💫{{ e.stunnedTurns }}</span>
               <span v-if="e.dotTurns > 0" class="uni-tag uni-tag--dot">🔥{{ e.dotTurns }}</span>
+              <span v-if="e.locked && e.locked.length > 0" class="uni-tag uni-tag--bad">🎯锁{{ e.locked.length }}</span>
               <span v-if="e.kind === 'elite'" class="uni-tag uni-tag--elite">精英</span>
               <span v-if="e.kind === 'boss'" class="uni-tag uni-tag--boss">首领</span>
             </div>
@@ -1246,6 +1251,8 @@ function onQuit() {
 .uni-tag--shield { background: rgba(46, 124, 194, 0.35); }
 .uni-tag--bad { background: rgba(224, 74, 74, 0.4); }
 .uni-tag--dot { background: rgba(255, 120, 40, 0.4); }
+.uni-tag--spirit { background: rgba(255, 120, 40, 0.55); color: #ffd9a0; }
+.uni-tag--moon { background: rgba(150, 110, 255, 0.45); color: #d9c9ff; }
 .uni-tag--elite { background: rgba(160, 60, 200, 0.45); }
 .uni-tag--boss { background: rgba(255, 171, 0, 0.45); color: #000; }
 .uni-tag--boost { background: rgba(255, 171, 0, 0.4); }
