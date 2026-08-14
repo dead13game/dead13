@@ -1,15 +1,15 @@
-<template>
+﻿<template>
   <div class="uni-shell">
     <!-- 顶栏 -->
     <header class="uni-topbar">
-      <span class="uni-topbar__title" title="连点 3 次打开开发日志" @click="onTitleClick">🌌 模拟宇宙</span>
+      <span class="uni-topbar__title" title="连点 3 次打开开发日志" @click="onTitleClick">模拟宇宙</span>
       <span class="uni-topbar__info">位面 {{ uniState.plane }} · 第 {{ uniState.floor }} 层</span>
-      <span class="uni-topbar__stat" title="宇宙碎片">🪙 {{ uniState.shards }}</span>
-      <span class="uni-topbar__stat" title="祝福">🙏 {{ uniState.blessings.length }}</span>
-      <span class="uni-topbar__stat" title="奇物">✨ {{ uniState.curios.length }}</span>
-      <span class="uni-topbar__stat" title="方程">📐 {{ uniState.equations.length }}</span>
+      <span class="uni-topbar__stat" title="宇宙碎片">{{ uniState.shards }}</span>
+      <span class="uni-topbar__stat" title="祝福">{{ uniState.blessings.length }}</span>
+      <span class="uni-topbar__stat" title="奇物">{{ uniState.curios.length }}</span>
+      <span class="uni-topbar__stat" title="方程">{{ uniState.equations.length }}</span>
       <span class="uni-topbar__spacer"></span>
-      <button class="uni-btn uni-btn--sm" @click="bagOpen = true">🎒 背包</button>
+      <button class="uni-btn uni-btn--sm" @click="bagOpen = true">背包</button>
       <button class="uni-btn uni-btn--sm" @click="uni.saveUni()">💾 存档</button>
       <button class="uni-btn uni-btn--sm" @click="onQuit">🚪 退出</button>
     </header>
@@ -198,14 +198,14 @@
           <span class="uni-battle__turn">第 {{ uniState.combat.round }} 回合</span>
         </div>
         <div v-if="!actionChoice && !targetMode" class="uni-battle__buttons">
-          <button class="uni-btn uni-btn--attack" :disabled="!canAct" @click="onAttackClick">⚔️ 普攻</button>
-          <button class="uni-btn uni-btn--defense" :disabled="!canAct" @click="onDefenseClick">🛡️ 防御</button>
+          <button class="uni-btn uni-btn--attack" :disabled="!canAct" @click="onAttackClick">普攻</button>
+          <button class="uni-btn uni-btn--defense" :disabled="!canAct" @click="onDefenseClick">防御</button>
           <button
             class="uni-btn uni-btn--skill"
             :disabled="!canSkill"
             @click="onSkillClick"
           >
-            💥 开大{{ skillCdText }}
+            开大{{ skillCdText }}
           </button>
         </div>
         <div v-else-if="actionChoice && !targetMode" class="uni-battle__buttons">
@@ -213,12 +213,12 @@
             class="uni-btn uni-btn--attack"
             @click="onExecuteAttack"
           >
-            ⚔️ 执行攻击（{{ drawnPoker?.value }}）
+            执行攻击（{{ drawnPoker?.value }}）
           </button>
           <button v-if="actionChoice === 'defense'" class="uni-btn uni-btn--defense" @click="onExecuteDefense">
-            🛡️ 执行防御（{{ drawnPoker?.value }}）
+            执行防御（{{ drawnPoker?.value }}）
           </button>
-          <button class="uni-btn uni-btn--cancel" @click="onCancelAction">✖ 取消</button>
+          <button class="uni-btn uni-btn--cancel" @click="onCancelAction">取消</button>
         </div>
         <div v-if="battleMsg" class="uni-battle__msg">{{ battleMsg }}</div>
       </div>
@@ -227,35 +227,35 @@
     <!-- 背包弹层：祝福 / 奇物 / 方程 -->
     <div v-if="bagOpen" class="uni-modal">
       <div class="uni-modal__box uni-modal__box--wide">
-        <h3 class="uni-modal__title">🎒 背包</h3>
+        <h3 class="uni-modal__title">背包</h3>
         <div class="uni-bag-tabs">
           <button
             class="uni-btn uni-btn--sm"
             :class="{ 'uni-btn--active': bagTab === 'blessing' }"
             @click="bagTab = 'blessing'"
           >
-            🙏 祝福（{{ uniState.blessings.length }}）
+            祝福（{{ uniState.blessings.length }}）
           </button>
           <button
             class="uni-btn uni-btn--sm"
             :class="{ 'uni-btn--active': bagTab === 'curio' }"
             @click="bagTab = 'curio'"
           >
-            ✨ 奇物（{{ uniState.curios.length }}）
+            奇物（{{ uniState.curios.length }}）
           </button>
           <button
             class="uni-btn uni-btn--sm"
             :class="{ 'uni-btn--active': bagTab === 'equation' }"
             @click="bagTab = 'equation'"
           >
-            📐 方程（{{ uniState.equations.length }}）
+            方程（{{ uniState.equations.length }}）
           </button>
           <button
             class="uni-btn uni-btn--sm uni-btn--album"
             :class="{ 'uni-btn--active': bagTab === 'album' }"
             @click="bagTab = 'album'"
           >
-            📖 图鉴
+            图鉴
           </button>
         </div>
         <!-- 图鉴：全部祝福/奇物/方程 -->
@@ -266,21 +266,21 @@
               :class="{ 'uni-btn--active': albumKind === 'blessing' }"
               @click="albumKind = 'blessing'"
             >
-              🙏 祝福（{{ albumBlessings.length }}）
+              祝福（{{ albumBlessings.length }}）
             </button>
             <button
               class="uni-btn uni-btn--sm"
               :class="{ 'uni-btn--active': albumKind === 'curio' }"
               @click="albumKind = 'curio'"
             >
-              ✨ 奇物（{{ albumCurios.length }}）
+              奇物（{{ albumCurios.length }}）
             </button>
             <button
               class="uni-btn uni-btn--sm"
               :class="{ 'uni-btn--active': albumKind === 'equation' }"
               @click="albumKind = 'equation'"
             >
-              📐 方程（{{ albumEquations.length }}）
+              方程（{{ albumEquations.length }}）
             </button>
           </div>
           <div class="uni-bag-list">
@@ -407,8 +407,8 @@
         <h3 v-if="skillBranch.type === 'liniya'" class="uni-modal__title">{{ active?.name }}：选择技能</h3>
         <h3 v-else class="uni-modal__title">{{ active?.name }}：选择立即行动的角色（可 {{ nahidaMax }} 人）</h3>
         <template v-if="skillBranch.type === 'liniya'">
-          <button class="uni-btn uni-btn--big" @click="doLiniyaBranch('shield')">🛡️ 一技能：全队获得盾</button>
-          <button class="uni-btn uni-btn--big" @click="doLiniyaBranch('dot')">🔥 二技能：敌方 dot</button>
+          <button class="uni-btn uni-btn--big" @click="doLiniyaBranch('shield')">一技能：全队获得盾</button>
+          <button class="uni-btn uni-btn--big" @click="doLiniyaBranch('dot')">二技能：敌方 dot</button>
         </template>
         <template v-else>
           <div class="uni-modal__members">
@@ -441,14 +441,14 @@
       <h2 class="uni-panel__title">✅ 转化：两波已灭（及格）</h2>
       <p class="uni-panel__desc">可以撤退保底，或挑战第三波精英（每消灭 1 个 +150 碎片）</p>
       <div class="uni-choice">
-        <button class="uni-btn uni-btn--primary" @click="uni.doThirdWave(false)">🏳️ 撤退（及格奖励）</button>
-        <button class="uni-btn uni-btn--danger" @click="uni.doThirdWave(true)">⚔️ 挑战第三波</button>
+        <button class="uni-btn uni-btn--primary" @click="uni.doThirdWave(false)">撤退（及格奖励）</button>
+        <button class="uni-btn uni-btn--danger" @click="uni.doThirdWave(true)">挑战第三波</button>
       </div>
     </section>
 
     <!-- 战斗胜利 -->
     <section v-if="uiMode === 'reward'" class="uni-panel">
-      <h2 class="uni-panel__title">🎉 战斗胜利</h2>
+      <h2 class="uni-panel__title">战斗胜利</h2>
       <template v-if="skillTargetPending">
         <template v-if="upgradable.length">
           <p class="uni-panel__desc">选择角色升级技能（+{{ skillTargetPending }} 级）</p>
@@ -564,7 +564,7 @@
 
     <!-- 商店 / 休整 -->
     <section v-if="uiMode === 'shop' || uiMode === 'rest'" class="uni-panel">
-      <h2 class="uni-panel__title">{{ uiMode === 'shop' ? '🛒 商店' : '🏕️ 休整' }}</h2>
+      <h2 class="uni-panel__title">{{ uiMode === 'shop' ? '商店' : '休整' }}</h2>
       <p v-if="uiMode === 'rest'" class="uni-panel__desc">全队生命已回满；可购买奇物与祝福；死亡角色可用 150 碎片复活</p>
       <div v-if="uiMode === 'rest'" class="uni-rest-revive">
         <button
@@ -577,7 +577,7 @@
         </button>
       </div>
       <div class="uni-shop-section">
-        <h3 class="uni-shop-section__title">🙏 祝福</h3>
+        <h3 class="uni-shop-section__title">祝福</h3>
         <div class="uni-shop-list">
           <div v-for="(item, i) in uniState.shopStock?.blessing || []" :key="i" class="uni-shop-item">
             <span class="uni-shop-item__name">
@@ -590,13 +590,13 @@
               :disabled="item.sold || uniState.shards < shopPrice(uniState, 'blessing', item.star)"
               @click="uni.doShopBuy('blessing', i)"
             >
-              {{ shopPrice(uniState, 'blessing', item.star) }} 🪙
+              {{ shopPrice(uniState, 'blessing', item.star) }} 碎片🪙
             </button>
           </div>
         </div>
       </div>
       <div class="uni-shop-section">
-        <h3 class="uni-shop-section__title">✨ 奇物</h3>
+        <h3 class="uni-shop-section__title">奇物</h3>
         <div class="uni-shop-list">
           <div v-for="(item, i) in uniState.shopStock?.curio || []" :key="i" class="uni-shop-item">
             <span class="uni-shop-item__name">
@@ -608,13 +608,13 @@
               :disabled="item.sold || uniState.shards < shopPrice(uniState, 'curio', item.star)"
               @click="uni.doShopBuy('curio', i)"
             >
-              {{ shopPrice(uniState, 'curio', item.star) }} 🪙
+              {{ shopPrice(uniState, 'curio', item.star) }} 碎片🪙
             </button>
           </div>
         </div>
       </div>
       <div v-if="uiMode === 'shop'" class="uni-shop-section">
-        <h3 class="uni-shop-section__title">📐 方程</h3>
+        <h3 class="uni-shop-section__title">方程</h3>
         <div class="uni-shop-list">
           <div v-for="(item, i) in uniState.shopStock?.equation || []" :key="i" class="uni-shop-item">
             <span class="uni-shop-item__name">
@@ -626,7 +626,7 @@
               :disabled="item.sold || uniState.shards < shopPrice(uniState, 'equation', item.star)"
               @click="uni.doShopBuy('equation', i)"
             >
-              {{ shopPrice(uniState, 'equation', item.star) }} 🪙
+              {{ shopPrice(uniState, 'equation', item.star) }} 碎片🪙
             </button>
           </div>
         </div>
@@ -636,10 +636,10 @@
 
     <!-- 造物调试台 -->
     <section v-if="uiMode === 'workbench'" class="uni-panel">
-      <h2 class="uni-panel__title">🔧 造物调试台（热量 {{ uniState.heat }}）</h2>
+      <h2 class="uni-panel__title">造物调试台（热量 {{ uniState.heat }}）</h2>
       <p class="uni-panel__desc">强化祝福（效果 ×2）或覆写祝福/方程，然后挑战首领</p>
       <div class="uni-shop-section">
-        <h3 class="uni-shop-section__title">🔥 祝福强化（1/2/3 星需 1/2/3 热量）</h3>
+        <h3 class="uni-shop-section__title">祝福强化（1/2/3 星需 1/2/3 热量）</h3>
         <div class="uni-shop-list">
           <div v-for="(b, i) in uniState.blessings" :key="i" class="uni-shop-item">
             <span class="uni-shop-item__name">
@@ -656,7 +656,7 @@
         </div>
       </div>
       <div class="uni-shop-section">
-        <h3 class="uni-shop-section__title">♻️ 覆写祝福（{{ uniState.overwritePrice }} 🪙）</h3>
+        <h3 class="uni-shop-section__title">覆写祝福（{{ uniState.overwritePrice }} 🪙）</h3>
         <div class="uni-shop-list">
           <div v-for="(b, i) in uniState.blessings" :key="'o' + i" class="uni-shop-item">
             <span class="uni-shop-item__name">{{ uni.blessingName(b.id) }}</span>
@@ -665,7 +665,7 @@
         </div>
       </div>
       <div class="uni-shop-section">
-        <h3 class="uni-shop-section__title">♻️ 覆写方程（{{ uniState.overwritePrice }} 🪙）</h3>
+        <h3 class="uni-shop-section__title">覆写方程（{{ uniState.overwritePrice }} 🪙）</h3>
         <div class="uni-shop-list">
           <div v-for="(e, i) in uniState.equations" :key="'eq' + i" class="uni-shop-item">
             <span class="uni-shop-item__name">{{ uni.equationName(e.id) }}</span>
@@ -673,16 +673,16 @@
           </div>
         </div>
       </div>
-      <button class="uni-btn uni-btn--danger uni-btn--big" v-if="uniState.region?.type === 'boss'" @click="uni.startBattle()">⚔️ 挑战首领</button>
+      <button class="uni-btn uni-btn--danger uni-btn--big" v-if="uniState.region?.type === 'boss'" @click="uni.startBattle()">挑战首领</button>
       <button class="uni-btn uni-btn--primary uni-btn--big" v-if="uniState.region?.type === 'oddity'" @click="uni.goNext()">完成调试 →</button>
     </section>
 
     <!-- 奇遇 / 财富 -->
     <section v-if="uiMode === 'oddity' || uiMode === 'fortune'" class="uni-panel">
-      <h2 class="uni-panel__title">{{ uiMode === 'oddity' ? '✨ 奇遇' : '💰 财富' }}</h2>
+      <h2 class="uni-panel__title">{{ uiMode === 'oddity' ? '奇遇' : '财富' }}</h2>
       <p class="uni-panel__desc">{{ uiMode === 'oddity' ? oddityText : '获得 300 宇宙碎片' }}</p>
       <template v-if="uiMode === 'oddity' && uniState.region?.oddityEffect === 'workbench'">
-        <button class="uni-btn uni-btn--primary" @click="uni.enterOddityWorkbench()">🔧 进入造物调试台</button>
+        <button class="uni-btn uni-btn--primary" @click="uni.enterOddityWorkbench()">进入造物调试台</button>
       </template>
       <template v-else>
         <button class="uni-btn uni-btn--primary" @click="uni.goNext()">前往下一区域 →</button>
@@ -1018,176 +1018,172 @@ function onQuit() {
 </script>
 
 <style scoped>
-/* ===== 深色星云风（视觉升级） ===== */
+/* ===== 暖暗色视觉体系（月圆之夜/杀戮尖塔参考，去 AI 味） ===== */
 .uni-shell {
+  --bg-0: #131110;
+  --bg-1: #1a1713;
+  --bg-2: #211d17;
+  --line: rgba(222, 200, 158, 0.14);
+  --line-strong: rgba(222, 200, 158, 0.32);
+  --gold: #c8a25f;
+  --gold-dim: #8f7440;
+  --text: #e7ddc6;
+  --text-dim: #a09478;
+  --hp: #7fae6a;
+  --enemy: #c0553f;
+  --shield: #6d93b4;
+  --skill: #9a6ac9;
+  --radius: 10px;
+  --radius-sm: 6px;
   max-width: 1024px;
   margin: 0 auto;
-  padding: 12px;
-  color: #e8e8e8;
+  padding: 14px;
+  color: var(--text);
   font-size: 14px;
-  font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
   min-height: 100vh;
   position: relative;
-  overflow-x: hidden;
   background:
-    radial-gradient(1100px 600px at 12% -8%, rgba(120, 60, 220, 0.5), transparent 60%),
-    radial-gradient(900px 520px at 88% 0%, rgba(40, 120, 220, 0.4), transparent 55%),
-    radial-gradient(1000px 700px at 50% 110%, rgba(180, 40, 160, 0.28), transparent 60%),
-    linear-gradient(180deg, #0b0618 0%, #120a26 45%, #0a0620 100%);
+    radial-gradient(900px 520px at 85% -10%, rgba(120, 90, 50, 0.12), transparent 55%),
+    radial-gradient(800px 500px at 8% 110%, rgba(80, 60, 40, 0.1), transparent 55%),
+    linear-gradient(180deg, #141210 0%, #100e0c 100%);
 }
-/* 星尘粒子层 */
+/* 极淡纸纹噪点（替代星星闪烁） */
 .uni-shell::before {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  background-image:
-    radial-gradient(1.5px 1.5px at 20% 30%, rgba(255,255,255,0.7), transparent 60%),
-    radial-gradient(1px 1px at 40% 70%, rgba(180,200,255,0.6), transparent 60%),
-    radial-gradient(1.5px 1.5px at 65% 20%, rgba(255,230,180,0.6), transparent 60%),
-    radial-gradient(1px 1px at 80% 55%, rgba(200,170,255,0.55), transparent 60%),
-    radial-gradient(1.5px 1.5px at 30% 85%, rgba(160,220,255,0.5), transparent 60%),
-    radial-gradient(1px 1px at 55% 45%, rgba(255,255,255,0.4), transparent 60%),
-    radial-gradient(1px 1px at 90% 85%, rgba(255,190,220,0.4), transparent 60%);
-  opacity: 0.55;
-  animation: uniStarTwinkle 4.5s ease-in-out infinite alternate;
-}
-@keyframes uniStarTwinkle {
-  0% { opacity: 0.35; }
-  100% { opacity: 0.75; }
-}
-/* 顶部暗角光晕 */
-.uni-shell::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background: radial-gradient(ellipse at 50% -20%, rgba(140, 90, 255, 0.22), transparent 55%);
+  opacity: 0.5;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.012) 0px,
+    rgba(255, 255, 255, 0.012) 1px,
+    transparent 1px,
+    transparent 3px
+  );
 }
 .uni-shell > * {
   position: relative;
   z-index: 1;
 }
-/* 顶栏：玻璃 + 渐变光边 */
+/* 顶栏：暖暗底 + 细金边 */
 .uni-topbar {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
-  padding: 9px 16px;
-  background: linear-gradient(135deg, rgba(50, 32, 100, 0.72), rgba(22, 12, 48, 0.78));
-  border: 1px solid rgba(150, 130, 255, 0.35);
-  border-radius: 14px;
-  margin-bottom: 14px;
+  padding: 8px 14px;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--gold-dim);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
   flex-wrap: wrap;
-  backdrop-filter: blur(12px);
-  box-shadow:
-    0 4px 24px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 0 0 1px rgba(255, 255, 255, 0.03);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
 }
 .uni-topbar__title {
   font-weight: bold;
-  color: #ffc94d;
-  letter-spacing: 2px;
+  color: var(--gold);
+  letter-spacing: 3px;
   font-size: 15px;
-  text-shadow: 0 0 14px rgba(255, 171, 0, 0.55);
+  cursor: pointer;
 }
 .uni-topbar__info {
-  color: #c9b8ff;
+  color: var(--text-dim);
 }
 .uni-topbar__stat {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.04));
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  padding: 3px 10px;
-  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--line);
+  padding: 2px 9px;
+  border-radius: 4px;
   font-size: 13px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+.uni-topbar__stat::before {
+  content: "▪";
+  color: var(--gold);
+  margin-right: 5px;
+  font-size: 9px;
+  vertical-align: 1px;
 }
 .uni-topbar__spacer {
   flex: 1;
 }
-/* 面板：深色玻璃 + 顶部光边 */
+/* 面板：暖暗底 + 顶部色条 */
 .uni-panel {
-  background: linear-gradient(160deg, rgba(30, 20, 64, 0.82), rgba(14, 8, 34, 0.88));
-  border: 1px solid rgba(140, 120, 255, 0.28);
-  border-radius: 16px;
-  padding: 22px;
+  background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px 20px;
   text-align: center;
-  backdrop-filter: blur(10px);
-  box-shadow:
-    0 12px 40px rgba(0, 0, 0, 0.5),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  animation: uniPop 0.28s ease;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.45);
+  animation: uniPop 0.2s ease;
   position: relative;
 }
-/* 顶部高光线 */
 .uni-panel::before {
   content: "";
   position: absolute;
-  top: 0;
-  left: 10%;
-  right: 10%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(180, 150, 255, 0.6), transparent);
+  top: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold-dim), transparent);
 }
 @keyframes uniPop {
-  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
 }
 .uni-panel__title {
   margin: 0 0 6px;
-  color: #ffd27a;
-  font-size: 18px;
-  letter-spacing: 1px;
-  text-shadow: 0 0 16px rgba(255, 171, 0, 0.35);
+  color: var(--gold);
+  font-size: 17px;
+  letter-spacing: 2px;
 }
 .uni-panel__desc {
-  color: #cfc4f0;
-  margin: 8px 0 16px;
+  color: var(--text-dim);
+  margin: 6px 0 14px;
 }
 .uni-panel__gain {
   font-size: 22px;
-  color: #ffc94d;
+  color: var(--gold);
   font-weight: bold;
-  text-shadow: 0 0 14px rgba(255, 171, 0, 0.4);
 }
 .uni-panel--over {
-  border-color: rgba(255, 107, 107, 0.5);
+  border-color: rgba(192, 85, 63, 0.5);
+}
+.uni-panel--over::before {
+  background: linear-gradient(90deg, transparent, var(--enemy), transparent);
 }
 /* 选择卡 */
 .uni-choice {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   justify-content: center;
   flex-wrap: wrap;
 }
 .uni-choice__card {
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  color: #fff;
-  border-radius: 14px;
-  padding: 14px 18px;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 12px 16px;
   cursor: pointer;
-  min-width: 170px;
+  min-width: 160px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   align-items: center;
   font-size: 14px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  transition: transform 0.16s, background 0.16s, border-color 0.16s, box-shadow 0.16s;
+  transition: transform 0.12s, border-color 0.12s;
 }
 .uni-choice__card:hover {
-  transform: translateY(-4px);
-  background: linear-gradient(160deg, rgba(255, 171, 0, 0.2), rgba(255, 171, 0, 0.06));
-  border-color: rgba(255, 171, 0, 0.6);
-  box-shadow: 0 8px 24px rgba(255, 140, 0, 0.22);
+  transform: translateY(-2px);
+  border-color: var(--gold);
+  background: var(--bg-2);
 }
 .uni-choice__icon {
-  font-size: 28px;
-  filter: drop-shadow(0 0 6px rgba(255, 200, 120, 0.4));
+  font-size: 24px;
 }
 .uni-choice__name {
   font-weight: 600;
@@ -1197,69 +1193,38 @@ function onQuit() {
   height: 48px;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid rgba(255, 171, 0, 0.5);
-  box-shadow: 0 0 12px rgba(255, 171, 0, 0.25);
+  border: 2px solid var(--gold-dim);
 }
-/* 按钮 */
+/* 按钮：暗色 + 类型色 */
 .uni-btn {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.05));
-  border: 1px solid rgba(255, 255, 255, 0.24);
-  color: #fff;
-  border-radius: 10px;
-  padding: 8px 18px;
+  background: var(--bg-2);
+  border: 1px solid var(--line-strong);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 7px 16px;
   cursor: pointer;
   font-size: 14px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  transition: transform 0.12s, background 0.12s, box-shadow 0.12s, border-color 0.12s;
+  transition: transform 0.1s, border-color 0.1s, filter 0.1s;
 }
 .uni-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  background: linear-gradient(180deg, rgba(255, 171, 0, 0.32), rgba(255, 140, 0, 0.12));
-  border-color: rgba(255, 171, 0, 0.6);
-  box-shadow: 0 6px 18px rgba(255, 140, 0, 0.25);
+  transform: translateY(-1px);
+  border-color: var(--gold);
 }
 .uni-btn:active:not(:disabled) {
-  transform: scale(0.96);
+  transform: scale(0.97);
 }
 .uni-btn:disabled {
-  opacity: 0.38;
+  opacity: 0.35;
   cursor: not-allowed;
 }
-.uni-btn--sm { padding: 4px 10px; font-size: 12px; }
-.uni-btn--big { padding: 12px 28px; font-size: 16px; margin-top: 10px; }
-.uni-btn--primary {
-  background: linear-gradient(180deg, #9a6cff, #6a3fe0);
-  border-color: #a67cff;
-  font-weight: bold;
-  box-shadow: 0 4px 16px rgba(122, 63, 201, 0.4);
-}
-.uni-btn--danger {
-  background: linear-gradient(180deg, #ef5a5a, #c83232);
-  border-color: #ff8080;
-  font-weight: bold;
-}
-.uni-btn--attack {
-  background: linear-gradient(180deg, #e05638, #b23a24);
-  border-color: #ff7a5c;
-  font-weight: bold;
-  box-shadow: 0 4px 14px rgba(194, 69, 46, 0.4);
-}
-.uni-btn--defense {
-  background: linear-gradient(180deg, #3d8fd6, #2569a8);
-  border-color: #6ab4ff;
-  font-weight: bold;
-  box-shadow: 0 4px 14px rgba(46, 124, 194, 0.4);
-}
-.uni-btn--skill {
-  background: linear-gradient(180deg, #9650e0, #6d2fb0);
-  border-color: #b97aff;
-  font-weight: bold;
-  box-shadow: 0 4px 14px rgba(122, 63, 201, 0.4);
-}
-.uni-btn--cancel {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05));
-  color: #cfc4f0;
-}
+.uni-btn--sm { padding: 3px 9px; font-size: 12px; }
+.uni-btn--big { padding: 11px 26px; font-size: 16px; margin-top: 10px; }
+.uni-btn--primary { background: var(--gold-dim); border-color: var(--gold); font-weight: bold; color: #1a1408; }
+.uni-btn--danger { background: #4a2018; border-color: var(--enemy); font-weight: bold; color: #ffd9c9; }
+.uni-btn--attack { background: #4a2018; border-color: var(--enemy); font-weight: bold; color: #ffd9c9; }
+.uni-btn--defense { background: #1c2c3a; border-color: var(--shield); font-weight: bold; color: #cfe6ff; }
+.uni-btn--skill { background: #2a1c3a; border-color: var(--skill); font-weight: bold; color: #ecd9ff; }
+.uni-btn--cancel { background: var(--bg-1); color: var(--text-dim); }
 /* 行动顺序条 */
 .uni-order {
   display: flex;
@@ -1267,7 +1232,7 @@ function onQuit() {
   justify-content: center;
   padding: 8px 12px;
   background: linear-gradient(160deg, rgba(30, 20, 64, 0.8), rgba(14, 8, 34, 0.86));
-  border: 1px solid rgba(140, 120, 255, 0.28);
+  border: 1px solid rgba(222, 200, 158, 0.28);
   border-radius: 12px;
   margin-bottom: 10px;
   flex-wrap: wrap;
@@ -1293,9 +1258,9 @@ function onQuit() {
 }
 .uni-order__slot--current {
   opacity: 1;
-  background: linear-gradient(135deg, rgba(255, 171, 0, 0.35), rgba(255, 140, 0, 0.15));
-  border-color: #ffab00;
-  box-shadow: 0 0 14px rgba(255, 171, 0, 0.5);
+  background: linear-gradient(135deg, rgba(200, 162, 95, 0.35), rgba(200, 162, 95, 0.15));
+  border-color: var(--gold);
+  box-shadow: 0 0 14px rgba(200, 162, 95, 0.5);
   transform: scale(1.06);
 }
 .uni-order__slot--next {
@@ -1327,43 +1292,33 @@ function onQuit() {
   flex-direction: column;
   gap: 8px;
 }
-/* 成员卡：玻璃 + 渐变边框光 */
+/* 成员卡：暖暗底 + 金色顶部条 */
 .uni-member {
   position: relative;
-  background: linear-gradient(160deg, rgba(44, 28, 96, 0.78), rgba(18, 10, 42, 0.86));
-  border: 1px solid rgba(150, 130, 255, 0.28);
-  border-radius: 14px;
-  padding: 10px 12px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    0 4px 14px rgba(0, 0, 0, 0.3);
-  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
-  animation: uniCardIn 0.3s ease;
-}
-@keyframes uniCardIn {
-  from { opacity: 0; transform: translateX(-8px); }
-  to { opacity: 1; transform: none; }
+  background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--gold-dim);
+  border-radius: var(--radius);
+  padding: 9px 11px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  transition: border-color 0.15s, transform 0.12s;
 }
 .uni-member--active {
-  border-color: #ffab00;
-  box-shadow:
-    0 0 18px rgba(255, 171, 0, 0.5),
-    inset 0 0 12px rgba(255, 171, 0, 0.12);
-  transform: scale(1.015);
+  border-color: var(--gold);
+  border-top-color: var(--gold);
 }
 .uni-member--dead {
   opacity: 0.4;
   filter: grayscale(0.8);
 }
 .uni-member--hit {
-  animation: uniHit 0.4s ease;
+  animation: uniHit 0.3s ease;
 }
 @keyframes uniHit {
-  0%, 100% { transform: translateX(0); background: linear-gradient(160deg, rgba(44, 28, 96, 0.78), rgba(18, 10, 42, 0.86)); }
-  20% { transform: translateX(-5px); background: linear-gradient(160deg, rgba(224, 74, 74, 0.5), rgba(120, 20, 40, 0.6)); }
-  40% { transform: translateX(4px); }
-  60% { transform: translateX(-3px); }
-  80% { transform: translateX(2px); }
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  50% { transform: translateX(3px); }
+  75% { transform: translateX(-2px); }
 }
 .uni-member__head {
   display: flex;
@@ -1372,14 +1327,13 @@ function onQuit() {
 }
 .uni-member__avatar {
   position: relative;
-  width: 54px;
-  height: 54px;
+  width: 52px;
+  height: 52px;
   flex-shrink: 0;
   border-radius: 50%;
   overflow: hidden;
-  border: 2px solid rgba(255, 171, 0, 0.45);
-  background: radial-gradient(circle at 30% 25%, rgba(120, 80, 220, 0.5), rgba(20, 10, 50, 0.9));
-  box-shadow: 0 0 14px rgba(140, 100, 255, 0.35), inset 0 0 8px rgba(0, 0, 0, 0.5);
+  border: 2px solid var(--gold-dim);
+  background: rgba(0, 0, 0, 0.4);
 }
 .uni-member__avatar img {
   width: 100%;
@@ -1401,65 +1355,35 @@ function onQuit() {
 .uni-member__name {
   font-weight: bold;
   font-size: 15px;
-  text-shadow: 0 0 8px rgba(255, 255, 255, 0.2);
 }
 .uni-member__target {
   cursor: pointer;
 }
 .uni-member--target:hover {
-  border-color: #ffab00;
-  box-shadow: 0 0 14px rgba(255, 171, 0, 0.55);
+  border-color: var(--gold);
 }
-/* 血条：内阴影 + 顶部高光 + 流光 */
+/* 血条 */
 .uni-bar {
-  height: 10px;
-  background: rgba(0, 0, 0, 0.55);
-  border-radius: 6px;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 3px;
   overflow: hidden;
   margin: 5px 0 3px;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6);
-  position: relative;
 }
 .uni-bar__fill {
   height: 100%;
-  transition: width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
-  position: relative;
-  overflow: hidden;
-}
-/* 高光条 */
-.uni-bar__fill::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.35), transparent 55%);
-}
-/* 流光动画 */
-.uni-bar__fill::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 40%;
-  left: -50%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
-  animation: uniFlow 2.4s ease-in-out infinite;
-}
-@keyframes uniFlow {
-  0% { left: -50%; }
-  100% { left: 120%; }
+  transition: width 0.35s ease;
 }
 .uni-bar__fill--hp {
-  background: linear-gradient(90deg, #43c96a, #8ef08a);
-  box-shadow: 0 0 8px rgba(67, 201, 106, 0.5);
+  background: var(--hp);
 }
 .uni-bar__fill--enemy {
-  background: linear-gradient(90deg, #ff3d4e, #ff8a65);
-  box-shadow: 0 0 8px rgba(255, 61, 78, 0.55);
+  background: var(--enemy);
 }
 .uni-member__hpnum,
 .uni-enemy__hpnum {
   font-size: 12px;
-  color: #cfc4f0;
+  color: var(--text-dim);
 }
 .uni-member__flags,
 .uni-enemy__flags {
@@ -1471,44 +1395,44 @@ function onQuit() {
 .uni-tag {
   font-size: 11px;
   padding: 1px 7px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--line);
+  color: var(--text-dim);
 }
-.uni-tag--shield { background: rgba(46, 124, 194, 0.4); border-color: rgba(106, 180, 255, 0.3); }
-.uni-tag--bad { background: rgba(224, 74, 74, 0.45); border-color: rgba(255, 128, 128, 0.3); }
-.uni-tag--dot { background: rgba(255, 120, 40, 0.45); border-color: rgba(255, 170, 90, 0.3); }
-.uni-tag--spirit { background: rgba(255, 120, 40, 0.55); color: #ffd9a0; }
-.uni-tag--moon { background: rgba(150, 110, 255, 0.5); color: #d9c9ff; }
-.uni-tag--fate { background: rgba(90, 160, 255, 0.4); color: #bcdcff; font-size: 11px; }
-.uni-tag--pattern { background: rgba(255, 200, 80, 0.4); color: #ffe9b0; font-size: 11px; }
-.uni-tag--elite { background: rgba(160, 60, 200, 0.5); border-color: rgba(200, 120, 255, 0.3); }
-.uni-tag--boss { background: rgba(255, 171, 0, 0.55); color: #2a1500; border-color: rgba(255, 200, 90, 0.4); }
-.uni-tag--boost { background: rgba(255, 171, 0, 0.45); border-color: rgba(255, 200, 90, 0.3); }
+.uni-tag--shield { background: rgba(109, 147, 180, 0.25); color: #bcd8f0; border-color: rgba(109, 147, 180, 0.4); }
+.uni-tag--bad { background: rgba(192, 85, 63, 0.28); color: #f0b8a8; border-color: rgba(192, 85, 63, 0.45); }
+.uni-tag--dot { background: rgba(200, 120, 60, 0.28); color: #f0cfa8; border-color: rgba(200, 120, 60, 0.45); }
+.uni-tag--spirit { background: rgba(200, 120, 60, 0.32); color: #f0cfa8; }
+.uni-tag--moon { background: rgba(140, 110, 170, 0.32); color: #dcc9ef; }
+.uni-tag--fate { background: rgba(100, 130, 160, 0.3); color: #c0d8ec; font-size: 11px; }
+.uni-tag--pattern { background: rgba(200, 160, 90, 0.32); color: #e8d4a8; font-size: 11px; }
+.uni-tag--elite { background: rgba(154, 106, 201, 0.3); color: #dcc3f0; border-color: rgba(154, 106, 201, 0.45); }
+.uni-tag--boss { background: rgba(200, 162, 95, 0.4); color: #20180a; border-color: rgba(200, 162, 95, 0.5); }
+.uni-tag--boost { background: rgba(200, 162, 95, 0.35); color: #e8d4a8; }
 .uni-member__skill {
   margin-top: 6px;
   font-size: 12px;
-  color: #b7a8e8;
+  color: var(--text-dim);
 }
-.uni-member__cd { color: #ff8f00; margin-left: 4px; }
-.uni-member__ready { color: #4caf50; margin-left: 4px; }
-.uni-member__passive { color: #888; margin-left: 4px; }
-/* 敌人卡：暗红玻璃 */
+.uni-member__cd { color: var(--gold); margin-left: 4px; }
+.uni-member__ready { color: var(--hp); margin-left: 4px; }
+.uni-member__passive { color: var(--text-dim); margin-left: 4px; }
+/* 敌人卡：暖暗底 + 暗红顶部条 */
 .uni-enemy {
   position: relative;
-  background: linear-gradient(160deg, rgba(92, 24, 34, 0.82), rgba(40, 10, 22, 0.9));
-  border: 1px solid rgba(255, 90, 90, 0.32);
-  border-radius: 14px;
-  padding: 10px 12px;
+  background: linear-gradient(180deg, #241715, var(--bg-1));
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--enemy);
+  border-radius: var(--radius);
+  padding: 9px 11px;
   cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 14px rgba(0, 0, 0, 0.3);
-  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
-  animation: uniCardIn 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  transition: border-color 0.15s, transform 0.12s;
 }
 .uni-enemy:hover:not(.uni-enemy--dead) {
-  border-color: rgba(255, 90, 90, 0.7);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 22px rgba(200, 40, 60, 0.3);
+  border-color: var(--enemy);
+  transform: translateY(-1px);
 }
 .uni-enemy--dead {
   opacity: 0.35;
@@ -1516,40 +1440,32 @@ function onQuit() {
   cursor: default;
 }
 .uni-enemy--target {
-  border-color: #ffab00;
-  box-shadow: 0 0 16px rgba(255, 171, 0, 0.65);
-  transform: scale(1.03);
+  border-color: var(--gold);
+  border-top-color: var(--gold);
 }
 .uni-enemy--hit {
-  animation: uniHitEnemy 0.4s ease;
+  animation: uniHitEnemy 0.3s ease;
 }
 @keyframes uniHitEnemy {
-  0%, 100% { background: rgba(50, 16, 24, 0.7); }
-  30% { background: rgba(255, 235, 59, 0.3); }
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  50% { transform: translateX(3px); }
+  75% { transform: translateX(-2px); }
 }
 .uni-enemy__name {
   font-weight: bold;
-  color: #ffb0b0;
-  text-shadow: 0 0 8px rgba(255, 90, 90, 0.35);
+  color: #e8b3a5;
 }
-/* 操作区：玻璃面板 + 光边 */
+/* 操作区：暖暗底 */
 .uni-battle__action {
-  background: linear-gradient(160deg, rgba(30, 20, 64, 0.82), rgba(14, 8, 34, 0.9));
-  border: 1px solid rgba(140, 120, 255, 0.3);
-  border-radius: 14px;
-  padding: 14px;
+  background: linear-gradient(180deg, var(--bg-2), var(--bg-1));
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--gold-dim);
+  border-radius: var(--radius);
+  padding: 12px;
   text-align: center;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 8px 28px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
   position: relative;
-}
-.uni-battle__action::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 15%;
-  right: 15%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(180, 150, 255, 0.55), transparent);
 }
 .uni-battle__actor {
   margin-bottom: 10px;
@@ -1561,46 +1477,36 @@ function onQuit() {
 }
 .uni-battle__actorname {
   font-weight: bold;
-  color: #ffc94d;
-  text-shadow: 0 0 10px rgba(255, 171, 0, 0.4);
+  color: var(--gold);
 }
 .uni-battle__turn {
-  color: #888;
+  color: var(--text-dim);
   font-size: 12px;
 }
-/* 扑克牌：真实牌面 */
+/* 扑克牌：羊皮纸质感 */
 .uni-poker {
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(155deg, #ffffff 0%, #f2eeff 60%, #e4dcf6 100%);
-  color: #1a1a2e;
-  border-radius: 10px;
-  padding: 7px 14px 6px;
-  min-width: 54px;
-  min-height: 64px;
-  border: 1px solid rgba(0, 0, 0, 0.18);
+  background: linear-gradient(155deg, #f5eeda 0%, #e8dfc4 60%, #d9cdaa 100%);
+  color: #2a2115;
+  border-radius: 7px;
+  padding: 6px 13px 5px;
+  min-width: 52px;
+  min-height: 62px;
+  border: 1px solid rgba(0, 0, 0, 0.4);
   box-shadow:
-    0 6px 16px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    inset 0 0 0 2px rgba(255, 255, 255, 0.55),
-    inset 0 0 0 3px rgba(200, 180, 255, 0.35);
+    0 3px 8px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 0 0 1px rgba(120, 90, 40, 0.15);
   position: relative;
-  animation: uniDeal 0.35s cubic-bezier(0.22, 1, 0.36, 1);
-  transform: rotate(-2deg);
-}
-.uni-poker::before {
-  content: "";
-  position: absolute;
-  inset: 4px;
-  border: 1px solid rgba(120, 100, 180, 0.25);
-  border-radius: 6px;
-  pointer-events: none;
+  animation: uniDeal 0.25s ease;
+  transform: rotate(-1.5deg);
 }
 @keyframes uniDeal {
-  from { transform: translateY(-18px) rotate(-8deg) scale(0.9); opacity: 0; }
-  to { transform: rotate(-2deg) scale(1); opacity: 1; }
+  from { transform: translateY(-12px) rotate(-5deg); opacity: 0; }
+  to { transform: rotate(-1.5deg); opacity: 1; }
 }
 .uni-poker__rank {
   font-size: 24px;
@@ -1609,11 +1515,11 @@ function onQuit() {
   font-family: Georgia, serif;
 }
 .uni-poker__suit {
-  font-size: 20px;
+  font-size: 19px;
   line-height: 1.1;
 }
-.uni-poker__rank--♥, .uni-poker__rank--♦ { color: #d32f2f; }
-.uni-poker__rank--♠, .uni-poker__rank--♣ { color: #1a1a2e; }
+.uni-poker__rank--♥, .uni-poker__rank--♦ { color: #a8322a; }
+.uni-poker__rank--♠, .uni-poker__rank--♣ { color: #2a2115; }
 .uni-battle__buttons {
   display: flex;
   gap: 12px;
@@ -1624,7 +1530,7 @@ function onQuit() {
   margin-top: 8px;
   color: #ffb05c;
   min-height: 18px;
-  text-shadow: 0 0 8px rgba(255, 140, 0, 0.3);
+  text-shadow: 0 0 8px rgba(200, 162, 95, 0.3);
 }
 /* 飘字：描边更醒目 */
 .uni-fx {
@@ -1655,7 +1561,7 @@ function onQuit() {
   margin: 12px 0;
 }
 .uni-shop-section__title {
-  color: #ffc94d;
+  color: var(--gold);
   margin: 6px 0;
   font-size: 15px;
 }
@@ -1679,7 +1585,7 @@ function onQuit() {
   gap: 6px;
 }
 .uni-star {
-  color: #ffc94d;
+  color: var(--gold);
   letter-spacing: -1px;
 }
 .uni-rest-revive {
@@ -1711,12 +1617,12 @@ function onQuit() {
 }
 .uni-charsel__card:hover {
   transform: translateY(-2px);
-  border-color: rgba(255, 171, 0, 0.5);
+  border-color: rgba(200, 162, 95, 0.5);
 }
 .uni-charsel__card--selected {
-  border-color: #ffab00;
-  background: rgba(255, 171, 0, 0.15);
-  box-shadow: 0 0 10px rgba(255, 171, 0, 0.35);
+  border-color: var(--gold);
+  background: rgba(200, 162, 95, 0.15);
+  box-shadow: 0 0 10px rgba(200, 162, 95, 0.35);
 }
 .uni-charsel__card--disabled {
   opacity: 0.3;
@@ -1740,7 +1646,7 @@ function onQuit() {
   position: absolute;
   bottom: 0;
   right: 0;
-  background: #ffab00;
+  background: var(--gold);
   color: #000;
   width: 20px;
   height: 20px;
@@ -1757,7 +1663,7 @@ function onQuit() {
 }
 .uni-charsel__info {
   font-size: 11px;
-  color: #b7a8e8;
+  color: var(--text-dim);
 }
 /* 模态弹层 */
 .uni-modal {
@@ -1777,7 +1683,7 @@ function onQuit() {
 }
 .uni-modal__box {
   background: linear-gradient(160deg, rgba(42, 28, 92, 0.94), rgba(16, 9, 38, 0.96));
-  border: 1px solid rgba(150, 130, 255, 0.4);
+  border: 1px solid rgba(222, 200, 158, 0.4);
   border-radius: 18px;
   padding: 24px;
   min-width: 320px;
@@ -1800,12 +1706,12 @@ function onQuit() {
   left: 12%;
   right: 12%;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(190, 160, 255, 0.7), transparent);
+  background: linear-gradient(90deg, transparent, rgba(222, 200, 158, 0.7), transparent);
 }
 .uni-modal__title {
   margin: 0 0 6px;
-  color: #ffd27a;
-  text-shadow: 0 0 14px rgba(255, 171, 0, 0.35);
+  color: var(--gold);
+  text-shadow: 0 0 14px rgba(200, 162, 95, 0.35);
 }
 .uni-modal__members {
   display: flex;
@@ -1830,9 +1736,9 @@ function onQuit() {
   flex-wrap: wrap;
 }
 .uni-btn--active {
-  background: rgba(255, 171, 0, 0.25);
-  border-color: #ffab00;
-  color: #ffc94d;
+  background: rgba(200, 162, 95, 0.25);
+  border-color: var(--gold);
+  color: var(--gold);
 }
 .uni-bag-list {
   width: 100%;
@@ -1858,10 +1764,10 @@ function onQuit() {
   transition: background 0.15s, border-color 0.15s;
 }
 .uni-bag-item:hover {
-  background: rgba(255, 171, 0, 0.08);
+  background: rgba(200, 162, 95, 0.08);
 }
 .uni-bag-item--open {
-  border-color: rgba(255, 171, 0, 0.4);
+  border-color: rgba(200, 162, 95, 0.4);
 }
 .uni-bag-item__head {
   display: flex;
@@ -1890,7 +1796,7 @@ function onQuit() {
   padding: 8px 10px;
   background: rgba(255, 255, 255, 0.05);
   border-radius: 6px;
-  color: #cfc4f0;
+  color: var(--text-dim);
   font-size: 13px;
   line-height: 1.6;
   animation: uniPop 0.2s ease;
@@ -1943,7 +1849,7 @@ function onQuit() {
   border-color: rgba(255, 190, 90, 0.4);
 }
 .uni-bag-item--owned .uni-bag-item__name {
-  color: #ffd27a;
+  color: var(--gold);
 }
 @media (max-width: 640px) {
   .uni-shell {
@@ -1951,3 +1857,5 @@ function onQuit() {
   }
 }
 </style>
+
+

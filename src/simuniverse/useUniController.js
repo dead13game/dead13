@@ -1,4 +1,4 @@
-// 模拟宇宙控制器 — 区域流程 / 战斗操作 / 事件 / 商店 / 工作台 / 存档
+﻿// 模拟宇宙控制器 — 区域流程 / 战斗操作 / 事件 / 商店 / 工作台 / 存档
 // 桥接：UniShell.vue ↔ 纯逻辑层（uniState / uniCombat / uniEvents / uniShop / uniSkills / uniBuffs）
 
 import { reactive, ref } from "vue";
@@ -333,31 +333,31 @@ export function useUniController() {
   function diffUni(before, after) {
     const out = [];
     const dShards = after.shards - before.shards;
-    if (dShards !== 0) out.push(dShards > 0 ? `🪙 +${dShards} 宇宙碎片` : `🪙 -${-dShards} 宇宙碎片`);
+    if (dShards !== 0) out.push(dShards > 0 ? `+${dShards} 宇宙碎片` : `-${-dShards} 宇宙碎片`);
     const bBefore = before.blessings ? before.blessings.split(",").filter(Boolean) : [];
     const bAfter = after.blessings.split(",").filter(Boolean);
-    if (bAfter.length > bBefore.length) out.push(`🙏 获得 ${bAfter.length - bBefore.length} 个祝福`);
-    else if (bAfter.length < bBefore.length) out.push(`🙏 失去 ${bBefore.length - bAfter.length} 个祝福`);
+    if (bAfter.length > bBefore.length) out.push(`获得 ${bAfter.length - bBefore.length} 个祝福`);
+    else if (bAfter.length < bBefore.length) out.push(`失去 ${bBefore.length - bAfter.length} 个祝福`);
     const cBefore = before.curios.split(",").filter(Boolean);
     const cAfter = after.curios.split(",").filter(Boolean);
-    if (cAfter.length > cBefore.length) out.push(`🎁 获得 ${cAfter.length - cBefore.length} 个奇物`);
-    else if (cAfter.length < cBefore.length) out.push(`🎁 失去 ${cBefore.length - cAfter.length} 个奇物`);
+    if (cAfter.length > cBefore.length) out.push(`获得 ${cAfter.length - cBefore.length} 个奇物`);
+    else if (cAfter.length < cBefore.length) out.push(`失去 ${cBefore.length - cAfter.length} 个奇物`);
     const eBefore = before.equations.split(",").filter(Boolean);
     const eAfter = after.equations.split(",").filter(Boolean);
-    if (eAfter.length > eBefore.length) out.push(`⚗️ 获得 ${eAfter.length - eBefore.length} 个方程`);
-    else if (eAfter.length < eBefore.length) out.push(`⚗️ 失去 ${eBefore.length - eAfter.length} 个方程`);
-    if (after.skillLevel > before.skillLevel) out.push(`📈 技能等级 +${after.skillLevel - before.skillLevel}`);
+    if (eAfter.length > eBefore.length) out.push(`获得 ${eAfter.length - eBefore.length} 个方程`);
+    else if (eAfter.length < eBefore.length) out.push(`失去 ${eBefore.length - eAfter.length} 个方程`);
+    if (after.skillLevel > before.skillLevel) out.push(`技能等级 +${after.skillLevel - before.skillLevel}`);
     const dHp = after.hp - before.hp;
-    if (dHp < 0) out.push(`💔 生命 -${-dHp}`);
-    else if (dHp > 0) out.push(`💚 生命 +${dHp}`);
+    if (dHp < 0) out.push(`生命 -${-dHp}`);
+    else if (dHp > 0) out.push(`生命 +${dHp}`);
     const dMax = after.maxHp - before.maxHp;
     if (dMax > 0) out.push(`⬆️ 生命上限 +${dMax}`);
     if (after.defPile > before.defPile) out.push(`🛡️ 防御牌 +${after.defPile - before.defPile}`);
     else if (after.defPile < before.defPile) out.push(`🛡️ 防御牌 -${before.defPile - after.defPile}`);
     if (after.medkit > before.medkit) out.push(`💊 急救包 +${after.medkit - before.medkit}`);
     if (after.buffs > before.buffs) out.push(`⚔️ 下次战斗获得加成`);
-    if (after.tempBoost > before.tempBoost) out.push(`📈 下次战斗技能等级 +${after.tempBoost - before.tempBoost}`);
-    if (after.alive < before.alive) out.push(`☠️ 有角色无法战斗`);
+    if (after.tempBoost > before.tempBoost) out.push(`下次战斗技能等级 +${after.tempBoost - before.tempBoost}`);
+    if (after.alive < before.alive) out.push(`有角色无法战斗`);
     return out.length ? out : ["（无效果）"];
   }
 
@@ -535,3 +535,4 @@ export function useUniController() {
     clearUniSave,
   };
 }
+
