@@ -86,9 +86,17 @@ import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 
 const props = defineProps({
   entries: { type: Array, required: true },
+  open: { type: Boolean, default: false }, // 外部受控打开（连点「模拟宇宙」标题 3 次等）
 });
 
 const visible = ref(false);
+// 外部受控打开：open 变 true 时显示
+watch(
+  () => props.open,
+  (v) => {
+    if (v) visible.value = true;
+  },
+);
 const filterLevel = ref("");
 const filterCat = ref("");
 const searchText = ref("");

@@ -2,7 +2,7 @@
   <div class="uni-shell">
     <!-- 顶栏 -->
     <header class="uni-topbar">
-      <span class="uni-topbar__title">🌌 模拟宇宙</span>
+      <span class="uni-topbar__title" title="连点 3 次打开开发日志" @click="onTitleClick">🌌 模拟宇宙</span>
       <span class="uni-topbar__info">位面 {{ uniState.plane }} · 第 {{ uniState.floor }} 层</span>
       <span class="uni-topbar__stat" title="宇宙碎片">🪙 {{ uniState.shards }}</span>
       <span class="uni-topbar__stat" title="祝福">🙏 {{ uniState.blessings.length }}</span>
@@ -690,7 +690,7 @@
       <button class="uni-btn" @click="onQuit">返回主菜单</button>
     </section>
 
-    <DevLogPanel :entries="uniState.devLog?.entries || []" />
+    <DevLogPanel :entries="uniState.devLog?.entries || []" :open="logOpen" />
   </div>
 </template>
 
@@ -802,6 +802,21 @@ const upgradable = computed(() =>
 
 // ---- 背包弹层 ----
 const bagOpen = ref(false);
+// 日志入口：连点 3 次「模拟宇宙」标题（1.2 秒窗口）打开开发日志
+const logOpen = ref(false);
+let titleClicks = 0;
+let titleTimer = null;
+function onTitleClick() {
+  titleClicks += 1;
+  if (titleTimer) clearTimeout(titleTimer);
+  titleTimer = setTimeout(() => {
+    titleClicks = 0;
+  }, 1200);
+  if (titleClicks >= 3) {
+    logOpen.value = true;
+    titleClicks = 0;
+  }
+}
 const bagTab = ref("blessing");
 const albumKind = ref("blessing");
 const expandedKey = ref(null);
