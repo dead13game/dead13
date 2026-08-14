@@ -313,6 +313,55 @@ export class UniEffects {
       .to(g, { alpha: 0, y: tgt.y, scaleX: 1.6, duration: 0.22, ease: "power1.in", onComplete: () => g.destroy() });
   }
 
+  /** 击杀爆散（敌人死亡） */
+  killBurst(x, y, color = 0xffb066) {
+    this._whenReady(() => {
+      if (!this.app) return;
+      this.burst(x, y, { color, count: 26, speed: 320, lifetime: 0.9, size: 4 });
+      this.burst(x, y, { color: 0xfff0c0, count: 10, speed: 140, lifetime: 1.1, size: 2.4 });
+      this.hitFlash(x, y, 0xfff6e0);
+    });
+  }
+
+  /** 中央庆祝礼花（胜利） */
+  celebrate() {
+    this._whenReady(() => {
+      if (!this.app) return;
+      const w = this.app.renderer.width;
+      const h = this.app.renderer.height;
+      const cx = w / 2;
+      const cy = h / 2;
+      const colors = [0xffd54f, 0xff9a4d, 0x9fd0ff, 0xb0ffb0, 0xd9a6ff];
+      for (let i = 0; i < 5; i++) {
+        setTimeout(() => {
+          this.burst(cx + (Math.random() - 0.5) * 180, cy + (Math.random() - 0.5) * 120, {
+            color: colors[i % colors.length],
+            count: 26,
+            speed: 260,
+            lifetime: 0.9,
+            size: 3.6,
+            gravity: 160,
+          });
+        }, i * 140);
+      }
+      this.floatText("胜利", cx, cy - 60, { color: 0xffd54f, size: 44, crit: true });
+    });
+  }
+
+  /** 低血量警示雾（全屏暗红，alpha 随血量） */
+  setLowHpFog(alpha) {
+    this._whenReady(() => {
+      if (!this.app) return;
+      if (!this._fog) {
+        this._fog = new Graphics();
+        this._fog.rect(0, 0, this.app.renderer.width, this.app.renderer.height).fill(0x801010);
+        this._fog.alpha = 0;
+        this.app.stage.addChild(this._fog);
+      }
+      gsap.to(this._fog, { alpha, duration: 0.5 });
+    });
+  }
+
   /**
    * 发牌轨迹：从起点（牌堆）飞一个光点到目标
    * @param {{x:number,y:number}} from
@@ -353,6 +402,7 @@ export class UniEffects {
       this.textLayer.destroy();
     }
     if (this.flashLayer) this.flashLayer.destroy();
+    if (this._fog) this._fog.destroy();
     this.app?.destroy(true, { children: true });
     this.app = null;
   }

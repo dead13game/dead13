@@ -64,6 +64,14 @@
     <section v-if="uiMode === 'battle'" class="uni-battle">
       <!-- PIXI 动态特效层（粒子/飘字/震屏/发牌） -->
       <canvas ref="fxCanvas" class="uni-fx-canvas"></canvas>
+      <!-- 转化层：20 回合倒计时 -->
+      <div
+        v-if="uniState.combat?.kind === 'transform'"
+        class="uni-transform-timer"
+        :class="{ 'uni-transform-timer--danger': transformLeft <= 5 }"
+      >
+        转化 · 剩余 {{ transformLeft }} 回合及格（需灭两波）
+      </div>
       <!-- 行动顺序条 -->
       <div class="uni-order">
         <div
@@ -836,6 +844,11 @@ onMounted(() => {
         fx.value.impactRing(pos.x, pos.y, 0xfff0c0);
         fx.value.hitFlash(pos.x, pos.y, 0xfff6e0);
       }
+      // 击杀敌人 → 爆散粒子
+      if (!mine) {
+        const enemy = uniState.combat.enemies.find((e) => e.id === ld.idx);
+        if (enemy && !enemy.alive) fx.value.killBurst(pos.x, pos.y);
+      }
       fx.value.burst(pos.x, pos.y, {
         color: mine ? 0xc0553f : 0xd8b26a,
         count: mine ? 16 : 22,
@@ -902,12 +915,35 @@ onMounted(() => {
       if (!fx.value) return;
       if (p === "won" && old !== p) {
         fx.value.flash(0xffe9b8, 0.3, 0.35);
-        fx.value.burst(fxCanvas.value.clientWidth / 2, fxCanvas.value.clientHeight / 2, {
-          color: 0xffd54f, count: 40, speed: 320, lifetime: 0.9, size: 4,
-        });
+        fx.value.celebrate();
       } else if (p === "lost" && old !== p) {
         fx.value.flash(0xc0553f, 0.4, 0.4);
         fx.value.shake(14, 0.5);
+      }
+    },
+  );
+  // 低血量警示：全队 HP ≤ 30% 时暗红雾渐显
+  watch(
+    () => {
+      const t = uniState.team;
+      const alive = t.filter((x) => x.alive);
+      if (!alive.length) return 0;
+      const ratio = alive.reduce((a, x) => a + x.hp / x.maxHp, 0) / alive.length;
+      return ratio;
+    },
+    (ratio) => {
+      if (!fx.value) return;
+      fx.value.setLowHpFog(ratio <= 0.3 ? 0.32 : ratio <= 0.5 ? 0.14 : 0);
+    },
+  );
+  // 首领战氛围：进入 boss 战斗时暗红压场
+  watch(
+    () => uniState.combat?.kind,
+    (kind, old) => {
+      if (!fx.value || kind === old) return;
+      if (kind === "boss") {
+        fx.value.flash(0x5a1010, 0.28, 0.5);
+        fx.value.shake(8, 0.4);
       }
     },
   );
@@ -977,6 +1013,11 @@ function fxCount(kind, targetIdx) {
 // ---- 事件 / 商店 ----
 const ev = computed(() => props.uni.getCurrentEvent());
 const pendingPick = computed(() => props.uni.currentBlessingPick());
+const transformLeft = computed(() => {
+  const c = uniState.combat;
+  if (!c || c.kind !== "transform") return 20;
+  return Math.max(0, 20 - c.round);
+});
 
 // ---- 祝福获取动画（变暗 → 放大显效果 → 飞向背包） ----
 const blessingAnim = ref(null); // { id, star, name, fate, desc, from:{x,y} }
@@ -1034,6 +1075,12 @@ watch(blessingAnim, async (a) => {
       blessingAnim.value = null;
       blessTween = null;
       props.uni.doBlessingPick(a.id);
+      // C2：获得祝福 → 金色粒子反馈（背包位置）
+      if (fx.value && br) {
+        fx.value.burst(br.left + br.width / 2, br.top + br.height / 2, {
+          color: 0xffd54f, count: 14, speed: 180, lifetime: 0.7, size: 3,
+        });
+      }
     });
 });
 const hasNextEvent = computed(
@@ -1560,6 +1607,29 @@ function onQuit() {
   inset: 0;
   pointer-events: none;
   z-index: 2;
+}
+/* 转化层倒计时 */
+.uni-transform-timer {
+  position: relative;
+  z-index: 3;
+  align-self: center;
+  padding: 3px 14px;
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: var(--gold);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  margin-bottom: -4px;
+}
+.uni-transform-timer--danger {
+  color: #ffb08a;
+  border-color: var(--enemy);
+  animation: uniTimerPulse 1s ease-in-out infinite;
+}
+@keyframes uniTimerPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
 }
 .uni-battle__board {
   display: grid;
