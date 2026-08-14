@@ -758,31 +758,43 @@ const skillCdText = computed(() => {
 const fxCanvas = ref(null);
 const fx = ref(null);
 
-/** DOM 元素中心 → canvas 坐标 */
+/** DOM 元素中心 → 特效层坐标（相对父容器，与 PIXI 渲染尺寸一致） */
 function fxPos(dom) {
   if (!fxCanvas.value || !dom) return null;
-  const cr = fxCanvas.value.getBoundingClientRect();
+  const cr = fxCanvas.value.parentElement.getBoundingClientRect();
   const r = dom.getBoundingClientRect();
   return { x: r.left - cr.left + r.width / 2, y: r.top - cr.top + r.height / 2 };
 }
 
-/** 战斗视图出现时初始化/恢复特效层 */
+/** 战斗视图出现时初始化特效层；监听父容器尺寸变化同步 PIXI 渲染尺寸（防错位） */
+let fxObserver = null;
 async function ensureFx() {
   if (!fxCanvas.value || fx.value) return;
-  const w = fxCanvas.value.clientWidth || fxCanvas.value.parentElement?.clientWidth || 800;
-  const h = fxCanvas.value.clientHeight || fxCanvas.value.parentElement?.clientHeight || 480;
+  const parent = fxCanvas.value.parentElement;
+  const w = parent?.clientWidth || 800;
+  const h = parent?.clientHeight || 480;
   fx.value = createUniEffects();
   await fx.value.init(fxCanvas.value, w, h);
+  // 战斗区尺寸变化（窗口 resize / 波次敌人增减）→ 同步画布，避免坐标错位
+  if (parent && "ResizeObserver" in window) {
+    fxObserver = new ResizeObserver(() => {
+      if (!fx.value) return;
+      const w2 = parent.clientWidth;
+      const h2 = parent.clientHeight;
+      if (w2 > 0 && h2 > 0) fx.value.resize(w2, h2);
+    });
+    fxObserver.observe(parent);
+  }
 }
 
 onMounted(() => {
-  // 进入战斗视图时初始化
+  // 进入战斗视图时初始化（immediate：首层就是战斗时也要初始化）
   watch(uiMode, async (m) => {
     if (m === "battle") {
       await nextTick();
       ensureFx();
     }
-  });
+  }, { immediate: true });
   // 伤害结算 → 飘字 + 粒子 + 轻微震屏
   watch(
     () => uniState.combat?.lastDamage?.seq,
@@ -841,6 +853,10 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  if (fxObserver) {
+    fxObserver.disconnect();
+    fxObserver = null;
+  }
   fx.value?.destroy();
   fx.value = null;
 });
@@ -1418,12 +1434,10 @@ function onQuit() {
   gap: 10px;
   position: relative;
 }
-/* PIXI 特效画布：覆盖战斗区，事件穿透 */
+/* PIXI 特效画布：覆盖战斗区（尺寸由 PIXI 控制并随父容器同步），事件穿透 */
 .uni-fx-canvas {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
   pointer-events: none;
   z-index: 2;
 }
