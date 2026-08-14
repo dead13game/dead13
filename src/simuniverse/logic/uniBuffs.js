@@ -8,59 +8,59 @@ import { EQUATION_DUPE_SHARDS } from "./uniConstants.js";
 /** 祝福数据表（六命运，第一版 18 个：12×1星 + 4×2星 + 2×3星） */
 export const BLESSINGS = {
   // ── 1 星 ──
-  shaojie: { id: "shaojie", name: "构筑·哨戒", star: 1, fate: "存护", desc: "进入战斗时，所有角色获得抵消自身生命上限 16% 伤害的护盾", fx: { shieldPct: 16 } },
-  mihe: { id: "mihe", name: "构筑·弥合", star: 1, fate: "存护", desc: "角色受到攻击时，获得等同于本次损失生命值 18% 的护盾", fx: { shieldPct: 18 } },
-  fayu: { id: "fayu", name: "法雨", star: 1, fate: "丰饶", desc: "每拥有 1 个丰饶的祝福，角色生命上限提高 2 点（最多叠加 6 层）", fx: { maxHpPer: 2, maxStacks: 6 } },
-  huisheng: { id: "huisheng", name: "回生", star: 1, fate: "丰饶", desc: "角色提供治疗后，回复等同于自身生命上限 12% 的生命值", fx: { healPct: 12 } },
-  huiguang: { id: "huiguang", name: "回光效应", star: 1, fate: "丰饶", desc: "受到致命攻击时不会阵亡，回复至生命上限 1%（全队单场一次）", fx: { revivePct: 1 } },
-  weixing: { id: "weixing", name: "哨戒卫星", star: 1, fate: "毁灭", desc: "生命 ≤50% 时获得生命上限 20% 的护盾（每名角色单场一次）", fx: { shieldPct: 20, hpBelow: 50 } },
-  jiemo: { id: "jiemo", name: "结膜", star: 1, fate: "存护", desc: "角色施放普攻后，获得 3 张防御牌", fx: { defCards: 3 } },
-  yanchi: { id: "yanchi", name: "延迟衍射的烛光", star: 1, fate: "智识", desc: "角色施放群攻技能后，造成的伤害提高 10%，持续 2 回合", fx: { atkPct: 10, turns: 2 } },
-  huagai: { id: "huagai", name: "金属斑驳的华盖", star: 1, fate: "智识", desc: "角色施放群攻技能后，获得 2 张防御牌", fx: { defCards: 2 } },
-  luoke: { id: "luoke", name: "感知：螺壳的纹理", star: 1, fate: "存护", desc: "我方获得的护盾量提高 10%", fx: { shieldMult: 10 } },
-  jifeng: { id: "jifeng", name: "感知：季风的故事", star: 1, fate: "繁育", desc: "我方全体造成的伤害提高 10%", fx: { atkMult: 10 } },
-  chaoxi: { id: "chaoxi", name: "感知：潮汐的故事", star: 1, fate: "丰饶", desc: "我方全体目标的回复量提高 10%", fx: { healMult: 10 } },
-  chuanzhi: { id: "chuanzhi", name: "传质次星", star: 1, fate: "毁灭", desc: "生命降低或护盾减少后，生命上限提高 20%，持续 2 回合", fx: { maxHpPct: 20, turns: 2 } },
-  jianti: { id: "jianti", name: "晶体偏振的灯塔", star: 1, fate: "智识", desc: "我方目标开大后，生命上限提高 20%，持续 2 回合", fx: { maxHpPct: 20, turns: 2 } },
-  guangxue: { id: "guangxue", name: "光学引导的透镜", star: 1, fate: "智识", desc: "施放终结技时，回复等同于生命上限 20% 的生命值", fx: { healPct: 20 } },
-  hongkuai: { id: "hongkuai", name: "宏块抹除的航路", star: 1, fate: "智识", desc: "我方目标施放终结技造成的伤害提高 20%", fx: { atkMult: 20 } },
-  chubei: { id: "chubei", name: "储备度规", star: 1, fate: "存护", desc: "进入战斗时，获得已损失生命值 36% 的护盾", fx: { shieldPct: 36 } },
-  yanshou: { id: "yanshou", name: "延寿", star: 1, fate: "丰饶", desc: "进入战斗时，回复自身生命上限 24% 的生命值", fx: { healPct: 24 } },
-  jianding: { id: "jianding", name: "构筑·坚定", star: 1, fate: "存护", desc: "持有护盾的角色受到的伤害降低 16%", fx: { dmgTakenPct: 16 } },
-  ganlu: { id: "ganlu", name: "甘露", star: 1, fate: "丰饶", desc: "角色的回复量提高 12%", fx: { healMult: 12 } },
-  rangzai: { id: "rangzai", name: "禳灾", star: 1, fate: "丰饶", desc: "角色接受治疗后，获得 3 张防御牌", fx: { defCards: 3 } },
-  juhuo: { id: "juhuo", name: "引燃的炬火", star: 1, fate: "智识", desc: "角色开大后的下一次攻击造成的伤害提高 50%", fx: { atkPct: 50 } },
-  luoqi: { id: "luoqi", name: "线圈编织的罗琦", star: 1, fate: "智识", desc: "角色开大后，回复等同于生命上限 16% 的生命值", fx: { healPct: 16 } },
-  hongyi: { id: "hongyi", name: "轨道红移", star: 1, fate: "毁灭", desc: "角色生命上限提高 16%", fx: { maxHpMult: 16 } },
-  penliu: { id: "penliu", name: "双极喷流", star: 1, fate: "毁灭", desc: "我方目标受到的伤害降低 10%", fx: { dmgTakenPct: 10 } },
-  shouzhao: { id: "shouzhao", name: "感知：兽爪的形状", star: 1, fate: "繁育", desc: "我方全体造成的伤害提高 12%", fx: { atkMult: 12 } },
-  xuansi: { id: "xuansi", name: "悬丝", star: 1, fate: "繁育", desc: "角色普攻的伤害提高 30%", fx: { atkMult: 30 } },
-  gongpin: { id: "gongpin", name: "虚妄供品", star: 1, fate: "虚无", desc: "敌方目标每受到一次持续伤害，我方全体回复各自 2% 生命上限", fx: { healPct: 2 } },
-  qingxu: { id: "qingxu", name: "情绪舍离", star: 1, fate: "虚无", desc: "敌方每承受 1 个持续伤害状态，受到的伤害提高 3%（最多 4 层）", fx: { atkPerDot: 3, maxDot: 4 } },
+  shaojie: { id: "shaojie", name: "构筑·哨戒", star: 1, fate: "存护", desc: "进入战斗时，所有角色获得抵消自身生命上限 16% 伤害的护盾", fx: { shieldPct: 16 }, lv: { shieldPct: [16, 32, 48, 64] } },
+  mihe: { id: "mihe", name: "构筑·弥合", star: 1, fate: "存护", desc: "角色受到攻击时，获得等同于本次损失生命值 18% 的护盾", fx: { shieldPct: 18 }, lv: { shieldPct: [18, 36, 54, 72] } },
+  fayu: { id: "fayu", name: "法雨", star: 1, fate: "丰饶", desc: "每拥有 1 个丰饶的祝福，角色生命上限提高 2 点（最多叠加 6 层）", fx: { maxHpPer: 2, maxStacks: 6 }, lv: { maxHpPer: [2, 4, 6, 8] } },
+  huisheng: { id: "huisheng", name: "回生", star: 1, fate: "丰饶", desc: "角色提供治疗后，回复等同于自身生命上限 12% 的生命值", fx: { healPct: 12 }, lv: { healPct: [12, 16, 20, 24] } },
+  huiguang: { id: "huiguang", name: "回光效应", star: 1, fate: "丰饶", desc: "受到致命攻击时不会阵亡，回复至生命上限 1%（全队单场一次）", fx: { revivePct: 1 }, lv: { revivePct: [1, 6, 11, 16] } },
+  weixing: { id: "weixing", name: "哨戒卫星", star: 1, fate: "毁灭", desc: "生命 ≤50% 时获得生命上限 20% 的护盾（每名角色单场一次）", fx: { shieldPct: 20, hpBelow: 50 }, lv: { shieldPct: [20, 30, 40, 50] } },
+  jiemo: { id: "jiemo", name: "结膜", star: 1, fate: "存护", desc: "角色施放普攻后，获得 3 张防御牌", fx: { defCards: 3 }, lv: { defCards: [3, 4, 5, 6] } },
+  yanchi: { id: "yanchi", name: "延迟衍射的烛光", star: 1, fate: "智识", desc: "角色施放群攻技能后，造成的伤害提高 10%，持续 2 回合", fx: { atkPct: 10, turns: 2 }, lv: { atkPct: [10, 20, 30, 40] } },
+  huagai: { id: "huagai", name: "金属斑驳的华盖", star: 1, fate: "智识", desc: "角色施放群攻技能后，获得 2 张防御牌", fx: { defCards: 2 }, lv: { defCards: [2, 3, 4, 5] } },
+  luoke: { id: "luoke", name: "感知：螺壳的纹理", star: 1, fate: "存护", desc: "我方获得的护盾量提高 10%", fx: { shieldMult: 10 }, lv: { shieldMult: [10, 20, 30, 40] } },
+  jifeng: { id: "jifeng", name: "感知：季风的故事", star: 1, fate: "繁育", desc: "我方全体造成的伤害提高 10%", fx: { atkMult: 10 }, lv: { atkMult: [10, 14, 18, 22] } },
+  chaoxi: { id: "chaoxi", name: "感知：潮汐的故事", star: 1, fate: "丰饶", desc: "我方全体目标的回复量提高 10%", fx: { healMult: 10 }, lv: { healMult: [10, 20, 30, 40] } },
+  chuanzhi: { id: "chuanzhi", name: "传质次星", star: 1, fate: "毁灭", desc: "生命降低或护盾减少后，生命上限提高 20%，持续 2 回合", fx: { maxHpPct: 20, turns: 2 }, lv: { maxHpPct: [20, 24, 28, 32] } },
+  jianti: { id: "jianti", name: "晶体偏振的灯塔", star: 1, fate: "智识", desc: "我方目标开大后，生命上限提高 20%，持续 2 回合", fx: { maxHpPct: 20, turns: 2 }, lv: { maxHpPct: [20, 30, 40, 50] } },
+  guangxue: { id: "guangxue", name: "光学引导的透镜", star: 1, fate: "智识", desc: "施放终结技时，回复等同于生命上限 20% 的生命值", fx: { healPct: 20 }, lv: { healPct: [20, 24, 28, 32] } },
+  hongkuai: { id: "hongkuai", name: "宏块抹除的航路", star: 1, fate: "智识", desc: "我方目标施放终结技造成的伤害提高 20%", fx: { atkMult: 20 }, lv: { atkMult: [20, 30, 40, 50] } },
+  chubei: { id: "chubei", name: "储备度规", star: 1, fate: "存护", desc: "进入战斗时，获得已损失生命值 36% 的护盾", fx: { shieldPct: 36 }, lv: { shieldPct: [36, 40, 44, 48] } },
+  yanshou: { id: "yanshou", name: "延寿", star: 1, fate: "丰饶", desc: "进入战斗时，回复自身生命上限 24% 的生命值", fx: { healPct: 24 }, lv: { healPct: [24, 28, 32, 36] } },
+  jianding: { id: "jianding", name: "构筑·坚定", star: 1, fate: "存护", desc: "持有护盾的角色受到的伤害降低 16%", fx: { dmgTakenPct: 16 }, lv: { dmgTakenPct: [16, 18, 20, 22] }, cap: 50 },
+  ganlu: { id: "ganlu", name: "甘露", star: 1, fate: "丰饶", desc: "角色的回复量提高 12%", fx: { healMult: 12 }, lv: { healMult: [12, 24, 36, 48] } },
+  rangzai: { id: "rangzai", name: "禳灾", star: 1, fate: "丰饶", desc: "角色接受治疗后，获得 2 张防御牌", fx: { defCards: 3 }, lv: { defCards: [2, 3, 4, 5] } },
+  juhuo: { id: "juhuo", name: "引燃的炬火", star: 1, fate: "智识", desc: "角色开大后的下一次攻击造成的伤害提高 20%", fx: { atkPct: 50 }, lv: { atkPct: [20, 30, 40, 50] } },
+  luoqi: { id: "luoqi", name: "线圈编织的罗琦", star: 1, fate: "智识", desc: "角色开大后，回复等同于生命上限 16% 的生命值", fx: { healPct: 16 }, lv: { healPct: [16, 20, 24, 28] } },
+  hongyi: { id: "hongyi", name: "轨道红移", star: 1, fate: "毁灭", desc: "角色生命上限提高 16%", fx: { maxHpMult: 16 }, lv: { maxHpMult: [16, 32, 48, 64] } },
+  penliu: { id: "penliu", name: "双极喷流", star: 1, fate: "毁灭", desc: "我方目标受到的伤害降低 10%", fx: { dmgTakenPct: 10 }, lv: { dmgTakenPct: [10, 12, 14, 16] }, cap: 50 },
+  shouzhao: { id: "shouzhao", name: "感知：兽爪的形状", star: 1, fate: "繁育", desc: "我方全体造成的伤害提高 12%", fx: { atkMult: 12 }, lv: { atkMult: [12, 16, 20, 24] } },
+  xuansi: { id: "xuansi", name: "悬丝", star: 1, fate: "繁育", desc: "角色普攻的伤害提高 30%", fx: { atkMult: 30 }, lv: { atkMult: [30, 40, 50, 60] } },
+  gongpin: { id: "gongpin", name: "虚妄供品", star: 1, fate: "虚无", desc: "敌方目标每受到一次持续伤害，我方全体回复各自 2% 生命上限", fx: { healPct: 2 }, lv: { healPct: [2, 4, 6, 8] } },
+  qingxu: { id: "qingxu", name: "情绪舍离", star: 1, fate: "虚无", desc: "敌方每承受 1 个持续伤害状态，受到的伤害提高 3%（最多 4 层）", fx: { atkPerDot: 3, maxDot: 4 }, lv: { atkPerDot: [3, 6, 9, 12] } },
   // ── 2 星 ──
-  qiebian: { id: "qiebian", name: "星间构筑·切变结构", star: 2, fate: "存护", desc: "反震伤害提高 10%，并对相邻目标造成主目标 25% 的反震伤害", fx: { reflectPct: 10, splashPct: 25 } },
-  huikui: { id: "huikui", name: "星间构筑·回馈庇护", star: 2, fate: "存护", desc: "回合结束时，有 80% 概率获得生命上限 15% 的护盾", fx: { shieldPct: 15, chance: 0.8 } },
-  lingzhu: { id: "lingzhu", name: "星间构筑·四棱锥体", star: 2, fate: "存护", desc: "角色提供的护盾量提高 30%", fx: { shieldMult: 30 } },
-  yagong: { id: "yagong", name: "星间构筑·亚共晶体", star: 2, fate: "存护", desc: "为我方提供护盾时，自身获得原护盾量 24% 的护盾（持续 2 回合）", fx: { shieldPct: 24 } },
-  baoguang: { id: "baoguang", name: "宝光烛日月", star: 2, fate: "丰饶", desc: "提供治疗时，双方造成的伤害提高 20%，持续 1 回合", fx: { atkPct: 20, turns: 1 } },
-  yanli: { id: "yanli", name: "厌离邪秽苦", star: 2, fate: "繁育", desc: "施放攻击后，对目标造成其当前生命值 30% 的附加伤害", fx: { hpPct: 30 } },
-  mingche: { id: "mingche", name: "明澈琉璃身", star: 2, fate: "繁育", desc: "当前生命值等于生命上限时，受到的伤害降低 36%", fx: { dmgTakenPct: 36 } },
-  bore: { id: "bore", name: "大愿般若船", star: 2, fate: "丰饶", desc: "接受治疗后，额外回复等同于回复量 30% 的生命值", fx: { healPct: 30 } },
-  yundi: { id: "yundi", name: "云镝逐步离", star: 2, fate: "繁育", desc: "每 30 回合后当前角色行动提前 100%（不可连续触发）", fx: { every: 30 } },
-  feihong: { id: "feihong", name: "飞虹诛凿齿", star: 2, fate: "丰饶", desc: "消灭敌方目标后，回复自身生命上限 48%", fx: { healPct: 48 } },
-  zainan: { id: "zainan", name: "灾难性共振", star: 2, fate: "毁灭", desc: "攻击时若处于战意效果，消耗当前生命 10%，对目标造成已损失生命 60% 的附加伤害", fx: { costPct: 10, dmgPct: 60 } },
-  yuzhao: { id: "yuzhao", name: "预兆性景深", star: 2, fate: "毁灭", desc: "每有 1 层战意，受到的伤害降低 1%", fx: { dmgTakenPer: 1 } },
-  baofa: { id: "baofa", name: "破坏性爆发", star: 2, fate: "毁灭", desc: "当前生命值百分比小于 50% 时，造成的伤害提高 40%", fx: { atkPct: 40, hpBelow: 50 } },
-  shanbian: { id: "shanbian", name: "戒律性闪变", star: 2, fate: "丰饶", desc: "受到攻击后若生命小于 35%，回复生命上限 12%（单次行动最多 36%）", fx: { healPct: 12, capPct: 36, hpBelow: 35 } },
-  weihai: { id: "weihai", name: "危害性余光", star: 2, fate: "智识", desc: "开大后，获得已损失生命值 25% 的护盾", fx: { shieldPct: 25 } },
-  luonao: { id: "luonao", name: "裸脑质", star: 2, fate: "繁育", desc: "普攻伤害会对随机相邻单体造成原伤害 30% 的伤害", fx: { splashPct: 30 } },
-  cuihua: { id: "cuihua", name: "催化剂", star: 2, fate: "智识", desc: "终结技未施放攻击时，全队伤害提高 20% 持续 1 回合（最多叠加 3 次）", fx: { atkPct: 20, cap: 60, turns: 1 } },
-  yuxia: { id: "yuxia", name: "分析·阈下知觉", star: 2, fate: "智识", desc: "首次终结技伤害提高 50%", fx: { atkPct: 50 } },
-  chilun: { id: "chilun", name: "齿轮啮合的王座", star: 2, fate: "智识", desc: "每有 1 个「智识」祝福，终结技伤害提高 5%（最多 5 次）", fx: { atkPer: 5, max: 5 } },
-  fangshe: { id: "fangshe", name: "放射性衰变", star: 2, fate: "毁灭", desc: "生命百分比低于 50% 时，受到的伤害降低 10%，回复量提高 20%", fx: { dmgTakenPct: 10, healMultPct: 20, hpBelow: 50 } },
-  feijian: { id: "feijian", name: "飞溅蛊", star: 2, fate: "繁育", desc: "普攻伤害会对相邻目标造成原伤害 10% 的伤害", fx: { splashPct: 10 } },
-  beiju: { id: "beiju", name: "悲剧讲座", star: 2, fate: "虚无", desc: "每次造成的持续伤害提高 1 点", fx: { dotFlat: 1 } },
-  yiyi: { id: "yiyi", name: "意义质询", star: 2, fate: "虚无", desc: "陷入持续伤害状态的敌方目标造成的伤害降低 3 点", fx: { dmgCut: 3 } },
+  qiebian: { id: "qiebian", name: "星间构筑·切变结构", star: 2, fate: "存护", desc: "反震伤害提高 10%，并对相邻目标造成主目标 25% 的反震伤害", fx: { reflectPct: 10, splashPct: 25 }, lv: { reflectPct: [10, 14, 18, 22] } },
+  huikui: { id: "huikui", name: "星间构筑·回馈庇护", star: 2, fate: "存护", desc: "回合结束时，有 80% 概率获得生命上限 15% 的护盾", fx: { shieldPct: 15, chance: 0.8 }, lv: { shieldPct: [15, 18, 21, 24] } },
+  lingzhu: { id: "lingzhu", name: "星间构筑·四棱锥体", star: 2, fate: "存护", desc: "角色提供的护盾量提高 30%", fx: { shieldMult: 30 }, lv: { shieldMult: [30, 40, 50, 60] } },
+  yagong: { id: "yagong", name: "星间构筑·亚共晶体", star: 2, fate: "存护", desc: "为我方提供护盾时，自身获得原护盾量 24% 的护盾（持续 2 回合）", fx: { shieldPct: 24 }, lv: { shieldPct: [24, 27, 30, 33] } },
+  baoguang: { id: "baoguang", name: "宝光烛日月", star: 2, fate: "丰饶", desc: "提供治疗时，双方造成的伤害提高 20%，持续 1 回合", fx: { atkPct: 20, turns: 1 }, lv: { atkPct: [20, 24, 28, 32] } },
+  yanli: { id: "yanli", name: "厌离邪秽苦", star: 2, fate: "繁育", desc: "施放攻击后，对目标造成其当前生命值 30% 的附加伤害", fx: { hpPct: 30 }, lv: { hpPct: [30, 33, 36, 39] } },
+  mingche: { id: "mingche", name: "明澈琉璃身", star: 2, fate: "繁育", desc: "当前生命值等于生命上限时，受到的伤害降低 36%", fx: { dmgTakenPct: 36 }, lv: { dmgTakenPct: [36, 38, 40, 42] }, cap: 50 },
+  bore: { id: "bore", name: "大愿般若船", star: 2, fate: "丰饶", desc: "接受治疗后，额外回复等同于回复量 30% 的生命值", fx: { healPct: 30 }, lv: { healPct: [30, 35, 40, 45] } },
+  yundi: { id: "yundi", name: "云镝逐步离", star: 2, fate: "繁育", desc: "我方全体每经过 20 回合后，所有角色行动提前 100%", fx: { every: 30 }, lv: { every: [20, 18, 16, 14] }, min: 6 },
+  feihong: { id: "feihong", name: "飞虹诛凿齿", star: 2, fate: "丰饶", desc: "消灭敌方目标后，回复自身生命上限 30%", fx: { healPct: 48 }, lv: { healPct: [30, 33, 36, 39] } },
+  zainan: { id: "zainan", name: "灾难性共振", star: 2, fate: "毁灭", desc: "攻击时若处于战意效果，消耗当前生命 10%，对目标造成已损失生命 60% 的附加伤害", fx: { costPct: 10, dmgPct: 60 }, lv: { dmgPct: [60, 64, 68, 72] } },
+  yuzhao: { id: "yuzhao", name: "预兆性景深", star: 2, fate: "毁灭", desc: "每有 1 层战意，受到的伤害降低 1%", fx: { dmgTakenPer: 1 }, lv: { dmgTakenPer: [1, 2, 3, 4] }, cap: 15 },
+  baofa: { id: "baofa", name: "破坏性爆发", star: 2, fate: "毁灭", desc: "当前生命值百分比小于 50% 时，造成的伤害提高 20%", fx: { atkPct: 40, hpBelow: 50 }, lv: { atkPct: [20, 24, 28, 32] } },
+  shanbian: { id: "shanbian", name: "戒律性闪变", star: 2, fate: "丰饶", desc: "受到攻击后若生命小于 35%，回复生命上限 12%（单次行动最多 36%）", fx: { healPct: 12, capPct: 36, hpBelow: 35 }, lv: { hpBelow: [35, 37, 39, 41] }, cap: 60 },
+  weihai: { id: "weihai", name: "危害性余光", star: 2, fate: "智识", desc: "开大后，获得已损失生命值 25% 的护盾", fx: { shieldPct: 25 }, lv: { shieldPct: [25, 30, 35, 40] } },
+  luonao: { id: "luonao", name: "裸脑质", star: 2, fate: "繁育", desc: "普攻伤害会对随机相邻单体造成原伤害 30% 的伤害", fx: { splashPct: 30 }, lv: { splashPct: [30, 32, 34, 36] }, cap: 60 },
+  cuihua: { id: "cuihua", name: "催化剂", star: 2, fate: "智识", desc: "终结技未施放攻击时，全队伤害提高 20% 持续 1 回合（最多叠加 3 次）", fx: { atkPct: 20, cap: 60, turns: 1 }, lv: { atkPct: [20, 24, 28, 32] } },
+  yuxia: { id: "yuxia", name: "分析·阈下知觉", star: 2, fate: "智识", desc: "首次终结技伤害提高 30%", fx: { atkPct: 50 }, lv: { atkPct: [30, 34, 38, 42] } },
+  chilun: { id: "chilun", name: "齿轮啮合的王座", star: 2, fate: "智识", desc: "每有 1 个「智识」祝福，终结技伤害提高 5%（最多 5 次）", fx: { atkPer: 5, max: 5 }, lv: { atkPer: [5, 6, 7, 8] } },
+  fangshe: { id: "fangshe", name: "放射性衰变", star: 2, fate: "毁灭", desc: "生命百分比低于 50% 时，受到的伤害降低 10%，回复量提高 20%", fx: { dmgTakenPct: 10, healMultPct: 20, hpBelow: 50 }, lv: { healMultPct: [20, 24, 28, 32] } },
+  feijian: { id: "feijian", name: "飞溅蛊", star: 2, fate: "繁育", desc: "普攻伤害会对相邻目标造成原伤害 10% 的伤害", fx: { splashPct: 10 }, lv: { splashPct: [10, 14, 18, 22] }, cap: 60 },
+  beiju: { id: "beiju", name: "悲剧讲座", star: 2, fate: "虚无", desc: "敌方目标受到的持续伤害提高 20%", fx: { dotFlat: 1 }, lv: { dotPct: [20, 24, 28, 32] } },
+  yiyi: { id: "yiyi", name: "意义质询", star: 2, fate: "虚无", desc: "陷入持续伤害状态的敌方目标造成的伤害降低 3 点", fx: { dmgCut: 3 }, lv: { dmgCut: [3, 4, 5, 6] } },
   // ── 3 星 ──
   shenxing: { id: "shenxing", name: "神性构筑·谐振传递", star: 3, fate: "存护", desc: "施放攻击时，对目标造成自身当前护盾量 100% 的反震伤害", fx: { shieldPct: 100 } },
   yifajie: { id: "yifajie", name: "丰饶众生，一法界心", star: 3, fate: "丰饶", desc: "角色提供治疗时，接受目标以外的队友回复回复量 30% 的生命", fx: { spreadPct: 30 } },
@@ -157,6 +157,40 @@ export function blessingMult(state, id) {
   return b ? (b.enhanced || 1) * (b.heatEnhanced || 1) : 0;
 }
 
+/** 祝福强化等级（1 级起：enhanced + heatEnhanced - 1，重复/热量强化各 +1 级） */
+export function blessingLevel(state, id) {
+  const b = state.blessings.find((x) => x.id === id);
+  if (!b) return 0;
+  return Math.max(1, (b.enhanced || 1) + (b.heatEnhanced || 1) - 1);
+}
+
+/**
+ * 祝福强化后数值：按等级查 BLESSINGS[id].lv[field] 表；
+ * 等级超出表长时按等差步长延伸（文档序列为等差数列）；
+ * 无 lv 表则回退 fx[field]；受 fx.cap（上限）/ fx.min（下限）约束。
+ */
+export function blessingVal(state, id, field) {
+  const def = BLESSINGS[id];
+  if (!def) return 0;
+  const lv = blessingLevel(state, id);
+  const table = def.lv?.[field];
+  let v = 0;
+  if (table && table.length > 0) {
+    if (lv <= table.length) {
+      v = table[lv - 1];
+    } else {
+      // 超出表长：按等差步长继续延伸（如 双极喷流 10→12→14→16→18…直到 cap）
+      const step = table.length >= 2 ? table[1] - table[0] : 0;
+      v = table[table.length - 1] + step * (lv - table.length);
+    }
+  } else {
+    v = def.fx?.[field] || 0;
+  }
+  if (def.fx?.cap != null || def.cap != null) v = Math.min(v, def.fx?.cap ?? def.cap);
+  if (def.fx?.min != null || def.min != null) v = Math.max(v, def.fx?.min ?? def.min);
+  return v;
+}
+
 /**
  * 聚合所有祝福修正（数据表 fx 驱动，数值只存于 BLESSINGS.fx）。
  * @returns {{ atkMult, atkNormalMult, skillDmgMult, dmgTakenMult, healMult, shieldMult, maxHpMult }}
@@ -180,35 +214,34 @@ export function getUniModifiers(state) {
   for (const b of state.blessings) {
     const fx = BLESSINGS[b.id]?.fx;
     if (!fx) continue;
-    const m = blessingMult(state, b.id);
     switch (b.id) {
-      case "shouzhao": mods.atkMult += (fx.atkMult || 0) * m; break;
-      case "jifeng": mods.atkMult += (fx.atkMult || 0) * m; break;
-      case "hongkuai": mods.skillDmgMult += (fx.atkMult || 0) * m; break; // 终结技伤害
-      case "chilun": mods.skillDmgMult += (fx.atkPer || 0) * Math.min(zhishuCount, fx.max || 5) * m; break; // 终结技伤害
-      case "ruchong": mods.atkMult += (fx.atkMult || 0) * m; break; // 蠕行之蛇：敌方受伤 +10%
+      case "shouzhao": mods.atkMult += blessingVal(state, b.id, "atkMult"); break;
+      case "jifeng": mods.atkMult += blessingVal(state, b.id, "atkMult"); break;
+      case "hongkuai": mods.skillDmgMult += blessingVal(state, b.id, "atkMult"); break; // 终结技伤害
+      case "chilun": mods.skillDmgMult += blessingVal(state, b.id, "atkPer") * Math.min(zhishuCount, fx.max || 5); break; // 终结技伤害
+      case "ruchong": mods.atkMult += (fx.atkMult || 0); break; // 蠕行之蛇：敌方受伤 +10%（方程）
       case "xingqiu":
-        mods.atkMult += (fx.atkMult || 0) * m; // 行星碰碰车（简化并入全伤害）
+        mods.atkMult += (fx.atkMult || 0); // 行星碰碰车（方程）
         if (state.combat?.enemies?.some((e) => e.alive && e.dotTurns > 0)) {
-          mods.atkMult += (fx.dotAtkMult || 0) * m;
+          mods.atkMult += (fx.dotAtkMult || 0);
         }
         break;
-      case "chitu": mods.atkMult += (fx.atkMult || 0) * m; break; // 吃土绑架犯（简化）
-      case "xuansi": mods.atkNormalMult += (fx.atkMult || 0) * m; break;
-      case "penliu": mods.dmgTakenMult += (fx.dmgTakenPct || 0) * m; break;
+      case "chitu": mods.atkMult += (fx.atkMult || 0); break; // 吃土绑架犯（方程）
+      case "xuansi": mods.atkNormalMult += blessingVal(state, b.id, "atkMult"); break;
+      case "penliu": mods.dmgTakenMult += blessingVal(state, b.id, "dmgTakenPct"); break;
       case "fangshe":
-        mods.dmgTakenMult += (fx.dmgTakenPct || 0) * m; // 生命<50%（动态修正兜底，这里给满值）
-        mods.healMult += (fx.healMultPct || 0) * m;
+        mods.dmgTakenMult += (fx.dmgTakenPct || 0); // 生命<50%（动态修正兜底，这里给满值）
+        mods.healMult += blessingVal(state, b.id, "healMultPct");
         break;
-      case "ganlu": mods.healMult += (fx.healMult || 0) * m; break;
-      case "chaoxi": mods.healMult += (fx.healMult || 0) * m; break;
-      case "luoke": mods.shieldMult += (fx.shieldMult || 0) * m; break;
-      case "lingzhu": mods.shieldMult += (fx.shieldMult || 0) * m; break;
-      case "hongyi": mods.maxHpMult += (fx.maxHpMult || 0) * m; break;
-      case "fayu": mods.maxHpMult += (fx.maxHpPer || 0) * Math.min(fengraoCount, fx.maxStacks || 6) * m; break;
+      case "ganlu": mods.healMult += blessingVal(state, b.id, "healMult"); break;
+      case "chaoxi": mods.healMult += blessingVal(state, b.id, "healMult"); break;
+      case "luoke": mods.shieldMult += blessingVal(state, b.id, "shieldMult"); break;
+      case "lingzhu": mods.shieldMult += blessingVal(state, b.id, "shieldMult"); break;
+      case "hongyi": mods.maxHpMult += blessingVal(state, b.id, "maxHpMult"); break;
+      case "fayu": mods.maxHpMult += blessingVal(state, b.id, "maxHpPer") * Math.min(fengraoCount, fx.maxStacks || 6); break;
       case "qingxu": {
         const dotCount = state.combat?.enemies?.filter((e) => e.alive && e.dotTurns > 0).length ?? 0;
-        mods.atkMult += (fx.atkPerDot || 0) * Math.min(dotCount, fx.maxDot || 4) * m;
+        mods.atkMult += blessingVal(state, b.id, "atkPerDot") * Math.min(dotCount, fx.maxDot || 4);
         break;
       }
       default:
@@ -243,11 +276,11 @@ export function memberAtkMods(state, memberIdx) {
   let extra = 0;
   const baofaFx = BLESSINGS.baofa?.fx;
   if (baofaFx && blessingMult(state, "baofa") > 0 && t.hp / t.maxHp < (baofaFx.hpBelow || 50) / 100) {
-    extra += (baofaFx.atkPct || 0) * blessingMult(state, "baofa");
+    extra += blessingVal(state, "baofa", "atkPct");
   }
   const fanwuFx = BLESSINGS.fanwu?.fx;
   if (fanwuFx && blessingMult(state, "fanwu") > 0 && t.hp / t.maxHp < (fanwuFx.hpBelow || 50) / 100) {
-    extra += (fanwuFx.zhandu || 0) * blessingMult(state, "fanwu"); // 每层战意 = 1% 伤害
+    extra += blessingVal(state, "fanwu", "zhandu"); // 每层战意 = 1% 伤害
   }
   // 战意：每层伤害 +1%
   extra += (t.status.zhandu || 0) * 1;
@@ -261,24 +294,24 @@ export function memberDmgTakenMods(state, memberIdx) {
   let extra = 0;
   const fanwuFx = BLESSINGS.fanwu?.fx;
   if (fanwuFx && blessingMult(state, "fanwu") > 0 && t.hp / t.maxHp < (fanwuFx.hpBelow || 50) / 100) {
-    extra += (fanwuFx.zhandu || 0) * blessingMult(state, "fanwu");
+    extra += blessingVal(state, "fanwu", "zhandu");
   }
   // 战意：每层受伤 -1%
   extra += (t.status.zhandu || 0) * 1;
   // 明澈琉璃身：满血受伤 -36%
   const mingcheFx = BLESSINGS.mingche?.fx;
   if (mingcheFx && blessingMult(state, "mingche") > 0 && t.hp >= t.maxHp) {
-    extra += (mingcheFx.dmgTakenPct || 0) * blessingMult(state, "mingche");
+    extra += blessingVal(state, "mingche", "dmgTakenPct");
   }
   // 构筑·坚定：持盾受伤 -16%
   const jiandingFx = BLESSINGS.jianding?.fx;
   if (jiandingFx && blessingMult(state, "jianding") > 0 && (t.shield > 0 || t.status.defensePile.length > 0)) {
-    extra += (jiandingFx.dmgTakenPct || 0) * blessingMult(state, "jianding");
+    extra += blessingVal(state, "jianding", "dmgTakenPct");
   }
   // 放射性衰变：生命 ≥50% 时补偿（getUniModifiers 给了满值）
   const fangsheFx = BLESSINGS.fangshe?.fx;
   if (fangsheFx && blessingMult(state, "fangshe") > 0 && t.hp / t.maxHp >= (fangsheFx.hpBelow || 50) / 100) {
-    extra -= (fangsheFx.dmgTakenPct || 0) * blessingMult(state, "fangshe");
+    extra -= blessingVal(state, "fangshe", "dmgTakenPct");
   }
   return extra;
 }
@@ -291,15 +324,15 @@ export function triggerOnCombatStart(state) {
     if (!t.alive) continue;
     const shaojie = BLESSINGS.shaojie?.fx?.shieldPct || 0;
     if (blessingMult(state, "shaojie") > 0) {
-      t.shield += Math.ceil((t.maxHp * shaojie) / 100 * blessingMult(state, "shaojie"));
+      t.shield += Math.ceil((t.maxHp * blessingVal(state, "shaojie", "shieldPct")) / 100);
     }
     const chubei = BLESSINGS.chubei?.fx?.shieldPct || 0;
     if (blessingMult(state, "chubei") > 0) {
-      t.shield += Math.ceil(((t.maxHp - t.hp) * chubei) / 100 * blessingMult(state, "chubei"));
+      t.shield += Math.ceil(((t.maxHp - t.hp) * blessingVal(state, "chubei", "shieldPct")) / 100);
     }
     const yanshou = BLESSINGS.yanshou?.fx?.healPct || 0;
     if (blessingMult(state, "yanshou") > 0) {
-      t.hp = Math.min(t.maxHp, t.hp + Math.ceil((t.maxHp * yanshou) / 100 * blessingMult(state, "yanshou")));
+      t.hp = Math.min(t.maxHp, t.hp + Math.ceil((t.maxHp * blessingVal(state, "yanshou", "healPct")) / 100));
     }
   }
 }
@@ -310,25 +343,25 @@ export function triggerOnDamaged(state, memberIdx, hpLoss) {
   if (!t) return;
   const mihe = BLESSINGS.mihe?.fx?.shieldPct || 0;
   if (mihe && blessingMult(state, "mihe") > 0 && hpLoss > 0) {
-    t.shield += Math.ceil((hpLoss * mihe) / 100 * blessingMult(state, "mihe"));
+    t.shield += Math.ceil((hpLoss * blessingVal(state, "mihe", "shieldPct")) / 100);
   }
   const shanbianFx = BLESSINGS.shanbian?.fx;
   if (shanbianFx && blessingMult(state, "shanbian") > 0 && t.hp / t.maxHp < (shanbianFx.hpBelow || 35) / 100) {
-    t.hp = Math.min(t.maxHp, t.hp + Math.ceil((t.maxHp * shanbianFx.healPct) / 100 * blessingMult(state, "shanbian")));
+    t.hp = Math.min(t.maxHp, t.hp + Math.ceil((t.maxHp * blessingVal(state, "shanbian", "healPct")) / 100));
   }
   const chuanzhiFx = BLESSINGS.chuanzhi?.fx;
   if (chuanzhiFx && blessingMult(state, "chuanzhi") > 0) {
-    t.maxHp = Math.ceil(t.maxHp * (1 + (chuanzhiFx.maxHpPct || 20) / 100 * blessingMult(state, "chuanzhi")));
+    t.maxHp = Math.ceil(t.maxHp * (1 + blessingVal(state, "chuanzhi", "maxHpPct") / 100));
     t.status.maxHpBuffTurns = chuanzhiFx.turns || 2;
   }
   const huanyuFx = BLESSINGS.huanyu?.fx;
   if (huanyuFx && blessingMult(state, "huanyu") > 0 && hpLoss > 0) {
-    t.status.zhandu = (t.status.zhandu || 0) + (huanyuFx.zhandu || 4) * blessingMult(state, "huanyu");
+    t.status.zhandu = (t.status.zhandu || 0) + blessingVal(state, "huanyu", "zhandu");
   }
   const weixingFx = BLESSINGS.weixing?.fx;
   if (weixingFx && blessingMult(state, "weixing") > 0 && t.hp / t.maxHp <= (weixingFx.hpBelow || 50) / 100 && !t.status.weixingUsed) {
     t.status.weixingUsed = true;
-    t.shield += Math.ceil((t.maxHp * weixingFx.shieldPct) / 100 * blessingMult(state, "weixing"));
+    t.shield += Math.ceil((t.maxHp * blessingVal(state, "weixing", "shieldPct")) / 100);
   }
   // 方程：冰霜巨人
   const bingkuangFx = EQUATIONS.bingkuang?.fx;
@@ -349,13 +382,13 @@ export function triggerOnHeal(state, memberIdx, healAmount = 0) {
   if (!t) return;
   const rangzai = BLESSINGS.rangzai?.fx?.defCards || 0;
   if (rangzai && blessingMult(state, "rangzai") > 0) {
-    for (let i = 0; i < rangzai * blessingMult(state, "rangzai"); i++) {
+    for (let i = 0; i < blessingVal(state, "rangzai", "defCards"); i++) {
       t.status.defensePile.push({ value: 2, rank: "盾", suit: "♦" });
     }
   }
   const boreFx = BLESSINGS.bore?.fx;
   if (boreFx && blessingMult(state, "bore") > 0 && healAmount > 0) {
-    t.hp = Math.min(t.maxHp, t.hp + Math.ceil((healAmount * boreFx.healPct) / 100 * blessingMult(state, "bore")));
+    t.hp = Math.min(t.maxHp, t.hp + Math.ceil((healAmount * blessingVal(state, "bore", "healPct")) / 100));
   }
   const baoguangFx = BLESSINGS.baoguang?.fx;
   if (baoguangFx && blessingMult(state, "baoguang") > 0) {
@@ -369,11 +402,11 @@ export function triggerOnKill(state, memberIdx) {
   const feihongFx = BLESSINGS.feihong?.fx;
   if (feihongFx && blessingMult(state, "feihong") > 0) {
     const t = state.team[memberIdx];
-    t.hp = Math.min(t.maxHp, t.hp + Math.ceil((t.maxHp * feihongFx.healPct) / 100 * blessingMult(state, "feihong")));
+    t.hp = Math.min(t.maxHp, t.hp + Math.ceil((t.maxHp * blessingVal(state, "feihong", "healPct")) / 100));
   }
   const xingrenFx = BLESSINGS.xingren?.fx;
   if (xingrenFx && blessingMult(state, "xingren") > 0) {
-    chargeJarBrain(state, (xingrenFx.jarBrain || 50) * blessingMult(state, "xingren"));
+    chargeJarBrain(state, blessingVal(state, "xingren", "jarBrain"));
   }
 }
 
@@ -383,36 +416,36 @@ export function triggerAfterSkill(state, charIndex) {
   if (!t) return;
   const juhuoFx = BLESSINGS.juhuo?.fx;
   if (juhuoFx && blessingMult(state, "juhuo") > 0) {
-    t.status.nextAttackBoost = (juhuoFx.atkPct || 50) * blessingMult(state, "juhuo");
+    t.status.nextAttackBoost = blessingVal(state, "juhuo", "atkPct");
   }
   const luoqiFx = BLESSINGS.luoqi?.fx;
   if (luoqiFx && blessingMult(state, "luoqi") > 0) {
-    t.hp = Math.min(t.maxHp, t.hp + Math.ceil((t.maxHp * luoqiFx.healPct) / 100 * blessingMult(state, "luoqi")));
+    t.hp = Math.min(t.maxHp, t.hp + Math.ceil((t.maxHp * blessingVal(state, "luoqi", "healPct")) / 100));
   }
   const guangxueFx = BLESSINGS.guangxue?.fx;
   if (guangxueFx && blessingMult(state, "guangxue") > 0) {
-    t.hp = Math.min(t.maxHp, t.hp + Math.ceil((t.maxHp * guangxueFx.healPct) / 100 * blessingMult(state, "guangxue")));
+    t.hp = Math.min(t.maxHp, t.hp + Math.ceil((t.maxHp * blessingVal(state, "guangxue", "healPct")) / 100));
   }
   const weihaiFx = BLESSINGS.weihai?.fx;
   if (weihaiFx && blessingMult(state, "weihai") > 0) {
-    t.shield += Math.ceil(((t.maxHp - t.hp) * weihaiFx.shieldPct) / 100 * blessingMult(state, "weihai"));
+    t.shield += Math.ceil(((t.maxHp - t.hp) * blessingVal(state, "weihai", "shieldPct")) / 100);
   }
   const jiantiFx = BLESSINGS.jianti?.fx;
   if (jiantiFx && blessingMult(state, "jianti") > 0) {
-    t.maxHp = Math.ceil(t.maxHp * (1 + (jiantiFx.maxHpPct || 20) / 100 * blessingMult(state, "jianti")));
+    t.maxHp = Math.ceil(t.maxHp * (1 + blessingVal(state, "jianti", "maxHpPct") / 100));
     t.status.maxHpBuffTurns = jiantiFx.turns || 2;
   }
   // 延迟衍射的烛光：施放群攻技能（开大）后，造成的伤害 +10%，持续 2 回合
   const yanchiFx = BLESSINGS.yanchi?.fx;
   if (yanchiFx && blessingMult(state, "yanchi") > 0) {
-    t.status.dmgBuffPct = (t.status.dmgBuffPct || 0) + (yanchiFx.atkPct || 10) * blessingMult(state, "yanchi");
+    t.status.dmgBuffPct = (t.status.dmgBuffPct || 0) + blessingVal(state, "yanchi", "atkPct");
     t.status.dmgBuffTurns = Math.max(t.status.dmgBuffTurns || 0, yanchiFx.turns || 2);
   }
   // 催化剂：终结技后全队伤害 +20%（1 回合，最多 3 层）
   const cuihuaFx = BLESSINGS.cuihua?.fx;
   if (cuihuaFx && blessingMult(state, "cuihua") > 0) {
     for (const x of state.team) {
-      x.status.dmgBuffPct = Math.min((x.status.dmgBuffPct || 0) + (cuihuaFx.atkPct || 20) * blessingMult(state, "cuihua"), (cuihuaFx.cap || 60) * blessingMult(state, "cuihua"));
+      x.status.dmgBuffPct = Math.min((x.status.dmgBuffPct || 0) + blessingVal(state, "cuihua", "atkPct"), blessingVal(state, "cuihua", "cap"));
       x.status.dmgBuffTurns = cuihuaFx.turns || 1;
     }
   }
@@ -434,30 +467,30 @@ export function triggerOnAttackAfter(state, memberIdx, targetEnemyId, baseDmg) {
   if (!target) return;
   const jiemo = BLESSINGS.jiemo?.fx?.defCards || 0;
   if (jiemo && blessingMult(state, "jiemo") > 0) {
-    for (let i = 0; i < jiemo * blessingMult(state, "jiemo"); i++) {
+    for (let i = 0; i < blessingVal(state, "jiemo", "defCards"); i++) {
       t.status.defensePile.push({ value: 2, rank: "盾", suit: "♦" });
     }
   }
   const yanliFx = BLESSINGS.yanli?.fx;
   if (yanliFx && blessingMult(state, "yanli") > 0) {
-    const extra = Math.ceil((target.hp * yanliFx.hpPct) / 100 * blessingMult(state, "yanli"));
+    const extra = Math.ceil((target.hp * blessingVal(state, "yanli", "hpPct")) / 100);
     if (extra > 0) c._pendingExtra = (c._pendingExtra || 0) + extra;
   }
   const shenxingFx = BLESSINGS.shenxing?.fx;
   if (shenxingFx && blessingMult(state, "shenxing") > 0 && t.shield > 0) {
-    c._pendingExtra = (c._pendingExtra || 0) + Math.ceil((t.shield * shenxingFx.shieldPct) / 100 * blessingMult(state, "shenxing"));
+    c._pendingExtra = (c._pendingExtra || 0) + Math.ceil((t.shield * blessingVal(state, "shenxing", "shieldPct")) / 100);
   }
   const zainanFx = BLESSINGS.zainan?.fx;
   if (zainanFx && blessingMult(state, "zainan") > 0 && (t.status.zhandu || 0) > 0) {
     const cost = Math.ceil((t.hp * zainanFx.costPct) / 100);
     t.hp -= cost;
     const lost = t.maxHp - t.hp;
-    c._pendingExtra = (c._pendingExtra || 0) + Math.ceil((lost * zainanFx.dmgPct) / 100 * blessingMult(state, "zainan"));
+    c._pendingExtra = (c._pendingExtra || 0) + Math.ceil((lost * blessingVal(state, "zainan", "dmgPct")) / 100);
   }
   // 裸脑质/飞溅蛊：普攻溅射随机相邻敌人
   const luonao = BLESSINGS.luonao?.fx?.splashPct || 0;
   const feijian = BLESSINGS.feijian?.fx?.splashPct || 0;
-  const splash = luonao * blessingMult(state, "luonao") + feijian * blessingMult(state, "feijian");
+  const splash = blessingVal(state, "luonao", "splashPct") + blessingVal(state, "feijian", "splashPct");
   if (splash > 0) {
     const others = c.enemies.filter((e) => e.alive && e.id !== targetEnemyId);
     if (others.length > 0) {
@@ -474,13 +507,13 @@ export function triggerOnEndTurn(state) {
   if (huikuiFx && blessingMult(state, "huikui") > 0 && Math.random() < (huikuiFx.chance || 0.8)) {
     for (const t of state.team) {
       if (!t.alive) continue;
-      t.shield += Math.ceil((t.maxHp * huikuiFx.shieldPct) / 100 * blessingMult(state, "huikui"));
+      t.shield += Math.ceil((t.maxHp * blessingVal(state, "huikui", "shieldPct")) / 100);
     }
   }
   const huanyuFx = BLESSINGS.huanyu?.fx;
   if (huanyuFx && blessingMult(state, "huanyu") > 0) {
     for (const t of state.team) {
-      t.status.zhandu = Math.max(0, (t.status.zhandu || 0) - (huanyuFx.zhandu || 4) * blessingMult(state, "huanyu"));
+      t.status.zhandu = Math.max(0, (t.status.zhandu || 0) - blessingVal(state, "huanyu", "zhandu"));
     }
   }
 }

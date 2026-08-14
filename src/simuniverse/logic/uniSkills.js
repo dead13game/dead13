@@ -3,7 +3,7 @@
 
 import { UNI_SKILLS, LINIYA_SHIELD_VALUE } from "./uniConstants.js";
 import { drawPoker, damageEnemy, grantExtraAction } from "./uniCombat.js";
-import { getUniModifiers, triggerAfterSkill, blessingMult, BLESSINGS } from "./uniBuffs.js";
+import { getUniModifiers, triggerAfterSkill, blessingMult, blessingVal, BLESSINGS } from "./uniBuffs.js";
 import { LOG_TYPE } from "../../game/gameLogger.js";
 import { recordSound } from "../../game/soundEvents.js";
 /** 技能等级取值（数组按等级 1-10，越界取末项） */
@@ -70,7 +70,7 @@ export function executeUniSkill(state, charIndex, payload = {}) {
   let yuxiaBoost = 0;
   if (yuxiaFx && blessingMult(state, "yuxia") > 0 && !state.uniFirstUltUsed) {
     state.uniFirstUltUsed = true;
-    yuxiaBoost = (yuxiaFx.atkPct || 50) * blessingMult(state, "yuxia");
+    yuxiaBoost = blessingVal(state, "yuxia", "atkPct");
     t.status.nextSkillBoost = (t.status.nextSkillBoost || 0) + yuxiaBoost;
   }
   const effect = doSkill(state, t, sk, lv, payload);

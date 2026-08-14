@@ -21,6 +21,7 @@ import {
   triggerCurioOnWin,
   chargeJarBrain,
   blessingMult,
+  blessingVal,
   rollBlessingCandidates,
   rollBlessing,
   gainBlessing,
@@ -600,13 +601,13 @@ function resolveEnemyAction(state, enemy, action) {
     const target = pickAliveMember(state);
     if (target === null) return;
     // 意义质询：陷入持续伤害状态的敌人造成的伤害降低 3 点
-    const yiyiCut = enemy.dotTurns > 0 ? 3 * blessingMult(state, "yiyi") : 0;
+    const yiyiCut = enemy.dotTurns > 0 ? blessingVal(state, "yiyi", "dmgCut") : 0;
     const dmg = Math.max(0, action.dmg * dmgMultNow - yiyiCut);
     state.devLog.info(LOG_TYPE.UNI_REGION, `${enemy.name} 攻击 ${state.team[target].name}`, { dmg });
     damageTeamMember(state, target, dmg);
   } else if (type === "aoe") {
     // 意义质询：dot 敌人 AOE 伤害 -3
-    const yiyiCut = enemy.dotTurns > 0 ? 3 * blessingMult(state, "yiyi") : 0;
+    const yiyiCut = enemy.dotTurns > 0 ? blessingVal(state, "yiyi", "dmgCut") : 0;
     const dmg = Math.max(0, action.dmg * dmgMultNow - yiyiCut);
     state.devLog.info(LOG_TYPE.UNI_REGION, `${enemy.name} 全体攻击`, { dmg });
     for (let i = 0; i < state.team.length; i++) {
@@ -916,7 +917,7 @@ function tickEnemyDots(state) {
     if (!e.alive || !e.dotTurns) continue;
     anyTicked = true;
     // 悲剧讲座：持续伤害 +1 点
-    const dotDmg = e.dotDmg + (blessingMult(state, "beiju") > 0 ? 1 : 0);
+    const dotDmg = e.dotDmg + (blessingMult(state, "beiju") > 0 ? Math.ceil(e.dotDmg * (blessingVal(state, "beiju", "dotPct") / 100)) : 0);
     totalDotDmg += dotDmg;
     e.hp = Math.max(0, e.hp - dotDmg);
     e.dotTurns -= 1;

@@ -39,7 +39,7 @@ import {
   chooseThirdWave,
 } from "./uniCombat.js";
 import { executeUniSkill, canUseUniSkill } from "./uniSkills.js";
-import { gainBlessing, gainEquation, BLESSINGS, rollCurio, CURIOS } from "./uniBuffs.js";
+import { gainBlessing, gainEquation, BLESSINGS, rollCurio, CURIOS, blessingVal } from "./uniBuffs.js";
 import {
   applyEventOption,
   chooseBlessingPick,
@@ -1282,6 +1282,31 @@ describe("模拟宇宙 M4：事件系统", () => {
     const hpBefore = enemy.hp;
     playerSkill(s, enemy.id, {});
     expect(enemy.hp).toBe(Math.max(0, hpBefore - Math.ceil(20 * 1.025))); // 1 星 ×2.5%
+  });
+
+  it("祝福强化等级：炬火按 lv 表取值（20→30→40→50），热量强化 +1 级", () => {
+    const s = createUniState();
+    gainBlessing(s, "juhuo");
+    expect(blessingVal(s, "juhuo", "atkPct")).toBe(20); // 1 级
+    gainBlessing(s, "juhuo"); // 重复获得 → 2 级
+    expect(blessingVal(s, "juhuo", "atkPct")).toBe(30);
+    gainBlessing(s, "juhuo"); // 3 级
+    expect(blessingVal(s, "juhuo", "atkPct")).toBe(40);
+    s.blessings[0].heatEnhanced = 2; // 热量强化 → 等级 +1
+    expect(blessingVal(s, "juhuo", "atkPct")).toBe(50);
+  });
+
+  it("祝福强化上限：双极喷流 cap 50、云镝 min 6、等级越界取末值", () => {
+    const s = createUniState();
+    gainBlessing(s, "penliu");
+    for (let i = 0; i < 25; i++) gainBlessing(s, "penliu"); // 远超等级表（等差延伸）
+    expect(blessingVal(s, "penliu", "dmgTakenPct")).toBe(50); // cap 约束
+    gainBlessing(s, "yundi");
+    for (let i = 0; i < 10; i++) gainBlessing(s, "yundi");
+    expect(blessingVal(s, "yundi", "every")).toBe(6); // min 约束
+    // 无 lv 表祝福回退 fx（3 星）
+    gainBlessing(s, "shenxing");
+    expect(blessingVal(s, "shenxing", "shieldPct")).toBe(100);
   });
 
   it("加权奇物 = 3 星奇物（rollCurio 星级过滤）", () => {
