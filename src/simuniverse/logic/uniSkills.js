@@ -224,6 +224,15 @@ function doSkill(state, t, sk, lv, payload) {
     }
     case 11:
       return { ok: false, reason: "被动技能（死亡回归）" };
+    case 12: {
+      // myracler(开发者)：对敌方全体造成 1000 点伤害（冷却 0）
+      const dmg = val(sk.values, lv);
+      for (const e of c.enemies) {
+        if (e.alive) damageEnemy(state, e.id, dmg, t.index);
+      }
+      state.log.push(`${t.name} 开发者指令：对敌方全体造成 ${dmg} 伤害`);
+      return { ok: true, summary: { dmg, targets: c.enemies.filter((e) => e.alive).length } };
+    }
     default:
       return { ok: false, reason: "未知角色" };
   }

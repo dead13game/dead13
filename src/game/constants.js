@@ -205,6 +205,19 @@ export const CHARACTERS = {
     maxUses: 3,
     loadMaxUses: 3,
   },
+  12: {
+    id: 12,
+    name: "myracler(开发者)",
+    title: "开发者指令",
+    icon: "./images/myracler.png",
+    hp: 100,
+    speed: 15,
+    skillName: "开发者指令",
+    skillType: "active",
+    skillDesc: "对敌方全体造成1000点伤害，冷却0（开发者测试用，仅模拟宇宙可选）",
+    maxUses: 999,
+    loadMaxUses: 999,
+  },
 };
 
 /** 根据 player 获取角色静态数据 */

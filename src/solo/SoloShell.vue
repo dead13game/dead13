@@ -7,7 +7,12 @@
         <span class="hud-hp">
           HP {{ player.hp }}/{{ player.maxHp }}
           <b v-if="combat?.playerShield">🛡{{ combat.playerShield }}</b>
-          <span v-if="hpFlash" :key="hpFlash.key" class="hp-flash">-{{ hpFlash.dmg }}</span>
+          <span
+            v-if="hpFlash"
+            :key="hpFlash.key"
+            class="hp-flash"
+            :class="hpFlash.type === 'heal' ? 'hp-flash--heal' : ''"
+          >{{ hpFlash.type === "heal" ? "+" : "-" }}{{ hpFlash.dmg }}</span>
         </span>
         <span
           class="hud-gold"
@@ -41,7 +46,7 @@
 
     <!-- ═══ 地图 ═══ -->
     <section v-if="uiMode === 'map'" class="solo-map">
-      <h2 class="panel-title">{{ soloState.chapterTitle }}</h2>
+      <h2 class="chapter-title">{{ soloState.chapterTitle }}</h2>
       <div class="node-chain">
         <div
           v-for="(n, i) in soloState.mapNodes"
@@ -54,6 +59,7 @@
         >
           <span class="node-icon">{{ nodeIcon(n) }}</span>
           <span class="node-name">{{ nodeName(n) }}</span>
+          <span v-if="i < soloState.nodeIndex" class="node-check">✓</span>
         </div>
       </div>
       <button class="solo-btn solo-btn--primary" @click="solo.enterNode()">
@@ -71,7 +77,8 @@
     <section v-else-if="uiMode === 'battle'" class="solo-battle">
       <!-- 敌方信息 -->
       <div class="enemy-panel">
-        <div class="enemy-name">👹 {{ combat.enemyName }}</div>
+        <div class="enemy-avatar">{{ enemyEmoji(combat.enemyKey) }}</div>
+        <div class="enemy-name">{{ combat.enemyName }}</div>
         <div class="enemy-hp">
           <div class="hp-bar">
             <div class="hp-fill" :style="{ width: (combat.enemyHp / combat.enemyMaxHp) * 100 + '%' }"></div>
@@ -79,6 +86,7 @@
           HP {{ combat.enemyHp }}/{{ combat.enemyMaxHp }}
           <b v-if="combat.enemyShield">🛡{{ combat.enemyShield }}</b>
           <span v-if="combat.enemyBuff === 'fightingSpirit'" class="enemy-spirit">🔥{{ combat.enemySpirit }}</span>
+          <span v-if="enemyHpFlash" :key="enemyHpFlash.key" class="enemy-hp-flash">-{{ enemyHpFlash.dmg }}</span>
         </div>
         <!-- 敌方资源面板：行动力/抽牌数/牌堆 -->
         <div class="enemy-stats">
@@ -170,6 +178,7 @@
             v-for="(cnt, id) in combat.playerHand"
             :key="id"
             class="hand-card"
+            :data-type="SOLO_CARDS[id]?.type || 'utility'"
             :class="{ 'hand--picking': pickingId === id }"
             @click="onPickCard(id)"
           >
@@ -407,10 +416,6 @@ onMounted(() => {
   window.__SOLO_STATE__ = soloState;
 });
 
-// 音效桥接：监听 soloState.soundQueue → SoundManager 播放
-// 放在 setup 顶层（组件作用域内），卸载时 watch 自动清理，避免重复叠加
-useSoundSync(soloState);
-
 const props = defineProps({ solo: { type: Object, required: true } });
 const emit = defineEmits(["quit"]);
 const solo = props.solo;
@@ -423,6 +428,11 @@ const battleMsg = solo.battleMsg;
 const soloState = solo.soloState;
 const eventResult = solo.eventResult;
 const rewardClaimed = solo.rewardClaimed;
+
+// 音效桥接：监听 soloState.soundQueue → SoundManager 播放
+// 放在 setup 顶层（组件作用域内），卸载时 watch 自动清理，避免重复叠加；
+// 必须在 soloState 定义之后（否则 TDZ 报错）
+useSoundSync(soloState);
 
 // 下一节点标签 + 前往
 const nextNodeLabel = computed(() => solo.nextNodeInfo()?.label || "？");
@@ -479,20 +489,40 @@ function cardFullDesc(id) {
   return parts.join(" · ");
 }
 
-// 玩家 HP 伤害飘字（敌方攻击时显示 -X）
+// 玩家 HP 伤害飘字（敌方攻击时显示 -X，治疗 +绿）
 const hpFlash = ref(null);
 watch(
   () => player.value.hp,
   (now, prev) => {
-    if (prev > now) {
-      const key = Date.now();
-      hpFlash.value = { dmg: prev - now, key };
-      setTimeout(() => {
-        if (hpFlash.value?.key === key) hpFlash.value = null;
-      }, 1100);
-    }
+    if (prev === now || prev == null) return;
+    const key = Date.now();
+    const dmg = prev - now;
+    hpFlash.value = { dmg: Math.abs(dmg), type: dmg > 0 ? "damage" : "heal", key };
+    setTimeout(() => {
+      if (hpFlash.value?.key === key) hpFlash.value = null;
+    }, 1100);
   },
 );
+
+// 敌方 HP 飘字（受击显示 -X）
+const enemyHpFlash = ref(null);
+watch(
+  () => combat.value?.enemyHp,
+  (now, prev) => {
+    if (prev == null || now == null || prev <= now) return;
+    const key = Date.now();
+    enemyHpFlash.value = { dmg: prev - now, key };
+    setTimeout(() => {
+      if (enemyHpFlash.value?.key === key) enemyHpFlash.value = null;
+    }, 1100);
+  },
+);
+
+// 敌人头像 emoji（按敌人类型）
+const ENEMY_EMOJIS = { normal: "👺", elite: "😈", boss: "👹" };
+function enemyEmoji(key) {
+  return ENEMY_EMOJIS[key] || "👹";
+}
 
 // 扑克选择（选 2 张 → 预览 → 确认）
 const selectedActs = ref([]);
@@ -691,11 +721,33 @@ function nodeName(node) {
 
 <style scoped>
 .solo-shell {
-  max-width: 720px;
+  /* 设计令牌：游戏化卡牌风配色 */
+  --c-primary: #7c6cf0;
+  --c-primary-glow: rgba(124, 108, 240, 0.45);
+  --c-gold: #ffd93d;
+  --c-gold-glow: rgba(255, 217, 61, 0.4);
+  --c-damage: #ff6b6b;
+  --c-heal: #51cf66;
+  --c-shield: #74c0fc;
+  --c-fire: #ff9f43;
+  --c-bg-card: rgba(24, 26, 56, 0.88);
+  --c-border: rgba(255, 255, 255, 0.14);
+  --radius-lg: 14px;
+  --radius-md: 10px;
+  --shadow-card: 0 4px 18px rgba(0, 0, 0, 0.45);
+  max-width: 760px;
   margin: 0 auto;
-  padding: 12px;
+  padding: 14px;
   color: #eee;
   font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+  /* 夜空渐变背景（蓝紫主调 + 暖色点缀） */
+  background:
+    radial-gradient(1100px 520px at 15% -10%, rgba(124, 108, 240, 0.28), transparent 60%),
+    radial-gradient(800px 460px at 95% 108%, rgba(255, 140, 66, 0.2), transparent 60%),
+    radial-gradient(600px 300px at 80% 20%, rgba(116, 192, 252, 0.12), transparent 60%),
+    linear-gradient(180deg, #0d0f2e 0%, #161a3e 55%, #0d0f2e 100%);
+  border-radius: 16px;
+  box-shadow: 0 0 60px rgba(124, 108, 240, 0.1) inset;
 }
 .solo-hud {
   display: flex;
@@ -703,9 +755,12 @@ function nodeName(node) {
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
-  background: #1a1a2e;
-  border: 1px solid #333;
-  border-radius: 10px;
+  background: rgba(18, 20, 48, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
   padding: 8px 12px;
   margin-bottom: 10px;
   font-size: 14px;
@@ -734,35 +789,86 @@ function nodeName(node) {
 
 .solo-btn {
   border: none;
-  border-radius: 8px;
-  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  padding: 9px 16px;
   font-size: 14px;
   cursor: pointer;
-  background: #2d3436;
-  color: #dfe6e9;
+  color: #fff;
+  background: linear-gradient(135deg, #3a3f6b, #26294e);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  transition: transform 0.12s, box-shadow 0.12s, filter 0.12s;
 }
-.solo-btn--primary { background: #1976d2; color: #fff; }
-.solo-btn--ghost { background: transparent; border: 1px solid #555; }
-.solo-btn--small { padding: 4px 10px; font-size: 13px; }
-.solo-btn--end { margin-top: 10px; width: 100%; background: #e17055; color: #fff; }
+.solo-btn:hover { transform: translateY(-1px); filter: brightness(1.15); }
+.solo-btn:active { transform: translateY(1px) scale(0.97); }
+.solo-btn--primary {
+  background: linear-gradient(135deg, #8b7bf5, #4a3fd6);
+  box-shadow: 0 3px 14px var(--c-primary-glow);
+}
+.solo-btn--primary:hover { box-shadow: 0 4px 20px var(--c-primary-glow); }
+.solo-btn--ghost { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.2); }
+.solo-btn--small { padding: 5px 11px; font-size: 13px; }
+.solo-btn--end {
+  margin-top: 10px;
+  width: 100%;
+  background: linear-gradient(135deg, #ff6b6b, #c0392b);
+  box-shadow: 0 3px 14px rgba(255, 107, 107, 0.3);
+}
 .solo-btn--option { width: 100%; margin: 6px 0; text-align: left; }
 
 /* 地图 */
 .solo-map { text-align: center; }
-.node-chain { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+.chapter-title {
+  font-size: 22px;
+  color: #fff;
+  text-shadow: 0 0 20px var(--c-primary-glow);
+  margin: 10px 0 18px;
+  letter-spacing: 2px;
+}
+.node-chain { display: flex; flex-direction: column; align-items: center; margin: 12px 0; }
 .node-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  background: #1a1a2e;
-  border: 1px solid #333;
-  border-radius: 8px;
-  padding: 8px 12px;
-  opacity: 0.5;
+  gap: 12px;
+  width: 260px;
+  background: linear-gradient(160deg, rgba(40, 42, 80, 0.9), rgba(24, 26, 56, 0.85));
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  padding: 10px 14px;
+  box-shadow: var(--shadow-card);
+  opacity: 0.55;
+  transition: opacity 0.2s, border-color 0.2s, box-shadow 0.2s;
+  position: relative;
 }
-.node--current { opacity: 1; border-color: #1976d2; }
-.node--done { opacity: 0.7; }
-.node-icon { font-size: 18px; }
+/* 节点间渐变连接线 */
+.node-item::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -16px;
+  transform: translateX(-50%);
+  width: 2px;
+  height: 14px;
+  background: linear-gradient(180deg, rgba(124, 108, 240, 0.55), transparent);
+}
+.node-item:last-child::after { display: none; }
+.node--current {
+  opacity: 1;
+  border-color: var(--c-gold);
+  animation: node-pulse 1.2s ease-in-out infinite;
+}
+.node--done { opacity: 0.85; border-color: rgba(81, 207, 102, 0.45); }
+.node--done .node-icon { filter: drop-shadow(0 0 8px rgba(81, 207, 102, 0.6)); }
+.node-icon { font-size: 22px; }
+.node-check {
+  margin-left: auto;
+  color: var(--c-heal);
+  font-weight: bold;
+  filter: drop-shadow(0 0 6px rgba(81, 207, 102, 0.7));
+}
+@keyframes node-pulse {
+  0%, 100% { box-shadow: 0 0 10px var(--c-gold-glow), var(--shadow-card); }
+  50% { box-shadow: 0 0 26px var(--c-gold-glow), var(--shadow-card); }
+}
 .deck-preview { margin-top: 10px; font-size: 13px; color: #aaa; text-align: left; }
 .deck-chip {
   display: inline-block;
@@ -773,23 +879,57 @@ function nodeName(node) {
 }
 
 /* 战斗 */
-.enemy-panel { background: #1a1a2e; border-radius: 10px; padding: 10px; margin-bottom: 10px; }
-.enemy-name { font-size: 16px; font-weight: bold; color: #ff6b6b; }
-.hp-bar { height: 8px; background: #333; border-radius: 4px; overflow: hidden; margin: 6px 0; }
-.hp-fill { height: 100%; background: #e17055; transition: width 0.3s; }
-.enemy-spirit { color: #ff9f43; margin-left: 6px; }
+.enemy-panel {
+  background: linear-gradient(160deg, rgba(70, 30, 44, 0.9) 0%, rgba(28, 20, 44, 0.88) 100%);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  margin-bottom: 10px;
+  box-shadow: var(--shadow-card);
+  position: relative;
+}
+.enemy-avatar {
+  font-size: 46px;
+  line-height: 1;
+  filter: drop-shadow(0 0 14px rgba(255, 107, 107, 0.55));
+  animation: avatar-float 3s ease-in-out infinite;
+  margin-bottom: 4px;
+}
+@keyframes avatar-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.enemy-name { font-size: 17px; font-weight: bold; color: #ff8a8a; text-shadow: 0 0 12px rgba(255, 107, 107, 0.4); }
+.enemy-hp-flash {
+  position: absolute;
+  top: 44px;
+  right: 14px;
+  color: #ff6b6b;
+  font-weight: bold;
+  font-size: 18px;
+  animation: hp-float 1.1s ease-out forwards;
+}
+.hp-bar { height: 9px; background: rgba(0, 0, 0, 0.4); border-radius: 5px; overflow: hidden; margin: 6px 0; }
+.hp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #e17055, #ff8a6b);
+  box-shadow: 0 0 10px rgba(255, 107, 107, 0.5);
+  transition: width 0.3s;
+}
+.enemy-spirit { color: var(--c-fire); margin-left: 6px; }
 .round-info { font-size: 12px; color: #888; }
 .enemy-stats { display: flex; gap: 12px; font-size: 13px; color: #ccc; margin: 4px 0; }
 .enemy-hand { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .enemy-card {
   width: 84px;
-  background: #1a1a2e;
-  border: 2px solid #444;
-  border-radius: 8px;
+  background: linear-gradient(160deg, #3a2440, #251a35);
+  border: 2px solid rgba(255, 217, 61, 0.25);
+  border-radius: 10px;
   padding: 4px;
   text-align: center;
   font-size: 12px;
-  transition: transform 0.15s, border-color 0.15s;
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  border-top: 3px solid var(--c-gold);
 }
 .enemy-card--pending {
   border-color: #ffd93d;
@@ -826,6 +966,7 @@ function nodeName(node) {
   margin-left: 6px;
   animation: hp-float 1.1s ease-out forwards;
 }
+.hp-flash--heal { color: var(--c-heal); }
 @keyframes hp-float {
   0% { opacity: 1; transform: translateY(0); }
   100% { opacity: 0; transform: translateY(-18px); }
@@ -883,13 +1024,19 @@ function nodeName(node) {
   z-index: 100;
 }
 .played-detail__card {
-  background: #1a1a2e;
-  border: 1px solid #555;
-  border-radius: 12px;
+  background: var(--c-bg-card);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
   padding: 16px 20px;
   max-width: 320px;
   width: 90%;
   text-align: center;
+  box-shadow: var(--shadow-card), 0 0 30px rgba(124, 108, 240, 0.15);
+  animation: pop-in 0.22s ease-out;
+}
+@keyframes pop-in {
+  from { transform: scale(0.88); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 .detail-title { margin: 0 0 8px; font-size: 18px; color: #fff; }
 .detail--enemy { color: #ffd93d; }
@@ -932,23 +1079,58 @@ function nodeName(node) {
 .dc { color: #74b9ff; }
 .plays { color: #aaa; }
 
-.hand-area { display: flex; flex-wrap: wrap; gap: 8px; min-height: 90px; }
+.hand-area { display: flex; flex-wrap: wrap; gap: 10px; min-height: 96px; padding: 6px 2px; }
 .hand-card {
-  width: 92px;
-  background: #1a1a2e;
-  border: 2px solid #444;
-  border-radius: 8px;
-  padding: 6px;
+  width: 96px;
+  background: linear-gradient(160deg, #2b2f5c 0%, #1c1e42 100%);
+  border: 2px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  padding: 6px 4px 8px;
   text-align: center;
   cursor: pointer;
+  position: relative;
+  box-shadow: var(--shadow-card);
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+  /* 顶部类型色条（按卡牌类型） */
+  border-top: 3px solid #8b7bf5;
 }
-.hand--picking { border-color: #ffd93d; }
-.card-name { font-size: 13px; font-weight: bold; }
-.card-cost { font-size: 12px; color: #ffd93d; }
-.card-count { font-size: 12px; color: #74b9ff; }
-.empty-hand { color: #666; }
-.count-picker { display: flex; gap: 8px; align-items: center; margin: 8px 0; font-size: 14px; }
-.battle-msg { color: #ff7675; font-size: 13px; }
+.hand-card[data-type='physical'] { border-top-color: #ff6b6b; }
+.hand-card[data-type='magic'] { border-top-color: #74c0fc; }
+.hand-card[data-type='defense'] { border-top-color: #51cf66; }
+.hand-card[data-type='utility'] { border-top-color: #ffd93d; }
+.hand-card:hover { transform: translateY(-4px); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5); }
+.hand--picking {
+  border-color: var(--c-gold);
+  transform: translateY(-8px) scale(1.05);
+  box-shadow: 0 0 18px var(--c-gold-glow), var(--shadow-card);
+  animation: card-glow 0.9s ease-in-out infinite;
+}
+@keyframes card-glow {
+  0%, 100% { box-shadow: 0 0 10px var(--c-gold-glow), var(--shadow-card); }
+  50% { box-shadow: 0 0 22px var(--c-gold-glow), var(--shadow-card); }
+}
+.card-name { font-size: 13px; font-weight: bold; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.6); }
+.card-cost { font-size: 12px; color: var(--c-gold); }
+.card-count { font-size: 12px; color: var(--c-shield); }
+.empty-hand { color: #777; }
+.count-picker {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0;
+  font-size: 14px;
+  padding: 8px 10px;
+  background: rgba(124, 108, 240, 0.12);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  animation: fade-in 0.18s ease-out;
+}
+.count-picker button { min-width: 30px; }
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.battle-msg { color: var(--c-damage); font-size: 13px; }
 
 /* 奖励 */
 .solo-reward { text-align: center; }

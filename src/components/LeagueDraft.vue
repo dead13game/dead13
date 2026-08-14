@@ -101,7 +101,7 @@ const playerPicks = ref([]);
 const opponentPicks = ref([]);
 const draftStage = ref("player"); // 'player' | 'opponent' | 'done'
 
-const allChars = Object.values(CHARACTERS);
+const allChars = Object.values(CHARACTERS).filter((c) => c.id !== 12); // 开发者角色仅模拟宇宙可选
 const availableChars = computed(() => allChars);
 
 function isCharTaken(charId) {

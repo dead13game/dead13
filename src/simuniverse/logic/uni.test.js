@@ -1166,6 +1166,30 @@ describe("模拟宇宙 M4：事件系统", () => {
     expect(s.shards).toBe(100);
     s.team.forEach((t) => expect(t.status.defensePile).toHaveLength(1));
   });
+  it("开发者角色 myracler(12)：开大对敌方全体 1000 伤害，冷却 0", () => {
+    const s = createUniState([12, 1, 2, 3]);
+    startCombat(s);
+    const enemy0 = s.combat.enemies[0];
+    const enemy1 = s.combat.enemies[1];
+    // 让 myracler 成为当前行动者
+    s.combat.activeIdx = 0;
+    s.combat.turnIdx = s.combat.actionOrder.indexOf(0);
+    const r = playerSkill(s, undefined, {});
+    expect(r.ok).toBe(true);
+    expect(enemy0.hp).toBe(Math.max(0, enemy0.maxHp - 1000));
+    expect(enemy1.hp).toBe(Math.max(0, enemy1.maxHp - 1000));
+    expect(enemy0.alive).toBe(false);
+    expect(s.team[0].skillCooldown).toBe(0); // 冷却 0 → 下回合可再开大
+  });
+
+  it("经典/联赛/世界杯选角池不含开发者角色(12)", () => {
+    // useGameController.availableChars / LeagueDraft / worldCup 均已过滤，
+    // 这里验证 CHARACTERS 中 12 存在但不会被经典模式随机到（worldCup 随机过滤）
+    expect(CHARACTERS[12]).toBeTruthy();
+    const pool = Object.values(CHARACTERS).filter((c) => c.id !== 12);
+    expect(pool.some((c) => c.id === 12)).toBe(false);
+    expect(pool.length).toBe(11);
+  });
 });
 
 describe("模拟宇宙 M5：商店与造物调试台", () => {

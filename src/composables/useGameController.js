@@ -47,9 +47,11 @@ export function useGameController() {
   // 可用角色（排除已被其他玩家选的）
   function availableChars(playerIdx) {
     const selectedOthers = playerChars.filter((c, i) => i !== playerIdx && c);
-    return Object.values(CHARACTERS).filter(
-      (c) => !selectedOthers.includes(c.id) || c.id === playerChars[playerIdx],
-    );
+    return Object.values(CHARACTERS)
+      .filter((c) => c.id !== 12) // 开发者角色仅模拟宇宙可选
+      .filter(
+        (c) => !selectedOthers.includes(c.id) || c.id === playerChars[playerIdx],
+      );
   }
 
   function selectChar(idx, charId) {

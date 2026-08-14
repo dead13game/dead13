@@ -292,6 +292,12 @@ export const UNI_SKILLS = {
     type: "passive",
     maxLoads: 3, // 3 次读档，不可升级
   },
+  12: {
+    name: "开发者指令",
+    type: "active",
+    cd: [0], // 冷却 0，可每回合开大
+    values: [1000], // 对敌方全体造成 1000 点伤害（开发者测试用）
+  },
 };
 
 /** 莉奈娅一技能的护盾牌单张值（可调） */
