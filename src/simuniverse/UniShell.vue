@@ -111,6 +111,11 @@
                   <span class="uni-member__hpnum">{{ t.hp }}/{{ t.maxHp }}</span>
                 </div>
               </div>
+              <span
+                v-if="lastDamage && lastDamage.type === 'member' && lastDamage.idx === t.index"
+                :key="'md' + lastDamage.seq"
+                class="uni-dmg-float"
+              >-{{ lastDamage.dmg }}</span>
             </div>
             <div class="uni-member__flags">
               <span v-if="t.shield > 0" class="uni-tag uni-tag--shield">🛡️{{ t.shield }}</span>
@@ -152,6 +157,11 @@
                 ></div>
               </div>
               <span class="uni-enemy__hpnum">{{ e.hp }}/{{ e.maxHp }}</span>
+              <span
+                v-if="lastDamage && lastDamage.type === 'enemy' && lastDamage.idx === e.id"
+                :key="'ed' + lastDamage.seq"
+                class="uni-dmg-float"
+              >-{{ lastDamage.dmg }}</span>
             </div>
             <div class="uni-enemy__flags">
               <span v-if="e.shield > 0" class="uni-tag uni-tag--shield">🛡️{{ e.shield }}</span>
@@ -232,6 +242,67 @@
           >
             📐 方程（{{ uniState.equations.length }}）
           </button>
+          <button
+            class="uni-btn uni-btn--sm uni-btn--album"
+            :class="{ 'uni-btn--active': bagTab === 'album' }"
+            @click="bagTab = 'album'"
+          >
+            📖 图鉴
+          </button>
+        </div>
+        <!-- 图鉴：全部祝福/奇物/方程 -->
+        <div v-if="bagTab === 'album'" class="uni-album">
+          <div class="uni-bag-tabs">
+            <button
+              class="uni-btn uni-btn--sm"
+              :class="{ 'uni-btn--active': albumKind === 'blessing' }"
+              @click="albumKind = 'blessing'"
+            >
+              🙏 祝福（{{ albumBlessings.length }}）
+            </button>
+            <button
+              class="uni-btn uni-btn--sm"
+              :class="{ 'uni-btn--active': albumKind === 'curio' }"
+              @click="albumKind = 'curio'"
+            >
+              ✨ 奇物（{{ albumCurios.length }}）
+            </button>
+            <button
+              class="uni-btn uni-btn--sm"
+              :class="{ 'uni-btn--active': albumKind === 'equation' }"
+              @click="albumKind = 'equation'"
+            >
+              📐 方程（{{ albumEquations.length }}）
+            </button>
+          </div>
+          <div class="uni-bag-list">
+            <div
+              v-for="(item, i) in albumList"
+              :key="'a' + albumKind + i"
+              class="uni-bag-item"
+              :class="{
+                'uni-bag-item--open': expandedKey === 'album-' + i,
+                'uni-bag-item--owned': isOwned(albumKind, item.id),
+              }"
+              @click="toggleDetail('album', i)"
+            >
+              <div class="uni-bag-item__head">
+                <span class="uni-bag-item__name">
+                  <span class="uni-star">{{ '★'.repeat(item.star) }}</span>
+                  {{ item.name }}
+                  <span v-if="isOwned(albumKind, item.id)" class="uni-tag uni-tag--boost">持有</span>
+                </span>
+                <span class="uni-bag-item__meta">
+                  <span v-if="albumKind === 'blessing' || albumKind === 'equation'" class="uni-tag">{{ item.fate }}</span>
+                  <span v-if="albumKind === 'curio' && item.negative" class="uni-tag uni-tag--bad">负面</span>
+                  <span class="uni-bag-item__arrow">{{ expandedKey === 'album-' + i ? '▲' : '▼' }}</span>
+                </span>
+              </div>
+              <div v-if="expandedKey === 'album-' + i" class="uni-bag-item__desc">
+                {{ item.desc }}
+              </div>
+            </div>
+          </div>
         </div>
         <!-- 祝福列表 -->
         <div v-if="bagTab === 'blessing'" class="uni-bag-list">
@@ -408,6 +479,14 @@
     <section v-if="uiMode === 'event-result'" class="uni-panel">
       <h2 class="uni-panel__title">{{ eventResult?.eventTitle }}</h2>
       <p class="uni-panel__desc">{{ eventResult?.outcome?.text }}</p>
+      <div class="uni-event-fx">
+        <span
+          v-for="(fx, i) in eventResult?.effects || []"
+          :key="i"
+          class="uni-tag uni-tag--fx"
+          :class="{ 'uni-tag--none': fx === '（无效果）' }"
+        >{{ fx }}</span>
+      </div>
       <template v-if="skillTargetPending">
         <p class="uni-panel__desc">选择角色升级技能（+{{ skillTargetPending }} 级）</p>
         <div class="uni-choice">
@@ -603,6 +682,7 @@ const skillTargetPending = computed(() => props.uni.skillTargetPending.value);
 const targetMode = ref(null); // null | 'enemy' | 'member'
 const actionChoice = ref(null); // null | 'attack' | 'defense'（已抽牌等待确认）
 const pendingSkill = ref(false); // 当前 enemy 目标选择是否用于开大（温迪/雷电）
+const lastDamage = computed(() => uniState.combat?.lastDamage || null);
 const drawnPoker = computed(() => uniState.combat?.pendingPoker?.[0] || null);
 const selectedEnemy = ref(null);
 const activeIdx = computed(() => uniState.combat?.activeIdx ?? null);
@@ -686,7 +766,27 @@ const upgradable = computed(() =>
 // ---- 背包弹层 ----
 const bagOpen = ref(false);
 const bagTab = ref("blessing");
+const albumKind = ref("blessing");
 const expandedKey = ref(null);
+const albumBlessings = computed(() =>
+  Object.values(BLESSINGS).sort((a, b) => a.star - b.star || a.id.localeCompare(b.id)),
+);
+const albumCurios = computed(() =>
+  Object.values(CURIOS).sort((a, b) => a.star - b.star || a.id.localeCompare(b.id)),
+);
+const albumEquations = computed(() =>
+  Object.values(EQUATIONS).sort((a, b) => a.star - b.star || a.id.localeCompare(b.id)),
+);
+const albumList = computed(() => {
+  if (albumKind.value === "curio") return albumCurios.value;
+  if (albumKind.value === "equation") return albumEquations.value;
+  return albumBlessings.value;
+});
+function isOwned(kind, id) {
+  if (kind === "curio") return uniState.curios.some((c) => c.id === id);
+  if (kind === "equation") return uniState.equations.some((e) => e.id === id);
+  return uniState.blessings.some((b) => b.id === id);
+}
 function toggleDetail(kind, i) {
   const key = kind + "-" + i;
   expandedKey.value = expandedKey.value === key ? null : key;
@@ -1502,6 +1602,53 @@ function onQuit() {
   .uni-battle__board {
     grid-template-columns: 1fr;
   }
+}
+/* 伤害飘字 */
+.uni-dmg-float {
+  position: absolute;
+  right: 10px;
+  top: 6px;
+  font-size: 16px;
+  font-weight: bold;
+  color: #ff6b6b;
+  text-shadow: 0 0 6px rgba(255, 60, 60, 0.8);
+  pointer-events: none;
+  z-index: 5;
+  animation: uniDmgFloat 1.1s ease-out forwards;
+}
+@keyframes uniDmgFloat {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-22px); }
+}
+/* 事件效果报告 */
+.uni-event-fx {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+}
+.uni-tag--fx {
+  background: rgba(120, 220, 160, 0.15);
+  color: #a5e8c0;
+  border: 1px solid rgba(120, 220, 160, 0.3);
+}
+.uni-tag--none {
+  background: rgba(255, 255, 255, 0.06);
+  color: #999;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+/* 图鉴 */
+.uni-btn--album {
+  background: rgba(90, 120, 255, 0.25);
+  border-color: rgba(120, 160, 255, 0.45);
+}
+.uni-bag-item--owned {
+  border-color: rgba(255, 190, 90, 0.4);
+}
+.uni-bag-item--owned .uni-bag-item__name {
+  color: #ffd27a;
+}
+@media (max-width: 640px) {
   .uni-shell {
     padding: 8px;
   }

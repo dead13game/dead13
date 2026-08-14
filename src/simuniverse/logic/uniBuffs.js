@@ -824,7 +824,7 @@ export function gainCurio(state, id, opts = {}) {
   if (id === "wanxiang") {
     for (let i = 0; i < 2 && state.blessings.length; i++) {
       const b = state.blessings[Math.floor(Math.random() * state.blessings.length)];
-      b.heatEnhanced = (b.heatEnhanced || 1) * 2;
+      b.heatEnhanced = (b.heatEnhanced || 1) + 1;
     }
   }
   // 理性的溃败：3 个不同命运的 1 星祝福

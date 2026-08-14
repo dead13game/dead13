@@ -687,6 +687,8 @@ export function damageEnemy(state, enemyIdx, dmg, sourceIdx = -1) {
     }
   }
   enemy.hp = Math.max(0, enemy.hp - d);
+  c.lastDamage = { type: "enemy", idx: enemyIdx, dmg, seq: (c._dmgSeq || 0) + 1 };
+  c._dmgSeq = c._dmgSeq || 0;
   state.devLog.debug(LOG_TYPE.UNI_REGION, `对 ${enemy.name} 造成伤害`, {
     enemyIdx,
     sourceIdx,
@@ -817,6 +819,8 @@ function damageTeamMember(state, memberIdx, dmg) {
   }
   t.hp -= finalHpDmg;
   if (remaining > 0) recordSound(state, "hit");
+  c.lastDamage = { type: "member", idx: memberIdx, dmg: finalDmg, seq: (c._dmgSeq || 0) + 1 };
+  c._dmgSeq = c._dmgSeq || 0;
   // 祝福：构筑·弥合（受击回盾）/ 戒律性闪变（残血回复）
   if (finalHpDmg > 0) triggerOnDamaged(state, memberIdx, finalHpDmg);
   // 反伤符文：反弹 100% 伤害给随机敌人
@@ -988,6 +992,20 @@ function endCombat(state, result) {
     }
     c.lastReward = { shards, blessingPicks: reward?.blessingPicks || 0 };
     state.log.push(`战斗胜利${shards ? `，+${shards} 宇宙碎片` : ""}`);
+    // 胜利后祝福三选一：按区域类型生成候选（battle 3×1-2星 / elite 3×2-3星 / boss 2×1-3星）
+    // 事件战斗（pendingEventReward）只用事件自身奖励，不叠加区域基础奖励
+    if (reward?.blessingPicks && !state.pendingEventReward) {
+      const starRange = reward.blessingStars || [1, 3];
+      const picks = [];
+      for (let i = 0; i < reward.blessingPicks; i++) {
+        picks.push({
+          candidates: rollBlessingCandidates(3, starRange[0], starRange[1]),
+          starRange,
+        });
+      }
+      state.pendingBlessingPicks = (state.pendingBlessingPicks || []).concat(picks);
+      state.log.push(`战斗胜利：可进行 ${reward.blessingPicks} 次祝福三选一`);
+    }
     // 事件战斗奖励（迷途商队护送/深渊裂缝/封印之门等）
     if (state.pendingEventReward) {
       const r = state.pendingEventReward;

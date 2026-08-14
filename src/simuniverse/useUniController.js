@@ -255,9 +255,11 @@ export function useUniController() {
   // ---- 事件 ----
 
   function doEventOption(optionIdx) {
+    const before = snapshotUni(uniState);
     const r = applyEventOption(uniState, uniState.region.eventId, optionIdx);
     if (!r.ok) return r;
-    eventResult.value = r;
+    const effects = diffUni(before, snapshotUni(uniState));
+    eventResult.value = { ...r, effects };
     if (uniState.gameOver) {
       uiMode.value = "gameover";
       return r;
@@ -272,6 +274,44 @@ export function useUniController() {
     }
     uiMode.value = "event-result";
     return r;
+  }
+
+  /** 事件选项应用后的效果快照（供 diff 生成效果报告） */
+  function snapshotUni(s) {
+    return {
+      shards: s.shards,
+      blessings: s.blessings.map((b) => `${b.id}@${b.enhanced || 1}x${b.heatEnhanced || 1}`).sort().join(","),
+      curios: s.curios.map((c) => c.id).sort().join(","),
+      equations: s.equations.map((e) => e.id).sort().join(","),
+      skillLevel: s.team.reduce((a, t) => a + (t.skillLevel || 1), 0),
+      hp: s.team.reduce((a, t) => a + t.hp, 0),
+      alive: s.team.filter((t) => t.alive).length,
+    };
+  }
+
+  /** 生成事件效果报告文本列表（无变化返回 ['（无效果）']） */
+  function diffUni(before, after) {
+    const out = [];
+    const dShards = after.shards - before.shards;
+    if (dShards !== 0) out.push(dShards > 0 ? `🪙 +${dShards} 宇宙碎片` : `🪙 -${-dShards} 宇宙碎片`);
+    const bBefore = before.blessings ? before.blessings.split(",").filter(Boolean) : [];
+    const bAfter = after.blessings.split(",").filter(Boolean);
+    if (bAfter.length > bBefore.length) out.push(`🙏 获得 ${bAfter.length - bBefore.length} 个祝福`);
+    else if (bAfter.length < bBefore.length) out.push(`🙏 失去 ${bBefore.length - bAfter.length} 个祝福`);
+    const cBefore = before.curios.split(",").filter(Boolean);
+    const cAfter = after.curios.split(",").filter(Boolean);
+    if (cAfter.length > cBefore.length) out.push(`🎁 获得 ${cAfter.length - cBefore.length} 个奇物`);
+    else if (cAfter.length < cBefore.length) out.push(`🎁 失去 ${cBefore.length - cAfter.length} 个奇物`);
+    const eBefore = before.equations.split(",").filter(Boolean);
+    const eAfter = after.equations.split(",").filter(Boolean);
+    if (eAfter.length > eBefore.length) out.push(`⚗️ 获得 ${eAfter.length - eBefore.length} 个方程`);
+    else if (eAfter.length < eBefore.length) out.push(`⚗️ 失去 ${eBefore.length - eAfter.length} 个方程`);
+    if (after.skillLevel > before.skillLevel) out.push(`📈 技能等级 +${after.skillLevel - before.skillLevel}`);
+    const dHp = after.hp - before.hp;
+    if (dHp < 0) out.push(`💔 生命 -${-dHp}`);
+    else if (dHp > 0) out.push(`💚 生命 +${dHp}`);
+    if (after.alive < before.alive) out.push(`☠️ 有角色无法战斗`);
+    return out.length ? out : ["（无效果）"];
   }
 
   /** 事件「指定角色升级」选择 */
