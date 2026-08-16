@@ -63,7 +63,7 @@ text = "经典模式"
 [node name="FootballButton" type="Button" parent="CenterBox/MenuPanel/Buttons"]
 layout_mode = 2
 custom_minimum_size = Vector2(280, 48)
-text = "足球模式（待移植）"
+text = "足球模式"
 
 [node name="SoloButton" type="Button" parent="CenterBox/MenuPanel/Buttons"]
 layout_mode = 2

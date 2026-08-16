@@ -1,22 +1,44 @@
 extends Control
-## 经典模式牌桌（Godot 版）
-## 功能 UI：玩家位 / 回合信息 / 日志 / 行动栏 / 卡牌选择 / AI 自动行动
+## 牌桌（Godot 版）— 经典模式 + 1v1 比赛模式（世界杯/联赛）
+## 功能 UI：玩家位 / 回合信息 / 日志 / 行动栏 / 卡牌选择 / AI 自动行动 / 换人 / 点球
 
 const GameConstants = preload("res://scripts/game/constants.gd")
 const GameState = preload("res://scripts/game/game_state.gd")
 const GameAi = preload("res://scripts/game/ai/ai.gd")
+const GameMatchState = preload("res://scripts/game/match_state.gd")
 
 # ---- UI 引用 ----
 var _round_label: Label
 var _weather_label: Label
 var _deck_label: Label
 var _turn_label: Label
+var _score_label: Label
 var _stage_label: Label
 var _info_label: Label
 var _players_row: HBoxContainer
 var _card_row: HBoxContainer
 var _log_list: VBoxContainer
 var _overlay: PanelContainer
+var _subs_panel: PanelContainer
+var _penalty_panel: PanelContainer
+
+# ---- 比赛模式 ----
+var _match_mode: bool = false
+var _subs_box: VBoxContainer
+var _penalty_score_label: Label
+var _penalty_result_label: Label
+var _penalty_kick_btn: Button
+var _penalty_finish_btn: Button
+var _last_penalty: Dictionary = {}
+
+# ---- 交互状态 ----
+var _state: Dictionary = {}
+var _last_log_count: int = 0
+var _liniya_subskill: int = 0
+var _nahida_order: Array = []
+var _gamble_trap_idx: int = -1
+var _busy: bool = false
+var _ai_loop_running: bool = false
 
 var _attack_btn: Button
 var _defense_btn: Button
@@ -31,19 +53,16 @@ var _load_btn: Button
 var _steal_btn: Button
 var _dot_btn: Button
 
-# ---- 交互状态 ----
-var _state: Dictionary = {}
-var _last_log_count: int = 0
-var _liniya_subskill: int = 0
-var _nahida_order: Array = []
-var _gamble_trap_idx: int = -1
-var _busy: bool = false
-var _ai_loop_running: bool = false
-
 func _ready() -> void:
 	_state = GameManager.state
+	_match_mode = _state.get("matchContext") != null
 	_build_ui()
+	if _match_mode:
+		GameManager.match_ui_changed.connect(_on_match_ui_changed)
 	_refresh_all()
+	# 比赛模式：若开局就处于换人/点球（如刚重置后），处理之
+	if _match_mode:
+		_check_match_pending()
 	_maybe_run_ai()
 
 # ============================================================
@@ -68,6 +87,8 @@ func _build_ui() -> void:
 	_weather_label = _top_label(top, "天气：无")
 	_deck_label = _top_label(top, "牌库 104")
 	_turn_label = _top_label(top, "当前：玩家1")
+	_score_label = _top_label(top, "")
+	_score_label.visible = _match_mode
 
 	var back_btn := Button.new()
 	back_btn.text = "返回主菜单"
@@ -178,12 +199,74 @@ func _build_ui() -> void:
 	ov_title.add_theme_font_size_override("font_size", 36)
 	ov_vbox.add_child(ov_title)
 	var ov_btn := Button.new()
-	ov_btn.text = "返回主菜单"
+	ov_btn.text = "返回"
 	ov_btn.custom_minimum_size = Vector2(200, 44)
-	ov_btn.pressed.connect(func():
-		GameManager.state = {}
-		get_tree().change_scene_to_file("res://scenes/main_menu.tscn"))
+	ov_btn.pressed.connect(_on_overlay_return)
 	ov_vbox.add_child(ov_btn)
+
+	# 换人面板（比赛模式）
+	_subs_panel = PanelContainer.new()
+	_subs_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_subs_panel.visible = false
+	add_child(_subs_panel)
+	var subs_center := CenterContainer.new()
+	_subs_panel.add_child(subs_center)
+	var subs_vbox := VBoxContainer.new()
+	subs_vbox.add_theme_constant_override("separation", 10)
+	subs_center.add_child(subs_vbox)
+	var subs_title := Label.new()
+	subs_title.text = "🔄 换人（选择下一局角色）"
+	subs_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	subs_title.add_theme_font_size_override("font_size", 26)
+	subs_vbox.add_child(subs_title)
+	var subs_scroll := ScrollContainer.new()
+	subs_scroll.custom_minimum_size = Vector2(560, 300)
+	subs_vbox.add_child(subs_scroll)
+	_subs_box = VBoxContainer.new()
+	_subs_box.add_theme_constant_override("separation", 6)
+	subs_scroll.add_child(_subs_box)
+	var subs_skip := Button.new()
+	subs_skip.text = "跳过换人"
+	subs_skip.custom_minimum_size = Vector2(0, 40)
+	subs_skip.pressed.connect(_on_substitute_skip)
+	subs_vbox.add_child(subs_skip)
+
+	# 点球面板（比赛模式）
+	_penalty_panel = PanelContainer.new()
+	_penalty_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_penalty_panel.visible = false
+	add_child(_penalty_panel)
+	var pen_center := CenterContainer.new()
+	_penalty_panel.add_child(pen_center)
+	var pen_vbox := VBoxContainer.new()
+	pen_vbox.add_theme_constant_override("separation", 12)
+	pen_center.add_child(pen_vbox)
+	var pen_title := Label.new()
+	pen_title.text = "⚽ 点球大战！"
+	pen_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pen_title.add_theme_font_size_override("font_size", 30)
+	pen_vbox.add_child(pen_title)
+	_penalty_score_label = Label.new()
+	_penalty_score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_penalty_score_label.add_theme_font_size_override("font_size", 24)
+	pen_vbox.add_child(_penalty_score_label)
+	_penalty_result_label = Label.new()
+	_penalty_result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_penalty_result_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	pen_vbox.add_child(_penalty_result_label)
+	_penalty_kick_btn = Button.new()
+	_penalty_kick_btn.text = "⚽ 踢点球"
+	_penalty_kick_btn.custom_minimum_size = Vector2(200, 44)
+	_penalty_kick_btn.pressed.connect(_on_penalty_kick)
+	pen_vbox.add_child(_penalty_kick_btn)
+	_penalty_finish_btn = Button.new()
+	_penalty_finish_btn.text = "查看赛果"
+	_penalty_finish_btn.custom_minimum_size = Vector2(200, 44)
+	_penalty_finish_btn.visible = false
+	_penalty_finish_btn.pressed.connect(func():
+		_penalty_panel.visible = false
+		_show_match_over())
+	pen_vbox.add_child(_penalty_finish_btn)
 
 func _top_label(parent: Control, text: String) -> Label:
 	var l := Label.new()
@@ -217,6 +300,12 @@ func _refresh_header() -> void:
 	_deck_label.text = "牌库 %d / 墓地 %d" % [_state.get("deck", []).size(), _state.get("grave", []).size()]
 	var p: Dictionary = GameState.current_player(_state)
 	_turn_label.text = "当前：%s" % p.get("name", "?")
+	if _match_mode:
+		var ms: Dictionary = GameManager.match_state
+		var score: Array = ms.get("score", [0, 0])
+		var extra: String = "（加时）" if ms.get("isExtraTime", false) else ""
+		_score_label.text = "⚽ 玩家 %d : %d 对手 · 第%d局%s" % [
+			score[0], score[1], ms.get("matchRound", 1), extra]
 
 func _refresh_players() -> void:
 	for child in _players_row.get_children():
@@ -373,7 +462,11 @@ func _refresh_actions() -> void:
 		and step != GameConstants.STEP["PICK_ACTION"]
 
 	if show_bar:
-		_attack_btn.disabled = int(_state.get("round", 0)) < 4 and _state.get("matchContext") == null
+		# 比赛模式：和平阶段禁攻击；经典模式：第4回合后可攻击
+		if _state.get("matchContext") != null:
+			_attack_btn.disabled = _state.get("phase", "") == GameConstants.PHASE["PEACE"]
+		else:
+			_attack_btn.disabled = int(_state.get("round", 0)) < 4
 		_skill_btn.disabled = not GameState.can_use_skill(_state, p)
 		_holy_btn.disabled = not GameState.can_use_holy_word(_state, p)
 		_ally_btn.disabled = _state.get("phase", "") == GameConstants.PHASE["PEACE"] \
@@ -382,17 +475,188 @@ func _refresh_actions() -> void:
 			or int(p.get("relations", {}).get("betrayalPenalty", 0)) > 0
 		_betray_btn.disabled = p.get("relations", {}).get("allyIndex") == null
 
-	# 结算遮罩
+	# 结算遮罩（比赛模式由 match_ui_changed 控制，经典模式用 gameOver）
 	var over: bool = _state.get("gameOver", false)
-	_overlay.visible = over
-	if over:
-		var title: Label = _overlay.find_child("OverlayTitle", true, false)
-		if title != null:
-			var winner_idx: int = int(_state.get("winnerIndex", -1))
-			if winner_idx >= 0 and winner_idx < _state.get("players", []).size():
-				title.text = "%s 获胜！" % _state["players"][winner_idx].get("name", "?")
-			else:
-				title.text = "全员阵亡"
+	if _match_mode:
+		# 比赛模式：遮罩只在"over"时显示（由 _show_match_over 控制）
+		pass
+	else:
+		_overlay.visible = over
+		if over:
+			var title: Label = _overlay.find_child("OverlayTitle", true, false)
+			if title != null:
+				var winner_idx: int = int(_state.get("winnerIndex", -1))
+				if winner_idx >= 0 and winner_idx < _state.get("players", []).size():
+					title.text = "%s 获胜！" % _state["players"][winner_idx].get("name", "?")
+				else:
+					title.text = "全员阵亡"
+
+# ============================================================
+#  比赛模式（换人 / 点球 / 赛果）
+# ============================================================
+
+func _check_match_pending() -> void:
+	if not _match_mode:
+		return
+	var ms: Dictionary = GameManager.match_state
+	if ms.get("isPenaltyShootout", false):
+		_show_penalty()
+	elif ms.get("matchOver", false):
+		_show_match_over()
+	elif ms.get("substitutionPending", false):
+		_handle_substitution_ui()
+
+func _on_match_ui_changed(mode: String) -> void:
+	match mode:
+		"substitution":
+			_handle_substitution_ui()
+		"penalty":
+			_show_penalty()
+		"over":
+			_show_match_over()
+
+# ---- 换人 ----
+
+func _handle_substitution_ui() -> void:
+	if not _match_mode:
+		return
+	var ms: Dictionary = GameManager.match_state
+	if GameManager._last_scorer_is_player:
+		# 玩家进球 → 对手阵亡 → 对手自动换人（随机不同角色），玩家跳过
+		var new_char: int = _random_char_excluding(int(ms.get("playerCharId", 0)))
+		ms["opponentCharId"] = new_char
+		_on_substitute_skip()
+		return
+	# 玩家阵亡 → 显示换人面板
+	_rebuild_subs_panel()
+	_subs_panel.visible = true
+	_ai_loop_running = true  # 暂停 AI 循环
+
+func _rebuild_subs_panel() -> void:
+	for child in _subs_box.get_children():
+		child.queue_free()
+	var ms: Dictionary = GameManager.match_state
+	var opponent_char_id: int = int(ms.get("opponentCharId", 0))
+	for cid in range(1, 12):
+		if cid == opponent_char_id:
+			continue
+		var cdata: Dictionary = GameConstants.CHARACTERS.get(cid, {})
+		if cdata.is_empty():
+			continue
+		var btn := Button.new()
+		btn.text = "%s（%s）" % [cdata.get("name", "?"), cdata.get("title", "?")]
+		btn.custom_minimum_size = Vector2(0, 36)
+		var char_id: int = cid
+		btn.pressed.connect(func(): _on_substitute_char(char_id))
+		_subs_box.add_child(btn)
+
+func _on_substitute_skip() -> void:
+	if not _match_mode:
+		return
+	var ms: Dictionary = GameManager.match_state
+	GameMatchState.skip_substitution(ms, _state)
+	_after_substitution()
+
+func _on_substitute_char(char_id: int) -> void:
+	if not _match_mode:
+		return
+	var ms: Dictionary = GameManager.match_state
+	GameMatchState.execute_substitution(ms, _state, char_id)
+	GameMatchState.skip_substitution(ms, _state)
+	_after_substitution()
+
+func _after_substitution() -> void:
+	_subs_panel.visible = false
+	_ai_loop_running = false
+	_refresh_all()
+	_maybe_run_ai()
+
+func _random_char_excluding(exclude: int) -> int:
+	var pool: Array = []
+	for cid in range(1, 12):
+		if cid != exclude:
+			pool.append(cid)
+	return pool[randi() % pool.size()]
+
+# ---- 点球 ----
+
+func _show_penalty() -> void:
+	_subs_panel.visible = false
+	_penalty_panel.visible = true
+	_ai_loop_running = true
+	_last_penalty = {}
+	_refresh_penalty()
+
+func _refresh_penalty() -> void:
+	var ms: Dictionary = GameManager.match_state
+	var pen: Dictionary = ms.get("penalty", {})
+	var p_score: int = int(pen.get("playerScore", 0))
+	var o_score: int = int(pen.get("opponentScore", 0))
+	_penalty_score_label.text = "玩家 %d : %d 对手" % [p_score, o_score]
+	if _last_penalty.is_empty():
+		_penalty_result_label.text = "每轮双方各抽2张牌，点数大者得1分，先到5分者胜"
+	else:
+		var player_cards: Array = _last_penalty.get("playerCards", [])
+		var opp_cards: Array = _last_penalty.get("opponentCards", [])
+		var pc: String = ""
+		for c in player_cards:
+			pc += "%s%s " % [c.get("rank", "?"), c.get("suit", "")]
+		var oc: String = ""
+		for c in opp_cards:
+			oc += "%s%s " % [c.get("rank", "?"), c.get("suit", "")]
+		var winner: Variant = _last_penalty.get("winner")
+		var line: String = "本轮：玩家 %s（%d） vs 对手 %s（%d）" % [
+			pc.strip_edges(), _last_penalty.get("playerSum", 0), oc.strip_edges(), _last_penalty.get("opponentSum", 0)]
+		if winner != null:
+			line += "\n" + ("🎉 玩家获胜！" if int(winner) == 0 else "😔 对手获胜！")
+		_penalty_result_label.text = line
+	_penalty_kick_btn.visible = ms.get("winner") == null
+	_penalty_finish_btn.visible = ms.get("winner") != null
+
+func _on_penalty_kick() -> void:
+	var ms: Dictionary = GameManager.match_state
+	var saved_over: bool = ms.get("matchOver", true)
+	ms["matchOver"] = false
+	var result: Dictionary = GameMatchState.execute_penalty_round(ms)
+	ms["matchOver"] = saved_over
+	if result.is_empty():
+		return
+	_last_penalty = result
+	if result.get("winner") != null:
+		ms["winner"] = result.get("winner")
+		ms["matchOver"] = true
+		_state["gameOver"] = true
+		_state["winnerIndex"] = int(result.get("winner", -1))
+	_refresh_penalty()
+
+# ---- 赛果 ----
+
+func _show_match_over() -> void:
+	_subs_panel.visible = false
+	_penalty_panel.visible = false
+	_ai_loop_running = true
+	var ms: Dictionary = GameManager.match_state
+	var score: Array = ms.get("score", [0, 0])
+	var winner: Variant = ms.get("winner")
+	var title: Label = _overlay.find_child("OverlayTitle", true, false)
+	if title != null:
+		var text: String = "比赛结束 %d : %d" % [score[0], score[1]]
+		if winner != null:
+			text += "\n" + ("🏆 你赢了！" if int(winner) == 0 else "😔 你输了…")
+		else:
+			text += "\n平局"
+		title.text = text
+	_overlay.visible = true
+
+func _on_overlay_return() -> void:
+	if _match_mode:
+		if GameManager.match_return_scene != "":
+			get_tree().change_scene_to_file(GameManager.match_return_scene)
+		else:
+			get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+	else:
+		GameManager.state = {}
+		get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 
 # ============================================================
 #  卡牌 UI
@@ -579,15 +843,28 @@ func _maybe_run_ai() -> void:
 		return
 	if _state.get("gameOver", false):
 		return
+	if _match_mode and _match_pending_ui():
+		return
 	var p: Dictionary = GameState.current_player(_state)
 	if not p.get("isAI", false):
 		return
 	_ai_loop_running = true
 	_run_ai_loop()
 
+## 比赛模式：换人/点球/赛果等待 UI 处理时暂停 AI
+func _match_pending_ui() -> bool:
+	if not _match_mode:
+		return false
+	var ms: Dictionary = GameManager.match_state
+	return ms.get("substitutionPending", false) \
+		or ms.get("isPenaltyShootout", false) \
+		or ms.get("matchOver", false)
+
 func _run_ai_loop() -> void:
 	var steps: int = 0
 	while not _state.get("gameOver", false):
+		if _match_mode and _match_pending_ui():
+			break
 		var p: Dictionary = GameState.current_player(_state)
 		if not p.get("isAI", false):
 			break

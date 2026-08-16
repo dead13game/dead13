@@ -1,7 +1,7 @@
 # 亡命十三街 → Godot 迁移计划
 
 > 目标：把现有的 Vue 3 + PixiJS + Tauri 项目逐步迁移到 Godot 4.7，最终以 **HTML（Web 导出）** 部署到 GitHub Pages（替换原 Vue 版，仍使用 `https://menghun-myracler.github.io/13street/`）。
-> 当前状态：**经典模式已可玩（纯逻辑全部移植 + Godot UI），Web 导出已配置，GitHub Pages 工作流已接入。**
+> 当前状态：**经典模式 + 足球模式（世界杯完整/联赛可玩）已上线可玩，Web 单线程导出已配置，GitHub Pages 工作流已接入。**
 
 ## 为什么选 Godot
 - 原生跨平台导出，不再依赖浏览器/WebView。
@@ -82,22 +82,26 @@ godot/
 - [x] 本地导出验证通过（index.html + index.wasm + index.pck）
 - [x] GitHub Actions：`.github/workflows/deploy.yml` 改为 CI 下载 Godot 4.7.1 → Web 导出 → 部署 Pages（替换原 Vue 构建）
 
+### 足球模式（世界杯完整 + 联赛可玩）
+- [x] `match_state.gd`：1v1 比赛状态机（进球/重置/换人/加时/点球）
+- [x] `world_cup.gd` + `world_cup_constants.gd`：世界杯赛程（小组赛6场→积分榜→出线→淘汰赛 R16/QF/SF/Final）
+- [x] `league.gd` + `league_constants.gd`：10队双循环18轮 + 积分榜 + 等级加成 + 3v3比分计算（逻辑已备）
+- [x] `game_table` 支持比赛模式：比分栏/换人面板/点球面板/赛果遮罩
+- [x] 世界杯 UI：设置 → 小组赛 → 积分榜出线 → 淘汰赛（含换人）→ 冠军/淘汰
+- [x] 联赛 UI：选队 → 18轮（简化1v1代表战）→ 积分榜 → 赛季结束
+- [ ] 联赛 3v3 完整版（选秀+6人赛+死亡顺序计分）——逻辑已移植，UI 待接
+
 ## 测试
 
 ```bash
-# Godot 核心 + 逻辑测试（PASS: all core tests / all logic tests）
+# Godot 核心 + 逻辑 + 足球测试（PASS: all core/logic/football tests）
 cd godot
 godot --headless --path . --script res://tests/test_core.gd
 godot --headless --path . --script res://tests/test_logic.gd
+godot --headless --path . --script res://tests/test_football.gd
 ```
 
 ## 后续里程碑（建议顺序）
-
-### Phase 2：足球模式
-- [ ] `match_state.gd`：1v1 比赛状态机
-- [ ] `world_cup.gd`：世界杯赛程
-- [ ] `league.gd`：联赛赛程
-- [ ] 世界杯 / 联赛 UI
 
 ### Phase 3：单人模式
 - [ ] `solo_logic.gd`：爬塔状态机
@@ -111,6 +115,7 @@ godot --headless --path . --script res://tests/test_logic.gd
 - [ ] 模拟宇宙 UI
 
 ### Phase 5：打磨与发布
+- [ ] 联赛 3v3 完整版（选秀 + 6人赛 + 死亡顺序计分）
 - [ ] 动画/粒子/音效还原（视觉细节可在 Godot 编辑器协助）
 - [ ] 战斗音乐 / 音效播放接入
 - [ ] 存档系统接入（浏览器 localStorage / 桌面文件）
@@ -118,9 +123,10 @@ godot --headless --path . --script res://tests/test_logic.gd
 
 ## 上线流程
 
-1. 本地验证：`godot --headless --path godot --script res://tests/test_logic.gd`
+1. 本地验证：`godot --headless --path godot --script res://tests/test_football.gd`
 2. push 到 `main` → GitHub Actions 自动下载 Godot、导出 Web、部署到 Pages
 3. 仓库设置：Settings → Pages → Source 选 **GitHub Actions**
+4. **Web 导出为单线程**（`export_presets.cfg` 中 `variant/thread_support=false`）——不需要 SharedArrayBuffer / 跨源隔离头，GitHub Pages 直接可跑
 
 ## 与原项目并行策略
 - 原 Web/Tauri 版本代码保留在仓库中，直到 Godot 版功能覆盖完成。
