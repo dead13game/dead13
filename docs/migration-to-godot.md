@@ -1,7 +1,7 @@
 # 亡命十三街 → Godot 迁移计划
 
 > 目标：把现有的 Vue 3 + PixiJS + Tauri 项目逐步迁移到 Godot 4.7，最终以 **HTML（Web 导出）** 部署到 GitHub Pages（替换原 Vue 版，仍使用 `https://menghun-myracler.github.io/13street/`）。
-> 当前状态：**经典 / 足球（世界杯+联赛）/ 单人爬塔 三大模式可玩，Web 单线程导出已配置，GitHub Pages 工作流已接入。仅剩模拟宇宙。**
+> 当前状态：**经典 / 足球（世界杯+联赛）/ 单人爬塔 三大模式可玩，Web 单线程导出已配置，GitHub Pages 工作流已接入。模拟宇宙逻辑层已全部移植并通过测试，UI 待搭。**
 
 ## 为什么选 Godot
 - 原生跨平台导出，不再依赖浏览器/WebView。
@@ -98,29 +98,38 @@ godot/
 - [x] `solo_events.gd`：岔路猎手 / 神秘商人 + 扑克检定（♥ 重抽）
 - [x] 单人 UI：地图 → 战斗（抽3选2/出牌/敌方回合）→ 事件/商店/营地 → 卡牌3选1 → 属性分配 → 通关/阵亡
 
+### 模拟宇宙（逻辑层全部移植，UI 待搭）
+- [x] `uni_constants.gd`：位面/层规则 / 敌人基础 / 区域 / 货币 / 商店价格 / 12 角色 PVE 技能表
+- [x] `uni_buffs.gd`：祝福 59 / 奇物 79 / 方程 13 全量数据 + 强化规则 + modifier 聚合 + 全部事件钩子
+- [x] `uni_core.gd`：队伍创建 / 碎片货币（奇物修正）/ 被动同步（玛薇卡斗志/哥伦比娅攻防）/ 存档 / 菜月昴死亡回归
+- [x] `uni_state.gd`：状态创建 / 区域生成 / 普通层 2 选 1 / 进入区域效果（财富/休整/首领工作台/商店/奇遇）/ 层推进 / 复活
+- [x] `uni_combat.gd`：三选一战斗（普攻/防御/开大）/ 敌人模板 / 波次 / 首领穿插 / 转化及格线 / 伤害结算 / 祝福奇物方程钩子
+- [x] `uni_skills.gd`：12 角色 PVE 技能（等级 1-10 查表 / 冷却 / 阈下知觉 / 蛰虫帝）
+- [x] `uni_shop.gd`：商品生成 / 购买 / 造物调试台（热量强化 + 覆写）
+- [x] `uni_events.gd`：9 分支事件 + 8 奖励 + 3 冒险（骰子/翻牌/抽签）+ 祝福三选一
+- [x] `test_uni.gd`：覆盖常量/祝福/奇物/方程/状态/区域/商店/事件/战斗/技能/存档复活/端到端跑图 31 层
+- [ ] 模拟宇宙 UI（UniShell 等价物：地图推进/战斗/事件/商店/工作台/祝福三选一）
+
 ## 测试
 
 ```bash
-# Godot 核心 + 逻辑 + 足球 + 单机测试（PASS: all core/logic/football/solo tests）
+# Godot 核心 + 逻辑 + 足球 + 单机 + 模拟宇宙测试（PASS: all core/logic/football/solo/uni tests）
 cd godot
 godot --headless --path . --script res://tests/test_core.gd
 godot --headless --path . --script res://tests/test_logic.gd
 godot --headless --path . --script res://tests/test_football.gd
 godot --headless --path . --script res://tests/test_solo.gd
+godot --headless --path . --script res://tests/test_uni.gd
 ```
 
 ## 后续里程碑（建议顺序）
 
-### Phase 3：单人模式
-- [ ] `solo_logic.gd`：爬塔状态机
-- [ ] `solo_combat.gd`：战斗
-- [ ] 单人 UI
-
 ### Phase 4：模拟宇宙
-- [ ] `uni_state.gd`：位面 / 推进
-- [ ] `uni_combat.gd`：三选一战斗
-- [ ] `uni_buffs.gd`：祝福 / 奇物 / 方程
-- [ ] 模拟宇宙 UI
+- [x] `uni_state.gd`：位面 / 推进 / 区域生成 / 货币 / 队伍 / 存档
+- [x] `uni_combat.gd`：三选一战斗 / 敌人模板 / 波次 / 转化及格线
+- [x] `uni_buffs.gd`：祝福 / 奇物 / 方程 全量数据 + 效果
+- [x] `uni_skills.gd` / `uni_shop.gd` / `uni_events.gd` / `uni_core.gd`
+- [ ] 模拟宇宙 UI（UniShell 等价物）
 
 ### Phase 5：打磨与发布
 - [ ] 联赛 3v3 完整版（选秀 + 6人赛 + 死亡顺序计分）
