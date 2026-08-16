@@ -26,8 +26,18 @@ dist-ssr
 *.png
 !public/*.png
 !src/**/*.png
+!godot/assets/**/*.png
 
 scripts/
+!godot/scripts/
+!godot/scripts/**
 
 # 音效源素材（已复制到 public/sfx/，源文件不入库）
 Sounds/
+
+# Godot
+godot/.godot/
+godot/build/
+
+# 迁移会话临时解压目录
+.migration-session/

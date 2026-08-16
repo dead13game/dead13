@@ -1,9 +1,15 @@
-# 自动部署到 GitHub Pages
+# 自动部署 Godot Web 版到 GitHub Pages
+# 在 CI 上下载 Godot 4.7.1 并执行 Web 导出，产物上传到 Pages
+# 前置条件：仓库 Settings → Pages → Source 选择 "GitHub Actions"
 name: Deploy to Pages
 
 on:
   push:
     branches: [main]
+
+env:
+  GODOT_VERSION: "4.7.1"
+  GODOT_RELEASE: "4.7.1-stable"
 
 jobs:
   build-and-deploy:
@@ -18,20 +24,35 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-      - name: Install dependencies
-        run: npm ci
-      - name: Build
-        run: npm run build
+
+      - name: Download Godot editor
+        run: |
+          curl -Lo godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_linux.x86_64.zip"
+          unzip -o godot.zip
+          chmod +x Godot_v${GODOT_RELEASE}_linux.x86_64
+          mv Godot_v${GODOT_RELEASE}_linux.x86_64 godot-bin
+
+      - name: Install Web export templates
+        run: |
+          curl -Lo templates.tpz "https://github.com/godotengine/godot/releases/download/${GODOT_RELEASE}/Godot_v${GODOT_RELEASE}_export_templates.tpz"
+          mkdir -p ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          unzip -o templates.tpz -d /tmp/templates
+          mv /tmp/templates/templates/* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
+
+      - name: Export Web build
+        working-directory: godot
+        run: |
+          mkdir -p build/web
+          ../godot-bin --headless --path . --export-release "Web"
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: "./dist"
+          path: "./godot/build/web"
+
       - name: Deploy to Pages
         id: deployment
         uses: actions/deploy-pages@v4
