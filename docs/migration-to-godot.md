@@ -1,7 +1,7 @@
 # 亡命十三街 → Godot 迁移计划
 
 > 目标：把现有的 Vue 3 + PixiJS + Tauri 项目逐步迁移到 Godot 4.7，最终以 **HTML（Web 导出）** 部署到 GitHub Pages（替换原 Vue 版，仍使用 `https://menghun-myracler.github.io/13street/`）。
-> 当前状态：**经典 / 足球（世界杯+联赛）/ 单人爬塔 三大模式可玩，Web 单线程导出已配置，GitHub Pages 工作流已接入。模拟宇宙逻辑层已全部移植并通过测试，UI 待搭。**
+> 当前状态：**经典 / 足球（世界杯+联赛）/ 单人爬塔 / 模拟宇宙 四大模式可玩，Web 单线程导出已配置，GitHub Pages 工作流已接入。**
 
 ## 为什么选 Godot
 - 原生跨平台导出，不再依赖浏览器/WebView。
@@ -108,18 +108,21 @@ godot/
 - [x] `uni_shop.gd`：商品生成 / 购买 / 造物调试台（热量强化 + 覆写）
 - [x] `uni_events.gd`：9 分支事件 + 8 奖励 + 3 冒险（骰子/翻牌/抽签）+ 祝福三选一
 - [x] `test_uni.gd`：覆盖常量/祝福/奇物/方程/状态/区域/商店/事件/战斗/技能/存档复活/端到端跑图 31 层
-- [ ] 模拟宇宙 UI（UniShell 等价物：地图推进/战斗/事件/商店/工作台/祝福三选一）
+- [x] 模拟宇宙 UI（UniShell 等价物）：层推进(2选1)/战斗(三选一)/事件/商店/造物调试台/祝福三选一/休整复活/结算
+- [x] 主菜单入口 + GameManager 状态管理 + `uni_shell.tscn`
+- [x] `test_uni_ui.gd`：UI 流程回归（打穿战斗层→胜利奖励→祝福三选一→层推进）
 
 ## 测试
 
 ```bash
-# Godot 核心 + 逻辑 + 足球 + 单机 + 模拟宇宙测试（PASS: all core/logic/football/solo/uni tests）
+# Godot 核心 + 逻辑 + 足球 + 单机 + 模拟宇宙测试（PASS: all core/logic/football/solo/uni tests + uni ui flow）
 cd godot
 godot --headless --path . --script res://tests/test_core.gd
 godot --headless --path . --script res://tests/test_logic.gd
 godot --headless --path . --script res://tests/test_football.gd
 godot --headless --path . --script res://tests/test_solo.gd
 godot --headless --path . --script res://tests/test_uni.gd
+godot --headless --path . --script res://tests/test_uni_ui.gd
 ```
 
 ## 后续里程碑（建议顺序）
@@ -129,7 +132,7 @@ godot --headless --path . --script res://tests/test_uni.gd
 - [x] `uni_combat.gd`：三选一战斗 / 敌人模板 / 波次 / 转化及格线
 - [x] `uni_buffs.gd`：祝福 / 奇物 / 方程 全量数据 + 效果
 - [x] `uni_skills.gd` / `uni_shop.gd` / `uni_events.gd` / `uni_core.gd`
-- [ ] 模拟宇宙 UI（UniShell 等价物）
+- [x] 模拟宇宙 UI（UniShell 等价物）
 
 ### Phase 5：打磨与发布
 - [ ] 联赛 3v3 完整版（选秀 + 6人赛 + 死亡顺序计分）

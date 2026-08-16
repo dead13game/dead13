@@ -21,7 +21,8 @@ func _on_solo_pressed() -> void:
 	get_tree().change_scene_to_file("res://scenes/solo/solo_shell.tscn")
 
 func _on_simuniverse_pressed() -> void:
-	mode_selected.emit("simuniverse")
+	GameManager.new_simuniverse()
+	get_tree().change_scene_to_file("res://scenes/simuniverse/uni_shell.tscn")
 
 func _on_rules_pressed() -> void:
 	mode_label.text = "规则说明：请先迁移完整规则后再接入。"

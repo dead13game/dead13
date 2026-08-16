@@ -100,3 +100,12 @@ func new_solo() -> void:
 	var GameSolo = preload("res://scripts/game/solo.gd")
 	solo_state = GameSolo.create_solo_state()
 	mode = "solo"
+
+# ===== 模拟宇宙 =====
+
+var uni_state: Dictionary = {}
+
+func new_simuniverse(char_ids: Array = []) -> void:
+	var GameUniState = preload("res://scripts/game/uni_state.gd")
+	uni_state = GameUniState.create_uni_state(char_ids)
+	mode = "simuniverse"
