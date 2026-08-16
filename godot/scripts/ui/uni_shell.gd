@@ -11,6 +11,7 @@ const UniShop = preload("res://scripts/game/uni_shop.gd")
 const UniEvents = preload("res://scripts/game/uni_events.gd")
 const UniCore = preload("res://scripts/game/uni_core.gd")
 const GameConstants = preload("res://scripts/game/constants.gd")
+const SaveManager = preload("res://scripts/autoload/save_manager.gd")
 
 var _s: Dictionary = {}
 var _view: String = "map"
@@ -160,6 +161,20 @@ func _show_map() -> void:
 	_add_label(_team_line(), 13)
 	_add_label("", 6)
 
+	# 存档 / 读档（常驻）
+	var save_row := HBoxContainer.new()
+	save_row.add_theme_constant_override("separation", 8)
+	_content.add_child(save_row)
+	var save_btn := Button.new()
+	save_btn.text = "💾 存档"
+	save_btn.pressed.connect(_on_save)
+	save_row.add_child(save_btn)
+	var load_btn := Button.new()
+	load_btn.text = "📂 读档（%s）" % ("有存档" if SaveManager.has("uni") else "无存档")
+	load_btn.pressed.connect(_on_load)
+	save_row.add_child(load_btn)
+	_add_label("", 4)
+
 	# 待选祝福优先
 	if _s.get("pendingBlessingPicks", []).size() > 0:
 		_add_button("🎁 选择祝福（%d 次）" % _s["pendingBlessingPicks"].size(), _show_blessing)
@@ -223,6 +238,32 @@ func _on_advance() -> void:
 	var r: Variant = UniState.advance_floor(_s)
 	_refresh_log()
 	_show_map()
+
+## 存档（模拟宇宙）
+func _on_save() -> void:
+	var data: Dictionary = UniState.serialize_uni(_s)
+	if SaveManager.save("uni", data):
+		_msg = "已存档！"
+	else:
+		_msg = "存档失败"
+	_show_map()
+
+## 读档
+func _on_load() -> void:
+	var data: Variant = SaveManager.load("uni")
+	if data == null or not data is Dictionary:
+		_msg = "无存档或读档失败"
+		_show_map()
+		return
+	# 覆盖当前状态（保留引用）
+	if UniState.deserialize_uni(_s, data):
+		# 重新注入技能（存档恢复后 _injected 已是 true，无需重注入；combat 引用已由状态携带）
+		_msg = "读档成功！"
+		_refresh_log()
+		_show_map()
+	else:
+		_msg = "读档失败"
+		_show_map()
 
 func _enter_event() -> void:
 	var r: Dictionary = _s["region"]

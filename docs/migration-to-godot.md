@@ -135,12 +135,14 @@ godot --headless --path . --script res://tests/test_league_3v3.gd
 - [x] `uni_buffs.gd`：祝福 / 奇物 / 方程 全量数据 + 效果
 - [x] `uni_skills.gd` / `uni_shop.gd` / `uni_events.gd` / `uni_core.gd`
 - [x] 模拟宇宙 UI（UniShell 等价物）
+- [x] 存档系统：`save_manager.gd`（Web→localStorage / 桌面→user:// 双后端），经典/solo/uni 三模式持久化存档接入 UI
+- [x] `test_save.gd`：SaveManager 基础 + 三模式序列化往返全绿
 
 ### Phase 5：打磨与发布
-- [ ] 联赛 3v3 完整版（选秀 + 6人赛 + 死亡顺序计分）
+- [x] 联赛 3v3 完整版（选秀 + 6人赛 + 死亡顺序计分）
+- [x] 存档系统接入（浏览器 localStorage / 桌面文件）
 - [ ] 动画/粒子/音效还原（视觉细节可在 Godot 编辑器协助）
 - [ ] 战斗音乐 / 音效播放接入
-- [ ] 存档系统接入（浏览器 localStorage / 桌面文件）
 - [ ] 各平台导出配置（Windows / 移动端）
 
 ## 上线流程

@@ -6,6 +6,7 @@ const GameConstants = preload("res://scripts/game/constants.gd")
 const GameState = preload("res://scripts/game/game_state.gd")
 const GameAi = preload("res://scripts/game/ai/ai.gd")
 const GameMatchState = preload("res://scripts/game/match_state.gd")
+const SaveManager = preload("res://scripts/autoload/save_manager.gd")
 
 # ---- UI 引用 ----
 var _round_label: Label
@@ -454,8 +455,11 @@ func _refresh_actions() -> void:
 	_betray_btn.visible = show_bar
 	_holy_btn.visible = show_bar
 	_skill_btn.visible = show_bar
-	_save_btn.visible = step == GameConstants.STEP["CAIYUEANG_PICK"] and is_human
-	_load_btn.visible = step == GameConstants.STEP["CAIYUEANG_PICK"] and is_human
+	# 存档/读档：菜月昴技能步骤常显；经典模式（无比赛上下文）常显用于持久化
+	var _is_match_mode_ctx: bool = _state.get("matchContext") != null or _state.get("leagueContext") != null
+	_save_btn.visible = (step == GameConstants.STEP["CAIYUEANG_PICK"] and is_human) \
+		or (not _is_match_mode_ctx and show_bar)
+	_load_btn.visible = _save_btn.visible
 	_steal_btn.visible = step == GameConstants.STEP["LINIYA_PICK"] and is_human
 	_dot_btn.visible = step == GameConstants.STEP["LINIYA_PICK"] and is_human
 	_cancel_btn.visible = not show_bar and is_human and not _state.get("gameOver", false) \
@@ -797,11 +801,40 @@ func _on_holy_word() -> void:
 	_after_action()
 
 func _on_save() -> void:
-	GameState.execute_caiyueang_save(_state)
+	# 比赛模式（联赛/世界杯）不持久化存档
+	if _state.get("leagueContext") != null or _state.get("matchContext") != null:
+		return
+	# 有菜月昴场景：执行技能存档（内存快照）+ 持久化
+	var caiyueang: Variant = _state.get("caiyueang", null)
+	if caiyueang != null:
+		GameState.execute_caiyueang_save(_state)
+	var data: Dictionary = GameState.serialize_game_state(_state)
+	SaveManager.save("classic", data)
+	var log: Array = _state.get("messageLog", [])
+	log.append("💾 已持久化存档")
 	_after_action()
 
 func _on_load() -> void:
-	GameState.execute_caiyueang_load(_state)
+	if _state.get("leagueContext") != null or _state.get("matchContext") != null:
+		return
+	var caiyueang: Variant = _state.get("caiyueang", null)
+	if caiyueang != null:
+		GameState.execute_caiyueang_load(_state)
+		_after_action()
+		return
+	var data: Variant = SaveManager.load("classic")
+	if data == null or not data is Dictionary:
+		var log2: Array = _state.get("messageLog", [])
+		log2.append("无存档")
+		_after_action()
+		return
+	if GameState.deserialize_game_state(_state, data):
+		_refresh_all()
+		var log3: Array = _state.get("messageLog", [])
+		log3.append("📂 读档成功")
+	else:
+		var log4: Array = _state.get("messageLog", [])
+		log4.append("读档失败")
 	_after_action()
 
 func _on_liniya_1() -> void:

@@ -8,6 +8,7 @@ const GameSoloCombat = preload("res://scripts/game/solo_combat.gd")
 const GameSoloEvents = preload("res://scripts/game/solo_events.gd")
 const GameConstants = preload("res://scripts/game/constants.gd")
 const GameDeck = preload("res://scripts/game/deck.gd")
+const SaveManager = preload("res://scripts/autoload/save_manager.gd")
 
 var _s: Dictionary = {}
 var _view: String = "map"
@@ -138,6 +139,14 @@ func _show_map() -> void:
 	_refresh_player()
 	_clear_content()
 
+	if not _msg.is_empty():
+		var msg_label := Label.new()
+		msg_label.text = _msg
+		msg_label.add_theme_font_size_override("font_size", 14)
+		msg_label.add_theme_color_override("font_color", Color(0.6, 1.0, 0.7))
+		_content.add_child(msg_label)
+		_msg = ""
+
 	var node_idx: int = int(_s.get("nodeIndex", 0))
 	var nodes: Array = _s.get("mapNodes", [])
 	_add_label("当前进度：%d / %d 节点" % [node_idx, nodes.size()])
@@ -166,7 +175,35 @@ func _show_map() -> void:
 	if int(p.get("pendingAttrPoints", 0)) > 0:
 		_add_button("⬆ 分配属性点（%d）" % p["pendingAttrPoints"], _show_attr)
 
+	# 存档 / 读档
+	_add_button("💾 存档", _on_save)
+	_add_button("📂 读档（%s）" % ("有存档" if SaveManager.has("solo") else "无存档"), _on_load)
+
 	_add_button("➡️ 进入当前节点", _enter_node)
+
+## 存档（单人爬塔）
+func _on_save() -> void:
+	var data: Dictionary = GameSolo.serialize_solo(_s)
+	if SaveManager.save("solo", data):
+		_msg = "已存档！"
+	else:
+		_msg = "存档失败"
+	_show_map()
+
+## 读档
+func _on_load() -> void:
+	var data: Variant = SaveManager.load("solo")
+	if data == null or not data is Dictionary:
+		_msg = "无存档或读档失败"
+		_show_map()
+		return
+	if GameSolo.deserialize_solo(_s, data):
+		_msg = "读档成功！"
+		_refresh_log()
+		_show_map()
+	else:
+		_msg = "读档失败"
+		_show_map()
 
 ## 进入当前节点
 func _enter_node() -> void:
