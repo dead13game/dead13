@@ -1,7 +1,7 @@
 # 亡命十三街 → Godot 迁移计划
 
 > 目标：把现有的 Vue 3 + PixiJS + Tauri 项目逐步迁移到 Godot 4.7，最终以 **HTML（Web 导出）** 部署到 GitHub Pages（替换原 Vue 版，仍使用 `https://menghun-myracler.github.io/13street/`）。
-> 当前状态：**经典模式 + 足球模式（世界杯完整/联赛可玩）已上线可玩，Web 单线程导出已配置，GitHub Pages 工作流已接入。**
+> 当前状态：**经典 / 足球（世界杯+联赛）/ 单人爬塔 三大模式可玩，Web 单线程导出已配置，GitHub Pages 工作流已接入。仅剩模拟宇宙。**
 
 ## 为什么选 Godot
 - 原生跨平台导出，不再依赖浏览器/WebView。
@@ -91,14 +91,22 @@ godot/
 - [x] 联赛 UI：选队 → 18轮（简化1v1代表战）→ 积分榜 → 赛季结束
 - [ ] 联赛 3v3 完整版（选秀+6人赛+死亡顺序计分）——逻辑已移植，UI 待接
 
+### 单人模式（爬塔肉鸽，可玩）
+- [x] `solo_constants.gd`：13 张技能卡 / 敌人 / 7 节点链 / 数值常量
+- [x] `solo.gd`：章节地图 / 属性成长 / 卡组构筑 / 金币 / 存档
+- [x] `solo_combat.gd`：抽3选2 / 行动力 / 牌堆坟场 / 护盾 / 斗志 / 敌方 AI 出牌
+- [x] `solo_events.gd`：岔路猎手 / 神秘商人 + 扑克检定（♥ 重抽）
+- [x] 单人 UI：地图 → 战斗（抽3选2/出牌/敌方回合）→ 事件/商店/营地 → 卡牌3选1 → 属性分配 → 通关/阵亡
+
 ## 测试
 
 ```bash
-# Godot 核心 + 逻辑 + 足球测试（PASS: all core/logic/football tests）
+# Godot 核心 + 逻辑 + 足球 + 单机测试（PASS: all core/logic/football/solo tests）
 cd godot
 godot --headless --path . --script res://tests/test_core.gd
 godot --headless --path . --script res://tests/test_logic.gd
 godot --headless --path . --script res://tests/test_football.gd
+godot --headless --path . --script res://tests/test_solo.gd
 ```
 
 ## 后续里程碑（建议顺序）

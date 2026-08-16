@@ -91,3 +91,12 @@ func new_league(player_team_id: int) -> void:
 	var GameLeague = preload("res://scripts/game/league.gd")
 	league_state = GameLeague.create_league_state(player_team_id)
 	mode = "league"
+
+# ===== 单机 =====
+
+var solo_state: Dictionary = {}
+
+func new_solo() -> void:
+	var GameSolo = preload("res://scripts/game/solo.gd")
+	solo_state = GameSolo.create_solo_state()
+	mode = "solo"
