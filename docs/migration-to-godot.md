@@ -88,8 +88,9 @@ godot/
 - [x] `league.gd` + `league_constants.gd`：10队双循环18轮 + 积分榜 + 等级加成 + 3v3比分计算（逻辑已备）
 - [x] `game_table` 支持比赛模式：比分栏/换人面板/点球面板/赛果遮罩
 - [x] 世界杯 UI：设置 → 小组赛 → 积分榜出线 → 淘汰赛（含换人）→ 冠军/淘汰
-- [x] 联赛 UI：选队 → 18轮（简化1v1代表战）→ 积分榜 → 赛季结束
-- [ ] 联赛 3v3 完整版（选秀+6人赛+死亡顺序计分）——逻辑已移植，UI 待接
+- [x] 联赛 UI：选队 → 18轮（3v3 完整版：选秀玩家3人 vs AI 3人 → 6人同场死亡顺序计分）→ 积分榜 → 赛季结束
+- [x] 3v3 完整版：`start_league_3v3`（6人+teamId分队+死亡顺序回调）+ 选秀 UI（LeagueDraft 等价物）+ 死亡顺序计分 + 团灭/回合上限 + 赛果比分战报
+- [x] `test_league_3v3.gd`：计分/团灭/回合上限/完整对局（AI+真实攻防+死亡顺序+计分）全绿
 
 ### 单人模式（爬塔肉鸽，可玩）
 - [x] `solo_constants.gd`：13 张技能卡 / 敌人 / 7 节点链 / 数值常量
@@ -115,7 +116,7 @@ godot/
 ## 测试
 
 ```bash
-# Godot 核心 + 逻辑 + 足球 + 单机 + 模拟宇宙测试（PASS: all core/logic/football/solo/uni tests + uni ui flow）
+# Godot 核心 + 逻辑 + 足球 + 单机 + 模拟宇宙 + 联赛3v3 测试（PASS: all core/logic/football/solo/uni tests + uni ui flow + league 3v3）
 cd godot
 godot --headless --path . --script res://tests/test_core.gd
 godot --headless --path . --script res://tests/test_logic.gd
@@ -123,6 +124,7 @@ godot --headless --path . --script res://tests/test_football.gd
 godot --headless --path . --script res://tests/test_solo.gd
 godot --headless --path . --script res://tests/test_uni.gd
 godot --headless --path . --script res://tests/test_uni_ui.gd
+godot --headless --path . --script res://tests/test_league_3v3.gd
 ```
 
 ## 后续里程碑（建议顺序）

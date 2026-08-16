@@ -1,7 +1,6 @@
 extends Control
 ## 联赛模式外壳：10队双循环 18 轮 + 积分榜
-## 比赛为简化 1v1 代表战（玩家角色 vs 对手角色），胜负平 → 3/1/0 积分
-## 3v3 完整版（选秀+6人赛+死亡顺序计分）留待后续
+## 每轮比赛为 3v3 完整版：选秀（玩家3人 vs 对手3人）→ 6人同场 → 死亡顺序计分
 
 const GameConstants = preload("res://scripts/game/constants.gd")
 const GameLeague = preload("res://scripts/game/league.gd")
@@ -11,6 +10,10 @@ const GameWorldCup = preload("res://scripts/game/world_cup.gd")
 var _root_box: VBoxContainer
 var _title: Label
 var _content: VBoxContainer
+
+var _draft_player_picks: Array = []     # 玩家选秀角色
+var _draft_opponent_picks: Array = []   # 对手选秀角色（AI 自动）
+var _draft_taken: Dictionary = {}       # charId -> true（双方已选）
 
 func _ready() -> void:
 	_build_ui()
@@ -55,22 +58,36 @@ func _build_ui() -> void:
 	_content.add_theme_constant_override("separation", 8)
 	scroll.add_child(_content)
 
-## 从比赛返回后记录本轮结果
+## 从比赛返回后记录本轮结果（3v3 死亡顺序计分 → 胜负平）
 func _handle_return_from_match() -> void:
 	if GameManager.match_state.is_empty():
 		return
 	var ms: Dictionary = GameManager.match_state
 	var lg: Dictionary = GameManager.league_state
 	var round: int = int(lg.get("currentRound", 1))
-	var winner: Variant = ms.get("winner")
-	var result: String = "draw"
-	if winner != null and int(winner) == 0:
-		result = "home"      # 控制器约定：'home' 参数 = 玩家胜
-	elif winner != null and int(winner) == 1:
-		result = "away"
-	GameLeague.record_match_result(lg, round, result)
+	if ms.get("is3v3", false):
+		# 3v3：按比分定胜负
+		var p_score: int = int(ms.get("playerScore", 0))
+		var o_score: int = int(ms.get("opponentScore", 0))
+		var result: String = "draw"
+		if p_score > o_score:
+			result = "home"      # 玩家胜
+		elif o_score > p_score:
+			result = "away"
+		GameLeague.record_match_result(lg, round, result)
+		lg["_lastResult"] = result
+		lg["_lastScore"] = [p_score, o_score]
+		lg["_lastDeathOrder"] = ms.get("deathOrder", [])
+	else:
+		var winner: Variant = ms.get("winner")
+		var result2: String = "draw"
+		if winner != null and int(winner) == 0:
+			result2 = "home"
+		elif winner != null and int(winner) == 1:
+			result2 = "away"
+		GameLeague.record_match_result(lg, round, result2)
+		lg["_lastResult"] = result2
 	GameLeague.simulate_non_player_matches(lg, round)
-	lg["_lastResult"] = result
 	GameManager.match_state = {}
 
 func _refresh() -> void:
@@ -165,17 +182,10 @@ func _show_round_match(round: int) -> void:
 		_content.add_child(bonus_label)
 
 	var btn := Button.new()
-	btn.text = "⚽ 开始比赛"
+	btn.text = "⚽ 3v3 选人开赛"
 	btn.custom_minimum_size = Vector2(0, 44)
 	btn.pressed.connect(func():
-		var player_char: int = int(lg.get("_playerCharId", 1))
-		var opponent_char: int = GameWorldCup.get_random_group_opponent_char()
-		var player_name: String = "%s %s" % [player_team.get("emoji", ""), player_team.get("name", "?")]
-		var opp_name: String = "%s %s" % [opponent_team.get("emoji", ""), opponent_team.get("name", "?")]
-		GameManager.start_match(player_char, opponent_char, false, player_name, opp_name, 999)
-		GameManager.match_return_scene = "res://scenes/football/league_shell.tscn"
-		GameManager.match_context = "league"
-		get_tree().change_scene_to_file("res://scenes/classic/game_table.tscn"))
+		_show_draft(round, player_team, opponent_team))
 	_content.add_child(btn)
 
 	var standings_btn := Button.new()
@@ -206,6 +216,28 @@ func _show_round_result(round: int) -> void:
 	label.add_theme_color_override("font_color", color)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_content.add_child(label)
+
+	# 3v3 比分战报
+	if lg.has("_lastScore"):
+		var score_label := Label.new()
+		score_label.text = "3v3 战报：你 %d : %d 对手" % [int(lg["_lastScore"][0]), int(lg["_lastScore"][1])]
+		score_label.add_theme_font_size_override("font_size", 16)
+		score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_content.add_child(score_label)
+	# 死亡顺序
+	if lg.has("_lastDeathOrder"):
+		var order_parts: Array = []
+		for entry in lg["_lastDeathOrder"]:
+			var cid: int = int(entry.get("charId", 0))
+			var cd: Dictionary = GameConstants.CHARACTERS.get(cid, {})
+			var team_mark: String = "⭐" if int(entry.get("teamId", -1)) == 0 else "🔥"
+			order_parts.append("%s%s" % [team_mark, cd.get("name", "?")])
+		if not order_parts.is_empty():
+			var order_label := Label.new()
+			order_label.text = "死亡顺序：%s" % " → ".join(order_parts)
+			order_label.add_theme_font_size_override("font_size", 13)
+			order_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_content.add_child(order_label)
 
 	var next_btn := Button.new()
 	next_btn.text = "下一轮 ➜"
@@ -295,3 +327,156 @@ func _show_final() -> void:
 		GameManager.league_state = {}
 		_refresh())
 	_content.add_child(again_btn)
+
+# ===== 3v3 选秀 =====
+
+## 选秀界面：玩家选 3 人，AI 补 3 人（仿 LeagueDraft.vue）
+func _show_draft(round: int, player_team: Variant, opponent_team: Variant) -> void:
+	_title.text = "第 %d 轮 · 3v3 选人" % round
+	_draft_player_picks = []
+	_draft_opponent_picks = []
+	_draft_taken = {}
+	for child in _content.get_children():
+		child.queue_free()
+
+	var opp_name: String = "对手"
+	if opponent_team != null:
+		opp_name = "%s %s" % [opponent_team.get("emoji", ""), opponent_team.get("name", "?")]
+	var info := Label.new()
+	info.text = "%s %s vs %s · 选 3 名角色（第 %d/3 名）" % [
+		player_team.get("emoji", "") if player_team != null else "",
+		player_team.get("name", "?") if player_team != null else "?",
+		opp_name, _draft_player_picks.size() + 1]
+	info.add_theme_font_size_override("font_size", 17)
+	_content.add_child(info)
+
+	# 已选展示
+	var picked_label := Label.new()
+	picked_label.name = "DraftPickedLabel"
+	picked_label.text = _draft_picked_text()
+	picked_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_content.add_child(picked_label)
+
+	# 角色网格（1-11，排除开发者 12）
+	var grid := GridContainer.new()
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	for cid in range(1, 12):
+		var cdata: Dictionary = GameConstants.CHARACTERS.get(cid, {})
+		if cdata.is_empty():
+			continue
+		var b := Button.new()
+		b.text = "%s\nHP %d" % [cdata.get("name", "?"), cdata.get("hp", 0)]
+		b.custom_minimum_size = Vector2(150, 52)
+		b.disabled = _draft_taken.has(cid)
+		var char_id: int = cid
+		b.pressed.connect(func():
+			if _draft_taken.has(char_id):
+				return
+			_draft_taken[char_id] = true
+			_draft_player_picks.append(char_id)
+			_refresh_draft(round, player_team, opponent_team))
+		grid.add_child(b)
+	_content.add_child(grid)
+
+	# 返回按钮
+	var cancel := Button.new()
+	cancel.text = "↩ 取消选人"
+	cancel.custom_minimum_size = Vector2(0, 34)
+	cancel.pressed.connect(func(): _refresh())
+	_content.add_child(cancel)
+
+func _draft_picked_text() -> String:
+	var p: Array = []
+	for cid in _draft_player_picks:
+		var cd: Dictionary = GameConstants.CHARACTERS.get(cid, {})
+		p.append(cd.get("name", "?"))
+	var o: Array = []
+	for cid in _draft_opponent_picks:
+		var cd2: Dictionary = GameConstants.CHARACTERS.get(cid, {})
+		o.append(cd2.get("name", "?"))
+	return "⭐ 你：%s\n🔥 对手：%s" % [
+		("、".join(p)) if not p.is_empty() else "待选…",
+		("、".join(o)) if not o.is_empty() else "（AI 选人）"]
+
+## 刷新选秀界面（AI 补选 + 3 人齐后开始比赛）
+func _refresh_draft(round: int, player_team: Variant, opponent_team: Variant) -> void:
+	# 玩家选满 3 人前：AI 每轮补 1 人
+	while _draft_opponent_picks.size() < _draft_player_picks.size() and _draft_player_picks.size() < 3:
+		var remaining: Array = []
+		for cid in range(1, 12):
+			if not _draft_taken.has(cid):
+				remaining.append(cid)
+		if remaining.is_empty():
+			break
+		var pick: int = remaining[randi() % remaining.size()]
+		_draft_taken[pick] = true
+		_draft_opponent_picks.append(pick)
+	# 玩家选满 → AI 补满 3 人 → 开始比赛
+	if _draft_player_picks.size() >= 3:
+		while _draft_opponent_picks.size() < 3:
+			var remaining2: Array = []
+			for cid in range(1, 12):
+				if not _draft_taken.has(cid):
+					remaining2.append(cid)
+			if remaining2.is_empty():
+				break
+			var pick2: int = remaining2[randi() % remaining2.size()]
+			_draft_taken[pick2] = true
+			_draft_opponent_picks.append(pick2)
+		_start_3v3_match(round)
+		return
+	# 未满：重绘
+	for child in _content.get_children():
+		child.queue_free()
+	var opp_name: String = "对手"
+	if opponent_team != null:
+		opp_name = "%s %s" % [opponent_team.get("emoji", ""), opponent_team.get("name", "?")]
+	var info := Label.new()
+	info.text = "%s %s vs %s · 选第 %d/3 名角色" % [
+		player_team.get("emoji", "") if player_team != null else "",
+		player_team.get("name", "?") if player_team != null else "?",
+		opp_name, _draft_player_picks.size() + 1]
+	info.add_theme_font_size_override("font_size", 17)
+	_content.add_child(info)
+	var picked_label := Label.new()
+	picked_label.text = _draft_picked_text()
+	picked_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_content.add_child(picked_label)
+	var grid := GridContainer.new()
+	grid.columns = 4
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	for cid in range(1, 12):
+		var cdata: Dictionary = GameConstants.CHARACTERS.get(cid, {})
+		if cdata.is_empty():
+			continue
+		var b := Button.new()
+		b.text = "%s\nHP %d" % [cdata.get("name", "?"), cdata.get("hp", 0)]
+		b.custom_minimum_size = Vector2(150, 52)
+		b.disabled = _draft_taken.has(cid)
+		var char_id: int = cid
+		b.pressed.connect(func():
+			if _draft_taken.has(char_id):
+				return
+			_draft_taken[char_id] = true
+			_draft_player_picks.append(char_id)
+			_refresh_draft(round, player_team, opponent_team))
+		grid.add_child(b)
+	_content.add_child(grid)
+	var cancel := Button.new()
+	cancel.text = "↩ 取消选人"
+	cancel.custom_minimum_size = Vector2(0, 34)
+	cancel.pressed.connect(func(): _refresh())
+	_content.add_child(cancel)
+
+## 选满 6 人 → 开始 3v3 比赛
+func _start_3v3_match(round: int) -> void:
+	var lg: Dictionary = GameManager.league_state
+	var opponent_id: int = GameLeague.get_player_opponent(lg, round)
+	var is_home: bool = GameLeague.is_player_home(lg, round)
+	GameManager.start_league_3v3(_draft_player_picks, _draft_opponent_picks, is_home)
+	GameManager.match_return_scene = "res://scenes/football/league_shell.tscn"
+	GameManager.match_context = "league"
+	get_tree().change_scene_to_file("res://scenes/classic/game_table.tscn")

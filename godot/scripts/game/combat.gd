@@ -54,7 +54,7 @@ static func start_attack(state: Dictionary) -> void:
 		p["relations"]["consecutiveGambles"] = 0
 
 	var can_attack: bool
-	if state.get("matchContext") != null:
+	if state.get("matchContext") != null or state.get("leagueContext") != null:
 		can_attack = state.get("phase", "") != GameConstants.PHASE["PEACE"]
 	else:
 		can_attack = state.get("round", 0) >= 4

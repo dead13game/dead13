@@ -65,7 +65,7 @@ static func get_next_alive_index(state: Dictionary, current_idx: int) -> int:
 	return current_idx
 
 static func can_attack_ai(state: Dictionary) -> bool:
-	if state.get("matchContext") != null:
+	if state.get("matchContext") != null or state.get("leagueContext") != null:
 		return state.get("phase", "") != GameConstants.PHASE["PEACE"]
 	return int(state.get("round", 0)) >= 4
 

@@ -17,6 +17,7 @@ var match_state: Dictionary = {}   # 当前比赛状态（比赛模式）
 var match_return_scene: String = ""  # 比赛结束后返回的场景
 var match_context: String = ""       # "worldcup" | "league"
 var _last_scorer_is_player: bool = false  # 最近一次进球是否玩家
+var league_death_order: Array = []  # 联赛 3v3 死亡顺序 [{playerIndex, teamId, charId}]
 
 # ===== 经典模式 =====
 
@@ -91,6 +92,114 @@ func new_league(player_team_id: int) -> void:
 	var GameLeague = preload("res://scripts/game/league.gd")
 	league_state = GameLeague.create_league_state(player_team_id)
 	mode = "league"
+
+## 3v3 比赛：6 人（玩家3+对手3）同场，死亡顺序计分
+func start_league_3v3(player_chars: Array, opponent_chars: Array, is_home: bool, opponent_difficulty: String = "skilled") -> void:
+	var GameLeague = preload("res://scripts/game/league.gd")
+	var GameLeagueConstants = preload("res://scripts/game/league_constants.gd")
+	var player_team_id: int = int(league_state.get("playerTeamId", 1))
+	var opponent_id: int = GameLeague.get_player_opponent(league_state, int(league_state.get("currentRound", 1)))
+	var card_bonus: Dictionary = GameLeague.get_card_bonus(player_team_id, opponent_id, is_home)
+
+	# 初始化 6 人游戏：teamId 0=玩家队伍 3 人，1=对手队伍 3 人
+	var all_chars: Array = []
+	all_chars.append_array(player_chars)
+	all_chars.append_array(opponent_chars)
+	var team_ids: Array = [0, 0, 0, 1, 1, 1]
+
+	# 死亡顺序
+	league_death_order = []
+
+	# 联赛上下文（须在 init_game 前设置：init_game 会保存并恢复，且据此跳过和平期）
+	var league_ctx: Dictionary = {
+		"cardBonus": card_bonus,
+		"maxRounds": int(GameLeagueConstants.LEAGUE_MATCH_CONFIG.get("maxRounds", 12)),
+		"onPlayerDeath": Callable(self, "_league_on_death"),
+		"onTeamWipe": Callable(self, "_league_on_team_wipe"),
+		"onNewRound": Callable(self, "_league_on_round"),
+		"onRoundLimit": Callable(self, "_league_on_round_limit"),
+	}
+
+	state = GameState.create_game_state()
+	state["leagueContext"] = league_ctx
+	GameState.init_game(state, all_chars, false, 1, 2, team_ids)
+	state["leagueContext"] = league_ctx
+
+	# 队伍名称
+	var player_team: Variant = GameLeagueConstants.LEAGUE_TEAMS[player_team_id] if player_team_id < GameLeagueConstants.LEAGUE_TEAMS.size() else null
+	var opponent_team: Variant = GameLeagueConstants.LEAGUE_TEAMS[opponent_id] if opponent_id > 0 and opponent_id < GameLeagueConstants.LEAGUE_TEAMS.size() else null
+	for p in state["players"]:
+		if int(p.get("teamId", -1)) == 0:
+			p["name"] = "%s %s·%s" % [
+				player_team.get("emoji", "") if player_team != null else "",
+				player_team.get("name", "?") if player_team != null else "?",
+				GameConstants.get_char_data(p).get("name", "?")]
+		else:
+			p["name"] = "%s %s·%s" % [
+				opponent_team.get("emoji", "") if opponent_team != null else "",
+				opponent_team.get("name", "?") if opponent_team != null else "?",
+				GameConstants.get_char_data(p).get("name", "?")]
+
+	# 标记 AI 玩家（对手队伍）
+	for p in state["players"]:
+		if int(p.get("teamId", -1)) == 1:
+			p["isAI"] = true
+			p["aiDifficulty"] = opponent_difficulty
+
+	# 比赛状态
+	match_state = {
+		"round": int(league_state.get("currentRound", 1)),
+		"playerTeamId": 0,
+		"opponentTeamId": 1,
+		"isHome": is_home,
+		"cardBonus": card_bonus,
+		"deathOrder": [],
+		"matchOver": false,
+		"winner": null,
+		"playerScore": 0,
+		"opponentScore": 0,
+		"maxRounds": int(GameLeagueConstants.LEAGUE_MATCH_CONFIG.get("maxRounds", 12)),
+		"is3v3": true,
+	}
+	_last_scorer_is_player = false
+	mode = "league"
+
+func _league_on_death(dead_idx: int) -> void:
+	var ms: Dictionary = match_state
+	if ms.is_empty() or ms.get("matchOver", false):
+		return
+	if dead_idx < 0 or dead_idx >= state.get("players", []).size():
+		return
+	var dead: Dictionary = state["players"][dead_idx]
+	ms["deathOrder"].append({
+		"playerIndex": dead_idx,
+		"teamId": int(dead.get("teamId", -1)),
+		"charId": int(dead.get("characterId", 0)),
+	})
+
+func _league_on_team_wipe(surviving_team_id: int) -> void:
+	var ms: Dictionary = match_state
+	if ms.is_empty() or ms.get("matchOver", false):
+		return
+	ms["matchOver"] = true
+	ms["winner"] = surviving_team_id
+	_finalize_league_score()
+
+func _league_on_round_limit() -> void:
+	var ms: Dictionary = match_state
+	if ms.is_empty() or ms.get("matchOver", false):
+		return
+	ms["matchOver"] = true
+	ms["winner"] = null
+	_finalize_league_score()
+
+func _finalize_league_score() -> void:
+	var ms: Dictionary = match_state
+	var GameLeague = preload("res://scripts/game/league.gd")
+	var score: Dictionary = GameLeague.calculate_match_score(ms.get("deathOrder", []), 0, 1)
+	ms["playerScore"] = score.get("playerScore", 0)
+	ms["opponentScore"] = score.get("opponentScore", 0)
+	match_ui_changed.emit("over")
 
 # ===== 单机 =====
 

@@ -636,16 +636,28 @@ func _show_match_over() -> void:
 	_penalty_panel.visible = false
 	_ai_loop_running = true
 	var ms: Dictionary = GameManager.match_state
-	var score: Array = ms.get("score", [0, 0])
-	var winner: Variant = ms.get("winner")
 	var title: Label = _overlay.find_child("OverlayTitle", true, false)
 	if title != null:
-		var text: String = "比赛结束 %d : %d" % [score[0], score[1]]
-		if winner != null:
-			text += "\n" + ("🏆 你赢了！" if int(winner) == 0 else "😔 你输了…")
+		if ms.get("is3v3", false):
+			# 3v3：死亡顺序计分
+			var p_score: int = int(ms.get("playerScore", 0))
+			var o_score: int = int(ms.get("opponentScore", 0))
+			var winner: Variant = ms.get("winner")
+			var text: String = "3v3 战报 %d : %d" % [p_score, o_score]
+			if winner != null:
+				text += "\n" + ("🏆 你赢了！" if int(winner) == 0 else "😔 你输了…")
+			else:
+				text += "\n平局"
+			title.text = text
 		else:
-			text += "\n平局"
-		title.text = text
+			var score: Array = ms.get("score", [0, 0])
+			var winner2: Variant = ms.get("winner")
+			var text2: String = "比赛结束 %d : %d" % [score[0], score[1]]
+			if winner2 != null:
+				text2 += "\n" + ("🏆 你赢了！" if int(winner2) == 0 else "😔 你输了…")
+			else:
+				text2 += "\n平局"
+			title.text = text2
 	_overlay.visible = true
 
 func _on_overlay_return() -> void:
