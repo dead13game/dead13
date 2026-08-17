@@ -41,3 +41,4 @@ godot/build/
 
 # 迁移会话临时解压目录
 .migration-session/
+.reasonix/
