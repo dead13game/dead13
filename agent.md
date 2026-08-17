@@ -56,11 +56,19 @@ AI **收到 bug 报告后负责定位与修复代码/结构**，修完交回验�
 | 固定框架 UI（主菜单背景、战斗界面上下边栏、对话框底板、行动栏按钮） | **场景驱动**：编辑器拖拽搭建 |
 | 可复用组件（卡牌 `card.tscn`、座位组件） | **场景设计原型 + 脚本 `load()` / `instantiate()`** |
 
+**所有场景统一采用方案 A：场景骨架 + 脚本动态**（已确认，不例外）。
+
+**关键认知 — Container 与绝对定位**：
+- **Container（VBox/HBox/Flow/Grid）内的子节点位置由容器算法自动排，编辑器拖不动**——人类只能拖容器本身
+- **要让人类在编辑器拖动，必须用绝对定位**（Control/PanelContainer + anchor/offset，非 Container 子节点）
+- 推荐形态：**区块级绝对定位**——每个固定框架区块（顶栏/内容区/日志区/行动区）是独立 PanelContainer + anchor/offset 定位，人类能拖区块位置和大小；区块内部保持 Container 自适应
+- 陷阱：脚本里 `_players_row` 等引用的容器类型变了（如 HBox→Flow）必须同步改脚本声明类型，否则运行时报错
+
 **节点约定**：脚本用 `@onready var x = %NodeName` 引用场景节点（Unique Name），不依赖绝对路径；**节点缺失时脚本降级**（代码兜底创建或跳过），保证场景搭一半时游戏也能跑。
 
 **场景修改两条路**：
 - A：AI 给出节点清单 + 说明，人类在编辑器创建
-- B：AI 直接改 `.tscn` 文本（**不用在意坐标**——AI 负责结构/层级/属性/Unique Name/脚本引用正确，位置由人类拖动调整）
+- B：AI 直接改 `.tscn` 文本（**不用在意坐标**——AI 负责结构/层级/属性/Unique Name/脚本引用正确，位置由人类拖动调整；注意绝对定位区块用 anchor/offset，Container 区块用 size_flags）
 
 ## 三、禁用操作（硬规则）
 
@@ -90,10 +98,12 @@ func add_damage_number(text: String, pos: Vector2, color: Color = Color.WHITE) -
 ## 六、Godot 项目当前状态（2026-08 迁移期）
 
 - **迁移已完成 95%**：经典 / 足球（世界杯+联赛 3v3）/ 单机 / 模拟宇宙四大模式可玩
+- **最终目标：手机浏览器打开 GitHub Pages 玩**（竖屏 720×1280 基准，`display/window/stretch` canvas_items+expand 已配）
 - 逻辑层全部移植到 GDScript（`godot/scripts/game/`），测试全绿（`godot/tests/` 9 套：core/logic/football/solo/uni/uni_ui/league_3v3/save/audio）
 - 存档系统：`godot/scripts/autoload/save_manager.gd`（Web→localStorage / 桌面→user://）
 - 音效框架：`godot/scripts/autoload/audio_manager.gd`（12 类 SFX + 3 BGM，素材齐全）
 - 场景管理：`godot/scripts/autoload/game_manager.gd`（跨场景状态 + 模式状态机）
+- **竖屏适配进度**：game_table / character_select / main_menu / solo_shell 已完成（区块级绝对定位）；待改：uni_shell / football_select / world_cup_shell / league_shell
 - **动画/粒子：完全空白**（无 tween/animation/particles 使用）→ P0 人类任务主战场
 - 导出：Web（单线程，已上 GitHub Pages）+ Windows Desktop（exe 已验证），移动端待配
 - 详细迁移进度见 `docs/migration-to-godot.md`
