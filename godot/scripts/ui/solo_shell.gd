@@ -24,6 +24,11 @@ var _busy: bool = false
 @onready var _player_label: Label = %PlayerLabel
 @onready var _content: VBoxContainer = %ContentBox
 @onready var _log_box: VBoxContainer = %LogBox
+@onready var _action_bar: PanelContainer = %ActionBar
+@onready var _attr_btn: Button = %AttrBtn
+@onready var _save_btn: Button = %SaveBtn
+@onready var _load_btn: Button = %LoadBtn
+@onready var _node_btn: Button = %NodeBtn
 
 func _ready() -> void:
 	if GameManager.solo_state.is_empty():
@@ -32,6 +37,7 @@ func _ready() -> void:
 	AudioManager.play_bgm("battle1")
 	_ensure_nodes()
 	_bind_back()
+	_bind_action_bar()
 	_refresh_log()
 	_show_map()
 
@@ -47,6 +53,40 @@ func _bind_back() -> void:
 func _on_back() -> void:
 	GameManager.solo_state = {}
 	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+
+## 绑定地图操作栏按钮（场景缺 ActionBar 时 _show_map 用动态按钮兜底）
+func _bind_action_bar() -> void:
+	if _action_bar == null:
+		return
+	if _attr_btn == null:
+		_attr_btn = Button.new()
+		_attr_btn.text = "⬆ 属性点"
+		_action_bar.add_child(_attr_btn)
+	if _save_btn == null:
+		_save_btn = Button.new()
+		_save_btn.text = "💾 存档"
+		_action_bar.add_child(_save_btn)
+	if _load_btn == null:
+		_load_btn = Button.new()
+		_load_btn.text = "📂 读档"
+		_action_bar.add_child(_load_btn)
+	if _node_btn == null:
+		_node_btn = Button.new()
+		_node_btn.text = "➡️ 进入节点"
+		_action_bar.add_child(_node_btn)
+	if not _attr_btn.pressed.is_connected(_show_attr):
+		_attr_btn.pressed.connect(_show_attr)
+	if not _save_btn.pressed.is_connected(_on_save):
+		_save_btn.pressed.connect(_on_save)
+	if not _load_btn.pressed.is_connected(_on_load):
+		_load_btn.pressed.connect(_on_load)
+	if not _node_btn.pressed.is_connected(_enter_node):
+		_node_btn.pressed.connect(_enter_node)
+
+## 地图操作栏显隐（仅地图界面显示）
+func _set_action_bar(v: bool) -> void:
+	if _action_bar != null:
+		_action_bar.visible = v
 
 ## 场景节点缺失时降级：代码兜底创建（编辑器里搭一半也能跑）
 func _ensure_nodes() -> void:
@@ -124,6 +164,7 @@ func _show_map() -> void:
 	_title.text = "%s" % _s.get("chapterTitle", "第 1 章")
 	_refresh_player()
 	_clear_content()
+	_set_action_bar(true)
 
 	if not _msg.is_empty():
 		var msg_label := Label.new()
@@ -158,14 +199,19 @@ func _show_map() -> void:
 		return
 
 	var p: Dictionary = _s["player"]
-	if int(p.get("pendingAttrPoints", 0)) > 0:
-		_add_button("⬆ 分配属性点（%d）" % p["pendingAttrPoints"], _show_attr)
-
-	# 存档 / 读档
-	_add_button("💾 存档", _on_save)
-	_add_button("📂 读档（%s）" % ("有存档" if SaveManager.has("solo") else "无存档"), _on_load)
-
-	_add_button("➡️ 进入当前节点", _enter_node)
+	if _action_bar == null:
+		# 场景无 ActionBar 时：动态按钮兜底（编辑器搭一半也能跑）
+		if int(p.get("pendingAttrPoints", 0)) > 0:
+			_add_button("⬆ 分配属性点（%d）" % p["pendingAttrPoints"], _show_attr)
+		_add_button("💾 存档", _on_save)
+		_add_button("📂 读档（%s）" % ("有存档" if SaveManager.has("solo") else "无存档"), _on_load)
+		_add_button("➡️ 进入当前节点", _enter_node)
+	else:
+		# 场景 ActionBar：属性点按钮条件显隐 + 读档按钮文本更新
+		_attr_btn.visible = int(p.get("pendingAttrPoints", 0)) > 0
+		if _attr_btn.visible:
+			_attr_btn.text = "⬆ 属性点（%d）" % p["pendingAttrPoints"]
+		_load_btn.text = "📂 读档（%s）" % ("有存档" if SaveManager.has("solo") else "无存档")
 
 ## 存档（单人爬塔）
 func _on_save() -> void:
@@ -219,6 +265,7 @@ func _finish_node() -> void:
 
 func _show_battle() -> void:
 	_view = "battle"
+	_set_action_bar(false)
 	var c: Dictionary = _s.get("combat", {})
 	if c.is_empty():
 		_finish_node()
@@ -337,6 +384,7 @@ func _on_end_turn() -> void:
 ## 战斗胜利 → 奖励 + 卡牌3选1
 func _show_reward() -> void:
 	_view = "reward"
+	_set_action_bar(false)
 	var c: Dictionary = _s.get("combat", {})
 	_title.text = "🎉 战斗胜利！"
 	_refresh_player()
@@ -393,6 +441,7 @@ func _on_claim(card_id: String) -> void:
 
 func _show_event() -> void:
 	_view = "event"
+	_set_action_bar(false)
 	var node: Dictionary = GameSolo.get_current_node(_s)
 	var event_id: String = String(node.get("eventId", "hunter"))
 	var ev: Dictionary = GameSoloEvents.SOLO_EVENTS.get(event_id, {})
@@ -429,6 +478,7 @@ func _on_event_option(event_id: String, opt_idx: int) -> void:
 
 func _show_event_result(note: String) -> void:
 	_view = "event"
+	_set_action_bar(false)
 	_title.text = "事件结果"
 	_clear_content()
 	_add_label(note, 16)
@@ -441,6 +491,7 @@ func _show_event_result(note: String) -> void:
 
 func _show_shop() -> void:
 	_view = "shop"
+	_set_action_bar(false)
 	_title.text = "🛒 商店"
 	_refresh_player()
 	_clear_content()
@@ -490,6 +541,7 @@ func _show_shop() -> void:
 
 func _show_camp() -> void:
 	_view = "camp"
+	_set_action_bar(false)
 	_title.text = "🏕️ 营地"
 	_refresh_player()
 	_clear_content()
@@ -529,6 +581,7 @@ func _show_camp() -> void:
 
 func _show_attr() -> void:
 	_view = "attr"
+	_set_action_bar(false)
 	_title.text = "⬆ 属性分配"
 	_refresh_player()
 	_clear_content()
@@ -551,6 +604,7 @@ func _show_attr() -> void:
 
 func _show_end() -> void:
 	_view = "end"
+	_set_action_bar(false)
 	_refresh_player()
 	_clear_content()
 	var end_label := Label.new()

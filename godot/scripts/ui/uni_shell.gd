@@ -26,12 +26,16 @@ var _busy: bool = false
 @onready var _status_label: Label = %StatusLabel
 @onready var _content: VBoxContainer = %ContentBox
 @onready var _log_box: VBoxContainer = %LogBox
+@onready var _action_bar: PanelContainer = %ActionBar
+@onready var _save_btn: Button = %SaveBtn
+@onready var _load_btn: Button = %LoadBtn
 
 func _ready() -> void:
 	_s = GameManager.uni_state
 	AudioManager.play_bgm("battle1")
 	_ensure_nodes()
 	_bind_back()
+	_bind_action_bar()
 	_refresh_log()
 	_show_map()
 
@@ -72,6 +76,28 @@ func _bind_back() -> void:
 func _on_back() -> void:
 	GameManager.uni_state = {}
 	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+
+## 绑定地图操作栏按钮（场景缺 ActionBar 时 _show_map 用动态按钮兜底）
+func _bind_action_bar() -> void:
+	if _action_bar == null:
+		return
+	if _save_btn == null:
+		_save_btn = Button.new()
+		_save_btn.text = "💾 存档"
+		_action_bar.add_child(_save_btn)
+	if _load_btn == null:
+		_load_btn = Button.new()
+		_load_btn.text = "📂 读档"
+		_action_bar.add_child(_load_btn)
+	if not _save_btn.pressed.is_connected(_on_save):
+		_save_btn.pressed.connect(_on_save)
+	if not _load_btn.pressed.is_connected(_on_load):
+		_load_btn.pressed.connect(_on_load)
+
+## 地图操作栏显隐（仅地图界面显示）
+func _set_action_bar(v: bool) -> void:
+	if _action_bar != null:
+		_action_bar.visible = v
 
 # ===== 刷新 =====
 
@@ -136,6 +162,7 @@ func _show_map() -> void:
 	_title.text = "模拟宇宙 · 第 %d 层" % _s.get("floor", 1)
 	_refresh_status()
 	_clear_content()
+	_set_action_bar(true)
 	if not _msg.is_empty():
 		_add_label(_msg, 13)
 		_msg = ""
@@ -147,18 +174,21 @@ func _show_map() -> void:
 	_add_label(_team_line(), 13)
 	_add_label("", 6)
 
-	# 存档 / 读档（常驻）
-	var save_row := HBoxContainer.new()
-	save_row.add_theme_constant_override("separation", 8)
-	_content.add_child(save_row)
-	var save_btn := Button.new()
-	save_btn.text = "💾 存档"
-	save_btn.pressed.connect(_on_save)
-	save_row.add_child(save_btn)
-	var load_btn := Button.new()
-	load_btn.text = "📂 读档（%s）" % ("有存档" if SaveManager.has("uni") else "无存档")
-	load_btn.pressed.connect(_on_load)
-	save_row.add_child(load_btn)
+	# 存档 / 读档（常驻）：场景有 ActionBar 用固定栏，否则动态兜底
+	if _action_bar == null:
+		var save_row := HBoxContainer.new()
+		save_row.add_theme_constant_override("separation", 8)
+		_content.add_child(save_row)
+		var save_btn := Button.new()
+		save_btn.text = "💾 存档"
+		save_btn.pressed.connect(_on_save)
+		save_row.add_child(save_btn)
+		var load_btn := Button.new()
+		load_btn.text = "📂 读档（%s）" % ("有存档" if SaveManager.has("uni") else "无存档")
+		load_btn.pressed.connect(_on_load)
+		save_row.add_child(load_btn)
+	else:
+		_load_btn.text = "📂 读档（%s）" % ("有存档" if SaveManager.has("uni") else "无存档")
 	_add_label("", 4)
 
 	# 待选祝福优先
@@ -276,6 +306,7 @@ func _enter_event() -> void:
 
 func _show_blessing() -> void:
 	_view = "blessing"
+	_set_action_bar(false)
 	_title.text = "🎁 祝福三选一"
 	_refresh_status()
 	_clear_content()
@@ -304,6 +335,7 @@ func _show_blessing() -> void:
 
 func _show_battle() -> void:
 	_view = "battle"
+	_set_action_bar(false)
 	_refresh_status()
 	_clear_content()
 	var c: Dictionary = _s.get("combat", {})
@@ -533,6 +565,7 @@ func _execute_skill_on(eid: int) -> void:
 
 func _show_event(event_id: String, desc_line: String = "") -> void:
 	_view = "event"
+	_set_action_bar(false)
 	var ev: Variant = UniEvents.get_event_def(event_id)
 	if ev == null:
 		_finish_region()
@@ -577,6 +610,7 @@ func _on_event_option(event_id: String, opt_idx: int) -> void:
 
 func _show_event_result(note: String, event_id: String) -> void:
 	_view = "event"
+	_set_action_bar(false)
 	_title.text = "事件结果"
 	_clear_content()
 	_add_label(note, 16)
@@ -597,6 +631,7 @@ func _show_event_result(note: String, event_id: String) -> void:
 
 func _show_shop() -> void:
 	_view = "shop"
+	_set_action_bar(false)
 	_title.text = "🛒 商店"
 	_refresh_status()
 	_clear_content()
@@ -670,6 +705,7 @@ func _show_shop() -> void:
 
 func _show_workbench() -> void:
 	_view = "workbench"
+	_set_action_bar(false)
 	_title.text = "🔧 造物调试台（热量 %d）" % _s.get("heat", 0)
 	_refresh_status()
 	_clear_content()
@@ -726,6 +762,7 @@ func _show_workbench() -> void:
 
 func _show_rest() -> void:
 	_view = "rest"
+	_set_action_bar(false)
 	_title.text = "🏕️ 休整"
 	_refresh_status()
 	_clear_content()
@@ -771,6 +808,7 @@ func _finish_region() -> void:
 
 func _show_end() -> void:
 	_view = "end"
+	_set_action_bar(false)
 	_title.text = "💀 模拟宇宙终局"
 	_refresh_status()
 	_clear_content()

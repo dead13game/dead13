@@ -74,7 +74,7 @@ anchor_bottom = 1.0
 offset_left = 16
 offset_top = 94
 offset_right = -16
-offset_bottom = -170
+offset_bottom = -230
 grow_horizontal = 2
 grow_vertical = 2
 
@@ -86,6 +86,43 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 8
 size_flags_horizontal = 3
+
+[node name="ActionBar" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 16
+offset_top = -230
+offset_right = -16
+offset_bottom = -176
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="BarMargin" type="MarginContainer" parent="ActionBar"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 6
+
+[node name="BarRow" type="HBoxContainer" parent="ActionBar/BarMargin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="SaveBtn" type="Button" parent="ActionBar/BarMargin/BarRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "💾 存档"
+
+[node name="LoadBtn" type="Button" parent="ActionBar/BarMargin/BarRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "📂 读档"
 
 [node name="LogPanel" type="PanelContainer" parent="."]
 unique_name_in_owner = true
