@@ -96,6 +96,7 @@ STEP:  pickAction → attackShowCard → pickTarget → … → pickAction（循
 - **Container 陷阱**：Container 内子节点编辑器拖不动；要让人类拖动必须用绝对定位（PanelContainer/Control + anchor/offset）
 - **布局分工（固定不变）**：分辨率固定 1080×1920；**固定元素全部独立绝对定位**（数量恒定的按钮组/标签/区块，即使条件显隐也算固定元素）；**仅动态列表保留容器**（判断标准：数量会变才用容器）
 - **音频**：Godot 只支持 PCM/float WAV；非 PCM 导入失败（历史坑，坏文件已清理）
+- **字体（Web 必须）**：Godot 默认字体**不含中文字形**（桌面靠系统字体回退正常，Web 无回退 → 中文全乱码/方块）。项目已打包字体并设为默认：`assets/fonts/default_theme_font.tres`（FontVariation = NotoSansSC-VF.ttf 主字体 + NotoColorEmoji.ttf 回退），project.godot `gui/theme/custom_font` 指向它。**新增 UI 文本无需处理，自动生效**；如需换字体改 tres 即可。注意：勿用微软雅黑/宋体等版权字体分发
 
 ## 关键文件
 
