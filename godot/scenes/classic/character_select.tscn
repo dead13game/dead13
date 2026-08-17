@@ -20,63 +20,78 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.0705882, 0.0588235, 0.101961, 1)
 
-[node name="MainMargin" type="MarginContainer" parent="." unique_id=29342671]
+[node name="TitleLabel" type="Label" parent="."]
 layout_mode = 1
-anchors_preset = 15
+anchors_preset = 10
 anchor_right = 1.0
-anchor_bottom = 1.0
+offset_left = 42
+offset_top = 90
+offset_right = -42
+offset_bottom = 160
 grow_horizontal = 2
-grow_vertical = 2
-theme_override_constants/margin_left = 42
-theme_override_constants/margin_top = 42
-theme_override_constants/margin_right = 42
-theme_override_constants/margin_bottom = 42
-
-[node name="MainVBox" type="VBoxContainer" parent="MainMargin" unique_id=1372810706]
-layout_mode = 2
-theme_override_constants/separation = 21
-
-[node name="TitleLabel" type="Label" parent="MainMargin/MainVBox" unique_id=971621734]
-layout_mode = 2
 theme_override_font_sizes/font_size = 51
 text = "亡命十三街 · 经典对战"
 horizontal_alignment = 1
+vertical_alignment = 1
 
-[node name="SettingsRow" type="HBoxContainer" parent="MainMargin/MainVBox" unique_id=1755182610]
-layout_mode = 2
-theme_override_constants/separation = 15
-
-[node name="CountLabel" type="Label" parent="MainMargin/MainVBox/SettingsRow" unique_id=776343045]
-custom_minimum_size = Vector2(135, 0)
-layout_mode = 2
+[node name="CountLabel" type="Label" parent="."]
+layout_mode = 1
+offset_left = 60
+offset_top = 196
+offset_right = 240
+offset_bottom = 256
 text = "玩家人数"
+vertical_alignment = 1
 
-[node name="PlayerCount" type="SpinBox" parent="MainMargin/MainVBox/SettingsRow" unique_id=2069078503]
+[node name="PlayerCount" type="SpinBox" parent="."]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(105, 0)
-layout_mode = 2
+layout_mode = 1
+offset_left = 260
+offset_top = 190
+offset_right = 430
+offset_bottom = 258
 min_value = 2.0
 max_value = 8.0
 value = 4.0
 
-[node name="WeatherCheck" type="CheckBox" parent="MainMargin/MainVBox/SettingsRow" unique_id=2106951901]
+[node name="WeatherCheck" type="CheckBox" parent="."]
 unique_name_in_owner = true
-layout_mode = 2
+layout_mode = 1
+offset_left = 470
+offset_top = 196
+offset_right = 660
+offset_bottom = 256
 text = "启用天气"
 
-[node name="PlayerListScroll" type="ScrollContainer" parent="MainMargin/MainVBox" unique_id=1533567149]
+[node name="PlayerListScroll" type="ScrollContainer" parent="."]
 unique_name_in_owner = true
-layout_mode = 2
-size_flags_vertical = 3
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 60
+offset_top = 300
+offset_right = -60
+offset_bottom = -180
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="PlayersBox" type="VBoxContainer" parent="MainMargin/MainVBox/PlayerListScroll" unique_id=977546432]
+[node name="PlayersBox" type="VBoxContainer" parent="PlayerListScroll"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 12
+size_flags_horizontal = 3
 
-[node name="StartButton" type="Button" parent="MainMargin/MainVBox" unique_id=2038435916]
+[node name="StartButton" type="Button" parent="."]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 72)
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 285
+offset_top = -170
+offset_right = 795
+offset_bottom = -60
+grow_vertical = 0
 theme_override_font_sizes/font_size = 33
 text = "开始游戏"

@@ -54,6 +54,7 @@ var _ai_loop_running: bool = false
 @onready var _load_btn: Button = %LoadBtn
 @onready var _steal_btn: Button = %StealBtn
 @onready var _dot_btn: Button = %DotBtn
+@onready var _menu_btn: Button = %MenuBtn
 
 func _ready() -> void:
 	AudioManager.play_bgm("battle1")
@@ -183,6 +184,8 @@ func _connect_signals() -> void:
 		_steal_btn.pressed.connect(_on_liniya_1)
 	if _dot_btn != null:
 		_dot_btn.pressed.connect(_on_liniya_2)
+	if _menu_btn != null:
+		_menu_btn.pressed.connect(_on_overlay_return)
 	if _penalty_kick_btn != null:
 		_penalty_kick_btn.pressed.connect(_on_penalty_kick)
 	if _penalty_finish_btn != null:

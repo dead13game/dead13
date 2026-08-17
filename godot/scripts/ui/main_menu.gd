@@ -5,7 +5,6 @@ signal mode_selected(mode: String)
 
 @onready var title_label: Label = %TitleLabel
 @onready var mode_label: Label = %ModeLabel
-@onready var buttons: VBoxContainer = %Buttons
 
 func _ready() -> void:
 	AudioManager.play_bgm("menu")

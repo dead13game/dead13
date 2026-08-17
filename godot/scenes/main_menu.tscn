@@ -20,68 +20,72 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.06, 0.06, 0.09, 1)
 
-[node name="CenterBox" type="CenterContainer" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="MenuPanel" type="VBoxContainer" parent="CenterBox"]
-layout_mode = 2
-theme_override_constants/separation = 21
-
-[node name="TitleLabel" type="Label" parent="CenterBox/MenuPanel"]
+[node name="TitleLabel" type="Label" parent="."]
 unique_name_in_owner = true
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 180
+offset_bottom = 290
+grow_horizontal = 2
 text = "亡命十三街"
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 84
 
-[node name="ModeLabel" type="Label" parent="CenterBox/MenuPanel"]
+[node name="ModeLabel" type="Label" parent="."]
 unique_name_in_owner = true
-layout_mode = 2
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 300
+offset_bottom = 350
+grow_horizontal = 2
 text = "Godot 移植版"
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 30
 
-[node name="Spacer" type="Control" parent="CenterBox/MenuPanel"]
-custom_minimum_size = Vector2(0, 30)
-layout_mode = 2
-
-[node name="Buttons" type="VBoxContainer" parent="CenterBox/MenuPanel"]
-unique_name_in_owner = true
-layout_mode = 2
-theme_override_constants/separation = 15
-
-[node name="NormalButton" type="Button" parent="CenterBox/MenuPanel/Buttons"]
-layout_mode = 2
-custom_minimum_size = Vector2(510, 84)
+[node name="NormalButton" type="Button" parent="."]
+layout_mode = 1
+offset_left = 285
+offset_top = 440
+offset_right = 795
+offset_bottom = 524
 text = "经典模式"
 
-[node name="FootballButton" type="Button" parent="CenterBox/MenuPanel/Buttons"]
-layout_mode = 2
-custom_minimum_size = Vector2(510, 84)
+[node name="FootballButton" type="Button" parent="."]
+layout_mode = 1
+offset_left = 285
+offset_top = 560
+offset_right = 795
+offset_bottom = 644
 text = "足球模式"
 
-[node name="SoloButton" type="Button" parent="CenterBox/MenuPanel/Buttons"]
-layout_mode = 2
-custom_minimum_size = Vector2(510, 84)
+[node name="SoloButton" type="Button" parent="."]
+layout_mode = 1
+offset_left = 285
+offset_top = 680
+offset_right = 795
+offset_bottom = 764
 text = "单人模式"
 
-[node name="SimuniverseButton" type="Button" parent="CenterBox/MenuPanel/Buttons"]
-layout_mode = 2
-custom_minimum_size = Vector2(510, 84)
+[node name="SimuniverseButton" type="Button" parent="."]
+layout_mode = 1
+offset_left = 285
+offset_top = 800
+offset_right = 795
+offset_bottom = 884
 text = "模拟宇宙"
 
-[node name="RulesButton" type="Button" parent="CenterBox/MenuPanel/Buttons"]
-layout_mode = 2
-custom_minimum_size = Vector2(510, 84)
+[node name="RulesButton" type="Button" parent="."]
+layout_mode = 1
+offset_left = 285
+offset_top = 920
+offset_right = 795
+offset_bottom = 1004
 text = "规则说明"
 
-[connection signal="pressed" from="CenterBox/MenuPanel/Buttons/NormalButton" to="." method="_on_normal_pressed"]
-[connection signal="pressed" from="CenterBox/MenuPanel/Buttons/FootballButton" to="." method="_on_football_pressed"]
-[connection signal="pressed" from="CenterBox/MenuPanel/Buttons/SoloButton" to="." method="_on_solo_pressed"]
-[connection signal="pressed" from="CenterBox/MenuPanel/Buttons/SimuniverseButton" to="." method="_on_simuniverse_pressed"]
-[connection signal="pressed" from="CenterBox/MenuPanel/Buttons/RulesButton" to="." method="_on_rules_pressed"]
+[connection signal="pressed" from="NormalButton" to="." method="_on_normal_pressed"]
+[connection signal="pressed" from="FootballButton" to="." method="_on_football_pressed"]
+[connection signal="pressed" from="SoloButton" to="." method="_on_solo_pressed"]
+[connection signal="pressed" from="SimuniverseButton" to="." method="_on_simuniverse_pressed"]
+[connection signal="pressed" from="RulesButton" to="." method="_on_rules_pressed"]
