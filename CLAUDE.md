@@ -2,7 +2,7 @@
 
 亡命十三街 — 基于扑克牌的多人对战游戏。**当前形态：Vue 3 + PixiJS + Tauri 版 → Godot 4.7 迁移版（`godot/`）**。
 工作流与分工见 **agent.md**；本文件维护架构、构建关键点、关键文件、项目状态等辅助参考。
-最终目标：**手机浏览器打开 GitHub Pages 玩**（竖屏 720×1280，单线程 Web 导出）。
+最终目标：**手机浏览器打开 GitHub Pages 玩**（竖屏 1080×1920，单线程 Web 导出）。
 
 ## 常用命令
 
@@ -31,7 +31,7 @@ godot --headless --path godot --export-release "Windows Desktop"
 
 ```
 godot/
-  project.godot               # 720×1280 竖屏 + canvas_items 缩放 + autoload
+  project.godot               # 1080×1920 竖屏 + canvas_items 缩放 + autoload
   export_presets.cfg          # Web（单线程）+ Windows Desktop 两预设
   assets/audio/               # SFX（PCM WAV）+ 3 BGM（mp3）
   scenes/
@@ -89,11 +89,12 @@ STEP:  pickAction → attackShowCard → pickTarget → … → pickAction（循
 
 ## 构建关键点
 
-- **竖屏基准**：`project.godot` → `display/window/size` 720×1280；`display/window/stretch` mode=canvas_items, aspect=expand
+- **竖屏基准（固定不变）**：`project.godot` → `display/window/size` 1080×1920（720×1280 时代 UI 已等比 ×1.5 放大）；`display/window/stretch` mode=canvas_items, aspect=expand
 - **Web 单线程**：`export_presets.cfg` `variant/thread_support=false` — 无需 SharedArrayBuffer/COOP/COEP，手机浏览器直接可跑
 - **UI 分流**：固定框架 → 场景驱动（区块级绝对定位，人类编辑器可拖）；动态内容 → 脚本 instantiate；可复用组件（卡牌）→ card.tscn + load/instantiate
 - **节点约定**：脚本 `@onready var x = %UniqueName`；节点缺失时脚本降级兜底（场景搭一半也能跑）
 - **Container 陷阱**：Container 内子节点编辑器拖不动；要让人类拖动必须用绝对定位区块（PanelContainer + anchor/offset）
+- **布局分工**：固定区块（顶栏/状态行/操作栏/日志面板）由人类手动绝对定位（分辨率固定 1080×1920）；动态内容列表（按钮/卡牌/日志行）保留容器自动排
 - **音频**：Godot 只支持 PCM/float WAV；非 PCM 导入失败（历史坑，坏文件已清理）
 
 ## 关键文件
