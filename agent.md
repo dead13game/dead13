@@ -1,20 +1,21 @@
-# Agent 工作流（替代 CLAUDE.md）
+# Agent 工作流
 
 亡命十三街 — 基于扑克牌的多人对战游戏。**当前阶段：Vue 3 + PixiJS + Tauri 版 → Godot 4.7 迁移版（`godot/`）**。
-本项目使用中文交流。本文件对参与开发的所有 AI session 有效，**完全替代 CLAUDE.md**。
+本项目使用中文交流。本文件对参与开发的所有 AI session 有效。
 
 ---
 
 ## 一、人类 × AI 分工（最高优先级原则）
 
 > **「能不能用眼睛直接判断好坏？」**
+>
 > - 能 → **人类做**（视觉、手感、音效、文案、试玩平衡、编辑器拖拽布局）
 > - 不能（需要读代码 / 算法 / 数据）→ **AI 做**
 
 ### 人类负责（AI 一律不做，即使 godot-bridge 能近似执行）
 
 | 任务 | 说明 |
-|---|---|
+| --- | --- |
 | **打开游戏测试 / 调试** | 人类运行游戏、实操、观察现象 |
 | **调整 UI 位置 / 布局 / 动画 / 粒子** | 编辑器所见即所得，拖拽微调 |
 | **寻找 bug 并指明是哪个节点** | 人类发现问题 → 报告「哪个节点 / 什么现象」→ AI 修 |
@@ -51,24 +52,25 @@ AI **收到 bug 报告后负责定位与修复代码/结构**，修完交回验�
 ## 二、场景驱动 vs 脚本驱动（UI 分流标准）
 
 | 情况 | 方式 |
-|---|---|
+| --- | --- |
 | 快速原型 / 极度动态 UI（手牌区、座位内容、日志条目） | **脚本驱动**：代码 instantiate / 动态生成 |
 | 固定框架 UI（主菜单背景、战斗界面上下边栏、对话框底板、行动栏按钮） | **场景驱动**：编辑器拖拽搭建 |
 | 可复用组件（卡牌 `card.tscn`、座位组件） | **场景设计原型 + 脚本 `load()` / `instantiate()`** |
 
-**所有场景统一采用方案 A：场景骨架 + 脚本动态**（已确认，不例外）。
+**所有场景统一采用方案：场景骨架 + 脚本动态**（已确认，不例外）。
 
 **关键认知 — Container 与绝对定位**：
+
 - **Container（VBox/HBox/Flow/Grid）内的子节点位置由容器算法自动排，编辑器拖不动**——人类只能拖容器本身
 - **要让人类在编辑器拖动，必须用绝对定位**（Control/PanelContainer + anchor/offset，非 Container 子节点）
 - 推荐形态：**区块级绝对定位**——每个固定框架区块（顶栏/内容区/日志区/行动区）是独立 PanelContainer + anchor/offset 定位，人类能拖区块位置和大小；区块内部保持 Container 自适应
 - 陷阱：脚本里 `_players_row` 等引用的容器类型变了（如 HBox→Flow）必须同步改脚本声明类型，否则运行时报错
 
-**节点约定**：脚本用 `@onready var x = %NodeName` 引用场景节点（Unique Name），不依赖绝对路径；**节点缺失时脚本降级**（代码兜底创建或跳过），保证场景搭一半时游戏也能跑。
+**节点约定**：脚本用 `@onready var x = %NodeName` 引用场景节点（Unique Name），不依赖绝对路径.
 
-**场景修改两条路**：
-- A：AI 给出节点清单 + 说明，人类在编辑器创建
-- B：AI 直接改 `.tscn` 文本（**不用在意坐标**——AI 负责结构/层级/属性/Unique Name/脚本引用正确，位置由人类拖动调整；注意绝对定位区块用 anchor/offset，Container 区块用 size_flags）
+**场景修改**：
+
+- AI 直接改 `.tscn` 文本（**不用在意坐标**——AI 负责结构/层级/属性/Unique Name/脚本引用正确，位置由人类拖动调整；注意绝对定位区块用 anchor/offset，Container 区块用 size_flags）
 
 ## 三、禁用操作（硬规则）
 
@@ -82,10 +84,14 @@ AI **收到 bug 报告后负责定位与修复代码/结构**，修完交回验�
 2. 功能需求不明确 → 追问技能效果 / 数值 / 次数限制
 3. 多个可能原因时 → 列出假设，不赌一个去改
 4. 第一次听说的问题 → 先追问细节，不直接动手
+5. 拟定方案后先由用户审批
+6. 尽可能避免硬编码
+7. 善用ask工具,你的ask不仅补足信息,而且能帮助用户梳理思路.无ask上限,不用担心ask太多.
 
 ## 五、接口约定格式（任务开工前先定）
 
 每个任务包开工前，先约定：
+
 - **挂载点**：动画/飘字/粒子挂在哪个节点路径（如 `game_table/PlayerSeats/Seat_0`）
 - **函数签名**：AI 提供哪些方法、参数是什么
 
@@ -95,49 +101,6 @@ func add_damage_number(text: String, pos: Vector2, color: Color = Color.WHITE) -
 # 挂载点: scenes/classic/game_table.tscn → PlayerSeats/Seat_{i}/DamageLayer
 ```
 
-## 六、Godot 项目当前状态（2026-08 迁移期）
+---
 
-- **迁移已完成 95%**：经典 / 足球（世界杯+联赛 3v3）/ 单机 / 模拟宇宙四大模式可玩
-- **最终目标：手机浏览器打开 GitHub Pages 玩**（竖屏 720×1280 基准，`display/window/stretch` canvas_items+expand 已配）
-- 逻辑层全部移植到 GDScript（`godot/scripts/game/`），测试全绿（`godot/tests/` 9 套：core/logic/football/solo/uni/uni_ui/league_3v3/save/audio）
-- 存档系统：`godot/scripts/autoload/save_manager.gd`（Web→localStorage / 桌面→user://）
-- 音效框架：`godot/scripts/autoload/audio_manager.gd`（12 类 SFX + 3 BGM，素材齐全）
-- 场景管理：`godot/scripts/autoload/game_manager.gd`（跨场景状态 + 模式状态机）
-- **竖屏适配进度**：game_table / character_select / main_menu / solo_shell 已完成（区块级绝对定位）；待改：uni_shell / football_select / world_cup_shell / league_shell
-- **动画/粒子：完全空白**（无 tween/animation/particles 使用）→ P0 人类任务主战场
-- 导出：Web（单线程，已上 GitHub Pages）+ Windows Desktop（exe 已验证），移动端待配
-- 详细迁移进度见 `docs/migration-to-godot.md`
-
-## 七、常用命令
-
-```bash
-# 运行全部 9 套测试（改逻辑后必跑）
-cd godot
-for t in core logic football solo uni uni_ui league_3v3 save audio; do \
-  godot --headless --path . --script res://tests/test_$t.gd; done
-
-# 单套测试
-godot --headless --path godot --script res://tests/test_core.gd
-
-# Web 导出（单线程预设）
-godot --headless --path godot --export-release "Web"
-
-# Windows 导出
-godot --headless --path godot --export-release "Windows Desktop"
-```
-
-## 八、游戏核心规则（逻辑层参考）
-
-- `godot/scripts/game/` 是纯逻辑层 — 零 UI 依赖
-- 伤害计算：先 -2 再 2:1 联盟分配，向下取整
-- 行动顺序按 `CHARACTERS[id].speed` 每回合重排（大=先动，dead 排末尾，同速按 index）
-- Player 嵌套字段写完整路径：`statusEffects.xxx` / `relations.xxx`
-- 状态机：`PHASE: SETUP → PEACE → NORMAL → GAME_OVER`；`STEP` 驱动 UI 按钮显隐
-- 开发日志：`state.soundQueue`（音效事件）/ `state.log`（文本日志）由 audio_manager / UI 消费
-
-## 九、测试与调试
-
-- 逻辑自测：`godot/tests/test_*.gd`（extends SceneTree，PASS/FAIL 输出，`quit(_failures)`）
-- 交互调试：godot-bridge 工具（click / eval / get_ui_elements / screenshot）
-- 调试注意：`eval` 返回复杂对象易超时；优先返回精简字段；复杂循环改用独立测试脚本
-- 音频陷阱：Godot 只支持 PCM/float WAV，非 PCM 文件导入失败——新音频素材需先验证格式
+> 架构 / 构建关键点 / 关键文件 / 项目状态 / 常用命令等参考信息见 **CLAUDE.md**。本文件只定义工作流与分工。
