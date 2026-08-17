@@ -13,6 +13,7 @@ const SaveManager = preload("res://scripts/autoload/save_manager.gd")
 var _s: Dictionary = {}
 var _view: String = "map"
 var _poker_picks: Array = []      # 前2张=行动力，第3张=抽牌数
+var _pick_card_qty: String = ""   # 出牌数量选择中的卡 id（空=未在选择）
 var _reward_candidates: Array = []
 var _reward_claimed: bool = false
 var _enemy_text: String = ""
@@ -301,6 +302,31 @@ func _show_battle() -> void:
 			var hand: Dictionary = c.get("playerHand", {})
 			if hand.is_empty():
 				_add_label("手牌为空", 14)
+			# 出牌数量选择（设计 §5.3：点击牌格选数量 n）
+			if _pick_card_qty != "":
+				var qcard: Dictionary = GameSolo.get_card_stats(_s, _pick_card_qty)
+				var qheld: int = int(hand.get(_pick_card_qty, 0))
+				var qcost: int = maxi(1, int(qcard.get("cost", 1)))
+				var qmax: int = mini(qheld, int(c.get("actionPoints", 0)) / qcost)
+				if qmax > 1:
+					_add_label("打出几张「%s」？" % qcard.get("name", "?"), 16)
+					var qrow := HBoxContainer.new()
+					qrow.add_theme_constant_override("separation", 12)
+					_content.add_child(qrow)
+					var qid: String = _pick_card_qty
+					for n in range(1, qmax + 1):
+						var nb := Button.new()
+						nb.text = "×%d" % n
+						nb.custom_minimum_size = Vector2(90, 66)
+						nb.pressed.connect(func(): _do_play_card(qid, n))
+						qrow.add_child(nb)
+					var qcancel := Button.new()
+					qcancel.text = "取消"
+					qcancel.custom_minimum_size = Vector2(90, 66)
+					qcancel.pressed.connect(func():
+						_pick_card_qty = ""
+						_show_battle())
+					qrow.add_child(qcancel)
 			for id in hand.keys():
 				var card: Dictionary = GameSolo.get_card_stats(_s, String(id))
 				var held: int = int(hand[id])
@@ -347,10 +373,25 @@ func _on_poker_pick(idx: int) -> void:
 	_show_battle()
 
 func _on_play_card(card_id: String) -> void:
-	var r: Dictionary = GameSoloCombat.play_card(_s, card_id, 1)
+	var c: Dictionary = _s.get("combat", {})
+	var card: Dictionary = GameSoloConstants.SOLO_CARDS.get(card_id, {})
+	var held: int = int(c.get("playerHand", {}).get(card_id, 0))
+	var max_n: int = 1
+	if int(card.get("cost", 0)) > 0:
+		max_n = mini(held, int(c.get("actionPoints", 0)) / int(card.get("cost", 1)))
+	if max_n > 1:
+		# 可打多张 → 进入数量选择（设计 §5.3）
+		_pick_card_qty = card_id
+		_show_battle()
+		return
+	_do_play_card(card_id, 1)
+
+func _do_play_card(card_id: String, count: int) -> void:
+	var r: Dictionary = GameSoloCombat.play_card(_s, card_id, count)
 	if not r.get("ok", false):
 		_msg = String(r.get("reason", "出牌失败"))
 	_refresh_log()
+	_pick_card_qty = ""
 	_show_battle()
 
 func _on_end_turn() -> void:

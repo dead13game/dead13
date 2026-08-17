@@ -225,13 +225,28 @@ func _show_map() -> void:
 	var meta: Dictionary = UniConstants.REGION_META.get(rtype, {})
 	_add_label("本层：%s %s" % [meta.get("icon", ""), meta.get("name", rtype)], 17)
 	match rtype:
-		"battle", "elite", "boss", "transform":
+		"battle", "elite", "transform":
 			var waves: Array = r.get("waves", [])
 			var desc: Array = []
 			for w in waves:
 				desc.append("%s×%d" % [UniConstants.ENEMY_BASE.get(w.get("kind", ""), {}).get("name", "?"), w.get("count", 0)])
 			_add_label("敌人：%s" % " → ".join(desc), 13)
 			_add_button("⚔️ 进入战斗", func():
+				_pick_targets.clear()
+				UniCombat.start_combat(_s)
+				_refresh_log()
+				_show_battle())
+		"boss":
+			# 首领层：造物调试台 → 首领战斗（设计第九框架 ①②③ 调试台 ④战斗）
+			if int(_s.get("heat", 0)) > 0:
+				_add_label("造物调试台：%d 热量" % _s.get("heat", 0), 13)
+				_add_button("🔧 造物调试台（热量强化 / 覆写）", _show_workbench)
+			var waves: Array = r.get("waves", [])
+			var desc: Array = []
+			for w in waves:
+				desc.append("%s×%d" % [UniConstants.ENEMY_BASE.get(w.get("kind", ""), {}).get("name", "?"), w.get("count", 0)])
+			_add_label("敌人：%s" % " → ".join(desc), 13)
+			_add_button("⚔️ 进入首领战斗", func():
 				_pick_targets.clear()
 				UniCombat.start_combat(_s)
 				_refresh_log()
@@ -246,8 +261,12 @@ func _show_map() -> void:
 			_show_shop()
 		"rest":
 			_show_rest()
-		"fortune", "oddity":
-			# 已由 enter_region 处理（碎片/工作台/强化）
+		"fortune":
+			_add_button("➡️ 继续前进", _on_advance)
+		"oddity":
+			# 奇遇：workbench 效果时可用一次造物调试台（设计第九框架 奇遇①）
+			if _s(r.get("oddityEffect", "")) == "workbench":
+				_add_button("🔧 造物调试台（奇遇）", _show_workbench)
 			_add_button("➡️ 继续前进", _on_advance)
 
 func _on_advance() -> void:
@@ -789,6 +808,35 @@ func _show_rest() -> void:
 			_content.add_child(b)
 	else:
 		_add_label("全员存活，无角色需要复活", 14)
+	# 购买祝福 / 奇物（设计第九框架：休整购买规则同商店）
+	var rest_stock: Dictionary = _s.get("shopStock", {})
+	if rest_stock.is_empty():
+		UniShop.create_shop_stock(_s)
+		rest_stock = _s["shopStock"]
+	_add_label("购买（宇宙碎片 %d）：" % _s.get("shards", 0), 15)
+	var rest_buy := func(type: String) -> void:
+		var items: Array = rest_stock.get(type, [])
+		if items.is_empty():
+			_add_label("（无%s在售）" % ("祝福" if type == "blessing" else "奇物"), 13)
+			return
+		for i in range(items.size()):
+			var item: Dictionary = items[i]
+			var bd: Dictionary = UniBuffs.BLESSINGS.get(item.get("id", ""), {}) if type == "blessing" else UniBuffs.CURIOS.get(item.get("id", ""), {})
+			var price: int = UniShop.shop_price(_s, type, int(item.get("star", 1)))
+			var sold: String = "（已售）" if item.get("sold", false) else "%d💎" % price
+			var b := Button.new()
+			b.text = "%s（%d星） %s" % [bd.get("name", item.get("id", "")), item.get("star", 0), sold]
+			b.custom_minimum_size = Vector2(0, 48)
+			b.disabled = item.get("sold", false)
+			var idx: int = i
+			b.pressed.connect(func():
+				var r: Dictionary = UniShop.shop_buy(_s, type, idx)
+				_msg = "购买成功！" if r.get("ok", false) else String(r.get("reason", "购买失败"))
+				_refresh_log()
+				_show_rest())
+			_content.add_child(b)
+	rest_buy.call("blessing")
+	rest_buy.call("curio")
 	if not _msg.is_empty():
 		_add_label(_msg, 13)
 		_msg = ""

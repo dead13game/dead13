@@ -150,13 +150,12 @@ static func overwrite_equation(state: Dictionary, eq_idx: int) -> Dictionary:
 		_s(next.get("name", "")), price])
 	return {"ok": true, "price": price, "nextId": next.get("id", "")}
 
-## 首领层进入时重置热量与覆写价格
+## 首领层进入时重置热量（覆写价格全局累计，不重置；设计 §10.3）
 static func reset_workbench(state: Dictionary) -> void:
 	var heat: int = int(UniConstants.UNI_CONST["BOSS_HEAT"])
 	if UniCore.has_curio(state, "huacheng"):
 		heat += int(UniBuffs.CURIO_FX.get("huacheng", {}).get("heat", 5))
 	state["heat"] = heat
-	state["overwritePrice"] = int(UniConstants.UNI_CONST["OVERWRITE_BASE"])
 
 ## 生成 3 星祝福三选一候选
 static func roll_top_blessing_picks(count: int = 3) -> Array:

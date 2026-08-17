@@ -118,7 +118,6 @@ static func enter_region(state: Dictionary) -> void:
 	var r: Variant = state.get("region", null)
 	if r == null:
 		return
-	state["overwritePrice"] = int(UniConstants.UNI_CONST["OVERWRITE_BASE"])
 	# 奇物：永动咕咕钟
 	if UniCore.has_curio(state, "yongdong"):
 		var loss: int = ceili(float(state.get("shards", 0)) * float(UniBuffs.CURIO_FX.get("yongdong", {}).get("shardsPct", 4)) / 100.0)
@@ -139,6 +138,8 @@ static func enter_region(state: Dictionary) -> void:
 		for t in state.get("team", []):
 			if t.get("alive", false):
 				t["hp"] = float(t.get("maxHp", 1))
+		# 休整可购买奇物/祝福（设计第九框架：购买规则同商店）
+		UniShop.create_shop_stock(state)
 	elif r_type == "boss":
 		UniShop.reset_workbench(state)
 	elif r_type == "shop":

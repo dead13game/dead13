@@ -29,7 +29,7 @@ const SOLO_CARDS: Dictionary = {
 	"mengji": {"id": "mengji", "name": "猛击", "type": "physical", "cost": 5, "base": 3},
 	"zhongji": {"id": "zhongji", "name": "重击", "type": "physical", "cost": 9, "base": 6},
 	"lianji": {"id": "lianji", "name": "连击", "type": "physical", "cost": 12, "base": 3, "hits": 2},
-	"pojia": {"id": "pojia", "name": "破甲", "type": "physical", "cost": 8, "base": 4, "armorPen": 2},
+	"pojia": {"id": "pojia", "name": "破甲", "type": "physical", "cost": 8, "base": 4, "shieldPen": 2},
 	"aoshu": {"id": "aoshu", "name": "奥术冲击", "type": "magic", "cost": 5, "base": 2},
 	"bingzhui": {"id": "bingzhui", "name": "冰锥", "type": "magic", "cost": 8, "base": 3, "actionDrain": 4},
 	"zhiyu": {"id": "zhiyu", "name": "治愈", "type": "magic", "cost": 8, "base": 4, "heal": true},
@@ -51,7 +51,7 @@ const CARD_RARITY: Dictionary = {
 ## 敌人数据
 const SOLO_ENEMIES: Dictionary = {
 	"normal": {"name": "普通敌人", "hp": 20, "deck": {"mengji": 4, "zhongji": 2}, "buff": null},
-	"elite": {"name": "精英敌人", "hp": 30, "deck": {"zhongji": 3, "huogiu": 2, "gedang": 2}, "buff": null},
+	"elite": {"name": "精英敌人", "hp": 30, "deck": {"zhongji": 3, "huogiu": 2, "gedang": 2}, "buff": null, "shield": 8},
 	"boss": {"name": "首领", "hp": 40, "deck": {"lianji": 2, "huogiu": 2, "tiebi": 2}, "buff": "fightingSpirit"},
 }
 

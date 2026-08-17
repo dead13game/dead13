@@ -31,26 +31,27 @@ offset_right = -24.0
 offset_bottom = 78.0
 grow_horizontal = 2
 
-[node name="Inner" type="Control" parent="TopBar"]
+[node name="Inner" type="Control" parent="TopBar" unique_id=1667048258]
 layout_mode = 2
 
-[node name="BackBtn" type="Button" parent="TopBar/Inner"]
+[node name="BackBtn" type="Button" parent="TopBar/Inner" unique_id=399120331]
 layout_mode = 1
+anchors_preset = 9
 anchor_bottom = 1.0
-offset_left = 12
-offset_top = 10
-offset_right = 140
-offset_bottom = -10
+offset_left = 12.0
+offset_top = 10.0
+offset_right = 140.0
+offset_bottom = -10.0
 grow_vertical = 2
 text = "← 返回"
 
-[node name="TitleLabel" type="Label" parent="TopBar/Inner"]
+[node name="TitleLabel" type="Label" parent="TopBar/Inner" unique_id=189373696]
 unique_name_in_owner = true
 layout_mode = 1
+anchors_preset = 9
 anchor_bottom = 1.0
-offset_left = 12
-offset_right = -12
-grow_horizontal = 2
+offset_left = 436.0
+offset_right = 592.0
 grow_vertical = 2
 theme_override_font_sizes/font_size = 39
 text = "单机模式"
@@ -105,51 +106,55 @@ offset_bottom = -264.0
 grow_horizontal = 2
 grow_vertical = 0
 
-[node name="Inner" type="Control" parent="ActionBar"]
+[node name="Inner" type="Control" parent="ActionBar" unique_id=317793499]
 layout_mode = 2
 
-[node name="AttrBtn" type="Button" parent="ActionBar/Inner"]
+[node name="AttrBtn" type="Button" parent="ActionBar/Inner" unique_id=420085141]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
+anchors_preset = 9
 anchor_bottom = 1.0
-offset_left = 24
-offset_top = 10
-offset_right = 269
-offset_bottom = -10
+offset_left = 24.0
+offset_top = 10.0
+offset_right = 269.0
+offset_bottom = -10.0
 grow_vertical = 2
 text = "⬆ 属性点"
 
-[node name="SaveBtn" type="Button" parent="ActionBar/Inner"]
+[node name="SaveBtn" type="Button" parent="ActionBar/Inner" unique_id=1433528255]
 unique_name_in_owner = true
 layout_mode = 1
+anchors_preset = 9
 anchor_bottom = 1.0
-offset_left = 281
-offset_top = 10
-offset_right = 526
-offset_bottom = -10
+offset_left = 281.0
+offset_top = 10.0
+offset_right = 526.0
+offset_bottom = -10.0
 grow_vertical = 2
 text = "💾 存档"
 
-[node name="LoadBtn" type="Button" parent="ActionBar/Inner"]
+[node name="LoadBtn" type="Button" parent="ActionBar/Inner" unique_id=225326694]
 unique_name_in_owner = true
 layout_mode = 1
+anchors_preset = 9
 anchor_bottom = 1.0
-offset_left = 538
-offset_top = 10
-offset_right = 783
-offset_bottom = -10
+offset_left = 538.0
+offset_top = 10.0
+offset_right = 783.0
+offset_bottom = -10.0
 grow_vertical = 2
 text = "📂 读档"
 
-[node name="NodeBtn" type="Button" parent="ActionBar/Inner"]
+[node name="NodeBtn" type="Button" parent="ActionBar/Inner" unique_id=457979803]
 unique_name_in_owner = true
 layout_mode = 1
+anchors_preset = 9
 anchor_bottom = 1.0
-offset_left = 795
-offset_top = 10
-offset_right = 1040
-offset_bottom = -10
+offset_left = 795.0
+offset_top = 10.0
+offset_right = 1040.0
+offset_bottom = -10.0
 grow_vertical = 2
 text = "➡️ 进入节点"
 

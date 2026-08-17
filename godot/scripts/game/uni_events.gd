@@ -94,7 +94,7 @@ const UNI_EVENTS: Dictionary = {
 		"id": "altar", "title": "古代祭坛",
 		"desc": "祭坛上有一件正在发光的物品。",
 		"options": [
-			{"text": "取走物品", "effects": {"equationStar": 3, "curioCount": 2, "loseHpPct": 60}},
+			{"text": "取走物品", "effects": {"equationStar": 3, "curioCount": 2, "curioStars": [2, 2], "loseHpPct": 60}},
 			{"text": "献祭物品", "effects": {"loseBlessing": 2, "shards": 300}},
 			{"text": "祈祷", "effects": {"loseCurio": 1, "healPct": 50}},
 		],
@@ -350,8 +350,9 @@ static func apply_event_option(state: Dictionary, event_id: String, option_idx: 
 
 	# 奇物
 	if fx.has("curioCount"):
+		var star_r: Array = fx.get("curioStars", [1, 3])
 		for i in range(int(fx["curioCount"])):
-			var cid: String = UniBuffs.roll_curio(fx.get("excludeNegative", false))
+			var cid: String = UniBuffs.roll_curio(fx.get("excludeNegative", false), int(star_r[0]), int(star_r[1]))
 			if cid != "":
 				UniBuffs.gain_curio(state, cid, {"silent": true})
 
@@ -473,30 +474,38 @@ static func _run_fortune_card(state: Dictionary) -> Dictionary:
 		UniBuffs.gain_equation(state, eid)
 	return {"kind": "equation", "count": 1}
 
-## 抽签单次
+## 抽签单次判定（只判定等级，不应用效果；应用见 _apply_lottery）
 static func _draw_lottery_one(state: Dictionary) -> Dictionary:
 	var r: float = randf()
 	if r < 0.1:
-		for i in range(3):
-			var id: String = UniBuffs.roll_blessing(3, 3)
-			if id != "":
-				UniBuffs.gain_blessing(state, id, {"silent": true})
 		return {"level": 4, "name": "大吉"}
 	if r < 0.3:
-		var cid: String = UniBuffs.roll_curio(false, 3, 3)
-		if cid != "":
-			UniBuffs.gain_curio(state, cid, {"silent": true})
 		return {"level": 3, "name": "中吉"}
 	if r < 0.7:
-		for i in range(2):
-			var id2: String = UniBuffs.roll_blessing(1, 2)
-			if id2 != "":
-				UniBuffs.gain_blessing(state, id2, {"silent": true})
 		return {"level": 2, "name": "小吉"}
-	_lose_team_hp_pct(state, 20.0)
 	return {"level": 1, "name": "凶"}
 
-## 抽签
+## 应用单支抽签结果（大吉=3个3星祝福 / 中吉=1个3星奇物 / 小吉=2个1-2星祝福 / 凶=失去20%生命上限）
+static func _apply_lottery(state: Dictionary, d: Dictionary) -> void:
+	match int(d.get("level", 1)):
+		4:
+			for i in range(3):
+				var id: String = UniBuffs.roll_blessing(3, 3)
+				if id != "":
+					UniBuffs.gain_blessing(state, id, {"silent": true})
+		3:
+			var cid: String = UniBuffs.roll_curio(false, 3, 3)
+			if cid != "":
+				UniBuffs.gain_curio(state, cid, {"silent": true})
+		2:
+			for i in range(2):
+				var id2: String = UniBuffs.roll_blessing(1, 2)
+				if id2 != "":
+					UniBuffs.gain_blessing(state, id2, {"silent": true})
+		_:
+			_lose_team_hp_pct(state, 20.0)
+
+## 抽签：抽 count 支，只应用最好的一支（设计：抽三支取最好）
 static func _run_lottery(state: Dictionary, lot: Dictionary) -> Dictionary:
 	if not UniCore.spend_shards(state, int(lot.get("cost", 0))):
 		return {"failed": "碎片不足"}
@@ -507,8 +516,11 @@ static func _run_lottery(state: Dictionary, lot: Dictionary) -> Dictionary:
 		draws.append(d)
 		if best == null or int(d.get("level", 0)) > int(best.get("level", 0)):
 			best = d
+	# 只应用最好一支的效果
+	if best != null:
+		_apply_lottery(state, best)
 	var names: Array = []
 	for d in draws:
 		names.append(_s(d.get("name", "")))
-	state["log"].append("抽签：%s（取%s）" % ["、".join(names), _s(best.get("name", ""))])
-	return {"cost": int(lot.get("cost", 0)), "draws": draws, "best": _s(best.get("name", ""))}
+	state["log"].append("抽签：%s（取%s）" % ["、".join(names), _s(best.get("name", "") if best != null else "无")])
+	return {"cost": int(lot.get("cost", 0)), "draws": draws, "best": _s(best.get("name", "") if best != null else "无")}

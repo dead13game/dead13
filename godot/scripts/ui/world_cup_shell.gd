@@ -120,6 +120,16 @@ func _show_setup() -> void:
 	char_option.select(0)
 	_content.add_child(char_option)
 
+	var diff_label := Label.new()
+	diff_label.text = "对手 AI 难度"
+	_content.add_child(diff_label)
+	var diff_option := OptionButton.new()
+	diff_option.add_item("简单", 0)
+	diff_option.add_item("熟练", 1)
+	diff_option.add_item("地狱", 2)
+	diff_option.select(1)
+	_content.add_child(diff_option)
+
 	var start_btn := Button.new()
 	start_btn.text = "开始世界杯"
 	start_btn.custom_minimum_size = Vector2(0, 66)
@@ -129,6 +139,12 @@ func _show_setup() -> void:
 			team_name = "梦魂队"
 		GameManager.new_world_cup(team_name)
 		GameManager.wc_state["_playerCharId"] = char_option.get_selected_id()
+		var diff: String = "easy"
+		if diff_option.selected == 1:
+			diff = "skilled"
+		elif diff_option.selected == 2:
+			diff = "hell"
+		GameManager.wc_state["_aiDifficulty"] = diff
 		_refresh())
 	_content.add_child(start_btn)
 
@@ -239,7 +255,7 @@ func _start_group_match(match_idx: int) -> void:
 	var opponent_name: String = _opponent_name_for_match(wc, match_idx)
 	var player_name: String = _s(wc.get("playerTeamName", "玩家"))
 	wc["_currentMatchIdx"] = match_idx
-	GameManager.start_match(player_char_id, opponent_char_id, true, player_name, opponent_name, 999)
+	GameManager.start_match(player_char_id, opponent_char_id, true, player_name, opponent_name, 999, _s(wc.get("_aiDifficulty", "skilled")))
 	GameManager.match_return_scene = "res://scenes/football/world_cup_shell.tscn"
 	GameManager.match_context = "worldcup"
 	get_tree().change_scene_to_file("res://scenes/classic/game_table.tscn")
@@ -272,7 +288,7 @@ func _show_knockout() -> void:
 		var opponent_char_id: int = int(opp.get("charId", 1))
 		GameManager.start_match(player_char_id, opponent_char_id, false,
 			_s(wc.get("playerTeamName", "玩家")), _s(opp.get("name", "对手")),
-			int(wc.get("substitutionsLeft", 3)))
+			int(wc.get("substitutionsLeft", 3)), _s(wc.get("_aiDifficulty", "skilled")))
 		GameManager.match_return_scene = "res://scenes/football/world_cup_shell.tscn"
 		GameManager.match_context = "worldcup"
 		get_tree().change_scene_to_file("res://scenes/classic/game_table.tscn"))

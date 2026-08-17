@@ -103,7 +103,7 @@ static func start_combat(state: Dictionary, enemy_key: String) -> void:
 		"enemyName": enemy.get("name", "?"),
 		"enemyHp": enemy.get("hp", 20),
 		"enemyMaxHp": enemy.get("hp", 20),
-		"enemyShield": 0,
+		"enemyShield": enemy.get("shield", 0),
 		"enemyBuff": enemy.get("buff", ""),
 		"enemySpirit": 0,
 		"enemyNextActionDrain": 0,
@@ -206,13 +206,16 @@ static func play_card(state: Dictionary, card_id: String, count: int = 1) -> Dic
 		var dmg: int = int(stats.get("base", 0)) + int(attrs.get("str" if ctype == "physical" else "mag", 0))
 		var hits: int = int(card.get("hits", 1))
 		for i in range(count * hits):
-			damage_enemy(state, dmg, int(stats.get("armorPen", 0)))
+			damage_enemy(state, dmg, 0)
 			if String(c.get("phase", "")) == "won":
 				break
 		if card.get("heal", false):
 			heal_self(state, int(stats.get("base", 0)) + int(attrs.get("mag", 0)), count)
 		if card.get("actionDrain", 0) != null:
 			c["enemyNextActionDrain"] = int(card.get("actionDrain", 0))
+		# 破甲（设计 §12.2）：目标下回合防御 -2（敌方防御牌护盾 -shieldPen）
+		if int(card.get("shieldPen", 0)) > 0:
+			c["enemyNextShieldPen"] = int(c.get("enemyNextShieldPen", 0)) + int(card.get("shieldPen", 0)) * count
 	elif ctype == "defense":
 		GameSoundEvents.record_sound(state, "defense")
 		var shield: int = int(stats.get("base", 0)) + int(attrs.get("def", 0))
@@ -255,6 +258,9 @@ static func damage_enemy(state: Dictionary, dmg: int, pen: int = 0) -> void:
 	# 斗志：对护盾造成伤害 → 玛薇卡斗志 += 破盾量
 	if shield_dmg > 0:
 		c["fightingSpirit"] = int(c.get("fightingSpirit", 0)) + shield_dmg
+	# 首领斗志（设计 §5.5）：首领带 fightingSpirit buff 时，玩家破首领盾 → 首领斗志 += 破盾量
+	if shield_dmg > 0 and c.get("enemyBuff") != null and String(c.get("enemyBuff")) == "fightingSpirit":
+		c["enemySpirit"] = int(c.get("enemySpirit", 0)) + shield_dmg
 	# 剩余扣 HP
 	c["enemyHp"] = int(c.get("enemyHp", 0)) - d
 	if int(c.get("enemyHp", 0)) < 0:
@@ -273,10 +279,6 @@ static func damage_player(state: Dictionary, dmg: int) -> void:
 	var shield_dmg: int = mini(int(c.get("playerShield", 0)), d)
 	c["playerShield"] = int(c.get("playerShield", 0)) - shield_dmg
 	d -= shield_dmg
-	# 首领斗志：破玩家盾攒斗志
-	var enemy_buff: Variant = c.get("enemyBuff")
-	if shield_dmg > 0 and enemy_buff != null and String(enemy_buff) == "fightingSpirit":
-		c["enemySpirit"] = int(c.get("enemySpirit", 0)) + shield_dmg
 	state["player"]["hp"] = int(state["player"].get("hp", 0)) - d
 	if int(state["player"].get("hp", 0)) < 0:
 		state["player"]["hp"] = 0
@@ -325,14 +327,15 @@ static func enemy_announce(state: Dictionary) -> Dictionary:
 	if String(c.get("phase", "")) == "lost" or String(c.get("phase", "")) == "won":
 		return {"playing": false}
 
-	# 所有可出的牌（攻击+防御，纯随机均匀选取）
+	# 所有可出的牌（攻击+防御，纯随机均匀选取）；AI 每回合行动力消耗上限 7（设计 §12.3）
 	var playable: Array = []
 	for id in c.get("enemyHand", {}).keys():
 		var card: Variant = GameSoloConstants.SOLO_CARDS.get(id)
 		if card is Dictionary \
 				and String(card.get("type", "")) != "utility" \
 				and int(c["enemyHand"][id]) > 0 \
-				and int(card.get("cost", 0)) <= int(c.get("enemyActionPoints", 0)):
+				and int(card.get("cost", 0)) <= int(c.get("enemyActionPoints", 0)) \
+				and int(c.get("enemySpent", 0)) + int(card.get("cost", 0)) <= 7:
 			playable.append(id)
 	# 行动力不足或手牌无可用卡 → 结束敌方回合
 	if playable.is_empty():
@@ -340,9 +343,12 @@ static func enemy_announce(state: Dictionary) -> Dictionary:
 		return {"playing": false}
 	var id: String = String(playable[randi() % playable.size()])
 	var card: Dictionary = GameSoloConstants.SOLO_CARDS[id]
-	# 打出数量：行动力允许范围内的全部持有数
+	# 打出数量：行动力允许范围内的全部持有数，且受 AI 每回合消耗上限 7 约束（设计 §12.3）
 	var max_count: int = mini(int(c["enemyHand"][id]), int(int(c.get("enemyActionPoints", 0)) / int(card.get("cost", 1))))
-	var count: int = max_count
+	var remain_budget: int = 7 - int(c.get("enemySpent", 0))
+	if remain_budget > 0:
+		max_count = mini(max_count, remain_budget / int(card.get("cost", 1)))
+	var count: int = maxi(1, max_count)
 	c["enemyPendingPlay"] = {"cardId": id, "count": count, "cost": int(card.get("cost", 0)) * count}
 	c["phase"] = "enemy-resolve"
 	return {"playing": true, "cardId": id, "count": count}
