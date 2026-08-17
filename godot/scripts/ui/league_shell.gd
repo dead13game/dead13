@@ -7,56 +7,48 @@ const GameLeague = preload("res://scripts/game/league.gd")
 const GameLeagueConstants = preload("res://scripts/game/league_constants.gd")
 const GameWorldCup = preload("res://scripts/game/world_cup.gd")
 
-var _root_box: VBoxContainer
-var _title: Label
-var _content: VBoxContainer
+@onready var _back_btn: Button = find_child("BackBtn", true, false) as Button
+@onready var _title: Label = %TitleLabel
+@onready var _content: VBoxContainer = %ContentBox
 
 var _draft_player_picks: Array = []     # 玩家选秀角色
 var _draft_opponent_picks: Array = []   # 对手选秀角色（AI 自动）
 var _draft_taken: Dictionary = {}       # charId -> true（双方已选）
 
 func _ready() -> void:
-	_build_ui()
+	_ensure_nodes()
+	_bind_back()
 	_handle_return_from_match()
 	_refresh()
 
-func _build_ui() -> void:
-	var bg := ColorRect.new()
-	bg.color = Color(0.05, 0.07, 0.09)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
+## 场景节点缺失时降级：代码兜底创建（编辑器里搭一半也能跑）
+func _ensure_nodes() -> void:
+	if _title == null:
+		_title = Label.new()
+		_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_title.add_theme_font_size_override("font_size", 30)
+		add_child(_title)
+	if _content == null:
+		_content = VBoxContainer.new()
+		_content.add_theme_constant_override("separation", 8)
+		var scroll := ScrollContainer.new()
+		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		add_child(scroll)
+		scroll.add_child(_content)
 
-	var margin := MarginContainer.new()
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 30)
-	margin.add_theme_constant_override("margin_right", 30)
-	margin.add_theme_constant_override("margin_top", 20)
-	margin.add_theme_constant_override("margin_bottom", 20)
-	add_child(margin)
+## 绑定返回按钮（场景缺 BackBtn 时兜底创建）
+func _bind_back() -> void:
+	if _back_btn == null:
+		_back_btn = Button.new()
+		_back_btn.text = "← 返回主菜单"
+		add_child(_back_btn)
+	if not _back_btn.pressed.is_connected(_on_back):
+		_back_btn.pressed.connect(_on_back)
 
-	_root_box = VBoxContainer.new()
-	_root_box.add_theme_constant_override("separation", 12)
-	margin.add_child(_root_box)
-
-	var back_btn := Button.new()
-	back_btn.text = "← 返回主菜单"
-	back_btn.pressed.connect(func():
-		GameManager.league_state = {}
-		GameManager.state = {}
-		get_tree().change_scene_to_file("res://scenes/main_menu.tscn"))
-	_root_box.add_child(back_btn)
-
-	_title = Label.new()
-	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_title.add_theme_font_size_override("font_size", 30)
-	_root_box.add_child(_title)
-
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_root_box.add_child(scroll)
-	_content = VBoxContainer.new()
-	_content.add_theme_constant_override("separation", 8)
-	scroll.add_child(_content)
+func _on_back() -> void:
+	GameManager.league_state = {}
+	GameManager.state = {}
+	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 
 ## 从比赛返回后记录本轮结果（3v3 死亡顺序计分 → 胜负平）
 func _handle_return_from_match() -> void:

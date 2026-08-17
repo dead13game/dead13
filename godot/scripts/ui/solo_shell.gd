@@ -19,6 +19,7 @@ var _enemy_text: String = ""
 var _msg: String = ""
 var _busy: bool = false
 
+@onready var _back_btn: Button = find_child("BackBtn", true, false) as Button
 @onready var _title: Label = %TitleLabel
 @onready var _player_label: Label = %PlayerLabel
 @onready var _content: VBoxContainer = %ContentBox
@@ -30,8 +31,22 @@ func _ready() -> void:
 	_s = GameManager.solo_state
 	AudioManager.play_bgm("battle1")
 	_ensure_nodes()
+	_bind_back()
 	_refresh_log()
 	_show_map()
+
+## 绑定返回按钮（场景缺 BackBtn 时兜底创建）
+func _bind_back() -> void:
+	if _back_btn == null:
+		_back_btn = Button.new()
+		_back_btn.text = "← 返回"
+		add_child(_back_btn)
+	if not _back_btn.pressed.is_connected(_on_back):
+		_back_btn.pressed.connect(_on_back)
+
+func _on_back() -> void:
+	GameManager.solo_state = {}
+	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 
 ## 场景节点缺失时降级：代码兜底创建（编辑器里搭一半也能跑）
 func _ensure_nodes() -> void:

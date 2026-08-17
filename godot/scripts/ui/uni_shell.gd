@@ -21,72 +21,57 @@ var _skill_branch: String = ""     # 莉奈娅 branch
 var _msg: String = ""
 var _busy: bool = false
 
-var _title: Label
-var _status_label: Label
-var _content: VBoxContainer
-var _log_box: VBoxContainer
+@onready var _back_btn: Button = find_child("BackBtn", true, false) as Button
+@onready var _title: Label = %TitleLabel
+@onready var _status_label: Label = %StatusLabel
+@onready var _content: VBoxContainer = %ContentBox
+@onready var _log_box: VBoxContainer = %LogBox
 
 func _ready() -> void:
 	_s = GameManager.uni_state
 	AudioManager.play_bgm("battle1")
-	_build_ui()
+	_ensure_nodes()
+	_bind_back()
+	_refresh_log()
 	_show_map()
 
-func _build_ui() -> void:
-	var bg := ColorRect.new()
-	bg.color = Color(0.05, 0.04, 0.1)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
+## 场景节点缺失时降级：代码兜底创建（编辑器里搭一半也能跑）
+func _ensure_nodes() -> void:
+	if _title == null:
+		_title = Label.new()
+		_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_title.add_theme_font_size_override("font_size", 24)
+		add_child(_title)
+	if _status_label == null:
+		_status_label = Label.new()
+		_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		add_child(_status_label)
+	if _content == null:
+		_content = VBoxContainer.new()
+		_content.add_theme_constant_override("separation", 6)
+		var scroll := ScrollContainer.new()
+		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		add_child(scroll)
+		scroll.add_child(_content)
+	if _log_box == null:
+		_log_box = VBoxContainer.new()
+		var log_scroll := ScrollContainer.new()
+		log_scroll.custom_minimum_size = Vector2(0, 100)
+		add_child(log_scroll)
+		log_scroll.add_child(_log_box)
 
-	var margin := MarginContainer.new()
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
-		margin.set(side, 16)
-	add_child(margin)
+## 绑定返回按钮（场景缺 BackBtn 时兜底创建）
+func _bind_back() -> void:
+	if _back_btn == null:
+		_back_btn = Button.new()
+		_back_btn.text = "← 返回主菜单"
+		add_child(_back_btn)
+	if not _back_btn.pressed.is_connected(_on_back):
+		_back_btn.pressed.connect(_on_back)
 
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 8)
-	margin.add_child(vbox)
-
-	var top := HBoxContainer.new()
-	vbox.add_child(top)
-	var back_btn := Button.new()
-	back_btn.text = "← 返回主菜单"
-	back_btn.pressed.connect(func():
-		GameManager.uni_state = {}
-		get_tree().change_scene_to_file("res://scenes/main_menu.tscn"))
-	top.add_child(back_btn)
-	_title = Label.new()
-	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_title.add_theme_font_size_override("font_size", 24)
-	top.add_child(_title)
-
-	_status_label = Label.new()
-	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(_status_label)
-
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	vbox.add_child(scroll)
-	_content = VBoxContainer.new()
-	_content.add_theme_constant_override("separation", 6)
-	_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_content)
-
-	var log_panel := PanelContainer.new()
-	log_panel.custom_minimum_size = Vector2(0, 100)
-	vbox.add_child(log_panel)
-	var log_margin := MarginContainer.new()
-	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
-		log_margin.set(side, 6)
-	log_panel.add_child(log_margin)
-	var log_scroll := ScrollContainer.new()
-	log_margin.add_child(log_scroll)
-	_log_box = VBoxContainer.new()
-	log_scroll.add_child(_log_box)
-
-	_refresh_log()
+func _on_back() -> void:
+	GameManager.uni_state = {}
+	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 
 # ===== 刷新 =====
 
