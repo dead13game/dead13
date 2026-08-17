@@ -1,83 +1,53 @@
 extends Control
 ## 经典模式选人界面（Godot 版）
-## 纯功能 UI：玩家人数 / 角色 / AI 难度 / 天气 → 开始游戏
+## 场景驱动：固定框架（背景/标题/人数/天气/滚动区/开始按钮）在 character_select.tscn
+## 脚本驱动：玩家行（名字/角色/AI/难度）按人数动态生成；节点缺失时降级兜底
 
 const GameConstants = preload("res://scripts/game/constants.gd")
 
-var _player_count: SpinBox
-var _weather_check: CheckBox
-var _players_box: VBoxContainer
-var _rows: Array = []  # 每项: {char_option, ai_check, diff_option, name_edit}
-var _start_button: Button
+@onready var _player_count: SpinBox = %PlayerCount
+@onready var _weather_check: CheckBox = %WeatherCheck
+@onready var _players_box: VBoxContainer = %PlayersBox
+@onready var _start_button: Button = %StartButton
+
+var _rows: Array = []  # 每项: {name_edit, char_option, ai_check, diff_option}
 
 func _ready() -> void:
-	_build_ui()
+	_ensure_nodes()
+	if _start_button != null:
+		_start_button.pressed.connect(_on_start)
+	if _player_count != null:
+		_player_count.value_changed.connect(func(_v): _rebuild_rows())
 	_rebuild_rows()
 
-# ===== UI 构建 =====
+## 场景节点缺失时降级：代码兜底创建（编辑器里搭一半也能跑）
+func _ensure_nodes() -> void:
+	if _player_count == null:
+		_player_count = SpinBox.new()
+		_player_count.min_value = 2
+		_player_count.max_value = 8
+		_player_count.value = 4
+		_player_count.value_changed.connect(func(_v): _rebuild_rows())
+		if _players_box != null:
+			_players_box.add_child(_player_count)
+	if _weather_check == null:
+		_weather_check = CheckBox.new()
+		_weather_check.text = "启用天气"
+		_weather_check.button_pressed = false
+		if _players_box != null:
+			_players_box.add_child(_weather_check)
+	if _start_button == null:
+		_start_button = Button.new()
+		_start_button.text = "开始游戏"
+		_start_button.custom_minimum_size = Vector2(0, 48)
+		_start_button.pressed.connect(_on_start)
+		add_child(_start_button)
 
-func _build_ui() -> void:
-	var bg := ColorRect.new()
-	bg.color = Color(0.07, 0.07, 0.11)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
-
-	var margin := MarginContainer.new()
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	for side in ["margin_left", "margin_top", "margin_right", "margin_bottom"]:
-		margin.set(side, 28)
-	add_child(margin)
-
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 14)
-	margin.add_child(vbox)
-
-	var title := Label.new()
-	title.text = "亡命十三街 · 经典对战"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 34)
-	vbox.add_child(title)
-
-	# 人数 + 天气
-	var count_row := HBoxContainer.new()
-	count_row.add_theme_constant_override("separation", 10)
-	vbox.add_child(count_row)
-
-	var count_label := Label.new()
-	count_label.text = "玩家人数"
-	count_label.custom_minimum_size = Vector2(90, 0)
-	count_row.add_child(count_label)
-
-	_player_count = SpinBox.new()
-	_player_count.min_value = 2
-	_player_count.max_value = 8
-	_player_count.value = 4
-	_player_count.custom_minimum_size = Vector2(70, 0)
-	_player_count.value_changed.connect(func(_v): _rebuild_rows())
-	count_row.add_child(_player_count)
-
-	_weather_check = CheckBox.new()
-	_weather_check.text = "启用天气"
-	_weather_check.button_pressed = false
-	count_row.add_child(_weather_check)
-
-	# 玩家列表
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	vbox.add_child(scroll)
-
-	_players_box = VBoxContainer.new()
-	_players_box.add_theme_constant_override("separation", 8)
-	scroll.add_child(_players_box)
-
-	_start_button = Button.new()
-	_start_button.text = "开始游戏"
-	_start_button.custom_minimum_size = Vector2(0, 48)
-	_start_button.add_theme_font_size_override("font_size", 22)
-	_start_button.pressed.connect(_on_start)
-	vbox.add_child(_start_button)
+# ===== 玩家行（动态） =====
 
 func _rebuild_rows() -> void:
+	if _players_box == null:
+		return
 	for child in _players_box.get_children():
 		child.queue_free()
 	_rows.clear()
@@ -153,7 +123,8 @@ func _on_start() -> void:
 			diff = "hell"
 		difficulties.append(diff)
 
-	GameManager.new_classic_game(char_ids, _weather_check.button_pressed, char_ids.size())
+	var use_weather: bool = _weather_check != null and _weather_check.button_pressed
+	GameManager.new_classic_game(char_ids, use_weather, char_ids.size())
 
 	# 设置名称 / AI 标记 / 难度（init_game 已按 speed 重排，按 characterId 匹配）
 	for i in range(GameManager.state["players"].size()):
