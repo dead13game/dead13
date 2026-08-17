@@ -7,9 +7,9 @@
 ## 常用命令
 
 ```bash
-# 运行全部 9 套测试（改逻辑后必跑）
+# 运行全部 10 套测试（改逻辑后必跑）
 cd godot
-for t in core logic football solo uni uni_ui league_3v3 save audio; do \
+for t in core logic football solo uni uni_ui league_3v3 save audio artifacts; do \
   godot --headless --path . --script res://tests/test_$t.gd; done
 
 # 单套测试
@@ -55,7 +55,7 @@ godot/
       uni_combat.gd uni_skills.gd uni_shop.gd uni_events.gd
       ai/ ai_core.gd ai_easy.gd ai_skilled.gd ai_hell.gd ai.gd
     ui/                       # 场景驱动骨架 + 脚本动态内容
-  tests/                      # 9 套 headless 自测
+  tests/                      # 10 套 headless 自测（含圣遗物）
 ```
 
 ## 游戏模式
@@ -106,6 +106,8 @@ STEP:  pickAction → attackShowCard → pickTarget → … → pickAction（循
 | scripts/autoload/audio_manager.gd | 12 类 SFX 轮询 + menu/battle1/battle2 BGM |
 | scripts/autoload/save_manager.gd | localStorage / user:// 双后端 |
 | scripts/ui/game_table.gd | 牌桌：经典+比赛模式 + 按钮显隐规则（莉奈娅偷牌/DoT、菜月昴存读档、6人结盟背刺） |
+| scripts/ui/character_select.gd | 选人：玩家人数/角色/AI/难度 + 玩家1 开局圣遗物二选一（角斗士的终幕礼/流浪大地的乐园） |
+| scripts/game/artifacts.gd | 圣遗物：击破计数(陷阱+2/防御+1)→8 发动圣言自明(每局2次, 2回合, 额外行动)；激活期间禁温迪/雷神/风堇大招（规则见 update_log/圣遗物系统.md） |
 | scripts/ui/solo_shell.gd | 单人主壳（场景骨架化样板） |
 | scripts/game/solo_combat.gd | 单机战斗（enemyBuff null 坑已修） |
 | export_presets.cfg | Web + Windows 预设 |

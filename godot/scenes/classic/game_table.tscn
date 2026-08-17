@@ -257,10 +257,11 @@ text = "背刺"
 
 [node name="HolyBtn" type="Button" parent="." unique_id=1037281058]
 unique_name_in_owner = true
-visible = false
 layout_mode = 0
-offset_right = 120.0
-offset_bottom = 70.0
+offset_left = 532.0
+offset_top = 1790.0
+offset_right = 652.0
+offset_bottom = 1860.0
 text = "圣言自明"
 
 [node name="SaveBtn" type="Button" parent="." unique_id=641094990]

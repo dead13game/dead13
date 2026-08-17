@@ -9,8 +9,11 @@ const GameConstants = preload("res://scripts/game/constants.gd")
 @onready var _weather_check: CheckBox = %WeatherCheck
 @onready var _players_box: VBoxContainer = %PlayersBox
 @onready var _start_button: Button = %StartButton
+@onready var _artifact_1: Button = %Artifact1Btn
+@onready var _artifact_2: Button = %Artifact2Btn
 
 var _rows: Array = []  # 每项: {name_edit, char_option, ai_check, diff_option}
+var _artifact_id: int = 1  # 玩家1开局圣遗物（1=角斗士的终幕礼, 2=流浪大地的乐园）
 
 func _ready() -> void:
 	_ensure_nodes()
@@ -18,7 +21,36 @@ func _ready() -> void:
 		_start_button.pressed.connect(_on_start)
 	if _player_count != null:
 		_player_count.value_changed.connect(func(_v): _rebuild_rows())
+	_bind_artifact()
 	_rebuild_rows()
+
+## 圣遗物二选一：互斥选中（默认选角斗士的终幕礼）
+func _bind_artifact() -> void:
+	if _artifact_1 == null:
+		_artifact_1 = Button.new()
+		_artifact_1.text = "角斗士的终幕礼"
+		add_child(_artifact_1)
+	if _artifact_2 == null:
+		_artifact_2 = Button.new()
+		_artifact_2.text = "流浪大地的乐园"
+		add_child(_artifact_2)
+	_artifact_1.toggle_mode = true
+	_artifact_2.toggle_mode = true
+	_artifact_1.button_pressed = true
+	_artifact_2.button_pressed = false
+	if not _artifact_1.toggled.is_connected(_on_artifact_changed):
+		_artifact_1.toggled.connect(_on_artifact_changed.bind(1))
+	if not _artifact_2.toggled.is_connected(_on_artifact_changed):
+		_artifact_2.toggled.connect(_on_artifact_changed.bind(2))
+
+func _on_artifact_changed(btn_idx: int, on: bool) -> void:
+	if not on:
+		return
+	_artifact_id = btn_idx
+	if btn_idx == 1:
+		_artifact_2.button_pressed = false
+	else:
+		_artifact_1.button_pressed = false
 
 ## 场景节点缺失时降级：代码兜底创建（编辑器里搭一半也能跑）
 func _ensure_nodes() -> void:
@@ -128,6 +160,12 @@ func _on_start() -> void:
 
 	var use_weather: bool = _weather_check != null and _weather_check.button_pressed
 	GameManager.new_classic_game(char_ids, use_weather, char_ids.size())
+
+	# 玩家1（人类）开局圣遗物（公开展示，整局有效）
+	if GameManager.state["players"].size() > 0:
+		GameManager.state["players"][0]["artifactId"] = _artifact_id
+		if GameManager.state["players"][0].get("holyWordUses", 0) <= 0:
+			GameManager.state["players"][0]["holyWordUses"] = 2
 
 	# 设置名称 / AI 标记 / 难度（init_game 已按 speed 重排，按 characterId 匹配）
 	for i in range(GameManager.state["players"].size()):
