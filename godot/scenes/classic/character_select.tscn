@@ -1,8 +1,8 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://dfffor38lrkjt"]
 
-[ext_resource type="Script" path="res://scripts/ui/character_select.gd" id="1_select"]
+[ext_resource type="Script" uid="uid://0sppxq4aoj1s" path="res://scripts/ui/character_select.gd" id="1_select"]
 
-[node name="CharacterSelect" type="Control"]
+[node name="CharacterSelect" type="Control" unique_id=680333440]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -11,7 +11,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_select")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="ColorRect" parent="." unique_id=2037049244]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -20,7 +20,7 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0.0705882, 0.0588235, 0.101961, 1)
 
-[node name="MainMargin" type="MarginContainer" parent="."]
+[node name="MainMargin" type="MarginContainer" parent="." unique_id=29342671]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -32,26 +32,26 @@ theme_override_constants/margin_top = 28
 theme_override_constants/margin_right = 28
 theme_override_constants/margin_bottom = 28
 
-[node name="MainVBox" type="VBoxContainer" parent="MainMargin"]
+[node name="MainVBox" type="VBoxContainer" parent="MainMargin" unique_id=1372810706]
 layout_mode = 2
 theme_override_constants/separation = 14
 
-[node name="TitleLabel" type="Label" parent="MainMargin/MainVBox"]
+[node name="TitleLabel" type="Label" parent="MainMargin/MainVBox" unique_id=971621734]
 layout_mode = 2
 theme_override_font_sizes/font_size = 34
 text = "亡命十三街 · 经典对战"
 horizontal_alignment = 1
 
-[node name="SettingsRow" type="HBoxContainer" parent="MainMargin/MainVBox"]
+[node name="SettingsRow" type="HBoxContainer" parent="MainMargin/MainVBox" unique_id=1755182610]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="CountLabel" type="Label" parent="MainMargin/MainVBox/SettingsRow"]
+[node name="CountLabel" type="Label" parent="MainMargin/MainVBox/SettingsRow" unique_id=776343045]
 custom_minimum_size = Vector2(90, 0)
 layout_mode = 2
 text = "玩家人数"
 
-[node name="PlayerCount" type="SpinBox" parent="MainMargin/MainVBox/SettingsRow"]
+[node name="PlayerCount" type="SpinBox" parent="MainMargin/MainVBox/SettingsRow" unique_id=2069078503]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(70, 0)
 layout_mode = 2
@@ -59,22 +59,22 @@ min_value = 2.0
 max_value = 8.0
 value = 4.0
 
-[node name="WeatherCheck" type="CheckBox" parent="MainMargin/MainVBox/SettingsRow"]
+[node name="WeatherCheck" type="CheckBox" parent="MainMargin/MainVBox/SettingsRow" unique_id=2106951901]
 unique_name_in_owner = true
 layout_mode = 2
 text = "启用天气"
 
-[node name="PlayerListScroll" type="ScrollContainer" parent="MainMargin/MainVBox"]
+[node name="PlayerListScroll" type="ScrollContainer" parent="MainMargin/MainVBox" unique_id=1533567149]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="PlayersBox" type="VBoxContainer" parent="MainMargin/MainVBox/PlayerListScroll"]
+[node name="PlayersBox" type="VBoxContainer" parent="MainMargin/MainVBox/PlayerListScroll" unique_id=977546432]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="StartButton" type="Button" parent="MainMargin/MainVBox"]
+[node name="StartButton" type="Button" parent="MainMargin/MainVBox" unique_id=2038435916]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 48)
 layout_mode = 2

@@ -104,7 +104,7 @@ static func start_combat(state: Dictionary, enemy_key: String) -> void:
 		"enemyHp": enemy.get("hp", 20),
 		"enemyMaxHp": enemy.get("hp", 20),
 		"enemyShield": 0,
-		"enemyBuff": enemy.get("buff"),
+		"enemyBuff": enemy.get("buff", ""),
 		"enemySpirit": 0,
 		"enemyNextActionDrain": 0,
 		"enemyNextShieldPen": 0,
@@ -274,7 +274,8 @@ static func damage_player(state: Dictionary, dmg: int) -> void:
 	c["playerShield"] = int(c.get("playerShield", 0)) - shield_dmg
 	d -= shield_dmg
 	# 首领斗志：破玩家盾攒斗志
-	if shield_dmg > 0 and String(c.get("enemyBuff", "")) == "fightingSpirit":
+	var enemy_buff: Variant = c.get("enemyBuff")
+	if shield_dmg > 0 and enemy_buff != null and String(enemy_buff) == "fightingSpirit":
 		c["enemySpirit"] = int(c.get("enemySpirit", 0)) + shield_dmg
 	state["player"]["hp"] = int(state["player"].get("hp", 0)) - d
 	if int(state["player"].get("hp", 0)) < 0:

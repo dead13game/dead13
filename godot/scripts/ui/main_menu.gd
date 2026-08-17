@@ -10,7 +10,7 @@ signal mode_selected(mode: String)
 func _ready() -> void:
 	AudioManager.play_bgm("menu")
 	title_label.text = "亡命十三街"
-	mode_label.text = "Godot 移植版 · 开发中"
+	mode_label.text = "Godot 移植版"
 
 func _on_normal_pressed() -> void:
 	get_tree().change_scene_to_file("res://scenes/classic/character_select.tscn")

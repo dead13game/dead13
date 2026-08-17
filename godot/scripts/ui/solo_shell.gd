@@ -19,74 +19,44 @@ var _enemy_text: String = ""
 var _msg: String = ""
 var _busy: bool = false
 
-var _title: Label
-var _player_label: Label
-var _content: VBoxContainer
-var _log_box: VBoxContainer
+@onready var _title: Label = %TitleLabel
+@onready var _player_label: Label = %PlayerLabel
+@onready var _content: VBoxContainer = %ContentBox
+@onready var _log_box: VBoxContainer = %LogBox
 
 func _ready() -> void:
 	if GameManager.solo_state.is_empty():
 		GameManager.new_solo()
 	_s = GameManager.solo_state
 	AudioManager.play_bgm("battle1")
-	_build_ui()
+	_ensure_nodes()
+	_refresh_log()
 	_show_map()
 
-func _build_ui() -> void:
-	var bg := ColorRect.new()
-	bg.color = Color(0.06, 0.05, 0.09)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
-
-	var margin := MarginContainer.new()
-	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
-		margin.set(side, 20)
-	add_child(margin)
-
-	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", 10)
-	margin.add_child(vbox)
-
-	var top := HBoxContainer.new()
-	vbox.add_child(top)
-	var back_btn := Button.new()
-	back_btn.text = "← 返回主菜单"
-	back_btn.pressed.connect(func():
-		GameManager.solo_state = {}
-		GameManager.state = {}
-		get_tree().change_scene_to_file("res://scenes/main_menu.tscn"))
-	top.add_child(back_btn)
-	_title = Label.new()
-	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_title.add_theme_font_size_override("font_size", 26)
-	top.add_child(_title)
-
-	_player_label = Label.new()
-	_player_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(_player_label)
-
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	vbox.add_child(scroll)
-	_content = VBoxContainer.new()
-	_content.add_theme_constant_override("separation", 8)
-	scroll.add_child(_content)
-
-	var log_panel := PanelContainer.new()
-	log_panel.custom_minimum_size = Vector2(0, 90)
-	vbox.add_child(log_panel)
-	var log_margin := MarginContainer.new()
-	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
-		log_margin.set(side, 6)
-	log_panel.add_child(log_margin)
-	var log_scroll := ScrollContainer.new()
-	log_margin.add_child(log_scroll)
-	_log_box = VBoxContainer.new()
-	log_scroll.add_child(_log_box)
-
-	_refresh_log()
+## 场景节点缺失时降级：代码兜底创建（编辑器里搭一半也能跑）
+func _ensure_nodes() -> void:
+	if _title == null:
+		_title = Label.new()
+		_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_title.add_theme_font_size_override("font_size", 26)
+		add_child(_title)
+	if _player_label == null:
+		_player_label = Label.new()
+		_player_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		add_child(_player_label)
+	if _content == null:
+		_content = VBoxContainer.new()
+		_content.add_theme_constant_override("separation", 8)
+		var scroll := ScrollContainer.new()
+		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		add_child(scroll)
+		scroll.add_child(_content)
+	if _log_box == null:
+		_log_box = VBoxContainer.new()
+		var log_scroll := ScrollContainer.new()
+		log_scroll.custom_minimum_size = Vector2(0, 90)
+		add_child(log_scroll)
+		log_scroll.add_child(_log_box)
 
 # ===== 刷新 =====
 
@@ -127,7 +97,7 @@ func _add_label(text: String, font_size: int = 15) -> Label:
 func _add_button(text: String, cb: Callable) -> Button:
 	var b := Button.new()
 	b.text = text
-	b.custom_minimum_size = Vector2(0, 38)
+	b.custom_minimum_size = Vector2(0, 44)
 	b.pressed.connect(cb)
 	_content.add_child(b)
 	return b
@@ -279,7 +249,7 @@ func _show_battle() -> void:
 					line += " 治疗"
 				var b := Button.new()
 				b.text = line
-				b.custom_minimum_size = Vector2(0, 36)
+				b.custom_minimum_size = Vector2(0, 44)
 				var cid: String = String(id)
 				b.pressed.connect(func(): _on_play_card(cid))
 				_content.add_child(b)
@@ -375,7 +345,7 @@ func _show_reward() -> void:
 		var card: Dictionary = GameSoloConstants.SOLO_CARDS.get(id, {})
 		var b := Button.new()
 		b.text = "%s（%s）" % [card.get("name", "?"), _rarity_text(String(card.get("type", "")))]
-		b.custom_minimum_size = Vector2(0, 40)
+		b.custom_minimum_size = Vector2(0, 44)
 		var cid: String = String(id)
 		b.pressed.connect(func(): _on_claim(cid))
 		_content.add_child(b)
@@ -419,7 +389,7 @@ func _show_event() -> void:
 		var opt: Dictionary = ev["options"][i]
 		var b := Button.new()
 		b.text = String(opt.get("text", "?"))
-		b.custom_minimum_size = Vector2(0, 40)
+		b.custom_minimum_size = Vector2(0, 44)
 		var opt_idx: int = i
 		var ev_id: String = event_id
 		b.pressed.connect(func(): _on_event_option(ev_id, opt_idx))
@@ -470,7 +440,7 @@ func _show_shop() -> void:
 		var price: int = 15 if int(card.get("cost", 0)) < 8 else 25
 		var b := Button.new()
 		b.text = "%s  %d💰" % [card.get("name", "?"), price]
-		b.custom_minimum_size = Vector2(0, 34)
+		b.custom_minimum_size = Vector2(0, 44)
 		var cid: String = String(id)
 		b.pressed.connect(func():
 			var r: Dictionary = GameSolo.shop_buy(_s, cid)
@@ -526,7 +496,7 @@ func _show_camp() -> void:
 		var card: Dictionary = GameSoloConstants.SOLO_CARDS.get(id, {})
 		var b := Button.new()
 		b.text = "⬆ %s（%d💰）" % [card.get("name", "?"), GameSolo.shop_upgrade_price()]
-		b.custom_minimum_size = Vector2(0, 34)
+		b.custom_minimum_size = Vector2(0, 44)
 		var cid: String = String(id)
 		b.pressed.connect(func():
 			if GameSolo.spend_gold(_s, GameSolo.shop_upgrade_price()):
@@ -553,7 +523,7 @@ func _show_attr() -> void:
 		var names: Dictionary = {"str": "力量", "mag": "法力", "def": "防御"}
 		var b := Button.new()
 		b.text = "+1 %s（当前 %d）" % [names[attr], p["attrs"][attr]]
-		b.custom_minimum_size = Vector2(0, 40)
+		b.custom_minimum_size = Vector2(0, 44)
 		var a: String = attr
 		b.pressed.connect(func():
 			GameSolo.apply_attr_points(_s, a, 1)
@@ -585,7 +555,7 @@ func _show_end() -> void:
 	_content.add_child(end_label)
 	var again := Button.new()
 	again.text = "再玩一次"
-	again.custom_minimum_size = Vector2(0, 40)
+	again.custom_minimum_size = Vector2(0, 48)
 	again.pressed.connect(func():
 		GameManager.new_solo()
 		_s = GameManager.solo_state

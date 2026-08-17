@@ -56,17 +56,18 @@ func _rebuild_rows() -> void:
 		_rows.append(_make_row(i))
 
 func _make_row(i: int) -> Dictionary:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
+	var row := FlowContainer.new()
+	row.add_theme_constant_override("h_separation", 8)
+	row.add_theme_constant_override("v_separation", 6)
 	_players_box.add_child(row)
 
 	var name_edit := LineEdit.new()
 	name_edit.placeholder_text = "玩家%d" % (i + 1)
-	name_edit.custom_minimum_size = Vector2(110, 0)
+	name_edit.custom_minimum_size = Vector2(140, 40)
 	row.add_child(name_edit)
 
 	var char_option := OptionButton.new()
-	char_option.custom_minimum_size = Vector2(190, 0)
+	char_option.custom_minimum_size = Vector2(190, 40)
 	# 角色 1-11（12 是开发者测试角色，仅模拟宇宙可选）
 	for cid in range(1, 12):
 		var cdata: Dictionary = GameConstants.CHARACTERS.get(cid, {})
@@ -85,10 +86,12 @@ func _make_row(i: int) -> Dictionary:
 
 	var ai_check := CheckButton.new()
 	ai_check.text = "AI"
+	ai_check.custom_minimum_size = Vector2(0, 40)
 	ai_check.button_pressed = i > 0  # 默认玩家1是人类，其余 AI
 	row.add_child(ai_check)
 
 	var diff_option := OptionButton.new()
+	diff_option.custom_minimum_size = Vector2(0, 40)
 	diff_option.add_item("简单", 0)
 	diff_option.add_item("熟练", 1)
 	diff_option.add_item("地狱", 2)

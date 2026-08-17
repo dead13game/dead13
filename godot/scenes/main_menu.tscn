@@ -57,27 +57,27 @@ theme_override_constants/separation = 10
 
 [node name="NormalButton" type="Button" parent="CenterBox/MenuPanel/Buttons"]
 layout_mode = 2
-custom_minimum_size = Vector2(280, 48)
+custom_minimum_size = Vector2(340, 56)
 text = "经典模式"
 
 [node name="FootballButton" type="Button" parent="CenterBox/MenuPanel/Buttons"]
 layout_mode = 2
-custom_minimum_size = Vector2(280, 48)
+custom_minimum_size = Vector2(340, 56)
 text = "足球模式"
 
 [node name="SoloButton" type="Button" parent="CenterBox/MenuPanel/Buttons"]
 layout_mode = 2
-custom_minimum_size = Vector2(280, 48)
+custom_minimum_size = Vector2(340, 56)
 text = "单人模式"
 
 [node name="SimuniverseButton" type="Button" parent="CenterBox/MenuPanel/Buttons"]
 layout_mode = 2
-custom_minimum_size = Vector2(280, 48)
-text = "模拟宇宙（待移植）"
+custom_minimum_size = Vector2(340, 56)
+text = "模拟宇宙"
 
 [node name="RulesButton" type="Button" parent="CenterBox/MenuPanel/Buttons"]
 layout_mode = 2
-custom_minimum_size = Vector2(280, 48)
+custom_minimum_size = Vector2(340, 56)
 text = "规则说明"
 
 [connection signal="pressed" from="CenterBox/MenuPanel/Buttons/NormalButton" to="." method="_on_normal_pressed"]
