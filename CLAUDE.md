@@ -91,10 +91,10 @@ STEP:  pickAction → attackShowCard → pickTarget → … → pickAction（循
 
 - **竖屏基准（固定不变）**：`project.godot` → `display/window/size` 1080×1920（720×1280 时代 UI 已等比 ×1.5 放大）；`display/window/stretch` mode=canvas_items, aspect=expand
 - **Web 单线程**：`export_presets.cfg` `variant/thread_support=false` — 无需 SharedArrayBuffer/COOP/COEP，手机浏览器直接可跑
-- **UI 分流**：固定框架 → 场景驱动（区块级绝对定位，人类编辑器可拖）；动态内容 → 脚本 instantiate；可复用组件（卡牌）→ card.tscn + load/instantiate
+- **UI 分流**：固定元素（区块/按钮/标签）→ 场景驱动绝对定位（人类编辑器逐个可拖）；动态列表（手牌/座位/日志/商店/卡牌，数量随进展变多）→ 脚本 instantiate + 容器自动排；可复用组件（卡牌）→ card.tscn + load/instantiate
 - **节点约定**：脚本 `@onready var x = %UniqueName`；节点缺失时脚本降级兜底（场景搭一半也能跑）
-- **Container 陷阱**：Container 内子节点编辑器拖不动；要让人类拖动必须用绝对定位区块（PanelContainer + anchor/offset）
-- **布局分工**：固定区块（顶栏/状态行/操作栏/日志面板）由人类手动绝对定位（分辨率固定 1080×1920）；动态内容列表（按钮/卡牌/日志行）保留容器自动排
+- **Container 陷阱**：Container 内子节点编辑器拖不动；要让人类拖动必须用绝对定位（PanelContainer/Control + anchor/offset）
+- **布局分工（固定不变）**：分辨率固定 1080×1920；**固定元素全部独立绝对定位**（数量恒定的按钮组/标签/区块，即使条件显隐也算固定元素）；**仅动态列表保留容器**（判断标准：数量会变才用容器）
 - **音频**：Godot 只支持 PCM/float WAV；非 PCM 导入失败（历史坑，坏文件已清理）
 
 ## 关键文件
