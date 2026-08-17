@@ -18,3 +18,4 @@ config/features=PackedStringArray("4.7")
 
 McpInteractionServer="*res://autoload/mcp_interaction_server.gd"
 GameManager="*res://scripts/autoload/game_manager.gd"
+AudioManager="*res://scripts/autoload/audio_manager.gd"

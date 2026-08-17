@@ -28,6 +28,7 @@ var _log_box: VBoxContainer
 
 func _ready() -> void:
 	_s = GameManager.uni_state
+	AudioManager.play_bgm("battle1")
 	_build_ui()
 	_show_map()
 

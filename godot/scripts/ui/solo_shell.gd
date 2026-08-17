@@ -28,6 +28,7 @@ func _ready() -> void:
 	if GameManager.solo_state.is_empty():
 		GameManager.new_solo()
 	_s = GameManager.solo_state
+	AudioManager.play_bgm("battle1")
 	_build_ui()
 	_show_map()
 

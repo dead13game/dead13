@@ -8,6 +8,7 @@ signal mode_selected(mode: String)
 @onready var buttons: VBoxContainer = %Buttons
 
 func _ready() -> void:
+	AudioManager.play_bgm("menu")
 	title_label.text = "亡命十三街"
 	mode_label.text = "Godot 移植版 · 开发中"
 

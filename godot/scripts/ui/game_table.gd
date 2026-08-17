@@ -55,6 +55,7 @@ var _steal_btn: Button
 var _dot_btn: Button
 
 func _ready() -> void:
+	AudioManager.play_bgm("battle1")
 	_state = GameManager.state
 	_match_mode = _state.get("matchContext") != null
 	_build_ui()

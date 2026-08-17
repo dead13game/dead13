@@ -141,8 +141,8 @@ godot --headless --path . --script res://tests/test_league_3v3.gd
 ### Phase 5：打磨与发布
 - [x] 联赛 3v3 完整版（选秀 + 6人赛 + 死亡顺序计分）
 - [x] 存档系统接入（浏览器 localStorage / 桌面文件）
-- [ ] 动画/粒子/音效还原（视觉细节可在 Godot 编辑器协助）
-- [ ] 战斗音乐 / 音效播放接入
+- [x] 战斗音乐 / 音效播放接入：`audio_manager.gd` autoload（轮询 soundQueue 播放 12 类音效 + 按场景切 BGM menu/battle1/battle2），`test_audio.gd` 全绿，运行中验证 BGM 播放
+- [ ] 动画/粒子还原（视觉细节可在 Godot 编辑器协助）
 - [ ] 各平台导出配置（Windows / 移动端）
 
 ## 上线流程
