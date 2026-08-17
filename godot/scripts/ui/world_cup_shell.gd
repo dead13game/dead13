@@ -26,11 +26,11 @@ func _ensure_nodes() -> void:
 	if _title == null:
 		_title = Label.new()
 		_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_title.add_theme_font_size_override("font_size", 30)
+		_title.add_theme_font_size_override("font_size", 45)
 		add_child(_title)
 	if _content == null:
 		_content = VBoxContainer.new()
-		_content.add_theme_constant_override("separation", 8)
+		_content.add_theme_constant_override("separation", 12)
 		var scroll := ScrollContainer.new()
 		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		add_child(scroll)
@@ -122,7 +122,7 @@ func _show_setup() -> void:
 
 	var start_btn := Button.new()
 	start_btn.text = "开始世界杯"
-	start_btn.custom_minimum_size = Vector2(0, 44)
+	start_btn.custom_minimum_size = Vector2(0, 66)
 	start_btn.pressed.connect(func():
 		var team_name: String = name_edit.text.strip_edges()
 		if team_name.is_empty():
@@ -192,7 +192,7 @@ func _show_group() -> void:
 		_content.add_child(_make_h_sep())
 		var st_title := Label.new()
 		st_title.text = "小组积分榜"
-		st_title.add_theme_font_size_override("font_size", 18)
+		st_title.add_theme_font_size_override("font_size", 27)
 		_content.add_child(st_title)
 		for t in standings:
 			var row: Label = Label.new()
@@ -216,7 +216,7 @@ func _show_group() -> void:
 			cont_btn.text = "进入淘汰赛 ➜"
 		else:
 			cont_btn.text = "结束征程"
-		cont_btn.custom_minimum_size = Vector2(0, 40)
+		cont_btn.custom_minimum_size = Vector2(0, 60)
 		cont_btn.pressed.connect(func():
 			if adv.get("advanced", false):
 				GameWorldCup.advance_knockout_round(wc)
@@ -261,12 +261,12 @@ func _show_knockout() -> void:
 	var char_data: Dictionary = GameConstants.CHARACTERS.get(int(opp.get("charId", 1)), {})
 	var opp_line := Label.new()
 	opp_line.text = "对手：%s %s（%s）" % [opp.get("emoji", ""), opp.get("name", "?"), char_data.get("name", "?")]
-	opp_line.add_theme_font_size_override("font_size", 18)
+	opp_line.add_theme_font_size_override("font_size", 27)
 	_content.add_child(opp_line)
 
 	var btn := Button.new()
 	btn.text = "⚽ 开始比赛"
-	btn.custom_minimum_size = Vector2(0, 44)
+	btn.custom_minimum_size = Vector2(0, 66)
 	btn.pressed.connect(func():
 		var player_char_id: int = int(wc.get("_playerCharId", 1))
 		var opponent_char_id: int = int(opp.get("charId", 1))
@@ -289,15 +289,15 @@ func _show_end(champion: bool) -> void:
 	if champion:
 		end_label.text = "🏆🏆🏆\n恭喜夺冠！\n%s 是世界杯冠军！" % wc.get("playerTeamName", "?")
 		end_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		end_label.add_theme_font_size_override("font_size", 26)
+		end_label.add_theme_font_size_override("font_size", 39)
 	else:
 		end_label.text = "😔 征程结束\n%s 遗憾出局，下届再战！" % wc.get("playerTeamName", "?")
 		end_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		end_label.add_theme_font_size_override("font_size", 24)
+		end_label.add_theme_font_size_override("font_size", 36)
 	_content.add_child(end_label)
 	var again_btn := Button.new()
 	again_btn.text = "再玩一次"
-	again_btn.custom_minimum_size = Vector2(0, 40)
+	again_btn.custom_minimum_size = Vector2(0, 60)
 	again_btn.pressed.connect(func():
 		GameManager.wc_state = {}
 		_refresh())
@@ -305,5 +305,5 @@ func _show_end(champion: bool) -> void:
 
 func _make_h_sep() -> HSeparator:
 	var sep := HSeparator.new()
-	sep.custom_minimum_size = Vector2(0, 8)
+	sep.custom_minimum_size = Vector2(0, 12)
 	return sep

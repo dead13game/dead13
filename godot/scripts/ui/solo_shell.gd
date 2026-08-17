@@ -93,7 +93,7 @@ func _ensure_nodes() -> void:
 	if _title == null:
 		_title = Label.new()
 		_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_title.add_theme_font_size_override("font_size", 26)
+		_title.add_theme_font_size_override("font_size", 39)
 		add_child(_title)
 	if _player_label == null:
 		_player_label = Label.new()
@@ -101,7 +101,7 @@ func _ensure_nodes() -> void:
 		add_child(_player_label)
 	if _content == null:
 		_content = VBoxContainer.new()
-		_content.add_theme_constant_override("separation", 8)
+		_content.add_theme_constant_override("separation", 12)
 		var scroll := ScrollContainer.new()
 		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		add_child(scroll)
@@ -109,7 +109,7 @@ func _ensure_nodes() -> void:
 	if _log_box == null:
 		_log_box = VBoxContainer.new()
 		var log_scroll := ScrollContainer.new()
-		log_scroll.custom_minimum_size = Vector2(0, 90)
+		log_scroll.custom_minimum_size = Vector2(0, 135)
 		add_child(log_scroll)
 		log_scroll.add_child(_log_box)
 
@@ -133,7 +133,7 @@ func _refresh_log() -> void:
 		var l := Label.new()
 		l.text = String(logs[existing])
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		l.add_theme_font_size_override("font_size", 12)
+		l.add_theme_font_size_override("font_size", 18)
 		_log_box.add_child(l)
 		existing += 1
 
@@ -152,7 +152,7 @@ func _add_label(text: String, font_size: int = 15) -> Label:
 func _add_button(text: String, cb: Callable) -> Button:
 	var b := Button.new()
 	b.text = text
-	b.custom_minimum_size = Vector2(0, 44)
+	b.custom_minimum_size = Vector2(0, 66)
 	b.pressed.connect(cb)
 	_content.add_child(b)
 	return b
@@ -169,7 +169,7 @@ func _show_map() -> void:
 	if not _msg.is_empty():
 		var msg_label := Label.new()
 		msg_label.text = _msg
-		msg_label.add_theme_font_size_override("font_size", 14)
+		msg_label.add_theme_font_size_override("font_size", 21)
 		msg_label.add_theme_color_override("font_color", Color(0.6, 1.0, 0.7))
 		_content.add_child(msg_label)
 		_msg = ""
@@ -278,7 +278,7 @@ func _show_battle() -> void:
 	enemy_line.text = "敌方 HP %d/%d 护盾 %d%s" % [
 		c.get("enemyHp", 0), c.get("enemyMaxHp", 0), c.get("enemyShield", 0),
 		"  斗志%d" % c.get("enemySpirit", 0) if int(c.get("enemySpirit", 0)) > 0 else ""]
-	enemy_line.add_theme_font_size_override("font_size", 18)
+	enemy_line.add_theme_font_size_override("font_size", 27)
 	enemy_line.add_theme_color_override("font_color", Color(1.0, 0.5, 0.5))
 	_content.add_child(enemy_line)
 
@@ -292,7 +292,7 @@ func _show_battle() -> void:
 				var b := Button.new()
 				var picked_mark: String = " ✓" if _poker_picks.has(i) else ""
 				b.text = "%s%s (%d)%s" % [card.get("rank", "?"), card.get("suit", ""), card.get("value", 0), picked_mark]
-				b.custom_minimum_size = Vector2(110, 50)
+				b.custom_minimum_size = Vector2(165, 75)
 				var idx: int = i
 				b.pressed.connect(func(): _on_poker_pick(idx))
 				_content.add_child(b)
@@ -311,7 +311,7 @@ func _show_battle() -> void:
 					line += " 治疗"
 				var b := Button.new()
 				b.text = line
-				b.custom_minimum_size = Vector2(0, 44)
+				b.custom_minimum_size = Vector2(0, 66)
 				var cid: String = String(id)
 				b.pressed.connect(func(): _on_play_card(cid))
 				_content.add_child(b)
@@ -408,7 +408,7 @@ func _show_reward() -> void:
 		var card: Dictionary = GameSoloConstants.SOLO_CARDS.get(id, {})
 		var b := Button.new()
 		b.text = "%s（%s）" % [card.get("name", "?"), _rarity_text(String(card.get("type", "")))]
-		b.custom_minimum_size = Vector2(0, 44)
+		b.custom_minimum_size = Vector2(0, 66)
 		var cid: String = String(id)
 		b.pressed.connect(func(): _on_claim(cid))
 		_content.add_child(b)
@@ -453,7 +453,7 @@ func _show_event() -> void:
 		var opt: Dictionary = ev["options"][i]
 		var b := Button.new()
 		b.text = String(opt.get("text", "?"))
-		b.custom_minimum_size = Vector2(0, 44)
+		b.custom_minimum_size = Vector2(0, 66)
 		var opt_idx: int = i
 		var ev_id: String = event_id
 		b.pressed.connect(func(): _on_event_option(ev_id, opt_idx))
@@ -506,7 +506,7 @@ func _show_shop() -> void:
 		var price: int = 15 if int(card.get("cost", 0)) < 8 else 25
 		var b := Button.new()
 		b.text = "%s  %d💰" % [card.get("name", "?"), price]
-		b.custom_minimum_size = Vector2(0, 44)
+		b.custom_minimum_size = Vector2(0, 66)
 		var cid: String = String(id)
 		b.pressed.connect(func():
 			var r: Dictionary = GameSolo.shop_buy(_s, cid)
@@ -563,7 +563,7 @@ func _show_camp() -> void:
 		var card: Dictionary = GameSoloConstants.SOLO_CARDS.get(id, {})
 		var b := Button.new()
 		b.text = "⬆ %s（%d💰）" % [card.get("name", "?"), GameSolo.shop_upgrade_price()]
-		b.custom_minimum_size = Vector2(0, 44)
+		b.custom_minimum_size = Vector2(0, 66)
 		var cid: String = String(id)
 		b.pressed.connect(func():
 			if GameSolo.spend_gold(_s, GameSolo.shop_upgrade_price()):
@@ -591,7 +591,7 @@ func _show_attr() -> void:
 		var names: Dictionary = {"str": "力量", "mag": "法力", "def": "防御"}
 		var b := Button.new()
 		b.text = "+1 %s（当前 %d）" % [names[attr], p["attrs"][attr]]
-		b.custom_minimum_size = Vector2(0, 44)
+		b.custom_minimum_size = Vector2(0, 66)
 		var a: String = attr
 		b.pressed.connect(func():
 			GameSolo.apply_attr_points(_s, a, 1)
@@ -609,7 +609,7 @@ func _show_end() -> void:
 	_clear_content()
 	var end_label := Label.new()
 	end_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	end_label.add_theme_font_size_override("font_size", 26)
+	end_label.add_theme_font_size_override("font_size", 39)
 	if _s.get("victory", false):
 		_title.text = "🏆 通关！"
 		end_label.text = "恭喜你征服了这条街！"
@@ -624,7 +624,7 @@ func _show_end() -> void:
 	_content.add_child(end_label)
 	var again := Button.new()
 	again.text = "再玩一次"
-	again.custom_minimum_size = Vector2(0, 48)
+	again.custom_minimum_size = Vector2(0, 72)
 	again.pressed.connect(func():
 		GameManager.new_solo()
 		_s = GameManager.solo_state

@@ -44,7 +44,7 @@ func _ensure_nodes() -> void:
 	if _title == null:
 		_title = Label.new()
 		_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_title.add_theme_font_size_override("font_size", 24)
+		_title.add_theme_font_size_override("font_size", 36)
 		add_child(_title)
 	if _status_label == null:
 		_status_label = Label.new()
@@ -52,7 +52,7 @@ func _ensure_nodes() -> void:
 		add_child(_status_label)
 	if _content == null:
 		_content = VBoxContainer.new()
-		_content.add_theme_constant_override("separation", 6)
+		_content.add_theme_constant_override("separation", 9)
 		var scroll := ScrollContainer.new()
 		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		add_child(scroll)
@@ -60,7 +60,7 @@ func _ensure_nodes() -> void:
 	if _log_box == null:
 		_log_box = VBoxContainer.new()
 		var log_scroll := ScrollContainer.new()
-		log_scroll.custom_minimum_size = Vector2(0, 100)
+		log_scroll.custom_minimum_size = Vector2(0, 150)
 		add_child(log_scroll)
 		log_scroll.add_child(_log_box)
 
@@ -122,7 +122,7 @@ func _refresh_log() -> void:
 		var l := Label.new()
 		l.text = String(logs[existing])
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		l.add_theme_font_size_override("font_size", 12)
+		l.add_theme_font_size_override("font_size", 18)
 		_log_box.add_child(l)
 		existing += 1
 
@@ -141,7 +141,7 @@ func _add_label(text: String, font_size: int = 15) -> Label:
 func _add_button(text: String, cb: Callable) -> Button:
 	var b := Button.new()
 	b.text = text
-	b.custom_minimum_size = Vector2(0, 36)
+	b.custom_minimum_size = Vector2(0, 54)
 	b.pressed.connect(cb)
 	_content.add_child(b)
 	return b
@@ -177,7 +177,7 @@ func _show_map() -> void:
 	# 存档 / 读档（常驻）：场景有 ActionBar 用固定栏，否则动态兜底
 	if _action_bar == null:
 		var save_row := HBoxContainer.new()
-		save_row.add_theme_constant_override("separation", 8)
+		save_row.add_theme_constant_override("separation", 12)
 		_content.add_child(save_row)
 		var save_btn := Button.new()
 		save_btn.text = "💾 存档"
@@ -206,7 +206,7 @@ func _show_map() -> void:
 			var meta: Dictionary = UniConstants.REGION_META.get(t, {})
 			var b := Button.new()
 			b.text = "%s %s" % [meta.get("icon", "❓"), meta.get("name", t)]
-			b.custom_minimum_size = Vector2(0, 40)
+			b.custom_minimum_size = Vector2(0, 60)
 			var idx: int = i
 			b.pressed.connect(func():
 				var r: Dictionary = UniState.choose_normal_content(_s, idx)
@@ -321,7 +321,7 @@ func _show_blessing() -> void:
 		var bd: Dictionary = UniBuffs.BLESSINGS.get(id, {})
 		var b := Button.new()
 		b.text = "%s（%d星·%s）\n%s" % [bd.get("name", id), bd.get("star", 0), bd.get("fate", ""), bd.get("desc", "")]
-		b.custom_minimum_size = Vector2(0, 54)
+		b.custom_minimum_size = Vector2(0, 81)
 		var cid: String = String(id)
 		b.pressed.connect(func():
 			var r: Dictionary = UniEvents.choose_blessing_pick(_s, cid)
@@ -387,7 +387,7 @@ func _show_battle() -> void:
 			line += " ☠%d" % e["dotTurns"]
 		var l := Label.new()
 		l.text = line
-		l.add_theme_font_size_override("font_size", 15)
+		l.add_theme_font_size_override("font_size", 22)
 		l.add_theme_color_override("font_color", Color(1.0, 0.6, 0.55))
 		_content.add_child(l)
 	# 我方当前行动者
@@ -451,7 +451,7 @@ func _start_pick(kind: String) -> void:
 			var cd: Dictionary = GameConstants.CHARACTERS.get(int(t.get("charId", 0)), {})
 			var b := Button.new()
 			b.text = "%s（%d/%d）" % [cd.get("name", "?"), int(t.get("hp", 0)), int(t.get("maxHp", 1))]
-			b.custom_minimum_size = Vector2(0, 36)
+			b.custom_minimum_size = Vector2(0, 54)
 			var idx: int = int(t.get("index", 0))
 			b.pressed.connect(func():
 				var r: Dictionary = UniCombat.player_defense(_s, idx)
@@ -468,7 +468,7 @@ func _start_pick(kind: String) -> void:
 			continue
 		var b := Button.new()
 		b.text = "%s（HP %d/%d）" % [e.get("name", "?"), int(e.get("hp", 0)), int(e.get("maxHp", 1))]
-		b.custom_minimum_size = Vector2(0, 36)
+		b.custom_minimum_size = Vector2(0, 54)
 		var eid: int = int(e.get("id", 0))
 		b.pressed.connect(func():
 			if _pick_kind == "attack":
@@ -508,7 +508,7 @@ func _on_skill_pressed() -> void:
 				var b := Button.new()
 				var mark: String = " ✓" if _pick_targets.has(int(t2.get("index", 0))) else ""
 				b.text = "%s%s" % [cd.get("name", "?"), mark]
-				b.custom_minimum_size = Vector2(0, 34)
+				b.custom_minimum_size = Vector2(0, 51)
 				var idx: int = int(t2.get("index", 0))
 				b.pressed.connect(func():
 					if _pick_targets.has(idx):
@@ -578,7 +578,7 @@ func _show_event(event_id: String, desc_line: String = "") -> void:
 		var opt: Dictionary = ev["options"][i]
 		var b := Button.new()
 		b.text = String(opt.get("text", "?"))
-		b.custom_minimum_size = Vector2(0, 40)
+		b.custom_minimum_size = Vector2(0, 60)
 		var oi: int = i
 		var eid2: String = event_id
 		b.pressed.connect(func(): _on_event_option(eid2, oi))
@@ -653,7 +653,7 @@ func _show_shop() -> void:
 		var sold: String = "（已售）" if item.get("sold", false) else "%d💎" % price
 		var b := Button.new()
 		b.text = "%s（%d星） %s" % [bd.get("name", item.get("id", "")), item.get("star", 0), sold]
-		b.custom_minimum_size = Vector2(0, 32)
+		b.custom_minimum_size = Vector2(0, 48)
 		b.disabled = item.get("sold", false)
 		var idx: int = i
 		b.pressed.connect(func():
@@ -671,7 +671,7 @@ func _show_shop() -> void:
 		var sold: String = "（已售）" if item.get("sold", false) else "%d💎" % price
 		var b := Button.new()
 		b.text = "%s（%d星） %s" % [cd.get("name", item.get("id", "")), item.get("star", 0), sold]
-		b.custom_minimum_size = Vector2(0, 32)
+		b.custom_minimum_size = Vector2(0, 48)
 		b.disabled = item.get("sold", false)
 		var idx: int = i
 		b.pressed.connect(func():
@@ -689,7 +689,7 @@ func _show_shop() -> void:
 		var sold: String = "（已售）" if item.get("sold", false) else "%d💎" % price
 		var b := Button.new()
 		b.text = "%s（%d星） %s" % [ed.get("name", item.get("id", "")), item.get("star", 0), sold]
-		b.custom_minimum_size = Vector2(0, 32)
+		b.custom_minimum_size = Vector2(0, 48)
 		b.disabled = item.get("sold", false)
 		var idx: int = i
 		b.pressed.connect(func():
@@ -720,7 +720,7 @@ func _show_workbench() -> void:
 		var mult: int = int(bd.get("heatEnhanced", 1))
 		var b := Button.new()
 		b.text = "%s ×%d（%d热量）" % [data.get("name", bd.get("id", "")), mult, bd.get("star", 1)]
-		b.custom_minimum_size = Vector2(0, 32)
+		b.custom_minimum_size = Vector2(0, 48)
 		var idx: int = i
 		b.pressed.connect(func():
 			var r: Dictionary = UniShop.heat_strengthen(_s, idx)
@@ -735,7 +735,7 @@ func _show_workbench() -> void:
 		var data: Dictionary = UniBuffs.BLESSINGS.get(bd.get("id", ""), {})
 		var b := Button.new()
 		b.text = "↻ 覆写祝福：%s" % data.get("name", bd.get("id", ""))
-		b.custom_minimum_size = Vector2(0, 30)
+		b.custom_minimum_size = Vector2(0, 45)
 		var idx: int = i
 		b.pressed.connect(func():
 			var r: Dictionary = UniShop.overwrite_blessing(_s, idx)
@@ -748,7 +748,7 @@ func _show_workbench() -> void:
 		var data2: Dictionary = UniBuffs.EQUATIONS.get(ed.get("id", ""), {})
 		var b := Button.new()
 		b.text = "↻ 覆写方程：%s" % data2.get("name", ed.get("id", ""))
-		b.custom_minimum_size = Vector2(0, 30)
+		b.custom_minimum_size = Vector2(0, 45)
 		var idx: int = i
 		b.pressed.connect(func():
 			var r: Dictionary = UniShop.overwrite_equation(_s, idx)
@@ -779,7 +779,7 @@ func _show_rest() -> void:
 			var cd: Dictionary = GameConstants.CHARACTERS.get(int(t.get("charId", 0)), {})
 			var b := Button.new()
 			b.text = "➕ %s" % cd.get("name", "?")
-			b.custom_minimum_size = Vector2(0, 34)
+			b.custom_minimum_size = Vector2(0, 51)
 			var idx: int = int(t.get("index", 0))
 			b.pressed.connect(func():
 				var r: Dictionary = UniState.revive_at_rest(_s, idx)
@@ -821,7 +821,7 @@ func _show_end() -> void:
 		_s.get("equations", []).size(), _s.get("shards", 0)], 14)
 	var again := Button.new()
 	again.text = "再玩一次"
-	again.custom_minimum_size = Vector2(0, 40)
+	again.custom_minimum_size = Vector2(0, 60)
 	again.pressed.connect(func():
 		GameManager.new_simuniverse()
 		_s = GameManager.uni_state

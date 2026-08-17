@@ -17,11 +17,11 @@ func _ensure_nodes() -> void:
 		_title = Label.new()
 		_title.text = "足球模式"
 		_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_title.add_theme_font_size_override("font_size", 30)
+		_title.add_theme_font_size_override("font_size", 45)
 		add_child(_title)
 	if _content == null:
 		_content = VBoxContainer.new()
-		_content.add_theme_constant_override("separation", 14)
+		_content.add_theme_constant_override("separation", 21)
 		var scroll := ScrollContainer.new()
 		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		add_child(scroll)
@@ -51,14 +51,14 @@ func _build_content() -> void:
 
 	var wc_btn := Button.new()
 	wc_btn.text = "🏆 世界杯（小组赛 → 淘汰赛 → 冠军）"
-	wc_btn.custom_minimum_size = Vector2(0, 52)
+	wc_btn.custom_minimum_size = Vector2(0, 78)
 	wc_btn.pressed.connect(func():
 		get_tree().change_scene_to_file("res://scenes/football/world_cup_shell.tscn"))
 	_content.add_child(wc_btn)
 
 	var lg_btn := Button.new()
 	lg_btn.text = "⚽ 英超联赛（10队双循环 18 轮）"
-	lg_btn.custom_minimum_size = Vector2(0, 52)
+	lg_btn.custom_minimum_size = Vector2(0, 78)
 	lg_btn.pressed.connect(func():
 		get_tree().change_scene_to_file("res://scenes/football/league_shell.tscn"))
 	_content.add_child(lg_btn)

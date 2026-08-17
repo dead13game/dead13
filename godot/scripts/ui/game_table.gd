@@ -77,7 +77,7 @@ func _ensure_nodes() -> void:
 	if _card_row == null:
 		_card_row = HBoxContainer.new()
 		_card_row.alignment = BoxContainer.ALIGNMENT_CENTER
-		_card_row.add_theme_constant_override("separation", 10)
+		_card_row.add_theme_constant_override("separation", 15)
 		add_child(_card_row)
 	if _log_list == null:
 		_log_list = VBoxContainer.new()
@@ -91,7 +91,7 @@ func _ensure_nodes() -> void:
 			var ov_l := Label.new()
 			ov_l.name = "OverlayTitle"
 			ov_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			ov_l.add_theme_font_size_override("font_size", 36)
+			ov_l.add_theme_font_size_override("font_size", 54)
 			_overlay.add_child(ov_l)
 	if _subs_panel == null:
 		_subs_panel = PanelContainer.new()
@@ -103,13 +103,13 @@ func _ensure_nodes() -> void:
 		add_child(_penalty_panel)
 	if _subs_box == null:
 		_subs_box = VBoxContainer.new()
-		_subs_box.add_theme_constant_override("separation", 6)
+		_subs_box.add_theme_constant_override("separation", 9)
 		if _subs_panel != null:
 			_subs_panel.add_child(_subs_box)
 	if _stage_label == null:
 		_stage_label = Label.new()
 		_stage_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_stage_label.add_theme_font_size_override("font_size", 24)
+		_stage_label.add_theme_font_size_override("font_size", 36)
 		add_child(_stage_label)
 	if _info_label == null:
 		_info_label = Label.new()
@@ -234,7 +234,7 @@ func _refresh_players() -> void:
 
 func _make_player_slot(p: Dictionary) -> Control:
 	var btn := Button.new()
-	btn.custom_minimum_size = Vector2(196, 140)
+	btn.custom_minimum_size = Vector2(294, 210)
 	var is_current: bool = _state.get("currentPlayerIndex", -1) == p.get("index")
 	var lines: PackedStringArray = []
 
@@ -355,7 +355,7 @@ func _refresh_log() -> void:
 		var l := Label.new()
 		l.text = entry
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		l.add_theme_font_size_override("font_size", 13)
+		l.add_theme_font_size_override("font_size", 20)
 		_log_list.add_child(l)
 		_last_log_count += 1
 
@@ -469,7 +469,7 @@ func _rebuild_subs_panel() -> void:
 			continue
 		var btn := Button.new()
 		btn.text = "%s（%s）" % [cdata.get("name", "?"), cdata.get("title", "?")]
-		btn.custom_minimum_size = Vector2(0, 36)
+		btn.custom_minimum_size = Vector2(0, 54)
 		var char_id: int = cid
 		btn.pressed.connect(func(): _on_substitute_char(char_id))
 		_subs_box.add_child(btn)
@@ -600,7 +600,7 @@ func _on_overlay_return() -> void:
 
 func _make_card_ui(card: Dictionary, face_up: bool, slot_idx: int = -1) -> Control:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(64, 88)
+	panel.custom_minimum_size = Vector2(96, 132)
 	var label := Label.new()
 	if face_up:
 		var rank: String = String(card.get("rank", "?"))
@@ -608,7 +608,7 @@ func _make_card_ui(card: Dictionary, face_up: bool, slot_idx: int = -1) -> Contr
 		label.text = "%s%s" % [rank, suit]
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		label.add_theme_font_size_override("font_size", 22)
+		label.add_theme_font_size_override("font_size", 33)
 		if suit == "♥" or suit == "♦":
 			label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
 		else:
@@ -617,7 +617,7 @@ func _make_card_ui(card: Dictionary, face_up: bool, slot_idx: int = -1) -> Contr
 		label.text = "🂠"
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		label.add_theme_font_size_override("font_size", 28)
+		label.add_theme_font_size_override("font_size", 42)
 	panel.add_child(label)
 	panel.add_theme_stylebox_override("panel", _make_border_style(Color(0.55, 0.55, 0.65)))
 	if slot_idx >= 0:

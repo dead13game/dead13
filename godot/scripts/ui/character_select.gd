@@ -39,7 +39,7 @@ func _ensure_nodes() -> void:
 	if _start_button == null:
 		_start_button = Button.new()
 		_start_button.text = "开始游戏"
-		_start_button.custom_minimum_size = Vector2(0, 48)
+		_start_button.custom_minimum_size = Vector2(0, 72)
 		_start_button.pressed.connect(_on_start)
 		add_child(_start_button)
 
@@ -63,11 +63,11 @@ func _make_row(i: int) -> Dictionary:
 
 	var name_edit := LineEdit.new()
 	name_edit.placeholder_text = "玩家%d" % (i + 1)
-	name_edit.custom_minimum_size = Vector2(140, 40)
+	name_edit.custom_minimum_size = Vector2(210, 60)
 	row.add_child(name_edit)
 
 	var char_option := OptionButton.new()
-	char_option.custom_minimum_size = Vector2(190, 40)
+	char_option.custom_minimum_size = Vector2(285, 60)
 	# 角色 1-11（12 是开发者测试角色，仅模拟宇宙可选）
 	for cid in range(1, 12):
 		var cdata: Dictionary = GameConstants.CHARACTERS.get(cid, {})
@@ -86,12 +86,12 @@ func _make_row(i: int) -> Dictionary:
 
 	var ai_check := CheckButton.new()
 	ai_check.text = "AI"
-	ai_check.custom_minimum_size = Vector2(0, 40)
+	ai_check.custom_minimum_size = Vector2(0, 60)
 	ai_check.button_pressed = i > 0  # 默认玩家1是人类，其余 AI
 	row.add_child(ai_check)
 
 	var diff_option := OptionButton.new()
-	diff_option.custom_minimum_size = Vector2(0, 40)
+	diff_option.custom_minimum_size = Vector2(0, 60)
 	diff_option.add_item("简单", 0)
 	diff_option.add_item("熟练", 1)
 	diff_option.add_item("地狱", 2)

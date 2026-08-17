@@ -26,11 +26,11 @@ func _ensure_nodes() -> void:
 	if _title == null:
 		_title = Label.new()
 		_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_title.add_theme_font_size_override("font_size", 30)
+		_title.add_theme_font_size_override("font_size", 45)
 		add_child(_title)
 	if _content == null:
 		_content = VBoxContainer.new()
-		_content.add_theme_constant_override("separation", 8)
+		_content.add_theme_constant_override("separation", 12)
 		var scroll := ScrollContainer.new()
 		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		add_child(scroll)
@@ -136,7 +136,7 @@ func _show_setup() -> void:
 
 	var start_btn := Button.new()
 	start_btn.text = "开始联赛征程"
-	start_btn.custom_minimum_size = Vector2(0, 44)
+	start_btn.custom_minimum_size = Vector2(0, 66)
 	start_btn.pressed.connect(func():
 		GameManager.new_league(team_option.get_selected_id())
 		GameManager.league_state["_playerCharId"] = char_option.get_selected_id()
@@ -165,7 +165,7 @@ func _show_round_match(round: int) -> void:
 		opponent_team.get("name", "?") if opponent_team != null else "?",
 		"主场加成" if is_home else "",
 	]
-	line.add_theme_font_size_override("font_size", 18)
+	line.add_theme_font_size_override("font_size", 27)
 	_content.add_child(line)
 
 	if int(bonus.get("attackBonus", 0)) > 0 or int(bonus.get("defenseBonus", 0)) > 0:
@@ -175,7 +175,7 @@ func _show_round_match(round: int) -> void:
 
 	var btn := Button.new()
 	btn.text = "⚽ 3v3 选人开赛"
-	btn.custom_minimum_size = Vector2(0, 44)
+	btn.custom_minimum_size = Vector2(0, 66)
 	btn.pressed.connect(func():
 		_show_draft(round, player_team, opponent_team))
 	_content.add_child(btn)
@@ -204,7 +204,7 @@ func _show_round_result(round: int) -> void:
 		color = Color(1.0, 0.4, 0.4)
 	var label := Label.new()
 	label.text = res_text
-	label.add_theme_font_size_override("font_size", 22)
+	label.add_theme_font_size_override("font_size", 33)
 	label.add_theme_color_override("font_color", color)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_content.add_child(label)
@@ -213,7 +213,7 @@ func _show_round_result(round: int) -> void:
 	if lg.has("_lastScore"):
 		var score_label := Label.new()
 		score_label.text = "3v3 战报：你 %d : %d 对手" % [int(lg["_lastScore"][0]), int(lg["_lastScore"][1])]
-		score_label.add_theme_font_size_override("font_size", 16)
+		score_label.add_theme_font_size_override("font_size", 24)
 		score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_content.add_child(score_label)
 	# 死亡顺序
@@ -227,13 +227,13 @@ func _show_round_result(round: int) -> void:
 		if not order_parts.is_empty():
 			var order_label := Label.new()
 			order_label.text = "死亡顺序：%s" % " → ".join(order_parts)
-			order_label.add_theme_font_size_override("font_size", 13)
+			order_label.add_theme_font_size_override("font_size", 20)
 			order_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			_content.add_child(order_label)
 
 	var next_btn := Button.new()
 	next_btn.text = "下一轮 ➜"
-	next_btn.custom_minimum_size = Vector2(0, 40)
+	next_btn.custom_minimum_size = Vector2(0, 60)
 	next_btn.pressed.connect(func():
 		lg["currentRound"] = int(lg.get("currentRound", 1)) + 1
 		_refresh())
@@ -279,7 +279,7 @@ func _show_standings() -> void:
 
 	var back_btn := Button.new()
 	back_btn.text = "← 返回"
-	back_btn.custom_minimum_size = Vector2(0, 36)
+	back_btn.custom_minimum_size = Vector2(0, 54)
 	back_btn.pressed.connect(func():
 		lg["_showStandings"] = false
 		_refresh())
@@ -300,7 +300,7 @@ func _show_final() -> void:
 			break
 	var end_label := Label.new()
 	end_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	end_label.add_theme_font_size_override("font_size", 24)
+	end_label.add_theme_font_size_override("font_size", 36)
 	if player_rank == 1:
 		end_label.text = "🏆 联赛冠军！"
 		end_label.add_theme_color_override("font_color", Color(1.0, 0.85, 0.3))
@@ -314,7 +314,7 @@ func _show_final() -> void:
 
 	var again_btn := Button.new()
 	again_btn.text = "再玩一次"
-	again_btn.custom_minimum_size = Vector2(0, 40)
+	again_btn.custom_minimum_size = Vector2(0, 60)
 	again_btn.pressed.connect(func():
 		GameManager.league_state = {}
 		_refresh())
@@ -339,7 +339,7 @@ func _show_draft(round: int, player_team: Variant, opponent_team: Variant) -> vo
 		player_team.get("emoji", "") if player_team != null else "",
 		player_team.get("name", "?") if player_team != null else "?",
 		opp_name, _draft_player_picks.size() + 1]
-	info.add_theme_font_size_override("font_size", 17)
+	info.add_theme_font_size_override("font_size", 26)
 	_content.add_child(info)
 
 	# 已选展示
@@ -360,7 +360,7 @@ func _show_draft(round: int, player_team: Variant, opponent_team: Variant) -> vo
 			continue
 		var b := Button.new()
 		b.text = "%s\nHP %d" % [cdata.get("name", "?"), cdata.get("hp", 0)]
-		b.custom_minimum_size = Vector2(150, 52)
+		b.custom_minimum_size = Vector2(225, 78)
 		b.disabled = _draft_taken.has(cid)
 		var char_id: int = cid
 		b.pressed.connect(func():
@@ -375,7 +375,7 @@ func _show_draft(round: int, player_team: Variant, opponent_team: Variant) -> vo
 	# 返回按钮
 	var cancel := Button.new()
 	cancel.text = "↩ 取消选人"
-	cancel.custom_minimum_size = Vector2(0, 34)
+	cancel.custom_minimum_size = Vector2(0, 51)
 	cancel.pressed.connect(func(): _refresh())
 	_content.add_child(cancel)
 
@@ -430,7 +430,7 @@ func _refresh_draft(round: int, player_team: Variant, opponent_team: Variant) ->
 		player_team.get("emoji", "") if player_team != null else "",
 		player_team.get("name", "?") if player_team != null else "?",
 		opp_name, _draft_player_picks.size() + 1]
-	info.add_theme_font_size_override("font_size", 17)
+	info.add_theme_font_size_override("font_size", 26)
 	_content.add_child(info)
 	var picked_label := Label.new()
 	picked_label.text = _draft_picked_text()
@@ -446,7 +446,7 @@ func _refresh_draft(round: int, player_team: Variant, opponent_team: Variant) ->
 			continue
 		var b := Button.new()
 		b.text = "%s\nHP %d" % [cdata.get("name", "?"), cdata.get("hp", 0)]
-		b.custom_minimum_size = Vector2(150, 52)
+		b.custom_minimum_size = Vector2(225, 78)
 		b.disabled = _draft_taken.has(cid)
 		var char_id: int = cid
 		b.pressed.connect(func():
@@ -459,7 +459,7 @@ func _refresh_draft(round: int, player_team: Variant, opponent_team: Variant) ->
 	_content.add_child(grid)
 	var cancel := Button.new()
 	cancel.text = "↩ 取消选人"
-	cancel.custom_minimum_size = Vector2(0, 34)
+	cancel.custom_minimum_size = Vector2(0, 51)
 	cancel.pressed.connect(func(): _refresh())
 	_content.add_child(cancel)
 
