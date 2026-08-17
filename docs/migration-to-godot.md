@@ -143,7 +143,7 @@ godot --headless --path . --script res://tests/test_league_3v3.gd
 - [x] 存档系统接入（浏览器 localStorage / 桌面文件）
 - [x] 战斗音乐 / 音效播放接入：`audio_manager.gd` autoload（轮询 soundQueue 播放 12 类音效 + 按场景切 BGM menu/battle1/battle2），`test_audio.gd` 全绿，运行中验证 BGM 播放
 - [ ] 动画/粒子还原（视觉细节可在 Godot 编辑器协助）
-- [ ] 各平台导出配置（Windows / 移动端）
+- [x] 各平台导出配置：Windows Desktop 预设（`build/windows/亡命十三街.exe` 109MB，启动验证通过）+ Web 单线程预设零错误导出；清理非 PCM 坏音频消除导出报错
 
 ## 上线流程
 
