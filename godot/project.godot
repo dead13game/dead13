@@ -19,3 +19,10 @@ config/features=PackedStringArray("4.7")
 McpInteractionServer="*res://autoload/mcp_interaction_server.gd"
 GameManager="*res://scripts/autoload/game_manager.gd"
 AudioManager="*res://scripts/autoload/audio_manager.gd"
+
+[display]
+
+window/size/viewport_width=720
+window/size/viewport_height=1280
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"

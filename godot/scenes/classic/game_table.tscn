@@ -1,8 +1,8 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://b82t3mbxk1sor"]
 
-[ext_resource type="Script" path="res://scripts/ui/game_table.gd" id="1_table"]
+[ext_resource type="Script" uid="uid://ctpjhw4n6yi2o" path="res://scripts/ui/game_table.gd" id="1_table"]
 
-[node name="GameTable" type="Control"]
+[node name="GameTable" type="Control" unique_id=2013459233]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -10,3 +10,328 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_table")
+
+[node name="Background" type="ColorRect" parent="." unique_id=1207134159]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.047393955, 0.07240664, 0.1394091, 1)
+
+[node name="TopBar" type="HBoxContainer" parent="." unique_id=1010097281]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 8.0
+offset_bottom = 40.0
+grow_horizontal = 2
+theme_override_constants/separation = 14
+
+[node name="RoundLabel" type="Label" parent="TopBar" unique_id=1334909537]
+unique_name_in_owner = true
+layout_mode = 2
+text = "回合 1"
+
+[node name="WeatherLabel" type="Label" parent="TopBar" unique_id=147440295]
+unique_name_in_owner = true
+layout_mode = 2
+text = "天气：无"
+
+[node name="DeckLabel" type="Label" parent="TopBar" unique_id=1640206848]
+unique_name_in_owner = true
+layout_mode = 2
+text = "牌库 104"
+
+[node name="TurnLabel" type="Label" parent="TopBar" unique_id=629603905]
+unique_name_in_owner = true
+layout_mode = 2
+text = "当前：玩家1"
+
+[node name="ScoreLabel" type="Label" parent="TopBar" unique_id=305817344]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="MenuBtn" type="Button" parent="TopBar" unique_id=277355219]
+unique_name_in_owner = true
+layout_mode = 2
+text = "返回"
+
+[node name="PlayersRow" type="FlowContainer" parent="." unique_id=859765597]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 50.0
+offset_bottom = 360.0
+grow_horizontal = 2
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 12
+
+[node name="CenterArea" type="VBoxContainer" parent="." unique_id=1943331187]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 370.0
+offset_bottom = 880.0
+grow_horizontal = 2
+theme_override_constants/separation = 8
+
+[node name="StageLabel" type="Label" parent="CenterArea" unique_id=271831156]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+horizontal_alignment = 1
+
+[node name="CardRow" type="HBoxContainer" parent="CenterArea" unique_id=66727023]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 10
+alignment = 1
+
+[node name="InfoLabel" type="Label" parent="CenterArea" unique_id=367377123]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="LogPanel" type="PanelContainer" parent="." unique_id=1512230556]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = -340.0
+offset_right = -10.0
+offset_bottom = -180.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="LogMargin" type="MarginContainer" parent="LogPanel" unique_id=1685371632]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 6
+
+[node name="LogTitle" type="VBoxContainer" parent="LogPanel/LogMargin" unique_id=424985101]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="LogHeading" type="Label" parent="LogPanel/LogMargin/LogTitle" unique_id=75815588]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "战斗日志"
+
+[node name="LogScroll" type="ScrollContainer" parent="LogPanel/LogMargin/LogTitle" unique_id=163043535]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="LogList" type="VBoxContainer" parent="LogPanel/LogMargin/LogTitle/LogScroll" unique_id=949191217]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="ActionBar" type="FlowContainer" parent="." unique_id=159681870]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -170.0
+offset_bottom = -8.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_constants/h_separation = 8
+theme_override_constants/v_separation = 8
+alignment = 1
+
+[node name="AttackBtn" type="Button" parent="ActionBar" unique_id=1135773115]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(104, 48)
+layout_mode = 2
+text = "攻击"
+
+[node name="DefenseBtn" type="Button" parent="ActionBar" unique_id=1166301930]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(104, 48)
+layout_mode = 2
+text = "防御"
+
+[node name="GambleBtn" type="Button" parent="ActionBar" unique_id=1991601785]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(104, 48)
+layout_mode = 2
+text = "赌命"
+
+[node name="SkillBtn" type="Button" parent="ActionBar" unique_id=1628603866]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(104, 48)
+layout_mode = 2
+text = "技能"
+
+[node name="AllyBtn" type="Button" parent="ActionBar" unique_id=402451339]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(104, 48)
+layout_mode = 2
+text = "结盟"
+
+[node name="BetrayBtn" type="Button" parent="ActionBar" unique_id=1675517279]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(104, 48)
+layout_mode = 2
+text = "背刺"
+
+[node name="HolyBtn" type="Button" parent="ActionBar" unique_id=2009484168]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(104, 48)
+layout_mode = 2
+text = "圣言自明"
+
+[node name="SaveBtn" type="Button" parent="ActionBar" unique_id=1780640230]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(104, 48)
+layout_mode = 2
+text = "存档"
+
+[node name="LoadBtn" type="Button" parent="ActionBar" unique_id=332579045]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(104, 48)
+layout_mode = 2
+text = "读档"
+
+[node name="StealBtn" type="Button" parent="ActionBar" unique_id=1311660772]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(104, 48)
+layout_mode = 2
+text = "偷牌"
+
+[node name="DotBtn" type="Button" parent="ActionBar" unique_id=398093529]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(104, 48)
+layout_mode = 2
+text = "DoT"
+
+[node name="CancelBtn" type="Button" parent="ActionBar" unique_id=1913169331]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(104, 48)
+layout_mode = 2
+text = "取消"
+
+[node name="Overlay" type="PanelContainer" parent="." unique_id=2023769414]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="OvCenter" type="CenterContainer" parent="Overlay" unique_id=712405140]
+layout_mode = 2
+
+[node name="OvVBox" type="VBoxContainer" parent="Overlay/OvCenter" unique_id=1447521568]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="OverlayTitle" type="Label" parent="Overlay/OvCenter/OvVBox" unique_id=899158517]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 36
+horizontal_alignment = 1
+
+[node name="OverlayBtn" type="Button" parent="Overlay/OvCenter/OvVBox" unique_id=1695844746]
+custom_minimum_size = Vector2(200, 48)
+layout_mode = 2
+text = "返回"
+
+[node name="SubsPanel" type="PanelContainer" parent="." unique_id=1485812581]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="SubsCenter" type="CenterContainer" parent="SubsPanel" unique_id=1486100495]
+layout_mode = 2
+
+[node name="SubsVBox" type="VBoxContainer" parent="SubsPanel/SubsCenter" unique_id=1120517277]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="SubsTitle" type="Label" parent="SubsPanel/SubsCenter/SubsVBox" unique_id=575940487]
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+text = "🔄 换人（选择下一局角色）"
+horizontal_alignment = 1
+
+[node name="SubsScroll" type="ScrollContainer" parent="SubsPanel/SubsCenter/SubsVBox" unique_id=1970371431]
+custom_minimum_size = Vector2(520, 320)
+layout_mode = 2
+
+[node name="SubsBox" type="VBoxContainer" parent="SubsPanel/SubsCenter/SubsVBox/SubsScroll" unique_id=1712199685]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="SubsSkipBtn" type="Button" parent="SubsPanel/SubsCenter/SubsVBox" unique_id=1338827196]
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 2
+text = "跳过换人"
+
+[node name="PenaltyPanel" type="PanelContainer" parent="." unique_id=867263740]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="PenCenter" type="CenterContainer" parent="PenaltyPanel" unique_id=1384350077]
+layout_mode = 2
+
+[node name="PenVBox" type="VBoxContainer" parent="PenaltyPanel/PenCenter" unique_id=1483194128]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="PenTitle" type="Label" parent="PenaltyPanel/PenCenter/PenVBox" unique_id=1365579860]
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "⚽ 点球大战！"
+horizontal_alignment = 1
+
+[node name="PenaltyScoreLabel" type="Label" parent="PenaltyPanel/PenCenter/PenVBox" unique_id=1846712131]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+horizontal_alignment = 1
+
+[node name="PenaltyResultLabel" type="Label" parent="PenaltyPanel/PenCenter/PenVBox" unique_id=613816998]
+unique_name_in_owner = true
+layout_mode = 2
+horizontal_alignment = 1
+autowrap_mode = 3
+
+[node name="PenaltyKickBtn" type="Button" parent="PenaltyPanel/PenCenter/PenVBox" unique_id=808229194]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 48)
+layout_mode = 2
+text = "⚽ 踢点球"
+
+[node name="PenaltyFinishBtn" type="Button" parent="PenaltyPanel/PenCenter/PenVBox" unique_id=184046899]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(200, 48)
+layout_mode = 2
+text = "查看赛果"

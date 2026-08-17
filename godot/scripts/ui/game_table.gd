@@ -8,28 +8,28 @@ const GameAi = preload("res://scripts/game/ai/ai.gd")
 const GameMatchState = preload("res://scripts/game/match_state.gd")
 const SaveManager = preload("res://scripts/autoload/save_manager.gd")
 
-# ---- UI 引用 ----
-var _round_label: Label
-var _weather_label: Label
-var _deck_label: Label
-var _turn_label: Label
-var _score_label: Label
-var _stage_label: Label
-var _info_label: Label
-var _players_row: HBoxContainer
-var _card_row: HBoxContainer
-var _log_list: VBoxContainer
-var _overlay: PanelContainer
-var _subs_panel: PanelContainer
-var _penalty_panel: PanelContainer
+# ---- UI 引用（场景驱动：Unique Name；节点缺失时 _ensure_nodes 降级兜底） ----
+@onready var _round_label: Label = %RoundLabel
+@onready var _weather_label: Label = %WeatherLabel
+@onready var _deck_label: Label = %DeckLabel
+@onready var _turn_label: Label = %TurnLabel
+@onready var _score_label: Label = %ScoreLabel
+@onready var _stage_label: Label = %StageLabel
+@onready var _info_label: Label = %InfoLabel
+@onready var _players_row: FlowContainer = %PlayersRow
+@onready var _card_row: HBoxContainer = %CardRow
+@onready var _log_list: VBoxContainer = %LogList
+@onready var _overlay: PanelContainer = %Overlay
+@onready var _subs_panel: PanelContainer = %SubsPanel
+@onready var _penalty_panel: PanelContainer = %PenaltyPanel
 
 # ---- 比赛模式 ----
 var _match_mode: bool = false
-var _subs_box: VBoxContainer
-var _penalty_score_label: Label
-var _penalty_result_label: Label
-var _penalty_kick_btn: Button
-var _penalty_finish_btn: Button
+@onready var _subs_box: VBoxContainer = %SubsBox
+@onready var _penalty_score_label: Label = %PenaltyScoreLabel
+@onready var _penalty_result_label: Label = %PenaltyResultLabel
+@onready var _penalty_kick_btn: Button = %PenaltyKickBtn
+@onready var _penalty_finish_btn: Button = %PenaltyFinishBtn
 var _last_penalty: Dictionary = {}
 
 # ---- 交互状态 ----
@@ -41,248 +41,165 @@ var _gamble_trap_idx: int = -1
 var _busy: bool = false
 var _ai_loop_running: bool = false
 
-var _attack_btn: Button
-var _defense_btn: Button
-var _gamble_btn: Button
-var _skill_btn: Button
-var _ally_btn: Button
-var _betray_btn: Button
-var _holy_btn: Button
-var _cancel_btn: Button
-var _save_btn: Button
-var _load_btn: Button
-var _steal_btn: Button
-var _dot_btn: Button
+# ---- 行动栏按钮（场景驱动） ----
+@onready var _attack_btn: Button = %AttackBtn
+@onready var _defense_btn: Button = %DefenseBtn
+@onready var _gamble_btn: Button = %GambleBtn
+@onready var _skill_btn: Button = %SkillBtn
+@onready var _ally_btn: Button = %AllyBtn
+@onready var _betray_btn: Button = %BetrayBtn
+@onready var _holy_btn: Button = %HolyBtn
+@onready var _cancel_btn: Button = %CancelBtn
+@onready var _save_btn: Button = %SaveBtn
+@onready var _load_btn: Button = %LoadBtn
+@onready var _steal_btn: Button = %StealBtn
+@onready var _dot_btn: Button = %DotBtn
 
 func _ready() -> void:
 	AudioManager.play_bgm("battle1")
 	_state = GameManager.state
 	_match_mode = _state.get("matchContext") != null
-	_build_ui()
-	if _match_mode:
-		GameManager.match_ui_changed.connect(_on_match_ui_changed)
+	_ensure_nodes()
+	_connect_signals()
 	_refresh_all()
 	# 比赛模式：若开局就处于换人/点球（如刚重置后），处理之
 	if _match_mode:
 		_check_match_pending()
 	_maybe_run_ai()
 
-# ============================================================
-#  UI 构建（代码构建，方便后续在编辑器里调整视觉）
-# ============================================================
-
-func _build_ui() -> void:
-	var bg := ColorRect.new()
-	bg.color = Color(0.06, 0.08, 0.1)
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(bg)
-
-	# 顶栏
-	var top := HBoxContainer.new()
-	top.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	top.offset_top = 8
-	top.offset_bottom = 40
-	top.add_theme_constant_override("separation", 18)
-	add_child(top)
-
-	_round_label = _top_label(top, "回合 1")
-	_weather_label = _top_label(top, "天气：无")
-	_deck_label = _top_label(top, "牌库 104")
-	_turn_label = _top_label(top, "当前：玩家1")
-	_score_label = _top_label(top, "")
-	_score_label.visible = _match_mode
-
-	var back_btn := Button.new()
-	back_btn.text = "返回主菜单"
-	back_btn.pressed.connect(func():
-		GameManager.state = {}
-		get_tree().change_scene_to_file("res://scenes/main_menu.tscn"))
-	top.add_child(back_btn)
-
-	# 玩家位
-	_players_row = HBoxContainer.new()
-	_players_row.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	_players_row.offset_top = 44
-	_players_row.offset_bottom = 190
-	_players_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	_players_row.add_theme_constant_override("separation", 12)
-	add_child(_players_row)
-
-	# 日志（右侧）
-	var log_panel := PanelContainer.new()
-	log_panel.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
-	log_panel.offset_left = -270
-	log_panel.offset_right = -8
-	log_panel.offset_top = 8
-	log_panel.offset_bottom = -60
-	add_child(log_panel)
-
-	var log_margin := MarginContainer.new()
-	log_margin.add_theme_constant_override("margin_left", 8)
-	log_margin.add_theme_constant_override("margin_right", 8)
-	log_margin.add_theme_constant_override("margin_top", 6)
-	log_margin.add_theme_constant_override("margin_bottom", 6)
-	log_panel.add_child(log_margin)
-
-	var log_title := VBoxContainer.new()
-	log_margin.add_child(log_title)
-	var lt := Label.new()
-	lt.text = "战斗日志"
-	lt.add_theme_font_size_override("font_size", 16)
-	log_title.add_child(lt)
-	var log_scroll := ScrollContainer.new()
-	log_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	log_title.add_child(log_scroll)
-	_log_list = VBoxContainer.new()
-	_log_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	log_scroll.add_child(_log_list)
-
-	# 中央区
-	var center := VBoxContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.offset_left = 10
-	center.offset_right = -282
-	center.offset_top = 196
-	center.offset_bottom = -64
-	center.add_theme_constant_override("separation", 10)
-	add_child(center)
-
-	_stage_label = Label.new()
-	_stage_label.text = ""
-	_stage_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_stage_label.add_theme_font_size_override("font_size", 24)
-	center.add_child(_stage_label)
-
-	_card_row = HBoxContainer.new()
-	_card_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	_card_row.add_theme_constant_override("separation", 10)
-	_card_row.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	center.add_child(_card_row)
-
-	_info_label = Label.new()
-	_info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	center.add_child(_info_label)
-
-	# 行动栏（底部）
-	var bar := HBoxContainer.new()
-	bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	bar.offset_top = -54
-	bar.offset_bottom = -8
-	bar.alignment = BoxContainer.ALIGNMENT_CENTER
-	bar.add_theme_constant_override("separation", 10)
-	add_child(bar)
-
-	_attack_btn = _bar_button(bar, "攻击", _on_attack)
-	_defense_btn = _bar_button(bar, "防御", _on_defense)
-	_gamble_btn = _bar_button(bar, "赌命", _on_gamble)
-	_skill_btn = _bar_button(bar, "技能", _on_skill)
-	_ally_btn = _bar_button(bar, "结盟", _on_ally)
-	_betray_btn = _bar_button(bar, "背刺", _on_betray)
-	_holy_btn = _bar_button(bar, "圣言自明", _on_holy_word)
-	_save_btn = _bar_button(bar, "存档", _on_save)
-	_load_btn = _bar_button(bar, "读档", _on_load)
-	_steal_btn = _bar_button(bar, "偷牌", _on_liniya_1)
-	_dot_btn = _bar_button(bar, "DoT", _on_liniya_2)
-	_cancel_btn = _bar_button(bar, "取消", _on_cancel)
-
-	# 结算遮罩
-	_overlay = PanelContainer.new()
-	_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_overlay.visible = false
-	add_child(_overlay)
-	var ov_center := CenterContainer.new()
-	_overlay.add_child(ov_center)
-	var ov_vbox := VBoxContainer.new()
-	ov_vbox.add_theme_constant_override("separation", 16)
-	ov_center.add_child(ov_vbox)
-	var ov_title := Label.new()
-	ov_title.name = "OverlayTitle"
-	ov_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	ov_title.add_theme_font_size_override("font_size", 36)
-	ov_vbox.add_child(ov_title)
-	var ov_btn := Button.new()
-	ov_btn.text = "返回"
-	ov_btn.custom_minimum_size = Vector2(200, 44)
-	ov_btn.pressed.connect(_on_overlay_return)
-	ov_vbox.add_child(ov_btn)
-
-	# 换人面板（比赛模式）
-	_subs_panel = PanelContainer.new()
-	_subs_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_subs_panel.visible = false
-	add_child(_subs_panel)
-	var subs_center := CenterContainer.new()
-	_subs_panel.add_child(subs_center)
-	var subs_vbox := VBoxContainer.new()
-	subs_vbox.add_theme_constant_override("separation", 10)
-	subs_center.add_child(subs_vbox)
-	var subs_title := Label.new()
-	subs_title.text = "🔄 换人（选择下一局角色）"
-	subs_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subs_title.add_theme_font_size_override("font_size", 26)
-	subs_vbox.add_child(subs_title)
-	var subs_scroll := ScrollContainer.new()
-	subs_scroll.custom_minimum_size = Vector2(560, 300)
-	subs_vbox.add_child(subs_scroll)
-	_subs_box = VBoxContainer.new()
-	_subs_box.add_theme_constant_override("separation", 6)
-	subs_scroll.add_child(_subs_box)
-	var subs_skip := Button.new()
-	subs_skip.text = "跳过换人"
-	subs_skip.custom_minimum_size = Vector2(0, 40)
-	subs_skip.pressed.connect(_on_substitute_skip)
-	subs_vbox.add_child(subs_skip)
-
-	# 点球面板（比赛模式）
-	_penalty_panel = PanelContainer.new()
-	_penalty_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_penalty_panel.visible = false
-	add_child(_penalty_panel)
-	var pen_center := CenterContainer.new()
-	_penalty_panel.add_child(pen_center)
-	var pen_vbox := VBoxContainer.new()
-	pen_vbox.add_theme_constant_override("separation", 12)
-	pen_center.add_child(pen_vbox)
-	var pen_title := Label.new()
-	pen_title.text = "⚽ 点球大战！"
-	pen_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	pen_title.add_theme_font_size_override("font_size", 30)
-	pen_vbox.add_child(pen_title)
-	_penalty_score_label = Label.new()
-	_penalty_score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_penalty_score_label.add_theme_font_size_override("font_size", 24)
-	pen_vbox.add_child(_penalty_score_label)
-	_penalty_result_label = Label.new()
-	_penalty_result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_penalty_result_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	pen_vbox.add_child(_penalty_result_label)
-	_penalty_kick_btn = Button.new()
-	_penalty_kick_btn.text = "⚽ 踢点球"
-	_penalty_kick_btn.custom_minimum_size = Vector2(200, 44)
-	_penalty_kick_btn.pressed.connect(_on_penalty_kick)
-	pen_vbox.add_child(_penalty_kick_btn)
-	_penalty_finish_btn = Button.new()
-	_penalty_finish_btn.text = "查看赛果"
-	_penalty_finish_btn.custom_minimum_size = Vector2(200, 44)
-	_penalty_finish_btn.visible = false
-	_penalty_finish_btn.pressed.connect(func():
+## 场景节点缺失时降级：代码兜底创建（编辑器里搭一半也能跑）
+func _ensure_nodes() -> void:
+	if _players_row == null:
+		_players_row = FlowContainer.new()
+		_players_row.add_theme_constant_override("h_separation", 12)
+		_players_row.add_theme_constant_override("v_separation", 12)
+		add_child(_players_row)
+	if _card_row == null:
+		_card_row = HBoxContainer.new()
+		_card_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		_card_row.add_theme_constant_override("separation", 10)
+		add_child(_card_row)
+	if _log_list == null:
+		_log_list = VBoxContainer.new()
+		_log_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		add_child(_log_list)
+	if _overlay == null:
+		_overlay = PanelContainer.new()
+		_overlay.visible = false
+		add_child(_overlay)
+		if not _overlay.has_node("OverlayTitle"):
+			var ov_l := Label.new()
+			ov_l.name = "OverlayTitle"
+			ov_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			ov_l.add_theme_font_size_override("font_size", 36)
+			_overlay.add_child(ov_l)
+	if _subs_panel == null:
+		_subs_panel = PanelContainer.new()
+		_subs_panel.visible = false
+		add_child(_subs_panel)
+	if _penalty_panel == null:
+		_penalty_panel = PanelContainer.new()
 		_penalty_panel.visible = false
-		_show_match_over())
-	pen_vbox.add_child(_penalty_finish_btn)
+		add_child(_penalty_panel)
+	if _subs_box == null:
+		_subs_box = VBoxContainer.new()
+		_subs_box.add_theme_constant_override("separation", 6)
+		if _subs_panel != null:
+			_subs_panel.add_child(_subs_box)
+	if _stage_label == null:
+		_stage_label = Label.new()
+		_stage_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_stage_label.add_theme_font_size_override("font_size", 24)
+		add_child(_stage_label)
+	if _info_label == null:
+		_info_label = Label.new()
+		_info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		add_child(_info_label)
+	if _round_label == null:
+		_round_label = Label.new()
+		_round_label.text = "回合 1"
+		add_child(_round_label)
+	if _weather_label == null:
+		_weather_label = Label.new()
+		_weather_label.text = "天气：无"
+		add_child(_weather_label)
+	if _deck_label == null:
+		_deck_label = Label.new()
+		_deck_label.text = "牌库"
+		add_child(_deck_label)
+	if _turn_label == null:
+		_turn_label = Label.new()
+		_turn_label.text = "当前"
+		add_child(_turn_label)
+	if _score_label == null:
+		_score_label = Label.new()
+		add_child(_score_label)
+	# 点球标签/按钮兜底
+	if _penalty_score_label == null:
+		_penalty_score_label = Label.new()
+		_penalty_score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		if _penalty_panel != null:
+			_penalty_panel.add_child(_penalty_score_label)
+	if _penalty_result_label == null:
+		_penalty_result_label = Label.new()
+		_penalty_result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		if _penalty_panel != null:
+			_penalty_panel.add_child(_penalty_result_label)
+	if _penalty_kick_btn == null:
+		_penalty_kick_btn = Button.new()
+		_penalty_kick_btn.text = "⚽ 踢点球"
+		if _penalty_panel != null:
+			_penalty_panel.add_child(_penalty_kick_btn)
+	if _penalty_finish_btn == null:
+		_penalty_finish_btn = Button.new()
+		_penalty_finish_btn.text = "查看赛果"
+		_penalty_finish_btn.visible = false
+		if _penalty_panel != null:
+			_penalty_panel.add_child(_penalty_finish_btn)
 
-func _top_label(parent: Control, text: String) -> Label:
-	var l := Label.new()
-	l.text = text
-	parent.add_child(l)
-	return l
-
-func _bar_button(parent: Control, text: String, cb: Callable) -> Button:
-	var b := Button.new()
-	b.text = text
-	b.custom_minimum_size = Vector2(86, 40)
-	b.pressed.connect(cb)
-	parent.add_child(b)
-	return b
+## 连接信号（场景里不连，统一代码连）
+func _connect_signals() -> void:
+	if _attack_btn != null:
+		_attack_btn.pressed.connect(_on_attack)
+	if _defense_btn != null:
+		_defense_btn.pressed.connect(_on_defense)
+	if _gamble_btn != null:
+		_gamble_btn.pressed.connect(_on_gamble)
+	if _skill_btn != null:
+		_skill_btn.pressed.connect(_on_skill)
+	if _ally_btn != null:
+		_ally_btn.pressed.connect(_on_ally)
+	if _betray_btn != null:
+		_betray_btn.pressed.connect(_on_betray)
+	if _holy_btn != null:
+		_holy_btn.pressed.connect(_on_holy_word)
+	if _cancel_btn != null:
+		_cancel_btn.pressed.connect(_on_cancel)
+	if _save_btn != null:
+		_save_btn.pressed.connect(_on_save)
+	if _load_btn != null:
+		_load_btn.pressed.connect(_on_load)
+	if _steal_btn != null:
+		_steal_btn.pressed.connect(_on_liniya_1)
+	if _dot_btn != null:
+		_dot_btn.pressed.connect(_on_liniya_2)
+	if _penalty_kick_btn != null:
+		_penalty_kick_btn.pressed.connect(_on_penalty_kick)
+	if _penalty_finish_btn != null:
+		_penalty_finish_btn.pressed.connect(func():
+			_penalty_panel.visible = false
+			_show_match_over())
+	if _subs_panel != null:
+		var skip_btn: Button = _subs_panel.find_child("SubsSkipBtn", true, true)
+		if skip_btn != null:
+			skip_btn.pressed.connect(_on_substitute_skip)
+	if _overlay != null:
+		var ov_btn: Button = _overlay.find_child("OverlayBtn", true, true)
+		if ov_btn != null:
+			ov_btn.pressed.connect(_on_overlay_return)
+	# 比赛模式信号（换人/点球/赛果）
+	if _match_mode:
+		GameManager.match_ui_changed.connect(_on_match_ui_changed)
 
 # ============================================================
 #  刷新
@@ -452,15 +369,17 @@ func _refresh_actions() -> void:
 	_attack_btn.visible = show_bar
 	_defense_btn.visible = show_bar
 	_gamble_btn.visible = show_bar
-	_ally_btn.visible = show_bar
-	_betray_btn.visible = show_bar
 	_holy_btn.visible = show_bar
 	_skill_btn.visible = show_bar
-	# 存档/读档：菜月昴技能步骤常显；经典模式（无比赛上下文）常显用于持久化
-	var _is_match_mode_ctx: bool = _state.get("matchContext") != null or _state.get("leagueContext") != null
-	_save_btn.visible = (step == GameConstants.STEP["CAIYUEANG_PICK"] and is_human) \
-		or (not _is_match_mode_ctx and show_bar)
-	_load_btn.visible = _save_btn.visible
+	# 结盟/背刺：玩家数 >= 6 才显示
+	var _player_total: int = _state.get("players", []).size()
+	_ally_btn.visible = show_bar and _player_total >= 6
+	_betray_btn.visible = show_bar and _player_total >= 6
+	# 存/读档：仅当前角色为菜月昴(11) 时显示
+	var _is_caiyueang: bool = int(p.get("characterId", 0)) == 11
+	_save_btn.visible = is_human and _is_caiyueang
+	_load_btn.visible = is_human and _is_caiyueang
+	# 偷牌/DoT：点击技能后 && 角色为莉奈娅(9)（LINIYA_PICK 步骤）
 	_steal_btn.visible = step == GameConstants.STEP["LINIYA_PICK"] and is_human
 	_dot_btn.visible = step == GameConstants.STEP["LINIYA_PICK"] and is_human
 	_cancel_btn.visible = not show_bar and is_human and not _state.get("gameOver", false) \
@@ -488,7 +407,7 @@ func _refresh_actions() -> void:
 	else:
 		_overlay.visible = over
 		if over:
-			var title: Label = _overlay.find_child("OverlayTitle", true, false)
+			var title: Label = _overlay.find_child("OverlayTitle", true, true)
 			if title != null:
 				var winner_idx: int = int(_state.get("winnerIndex", -1))
 				if winner_idx >= 0 and winner_idx < _state.get("players", []).size():
@@ -641,7 +560,7 @@ func _show_match_over() -> void:
 	_penalty_panel.visible = false
 	_ai_loop_running = true
 	var ms: Dictionary = GameManager.match_state
-	var title: Label = _overlay.find_child("OverlayTitle", true, false)
+	var title: Label = _overlay.find_child("OverlayTitle", true, true)
 	if title != null:
 		if ms.get("is3v3", false):
 			# 3v3：死亡顺序计分
