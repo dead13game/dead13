@@ -116,14 +116,17 @@ func _test_world_cup() -> void:
 	_check(next_idx == 0, "first player match")
 
 	# 记录玩家3场结果 + 模拟非玩家比赛
-	GameWorldCup.record_group_match_result(wc, 0, "home")
-	GameWorldCup.record_group_match_result(wc, 1, "home")
-	GameWorldCup.record_group_match_result(wc, 2, "draw")
+	GameWorldCup.record_group_match_result(wc, 0, "home", 2, 1)
+	GameWorldCup.record_group_match_result(wc, 1, "home", 3, 0)
+	GameWorldCup.record_group_match_result(wc, 2, "draw", 1, 1)
 	GameWorldCup.simulate_non_player_matches(wc)
 	var standings: Array = GameWorldCup.calculate_group_standings(wc)
 	_check(standings.size() == 4, "4 standings rows")
 	_check(standings[0]["isPlayer"] == true, "player top with 7 pts")
 	_check(int(standings[0]["points"]) == 7, "player 7 points")
+	# 真实比分应计入净胜球/进球数（2-1 + 3-0 + 1-1 → 进6失2）
+	_check(int(standings[0]["goalsFor"]) == 6, "player real goalsFor 6")
+	_check(int(standings[0]["goalsAgainst"]) == 2, "player real goalsAgainst 2")
 
 	var adv: Dictionary = GameWorldCup.check_group_advancement(wc)
 	_check(adv["advanced"] == true, "player advanced")

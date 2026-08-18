@@ -65,7 +65,11 @@ func _handle_return_from_match() -> void:
 				mapped = "home"
 			elif result == "loss":
 				mapped = "away"
-			GameWorldCup.record_group_match_result(wc, match_idx, mapped)
+			# 真实比分：玩家=主队(home)，对手=客队(away)，用于积分榜净胜球
+			var scr: Array = ms.get("score", [0, 0])
+			var home_goals: int = int(scr[0]) if scr.size() > 0 else -1
+			var away_goals: int = int(scr[1]) if scr.size() > 1 else -1
+			GameWorldCup.record_group_match_result(wc, match_idx, mapped, home_goals, away_goals)
 	else:
 		var winner: Variant = ms.get("winner")
 		if int(ms.get("matchRound", 1)) <= 1:

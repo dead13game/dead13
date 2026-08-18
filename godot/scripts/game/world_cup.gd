@@ -96,8 +96,9 @@ static func simulate_non_player_matches(state: Dictionary) -> void:
 			m["result"] = "away"
 		m["played"] = true
 
-static func record_group_match_result(state: Dictionary, match_index: int, result: String) -> void:
+static func record_group_match_result(state: Dictionary, match_index: int, result: String, home_goals: int = -1, away_goals: int = -1) -> void:
 	# result: 'home'=玩家胜, 'away'=对方胜, 'draw'=平
+	# home_goals/away_goals：真实比分（玩家=主队；-1 表示未记录 → 积分榜按简化 1-0/0-0）
 	var matches: Array = state.get("groupMatches", [])
 	if match_index < 0 or match_index >= matches.size():
 		return
@@ -106,6 +107,9 @@ static func record_group_match_result(state: Dictionary, match_index: int, resul
 		return
 	m["result"] = result
 	m["played"] = true
+	if home_goals >= 0 and away_goals >= 0:
+		m["homeGoals"] = home_goals
+		m["awayGoals"] = away_goals
 
 static func calculate_group_standings(state: Dictionary) -> Array:
 	var teams: Array = []
@@ -147,13 +151,16 @@ static func calculate_group_standings(state: Dictionary) -> Array:
 			away["draws"] = int(away["draws"]) + 1
 			home["points"] = int(home["points"]) + int(GameWorldCupConstants.POINTS["DRAW"])
 			away["points"] = int(away["points"]) + int(GameWorldCupConstants.POINTS["DRAW"])
-		# 小组赛简化：每场比赛进1球（赢方1-0，平局0-0）
-		if res == "home":
-			home["goalsFor"] = int(home["goalsFor"]) + 1
-			away["goalsAgainst"] = int(away["goalsAgainst"]) + 1
-		elif res == "away":
-			away["goalsFor"] = int(away["goalsFor"]) + 1
-			home["goalsAgainst"] = int(home["goalsAgainst"]) + 1
+		# 进球：优先用记录的真实比分；未记录（模拟赛）按简化（赢方1-0，平局0-0）
+		var hg: int = int(m.get("homeGoals", -1))
+		var ag: int = int(m.get("awayGoals", -1))
+		if hg < 0 or ag < 0:
+			hg = 1 if res == "home" else 0
+			ag = 1 if res == "away" else 0
+		home["goalsFor"] = int(home["goalsFor"]) + hg
+		home["goalsAgainst"] = int(home["goalsAgainst"]) + ag
+		away["goalsFor"] = int(away["goalsFor"]) + ag
+		away["goalsAgainst"] = int(away["goalsAgainst"]) + hg
 
 	# 排序：积分高→净胜球多→进球多（sort_custom: true 表示 a 排在 b 前）
 	teams.sort_custom(func(a, b):
