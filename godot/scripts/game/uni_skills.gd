@@ -95,6 +95,12 @@ static func execute_uni_skill(state: Dictionary, char_index: int, payload: Dicti
 		return effect
 	# 冷却置满
 	t["skillCooldown"] = int(_val(sk.get("cd", []), lv)) if sk.has("cd") else 0
+	# 罐中脑（新规范）：充能满 100% → 立即消耗 100%，当前行动角色大招后可再次激活大招（清冷却、保持行动）
+	if float(state.get("jarBrain", 0)) >= 100.0:
+		state["jarBrain"] = 0.0
+		t["skillCooldown"] = 0
+		c["_jarBrainExtraUlt"] = true
+		state["log"].append("罐中脑能量释放：可再次激活大招")
 	# 记录最近施放的技能
 	if not c.is_empty():
 		c["_skillSeq"] = int(c.get("_skillSeq", 0)) + 1

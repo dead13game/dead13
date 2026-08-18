@@ -61,13 +61,13 @@ const BLESSINGS: Dictionary = {
 	"beiju": {"id": "beiju", "name": "悲剧讲座", "star": 2, "fate": "虚无", "desc": "敌方目标受到的持续伤害提高 20%", "fx": {"dotFlat": 1}, "lv": {"dotPct": [20, 24, 28, 32]}},
 	"yiyi": {"id": "yiyi", "name": "意义质询", "star": 2, "fate": "虚无", "desc": "陷入持续伤害状态的敌方目标造成的伤害降低 3 点", "fx": {"dmgCut": 3}, "lv": {"dmgCut": [3, 4, 5, 6]}},
 	# ── 3 星 ──
-	"shenxing": {"id": "shenxing", "name": "神性构筑·谐振传递", "star": 3, "fate": "存护", "desc": "施放攻击时，对目标造成自身当前护盾量 100% 的反震伤害", "fx": {"shieldPct": 100}},
-	"yifajie": {"id": "yifajie", "name": "丰饶众生，一法界心", "star": 3, "fate": "丰饶", "desc": "角色提供治疗时，接受目标以外的队友回复回复量 30% 的生命", "fx": {"spreadPct": 30}},
-	"fanwu": {"id": "fanwu", "name": "反物质费逆方程", "star": 3, "fate": "毁灭", "desc": "生命小于 50% 时，视作拥有 16 层战意（伤害 +16%、受伤 -16%）", "fx": {"zhandu": 16, "hpBelow": 50}},
-	"huanyu": {"id": "huanyu", "name": "寰宇热寂特征数", "star": 3, "fate": "毁灭", "desc": "受到攻击或消耗生命后获得 4 层战意，回合结束时失去 4 层", "fx": {"zhandu": 4}},
-	"yanmie": {"id": "yanmie", "name": "湮灭回归不等式", "star": 3, "fate": "繁育", "desc": "受到攻击时，所受到的伤害由我方全体承担", "fx": {}},
-	"xingren": {"id": "xingren", "name": "SMR -2型杏仁核", "star": 3, "fate": "智识", "desc": "使敌方目标受到致命伤害时，为「罐中脑」充能 50%", "fx": {"jarBrain": 50}},
-	"richu": {"id": "richu", "name": "日出之前", "star": 3, "fate": "虚无", "desc": "我方每次造成持续伤害时，回复等同于造成的持续伤害点数的生命", "fx": {}},
+	"shenxing": {"id": "shenxing", "name": "神性构筑·谐振传递", "star": 3, "fate": "存护", "desc": "施放攻击时，对受到攻击的敌方目标造成自身当前护盾量 50% 的反震伤害", "fx": {"shieldPct": 50}, "lv": {"shieldPct": [50, 60, 70, 80]}},
+	"yifajie": {"id": "yifajie", "name": "丰饶众生，一法界心", "star": 3, "fate": "丰饶", "desc": "角色提供治疗时，我方全体目标额外回复等同于回复量 30% 的生命值", "fx": {"spreadPct": 30}, "lv": {"spreadPct": [30, 35, 40, 45]}},
+	"fanwu": {"id": "fanwu", "name": "反物质费逆方程", "star": 3, "fate": "毁灭", "desc": "角色当前生命值百分比小于 50% 时，视作拥有 16 层战意效果（造成的伤害 +16%）", "fx": {"zhandu": 16, "hpBelow": 50}, "lv": {"zhandu": [16, 18, 20, 22]}},
+	"huanyu": {"id": "huanyu", "name": "寰宇热寂特征数", "star": 3, "fate": "毁灭", "desc": "角色受到攻击或消耗生命值后，获得 4 层战意效果（回合结束时失去）", "fx": {"zhandu": 4}, "lv": {"zhandu": [4, 5, 6, 7]}},
+	"yanmie": {"id": "yanmie", "name": "湮灭回归不等式", "star": 3, "fate": "繁育", "desc": "受到攻击时，角色所受到的伤害由我方全体平均分摊（强化后效果不变）", "fx": {}},
+	"xingren": {"id": "xingren", "name": "SMR -2型杏仁核", "star": 3, "fate": "智识", "desc": "角色使敌方目标受到致命伤害时，为「罐中脑」充能 50%", "fx": {"jarBrain": 50}, "lv": {"jarBrain": [50, 52, 54, 56]}},
+	"richu": {"id": "richu", "name": "日出之前", "star": 3, "fate": "虚无", "desc": "我方每次造成持续伤害时，回复等同于造成的持续伤害点数的生命值（强化后效果不变）", "fx": {}},
 }
 
 const FATES: Array = ["存护", "丰饶", "智识", "毁灭", "繁育", "虚无"]
@@ -587,6 +587,13 @@ static func trigger_on_heal(state: Dictionary, member_idx: int, heal_amount: flo
 	if not baoguang_fx.is_empty() and blessing_mult(state, "baoguang") > 0:
 		t["status"]["dmgBuffPct"] = maxf(float(t.get("status", {}).get("dmgBuffPct", 0)), float(baoguang_fx.get("atkPct", 20)))
 		t["status"]["dmgBuffTurns"] = baoguang_fx.get("turns", 1)
+	# 丰饶众生，一法界心：提供治疗时，我方全体（含被治疗者）额外回复回复量 30%（新规范）
+	var yifajie_fx: Dictionary = BLESSINGS.get("yifajie", {}).get("fx", {})
+	if not yifajie_fx.is_empty() and blessing_mult(state, "yifajie") > 0 and heal_amount > 0:
+		var spread_heal: float = ceili(heal_amount * blessing_val(state, "yifajie", "spreadPct") / 100.0)
+		for x in team:
+			if x.get("alive", false):
+				x["hp"] = minf(float(x.get("maxHp", 1)), float(x.get("hp", 0)) + spread_heal)
 
 ## 消灭敌人后钩子
 static func trigger_on_kill(state: Dictionary, member_idx: int) -> void:
@@ -632,11 +639,7 @@ static func trigger_after_skill(state: Dictionary, char_index: int) -> void:
 		for x in state.get("team", []):
 			x["status"]["dmgBuffPct"] = minf(float(x.get("status", {}).get("dmgBuffPct", 0)) + blessing_val(state, "cuihua", "atkPct"), blessing_val(state, "cuihua", "cap"))
 			x["status"]["dmgBuffTurns"] = cuihua_fx.get("turns", 1)
-	# 罐中脑满 100%
-	if float(state.get("jarBrain", 0)) >= 100.0:
-		t["status"]["nextAttackBoost"] = float(t.get("status", {}).get("nextAttackBoost", 0)) + 100.0
-		state["jarBrain"] = 0
-		state["log"].append("罐中脑能量释放：下次攻击伤害 +100%")
+	# 罐中脑：已迁移至 uni_skills.execute_uni_skill（大招后再激活大招）
 
 ## 攻击后钩子
 static func trigger_on_attack_after(state: Dictionary, member_idx: int, target_enemy_id: int, base_dmg: float) -> void:

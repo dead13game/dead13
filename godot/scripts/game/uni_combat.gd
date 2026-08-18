@@ -346,7 +346,12 @@ static func player_skill(state: Dictionary, target_idx: Variant, payload: Dictio
 	if _execute_skill_fn.is_valid():
 		var r: Dictionary = _execute_skill_fn.call(state, int(state.get("combat", {}).get("activeIdx", 0)), {"targetIdx": target_idx}.merged(payload))
 		if r.get("ok", false) and _s(state.get("combat", {}).get("phase", "")) == "player-action":
-			_finish_player_action(state)
+			# 罐中脑再激活（新规范）：大招后保持行动，可再次激活大招
+			var c: Dictionary = state.get("combat", {})
+			if c.get("_jarBrainExtraUlt", false):
+				c["_jarBrainExtraUlt"] = false
+			else:
+				_finish_player_action(state)
 		return r
 	return {"ok": false, "reason": "技能未注入"}
 
