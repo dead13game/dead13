@@ -22,6 +22,7 @@ func _initialize() -> void:
 	_test_events()
 	_test_combat_basic()
 	_test_combat_full()
+	_test_curio_mechanics()
 	_test_full_run()
 	_test_skills()
 	_test_serialize_revive()
@@ -366,6 +367,96 @@ func _test_combat_full() -> void:
 		_check(third["ok"] == true, "choose third wave ok")
 
 # ===== 端到端跑图（层推进→区域→战斗→位面跨越） =====
+
+# ===== 奇物机制（新规范：降维/阿阮/卜签/分裂复制/方程展开） =====
+
+func _auto_win_battle(state: Dictionary) -> bool:
+	UniCombat.start_combat(state)
+	var guard: int = 0
+	while guard < 120:
+		guard += 1
+		var c: Dictionary = state["combat"]
+		var phase: String = String(c["phase"])
+		if phase == "won" or phase == "lost":
+			return phase == "won"
+		if phase == "player-action":
+			var target: int = -1
+			for e in c["enemies"]:
+				if e["alive"]:
+					target = int(e["id"])
+					break
+			if target >= 0:
+				UniCombat.player_attack(state, target)
+			else:
+				UniCombat.player_defense(state, 0)
+		elif phase == "enemy-announce":
+			var ann: Dictionary = UniCombat.enemy_announce(state)
+			if ann.get("playing", false):
+				UniCombat.enemy_resolve(state)
+		elif phase == "wave-clear":
+			UniCombat.choose_third_wave(state, true)
+		else:
+			break
+	return false
+
+func _test_curio_mechanics() -> void:
+	print("uni_curio_mechanics")
+	# 降维骰子：战斗胜利后 4 次 1~2 星祝福二选一（新规范）
+	var s1: Dictionary = UniState.create_uni_state()
+	UniBuffs.gain_blessing(s1, "jifeng")
+	UniBuffs.gain_blessing(s1, "hongyi")
+	UniBuffs.gain_curio(s1, "jiangwei")
+	if _auto_win_battle(s1):
+		var picks1: Array = s1["pendingBlessingPicks"]
+		_check(picks1.size() == 4, "jiangwei 4 picks")
+		if picks1.size() > 0:
+			_check(picks1[0]["candidates"].size() == 2, "jiangwei 2 options")
+			_check(int(picks1[0]["starRange"][1]) == 2, "jiangwei 1-2 star")
+	# 阿阮袋：战斗胜利后无法选择，直接获得（新规范）
+	var s2: Dictionary = UniState.create_uni_state()
+	UniBuffs.gain_blessing(s2, "jifeng")
+	UniBuffs.gain_blessing(s2, "hongyi")
+	UniBuffs.gain_curio(s2, "aruan")
+	var b_before: int = s2["blessings"].size()
+	if _auto_win_battle(s2):
+		_check(s2["pendingBlessingPicks"].size() == 0, "aruan no picks")
+		_check(s2["blessings"].size() > b_before, "aruan direct blessings")
+	# 卜签咕咕钟：选项减 1（三选一变二选一）
+	var s3: Dictionary = UniState.create_uni_state()
+	UniBuffs.gain_blessing(s3, "jifeng")
+	UniBuffs.gain_blessing(s3, "hongyi")
+	UniBuffs.gain_curio(s3, "bushu")
+	if _auto_win_battle(s3) and s3["pendingBlessingPicks"].size() > 0:
+		_check(s3["pendingBlessingPicks"][0]["candidates"].size() == 2, "bushu 2 options")
+	# 分裂咕咕钟：50% 概率复制，最多 3 个
+	var s4: Dictionary = UniState.create_uni_state()
+	UniBuffs.gain_curio(s4, "fenlie")
+	for i in range(30):
+		UniBuffs.trigger_curio_on_win(s4)
+	var fcnt: int = 0
+	for x in s4["curios"]:
+		if String(x["id"]) == "fenlie":
+			fcnt += 1
+	_check(fcnt >= 1 and fcnt <= 3, "fenlie copies <=3")
+	# 方程展开：和平箱触发 + 破碎咕咕钟损毁（新规范）
+	var s5: Dictionary = UniState.create_uni_state()
+	UniBuffs.gain_curio(s5, "hepingxiang")
+	UniBuffs.gain_curio(s5, "posui")
+	for b5 in ["hongyi", "penliu", "chuanzhi", "baofa", "zainan", "yuzhao", "fangshe"]:
+		UniBuffs.gain_blessing(s5, b5)
+	var eq_ok: bool = UniBuffs.gain_equation(s5, "bingkuang").get("ok", false)
+	_check(eq_ok, "gain bingkuang equation")
+	_check(int(s5.get("hepingxiangCount", 0)) >= 1, "hepingxiang triggered")
+	var ps_ok: bool = false
+	for x in s5["curios"]:
+		if String(x["id"]) == "posui" and x.get("broken", false):
+			ps_ok = true
+	_check(ps_ok, "posui broken on equation expand")
+	var exp_ok: bool = false
+	for e in s5["equations"]:
+		if String(e["id"]) == "bingkuang" and e.get("expanded", false):
+			exp_ok = true
+	_check(exp_ok, "equation expanded flag")
 
 func _test_full_run() -> void:
 	print("uni_full_run")

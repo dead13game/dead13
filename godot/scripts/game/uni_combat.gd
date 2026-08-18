@@ -958,12 +958,30 @@ static func end_combat(state: Dictionary, result: String) -> void:
 		if int(reward.get("blessingPicks", 0)) > 0 and not state.get("pendingEventReward", null) != null:
 			var star_range: Array = reward.get("blessingStars", [1, 3])
 			var picks: Array = []
-			for i in range(int(reward["blessingPicks"])):
-				picks.append({"candidates": UniBuffs.roll_blessing_candidates(3, int(star_range[0]), int(star_range[1])), "starRange": star_range})
-			var pending: Array = state.get("pendingBlessingPicks", [])
-			pending.append_array(picks)
-			state["pendingBlessingPicks"] = pending
-			state["log"].append("战斗胜利：可进行 %d 次祝福三选一" % int(reward["blessingPicks"]))
+			var pick_count: int = int(reward["blessingPicks"])
+			# 阿阮袋：战斗胜利后无法选择，直接获得（新规范）
+			if UniBuffs._has_curio(state, "aruan"):
+				for i in range(pick_count):
+					var bid: String = UniBuffs.roll_blessing(int(star_range[0]), int(star_range[1]))
+					if bid != "":
+						UniBuffs.gain_blessing(state, bid)
+				state["log"].append("阿阮袋：无法选择，直接获得祝福")
+			else:
+				# 降维骰子：改为 4 次 1~2 星祝福二选一（损毁后恢复 3 次 1~3 星三选一）
+				var opt_count: int = 3
+				if UniBuffs._has_curio(state, "jiangwei"):
+					pick_count = 4
+					star_range = [1, 2]
+					opt_count = 2
+				# 卜签咕咕钟：选项减 1（三选一变二选一）
+				if UniBuffs._has_curio(state, "bushu"):
+					opt_count = mini(opt_count, 2)
+				for i in range(pick_count):
+					picks.append({"candidates": UniBuffs.roll_blessing_candidates(opt_count, int(star_range[0]), int(star_range[1])), "starRange": star_range})
+				var pending: Array = state.get("pendingBlessingPicks", [])
+				pending.append_array(picks)
+				state["pendingBlessingPicks"] = pending
+				state["log"].append("战斗胜利：可进行 %d 次祝福选择" % pick_count)
 		# 胜利后方程奖励
 		if int(reward.get("equations", 0)) > 0 and not state.get("pendingEventReward", null) != null:
 			var eq_star_range: Array = reward.get("equationStars", [1, 3])
@@ -983,11 +1001,25 @@ static func end_combat(state: Dictionary, result: String) -> void:
 			if r.has("blessingPick"):
 				var sr2: Array = r.get("blessingStars", [1, 3])
 				var picks2: Array = []
-				for i in range(int(r["blessingPick"])):
-					picks2.append({"candidates": UniBuffs.roll_blessing_candidates(3, int(sr2[0]), int(sr2[1])), "starRange": sr2})
-				var pending2: Array = state.get("pendingBlessingPicks", [])
-				pending2.append_array(picks2)
-				state["pendingBlessingPicks"] = pending2
+				var pc2: int = int(r["blessingPick"])
+				if UniBuffs._has_curio(state, "aruan"):
+					for i in range(pc2):
+						var bid2: String = UniBuffs.roll_blessing(int(sr2[0]), int(sr2[1]))
+						if bid2 != "":
+							UniBuffs.gain_blessing(state, bid2)
+				else:
+					var oc2: int = 3
+					if UniBuffs._has_curio(state, "jiangwei"):
+						pc2 = 4
+						sr2 = [1, 2]
+						oc2 = 2
+					if UniBuffs._has_curio(state, "bushu"):
+						oc2 = mini(oc2, 2)
+					for i in range(pc2):
+						picks2.append({"candidates": UniBuffs.roll_blessing_candidates(oc2, int(sr2[0]), int(sr2[1])), "starRange": sr2})
+					var pending2: Array = state.get("pendingBlessingPicks", [])
+					pending2.append_array(picks2)
+					state["pendingBlessingPicks"] = pending2
 			if r.has("skillUpTarget"):
 				var upgradable: bool = false
 				for t in state.get("team", []):

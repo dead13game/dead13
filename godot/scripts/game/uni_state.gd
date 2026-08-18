@@ -246,16 +246,17 @@ static func _apply_curio_region_hooks(state: Dictionary, r: Dictionary) -> void:
 			t["status"]["stunned"] = false
 			t["status"]["puppet"] = null
 		state["log"].append("水上书：全队回满并复活")
-	# 大饼干
-	if UniCore.has_curio(state, "dabinggan"):
-		var star_range: Array = UniBuffs.CURIO_FX.get("dabinggan", {}).get("starRange", [1, 2])
-		for i in range(int(UniBuffs.curio_val(state, "dabinggan", "count"))):
-			var bid: String = UniBuffs.roll_blessing(int(star_range[0]), int(star_range[1]))
-			if bid != "":
-				UniBuffs.gain_blessing(state, bid)
-		state["dabingganCount"] = int(state.get("dabingganCount", 0)) + 1
-		if int(state["dabingganCount"]) >= int(UniBuffs.CURIO_FX.get("dabinggan", {}).get("triggers", 2)):
-			remove_curio.call("dabinggan")
+	# 采矿吸尘器：进入冒险/财富区域获得 1-2 星祝福（触发 5 次后损毁，新规范）
+	if UniCore.has_curio(state, "caikuang") and (r_type == "adventure" or r_type == "fortune"):
+		var ck_range: Array = UniBuffs.CURIO_FX.get("caikuang", {}).get("starRange", [1, 2])
+		for i in range(int(UniBuffs.curio_val(state, "caikuang", "count"))):
+			var ck_bid: String = UniBuffs.roll_blessing(int(ck_range[0]), int(ck_range[1]))
+			if ck_bid != "":
+				UniBuffs.gain_blessing(state, ck_bid)
+		state["caikuangCount"] = int(state.get("caikuangCount", 0)) + 1
+		if int(state["caikuangCount"]) >= int(UniBuffs.CURIO_FX.get("caikuang", {}).get("triggers", 5)):
+			UniBuffs._break_curio(state, "caikuang")
+			state["log"].append("采矿吸尘器：已损毁")
 	# 纯美之袍
 	if UniCore.has_curio(state, "chunmei_pao") and battle_like:
 		UniCore.add_shards(state, ceili(float(state.get("shards", 0)) * UniBuffs.curio_val(state, "chunmei_pao", "shardsPct") / 100.0))
@@ -293,6 +294,7 @@ static func is_normal_floor(state: Dictionary) -> bool:
 static func advance_floor(state: Dictionary) -> Variant:
 	if state.get("gameOver", false):
 		return null
+	var old_plane: int = int(state.get("plane", 1))
 	state["combat"] = null
 	state["floor"] = int(state.get("floor", 1)) + 1
 	state["plane"] = UniConstants.get_plane(int(state["floor"]))
@@ -304,6 +306,17 @@ static func advance_floor(state: Dictionary) -> Variant:
 	else:
 		state["region"] = generate_region(state, type)
 		enter_region(state)
+	# 大饼干：进入新的位面时获得 1-2 星祝福（新规范，触发 2 次后损毁）
+	if int(state["plane"]) > old_plane and UniCore.has_curio(state, "dabinggan"):
+		var star_range: Array = UniBuffs.CURIO_FX.get("dabinggan", {}).get("starRange", [1, 2])
+		for i in range(int(UniBuffs.curio_val(state, "dabinggan", "count"))):
+			var bid: String = UniBuffs.roll_blessing(int(star_range[0]), int(star_range[1]))
+			if bid != "":
+				UniBuffs.gain_blessing(state, bid)
+		state["dabingganCount"] = int(state.get("dabingganCount", 0)) + 1
+		if int(state["dabingganCount"]) >= int(UniBuffs.CURIO_FX.get("dabinggan", {}).get("triggers", 2)):
+			UniBuffs._break_curio(state, "dabinggan")
+			state["log"].append("大饼干：已损毁")
 	UniCore.record_savepoint(state)
 	return {"type": type, "region": state.get("region", null)}
 

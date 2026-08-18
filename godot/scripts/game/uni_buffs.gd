@@ -105,7 +105,7 @@ const CURIOS: Dictionary = {
 	"bushu": {"id": "bushu", "name": "卜签咕咕钟", "star": 0, "negative": true, "desc": "战斗胜利后选择祝福时，可选择的祝福选项减少 1 个"},
 	# ── 1 星 ──
 	"zhongduan": {"id": "zhongduan", "name": "终端卫士", "star": 1, "desc": "失去区域时获得 75 宇宙碎片（触发 3 次后损毁）"},
-	"dabinggan": {"id": "dabinggan", "name": "大饼干", "star": 1, "desc": "区域升级时获得 1 个随机 1-2 星祝福（每个区域 1 次，触发 2 次后损毁）"},
+	"dabinggan": {"id": "dabinggan", "name": "大饼干", "star": 1, "desc": "进入新的位面时获得 1 个随机 1-2 星祝福（触发 2 次后损毁）"},
 	"eye": {"id": "eye", "name": "监督之眼", "star": 1, "desc": "进入区域后失去 50 宇宙碎片；失去该奇物时获得 1 个随机 3 星奇物"},
 	"anhai": {"id": "anhai", "name": "暗海碎饵", "star": 1, "desc": "获得或每 3 场战斗后，随机获得当前 15% 或失去当前 10% 的宇宙碎片"},
 	"shui": {"id": "shui", "name": "睡眠和死亡", "star": 1, "desc": "进入区域时若碎片 ≤10，损毁并获得 400 宇宙碎片"},
@@ -132,7 +132,7 @@ const CURIOS: Dictionary = {
 	"youmeng": {"id": "youmeng", "name": "有梦-0110", "star": 1, "desc": "进入战斗时全队伤害提高 50%；15 回合后受到的伤害提高 10%"},
 	"lubeite": {"id": "lubeite", "name": "鲁珀特帝国机械齿轮", "star": 1, "desc": "每次进入区域获得 50 碎片；碎片超过 750 时损毁并失去 750 碎片"},
 	# ── 2 星 ──
-	"caikuang": {"id": "caikuang", "name": "采矿吸尘器（大型）", "star": 2, "desc": "进入重任/异堂区域后获得 1 个 1-2 星祝福（触发 5 次后损毁）"},
+	"caikuang": {"id": "caikuang", "name": "采矿吸尘器（大型）", "star": 2, "desc": "进入【冒险】【财富】区域后获得 1 个 1-2 星祝福（触发 5 次后损毁）"},
 	"canjing_lm": {"id": "canjing_lm", "name": "赐福残晶·浪漫", "star": 2, "desc": "祝福和方程每有 1 个星级，普攻伤害提高 2.5%"},
 	"canjing_lx": {"id": "canjing_lx", "name": "赐福残晶·理性", "star": 2, "desc": "祝福和方程每有 1 个星级，终结技伤害提高 2.5%"},
 	"canjing_fz": {"id": "canjing_fz", "name": "赐福残晶·纷争", "star": 2, "desc": "祝福和方程每有 1 个星级，对精英敌人伤害提高 2.5%"},
@@ -151,7 +151,7 @@ const CURIOS: Dictionary = {
 	"shanyao": {"id": "shanyao", "name": "闪耀的偏方三八面骰", "star": 2, "desc": "获得后将所有奇物替换为随机奇物"},
 	"fenlie_jb": {"id": "fenlie_jb", "name": "分裂金币", "star": 2, "desc": "每进入下一区域，获得当前持有碎片 5% 的碎片"},
 	"fujiao": {"id": "fujiao", "name": "福灵胶", "star": 2, "desc": "战斗胜利后额外获得 1 个 3 星祝福（1 次后损毁）"},
-	"jiangwei": {"id": "jiangwei", "name": "降维骰子", "star": 2, "desc": "战斗胜利后可额外选择 1 次祝福，但选项减少 1 个（2 次战斗后损毁）"},
+	"jiangwei": {"id": "jiangwei", "name": "降维骰子", "star": 2, "desc": "战斗胜利后选择祝福时改为 4 次 1~2 星祝福二选一（2 次战斗后损毁，损毁后恢复三选一）"},
 	"louti": {"id": "louti", "name": "「楼梯上的水母」", "star": 2, "desc": "失去所有祝福，按失去祝福的星级之和获得碎片（每星级 80 碎片）"},
 	"xiee": {"id": "xiee", "name": "邪恶机械卫星#900", "star": 2, "desc": "商品价格降低 25%"},
 	"kongwu": {"id": "kongwu", "name": "空无烛剪", "star": 2, "desc": "获得后随机修复最多 2 个已损毁的 1-3 星奇物，剩余次数恢复初始"},
@@ -163,7 +163,7 @@ const CURIOS: Dictionary = {
 	"zhenshi": {"id": "zhenshi", "name": "真实机兵", "star": 2, "desc": "失去奇物时获得 75 宇宙碎片"},
 	"mori": {"id": "mori", "name": "末日复眼·先行版", "star": 2, "desc": "获得时获得 3 个拥有祝福数量最多的命运的祝福；覆写消耗提高 1000%"},
 	"wuren": {"id": "wuren", "name": "无人通讯", "star": 2, "desc": "奇物损毁时使其恢复如新（触发 2 次后损毁）"},
-	"aruan": {"id": "aruan", "name": "阿阮袋", "star": 2, "desc": "立即获得 3 个随机祝福；战斗胜利后选择祝福时选项变为 1（2 次战斗后损毁）"},
+	"aruan": {"id": "aruan", "name": "阿阮袋", "star": 2, "desc": "立即获得 3 个随机祝福；战斗胜利后选择祝福时无法选择，直接获得（2 次战斗后损毁）"},
 	"chunmei": {"id": "chunmei", "name": "纯美骑士精神", "star": 2, "desc": "获得时获得 1 个随机方程"},
 	"silver": {"id": "silver", "name": "分裂银币", "star": 2, "desc": "立即获得当前持有宇宙碎片 40% 的宇宙碎片"},
 	"lens": {"id": "lens", "name": "时空棱镜", "star": 2, "desc": "所有角色技能等级提高 2 级"},
@@ -291,6 +291,29 @@ static func is_equation_unlocked(state: Dictionary, id: String) -> bool:
 			return false
 	return true
 
+## 同步方程展开状态：新展开的方程触发 和平箱/破碎咕咕钟（新规范）
+static func sync_equation_expand(state: Dictionary) -> void:
+	for e in state.get("equations", []):
+		if e.get("expanded", false) or not is_equation_unlocked(state, _s(e.get("id", ""))):
+			continue
+		e["expanded"] = true
+		var eq_name: String = _s(EQUATIONS.get(e.get("id", ""), {}).get("name", e.get("id", "")))
+		state["log"].append("方程「%s」已展开" % eq_name)
+		# 破碎咕咕钟：展开 1 个方程后损毁（新规范）
+		if _has_curio(state, "posui"):
+			_break_curio(state, "posui")
+			state["log"].append("破碎咕咕钟：已损毁")
+		# 和平箱：展开 2 星及以上方程后获得随机祝福（触发 4 次后损毁）
+		if _has_curio(state, "hepingxiang") and int(e.get("star", 0)) >= int(CURIO_FX.get("hepingxiang", {}).get("minStar", 2)):
+			for i in range(int(curio_val(state, "hepingxiang", "count"))):
+				var bid: String = roll_blessing(1, 3)
+				if bid != "":
+					gain_blessing(state, bid)
+			state["hepingxiangCount"] = int(state.get("hepingxiangCount", 0)) + 1
+			if int(state["hepingxiangCount"]) >= int(CURIO_FX.get("hepingxiang", {}).get("maxTriggers", 4)):
+				_break_curio(state, "hepingxiang")
+				state["log"].append("和平箱：已损毁")
+
 ## 按星级过滤祝福池
 static func blessing_pool(min_star: int = 1, max_star: int = 3) -> Array:
 	var pool: Array = []
@@ -341,6 +364,7 @@ static func gain_blessing(state: Dictionary, id: String, opts: Dictionary = {}) 
 		for t in state.get("team", []):
 			t["maxHp"] = ceili(float(t.get("maxHp", 1)) * 1.16)
 			t["hp"] = mini(int(t.get("hp", 0)), int(t["maxHp"]))
+	sync_equation_expand(state)
 	return {"ok": true, "star": b.get("star", 0), "silent": opts.get("silent", false)}
 
 ## 随机失去 1 个祝福
@@ -801,6 +825,14 @@ static func trigger_curio_on_win(state: Dictionary) -> void:
 					_break_curio(state, "jiangwei")
 					state["log"].append("降维骰子：已损毁")
 				break
+	# 分裂咕咕钟：战斗胜利 50% 概率获得 1 个复制体（最多 3 个，可叠加数量）
+	var fenlie_count: int = 0
+	for x in state.get("curios", []):
+		if _s(x.get("id", "")) == "fenlie":
+			fenlie_count += 1
+	if fenlie_count > 0 and fenlie_count < int(CURIO_FX.get("fenlie", {}).get("maxCopies", 3)) and randf() < float(CURIO_FX.get("fenlie", {}).get("copyChance", 0.5)):
+		state["curios"].append({"id": "fenlie", "star": 0, "enhanced": 1, "broken": false})
+		state["log"].append("分裂咕咕钟：分裂出 1 个复制体（%d/%d）" % [fenlie_count + 1, int(CURIO_FX.get("fenlie", {}).get("maxCopies", 3))])
 
 static func _filter_curios(curios: Array, id: String) -> Array:
 	var result: Array = []
@@ -1090,4 +1122,5 @@ static func gain_equation(state: Dictionary, id: String, opts: Dictionary = {}) 
 			t["maxHp"] = ceili(float(t.get("maxHp", 1)) * 1.4)
 			t["hp"] = minf(float(t.get("hp", 0)), float(t["maxHp"]))
 		state["log"].append("换心魔：全队生命上限 +40%")
+	sync_equation_expand(state)
 	return {"ok": true, "star": eq.get("star", 0), "silent": opts.get("silent", false)}
