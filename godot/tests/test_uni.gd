@@ -141,6 +141,28 @@ func _test_curios_equations() -> void:
 	var r5: Dictionary = UniBuffs.gain_equation(s, eid)
 	_check(r5.get("dupe", false) == true, "dupe equation -> shards")
 	_check(int(s["shards"]) > shards_before, "shards increased")
+	# 奇物强化数值（新规范：lv 表 / 等差延伸 / cap / min）
+	var sv: Dictionary = UniState.create_uni_state()
+	UniBuffs.gain_curio(sv, "zhongduan")
+	_check(UniBuffs.curio_val(sv, "zhongduan", "gain") == 75.0, "curio_val lv1")
+	UniBuffs.gain_curio(sv, "zhongduan")
+	_check(UniBuffs.curio_val(sv, "zhongduan", "gain") == 85.0, "curio_val lv2")
+	for i in range(7):
+		UniBuffs.gain_curio(sv, "wuxian")
+	# enhanced=7, lv [20,24,28,32,36,40] → 等差延伸 +4 → 44
+	_check(UniBuffs.curio_val(sv, "wuxian", "maxHpMult") == 44.0, "curio_val arithmetic extend")
+	for i in range(7):
+		UniBuffs.gain_curio(sv, "huacheng")
+	# enhanced=7, lv [5,6,7,8,9,10] → 等差延伸 11 → cap 10
+	_check(UniBuffs.curio_val(sv, "huacheng", "heat") == 10.0, "curio_val cap")
+	for i in range(12):
+		UniBuffs.gain_curio(sv, "fuhua")
+	# enhanced=12, lv [20..10] → 等差延伸 9 → min 10
+	_check(UniBuffs.curio_val(sv, "fuhua", "hpCostPct") == 10.0, "curio_val min")
+	# 负面奇物不可强化（无 lv 表，回退 fx）
+	UniBuffs.gain_curio(sv, "gongsi")
+	UniBuffs.gain_curio(sv, "gongsi")
+	_check(UniBuffs.curio_val(sv, "gongsi", "priceMult") == 1.25, "curio_val negative no lv")
 
 # ===== 状态与区域 =====
 

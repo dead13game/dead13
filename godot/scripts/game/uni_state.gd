@@ -128,8 +128,8 @@ static func enter_region(state: Dictionary) -> void:
 		state["shards"] = maxi(0, int(state.get("shards", 0)) - int(UniBuffs.CURIO_FX.get("eye", {}).get("cost", 50)))
 		state["log"].append("监督之眼：失去碎片")
 	# 奇物：有形幸运
-	if UniCore.has_curio(state, "luck") and int(state.get("shards", 0)) < 250:
-		UniCore.add_shards(state, int(UniBuffs.CURIO_FX.get("luck", {}).get("floor", 250)) - int(state.get("shards", 0)))
+	if UniCore.has_curio(state, "luck") and int(state.get("shards", 0)) < int(UniBuffs.curio_val(state, "luck", "floor")):
+		UniCore.add_shards(state, int(UniBuffs.curio_val(state, "luck", "floor")) - int(state.get("shards", 0)))
 		state["log"].append("有形幸运：宇宙碎片补足")
 	var r_type: String = _s(r.get("type", ""))
 	if r_type == "fortune":
@@ -145,7 +145,7 @@ static func enter_region(state: Dictionary) -> void:
 	elif r_type == "shop":
 		UniShop.create_shop_stock(state)
 		if UniCore.has_curio(state, "heping"):
-			UniCore.add_shards(state, int(UniBuffs.CURIO_FX.get("heping", {}).get("gain", 150)))
+			UniCore.add_shards(state, int(UniBuffs.curio_val(state, "heping", "gain")))
 			state["log"].append("和平的代价：+碎片")
 	elif r_type == "oddity":
 		var effect: Variant = _pick(UniConstants.ODDITY_EFFECTS)
@@ -174,33 +174,33 @@ static func _apply_curio_region_hooks(state: Dictionary, r: Dictionary) -> void:
 	# 祭献投枪
 	if UniCore.has_curio(state, "jixian"):
 		if battle_like:
-			var gain: int = int(UniBuffs.CURIO_FX.get("jixian", {}).get("battleGain", 35))
+			var gain: int = int(UniBuffs.curio_val(state, "jixian", "battleGain"))
 			if _s(state.get("lastRegionType", "")) == r_type:
-				gain += int(UniBuffs.CURIO_FX.get("jixian", {}).get("chainGain", 35))
+				gain += int(UniBuffs.curio_val(state, "jixian", "chainGain"))
 			UniCore.add_shards(state, gain)
 		elif soft_like:
-			UniCore.add_shards(state, -int(UniBuffs.CURIO_FX.get("jixian", {}).get("softLoss", 35)))
+			UniCore.add_shards(state, -int(UniBuffs.curio_val(state, "jixian", "softLoss")))
 	# 鲁珀特帝国机械齿轮
 	if UniCore.has_curio(state, "lubeite"):
-		UniCore.add_shards(state, int(UniBuffs.CURIO_FX.get("lubeite", {}).get("gain", 50)))
+		UniCore.add_shards(state, int(UniBuffs.curio_val(state, "lubeite", "gain")))
 		if int(state.get("shards", 0)) > int(UniBuffs.CURIO_FX.get("lubeite", {}).get("cap", 750)):
 			UniBuffs._break_curio(state, "lubeite")
 			UniCore.add_shards(state, -int(UniBuffs.CURIO_FX.get("lubeite", {}).get("penalty", 750)))
 			state["log"].append("鲁珀特帝国机械齿轮：已损毁")
 	# 分裂金币
 	if UniCore.has_curio(state, "fenlie_jb"):
-		UniCore.add_shards(state, ceili(float(state.get("shards", 0)) * float(UniBuffs.CURIO_FX.get("fenlie_jb", {}).get("shardsPct", 5)) / 100.0))
+		UniCore.add_shards(state, ceili(float(state.get("shards", 0)) * UniBuffs.curio_val(state, "fenlie_jb", "shardsPct") / 100.0))
 	# 昨天的重量
 	if UniCore.has_curio(state, "zuotian"):
-		UniCore.add_shards(state, int(UniBuffs.CURIO_FX.get("zuotian", {}).get("gain", 35)))
+		UniCore.add_shards(state, int(UniBuffs.curio_val(state, "zuotian", "gain")))
 		state["zuotianShrinks"] = int(state.get("zuotianShrinks", 0)) + 1
 		if int(state["zuotianShrinks"]) >= int(UniBuffs.CURIO_FX.get("zuotian", {}).get("triggers", 3)):
 			UniBuffs._break_curio(state, "zuotian")
 	# 睡眠和死亡
 	if UniCore.has_curio(state, "shui") and int(state.get("shards", 0)) <= int(UniBuffs.CURIO_FX.get("shui", {}).get("shardsMax", 10)):
 		UniBuffs._break_curio(state, "shui")
-		UniCore.add_shards(state, int(UniBuffs.CURIO_FX.get("shui", {}).get("gain", 400)))
-		state["log"].append("睡眠和死亡：损毁并 +400 碎片")
+		UniCore.add_shards(state, int(UniBuffs.curio_val(state, "shui", "gain")))
+		state["log"].append("睡眠和死亡：损毁并 +碎片")
 	# 无爱之尘
 	if UniCore.has_curio(state, "wulian") and state.get("curios", []).size() >= int(UniBuffs.CURIO_FX.get("wulian", {}).get("minCurios", 4)):
 		remove_curio.call("wulian")
@@ -224,7 +224,7 @@ static func _apply_curio_region_hooks(state: Dictionary, r: Dictionary) -> void:
 			if not t.get("alive", false):
 				continue
 			t["hp"] = maxf(1.0, ceili(float(t.get("hp", 0)) * (1.0 - float(UniBuffs.CURIO_FX.get("haimian", {}).get("hpCut", 0.8)))))
-			t["maxHp"] = ceili(float(t.get("maxHp", 1)) * (1 + float(UniBuffs.CURIO_FX.get("haimian", {}).get("maxHpMult", 10)) / 100.0))
+			t["maxHp"] = ceili(float(t.get("maxHp", 1)) * (1 + UniBuffs.curio_val(state, "haimian", "maxHpMult") / 100.0))
 		state["haimianCount"] = int(state.get("haimianCount", 0)) + 1
 		if int(state["haimianCount"]) >= int(UniBuffs.CURIO_FX.get("haimian", {}).get("triggers", 4)):
 			UniBuffs._break_curio(state, "haimian")
@@ -249,15 +249,16 @@ static func _apply_curio_region_hooks(state: Dictionary, r: Dictionary) -> void:
 	# 大饼干
 	if UniCore.has_curio(state, "dabinggan"):
 		var star_range: Array = UniBuffs.CURIO_FX.get("dabinggan", {}).get("starRange", [1, 2])
-		var bid: String = UniBuffs.roll_blessing(int(star_range[0]), int(star_range[1]))
-		if bid != "":
-			UniBuffs.gain_blessing(state, bid)
+		for i in range(int(UniBuffs.curio_val(state, "dabinggan", "count"))):
+			var bid: String = UniBuffs.roll_blessing(int(star_range[0]), int(star_range[1]))
+			if bid != "":
+				UniBuffs.gain_blessing(state, bid)
 		state["dabingganCount"] = int(state.get("dabingganCount", 0)) + 1
 		if int(state["dabingganCount"]) >= int(UniBuffs.CURIO_FX.get("dabinggan", {}).get("triggers", 2)):
 			remove_curio.call("dabinggan")
 	# 纯美之袍
 	if UniCore.has_curio(state, "chunmei_pao") and battle_like:
-		UniCore.add_shards(state, ceili(float(state.get("shards", 0)) * float(UniBuffs.CURIO_FX.get("chunmei_pao", {}).get("shardsPct", 10)) / 100.0))
+		UniCore.add_shards(state, ceili(float(state.get("shards", 0)) * UniBuffs.curio_val(state, "chunmei_pao", "shardsPct") / 100.0))
 	# 快乐电视机
 	if UniCore.has_curio(state, "kuaile") and _s(state.get("lastRegionType", "")) == r_type:
 		UniCore.add_shards(state, -int(UniBuffs.CURIO_FX.get("kuaile", {}).get("cost", 25)))

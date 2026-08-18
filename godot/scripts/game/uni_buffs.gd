@@ -178,85 +178,92 @@ const CURIOS: Dictionary = {
 	"chunmei_pao": {"id": "chunmei_pao", "name": "纯美之袍", "star": 3, "desc": "进入战斗时每有 100 碎片全队伤害 +20%；进入战斗/精英/首领区域时获得当前碎片 10% 的碎片"},
 }
 
+# 强化规范见 update_log/模拟宇宙/模拟宇宙(1).txt：
+# 数值型每级加固定值 / 百分比型每级加百分比；cap=封顶值 min=封底值；负面与标注不可强化者无 lv 表
 const CURIO_FX: Dictionary = {
+	# ── 负面（不可强化） ──
 	"posui": {"shardsCut": 0.25},
 	"yongdong": {"shardsPct": 4},
 	"kuaile": {"cost": 25},
 	"bobo": {"regions": 3, "hpPct": 99},
 	"gongsi": {"priceMult": 1.25},
+	"fenlie": {"atkCut": 5, "copyChance": 0.5, "maxCopies": 3},
 	"zhongdeng": {"priceMult": 1.25},
 	"heisenlin": {"tauntTurns": 5},
 	"bushu": {"optionCut": 1},
-	"zhongduan": {"gain": 75, "triggers": 3},
-	"dabinggan": {"triggers": 2, "starRange": [1, 2]},
+	# ── 1 星 ──
+	"zhongduan": {"gain": 75, "triggers": 3, "lv": {"gain": [75, 85, 95, 105]}},
+	"dabinggan": {"count": 1, "triggers": 2, "starRange": [1, 2], "lv": {"count": [1, 2, 3, 4]}},
 	"eye": {"cost": 50, "gainStar": 3},
-	"anhai": {"gainPct": 15, "lossPct": 10, "battles": 3},
-	"shui": {"shardsMax": 10, "gain": 400},
-	"lieyang": {"gain": 30},
+	"anhai": {"gainPct": 15, "lossPct": 10, "battles": 3, "cap": 50, "lv": {"gainPct": [15, 18, 21, 24, 27, 30, 33, 36, 39, 42, 45, 48, 51, 54, 57, 60], "lossPct": [10, 13, 16, 19, 22, 25, 28, 31, 34, 37, 40, 43, 46, 49, 52, 55]}},
+	"shui": {"shardsMax": 10, "gain": 400, "lv": {"gain": [400, 420, 440, 460]}},
+	"lieyang": {"gain": 30, "lv": {"gain": [30, 35, 40, 45]}},
 	"wulian": {"minCurios": 4, "loseCount": 3},
-	"wuxian": {"maxHpMult": 20},
-	"zhutie": {"shardsMult": 1.3, "priceMult": 1.3},
+	"wuxian": {"maxHpMult": 20, "lv": {"maxHpMult": [20, 24, 28, 32, 36, 40]}},
+	"zhutie": {"shardsMult": 1.3, "priceMult": 1.3, "lv": {"shardsMult": [1.3, 1.32, 1.34, 1.36, 1.38, 1.4], "priceMult": [1.3, 1.32, 1.34, 1.36, 1.38, 1.4]}},
 	"adaptive": {"minPct": 10, "maxPct": 200},
 	"jidong": {"shardsCut": 0.5, "overwriteFree": true, "overwriteCap": 7},
-	"liangzi": {"gain": 400},
-	"jixian": {"battleGain": 35, "softLoss": 35, "chainGain": 35},
-	"yinhe": {},
-	"linji": {"gain": 300, "regions": 5, "penalty": 450},
-	"heping": {"gain": 150},
-	"wanxiang": {"count": 2},
-	"boshi": {"atkMult": 25, "needStar": 3},
-	"club": {"shardsMult": 1.4},
-	"sheep": {"hpPct": 30},
+	"liangzi": {"gain": 400, "lv": {"gain": [400, 450, 500, 550]}},
+	"jixian": {"battleGain": 35, "softLoss": 35, "chainGain": 35, "lv": {"battleGain": [35, 40, 45, 50], "chainGain": [35, 40, 45, 50], "softLoss": [35, 40, 45, 50]}},
+	"yinhe": {"hpPct": 99, "gainChance": 0.1, "breakChance": 0.1, "lv": {"hpPct": [99, 94, 89, 84, 79]}},
+	"linji": {"gain": 300, "regions": 5, "penalty": 450, "lv": {"gain": [300, 310, 320, 330]}},
+	"heping": {"gain": 150, "lv": {"gain": [150, 160, 170, 180]}},
+	"wanxiang": {"count": 2, "lv": {"count": [2, 3, 4, 5]}},
+	"boshi": {"atkMult": 25, "needStar": 3, "lv": {"atkMult": [25, 28, 31, 34]}},
+	"club": {"shardsMult": 1.4, "lv": {"shardsMult": [1.4, 1.42, 1.44, 1.46]}},
+	"sheep": {"hpPct": 30, "lv": {"hpPct": [30, 32, 34, 36]}},
 	"cheese": {"healPct": 100},
 	"yueqian": {},
-	"zuotian": {"gain": 35, "triggers": 3},
-	"juedui": {"count": 2},
-	"maidi": {"winPoints": [3, 6, 9], "gains": [50, 150, 250]},
-	"youmeng": {"atkMult": 50, "turns": 15, "laterDmgPct": 10},
-	"lubeite": {"gain": 50, "cap": 750, "penalty": 750},
-	"caikuang": {"triggers": 5, "starRange": [1, 2]},
-	"canjing_lm": {"atkPerStar": 2.5},
-	"canjing_lx": {"atkPerStar": 2.5},
-	"canjing_fz": {"atkPerStar": 2.5},
-	"shijin": {"gain": 500, "regions": 5, "minShards": 500},
-	"hepingxiang": {"maxTriggers": 4, "minStar": 2},
-	"luck": {"floor": 250},
-	"huacheng": {"heat": 5},
+	"zuotian": {"gain": 35, "triggers": 3, "lv": {"gain": [35, 45, 55, 65]}},
+	"juedui": {"count": 2, "cap": 5, "lv": {"count": [2, 3, 4, 5]}},
+	"maidi": {"winPoints": [3, 6, 9], "gains": [50, 150, 250], "lv": {"gains": [[50, 150, 250], [80, 180, 280], [110, 210, 310], [140, 240, 340], [170, 270, 370], [200, 300, 400]]}},
+	"youmeng": {"atkMult": 50, "turns": 15, "laterDmgPct": 10, "lv": {"atkMult": [50, 52, 54, 56], "laterDmgPct": [10, 12, 14, 16]}},
+	"lubeite": {"gain": 50, "cap": 750, "penalty": 750, "lv": {"gain": [50, 60, 70, 80, 90, 100]}},
+	# ── 2 星 ──
+	"caikuang": {"count": 1, "triggers": 5, "starRange": [1, 2], "lv": {"count": [1, 2, 3, 4]}},
+	"canjing_lm": {"atkPerStar": 2.5, "lv": {"atkPerStar": [2.5, 3, 3.5, 4]}},
+	"canjing_lx": {"atkPerStar": 2.5, "lv": {"atkPerStar": [2.5, 3, 3.5, 4]}},
+	"canjing_fz": {"atkPerStar": 2.5, "lv": {"atkPerStar": [2.5, 3, 3.5, 4]}},
+	"shijin": {"gain": 500, "regions": 5, "minShards": 500, "lv": {"gain": [500, 520, 540, 560]}},
+	"hepingxiang": {"count": 1, "maxTriggers": 4, "minStar": 2, "lv": {"count": [1, 2, 3, 4]}},
+	"luck": {"floor": 250, "lv": {"floor": [250, 270, 290, 310]}},
+	"huacheng": {"heat": 5, "cap": 10, "lv": {"heat": [5, 6, 7, 8, 9, 10]}},
 	"xile": {},
-	"haimian": {"hpCut": 0.8, "maxHpMult": 10, "triggers": 4},
-	"fuhua": {"hpCostPct": 20},
+	"haimian": {"hpCut": 0.8, "maxHpMult": 10, "triggers": 4, "lv": {"maxHpMult": [10, 12, 14, 16, 18, 20]}},
+	"fuhua": {"hpCostPct": 20, "min": 10, "lv": {"hpCostPct": [20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10]}},
 	"lixing": {"count": 3},
 	"renzao": {"max": 3},
-	"xugou": {"healPct": 20},
+	"xugou": {"healPct": 20, "lv": {"healPct": [20, 21, 22, 23]}},
 	"huanzhe": {},
-	"tiancai": {"shardsMult": 1.5},
+	"tiancai": {"shardsMult": 1.5, "lv": {"shardsMult": [1.5, 1.52, 1.54, 1.56]}},
 	"shanyao": {},
-	"fenlie_jb": {"shardsPct": 5},
+	"fenlie_jb": {"shardsPct": 5, "lv": {"shardsPct": [5, 6, 7, 8]}},
 	"fujiao": {"blessingStar": 3},
 	"jiangwei": {"triggers": 2, "extraPick": 1},
-	"louti": {"shardsPerStar": 80},
-	"xiee": {"priceCut": 0.75},
-	"kongwu": {"fixCount": 2},
-	"xinyang": {"costCut": 0.7},
+	"louti": {"shardsPerStar": 80, "lv": {"shardsPerStar": [80, 82, 84, 86]}},
+	"xiee": {"priceCut": 0.75, "min": 0.5, "lv": {"priceCut": [0.75, 0.73, 0.71, 0.69, 0.67, 0.65, 0.63, 0.61, 0.59, 0.57, 0.55, 0.53, 0.51]}},
+	"kongwu": {"fixCount": 2, "cap": 6, "lv": {"fixCount": [2, 3, 4, 5, 6]}},
+	"xinyang": {"costCut": 0.7, "min": 0.5, "lv": {"costCut": [0.7, 0.68, 0.66, 0.64, 0.62, 0.6, 0.58, 0.56, 0.54, 0.52, 0.5]}},
 	"kaituo": {},
-	"chuiyu": {"maxExtra": 4},
-	"zhizun": {"chance": 0.1, "maxExtra": 5},
-	"jingshen": {"gain": 50},
-	"zhenshi": {"gain": 75},
-	"mori": {"priceMult": 11, "count": 3},
-	"wuren": {"triggers": 2},
-	"aruan": {"triggers": 2},
-	"chunmei": {},
-	"silver": {"shardsPct": 40},
-	"lens": {"skillUp": 2},
+	"chuiyu": {"count": 1, "maxExtra": 4, "cap": 4, "lv": {"count": [1, 2, 3, 4]}},
+	"zhizun": {"chance": 0.1, "maxExtra": 5, "lv": {"chance": [0.1, 0.12, 0.14, 0.16]}},
+	"jingshen": {"gain": 50, "lv": {"gain": [50, 60, 70, 80]}},
+	"zhenshi": {"gain": 75, "lv": {"gain": [75, 85, 95, 105]}},
+	"mori": {"priceMult": 11, "count": 2, "cap": 6, "lv": {"count": [2, 3, 4, 5, 6]}},
+	"wuren": {"triggers": 2, "cap": 5, "lv": {"triggers": [2, 3, 4, 5]}},
+	"aruan": {"count": 3, "triggers": 2, "cap": 6, "lv": {"count": [3, 4, 5, 6]}},
+	"chunmei": {"count": 1, "cap": 3, "lv": {"count": [1, 2, 3]}},
+	"silver": {"shardsPct": 40, "lv": {"shardsPct": [40, 42, 44, 46]}},
+	"lens": {"skillUp": 2, "cap": 5, "lv": {"skillUp": [2, 3, 4, 5]}},
 	"shuishang": {},
-	"jingque": {"atkDefHpPct": 35, "atkPct": 350},
+	# ── 3 星 ──
+	"jingque": {"atkDefHpPct": 35, "atkPct": 350, "lv": {"atkDefHpPct": [35, 38, 41, 44]}},
 	"xugao": {"shardsByStar": [20, 40, 120], "atkByStar": [3, 6, 20]},
-	"yusi": {"atkPerEquation": 10},
-	"wenyi": {"negativeCount": 4, "atkPerLost": 10},
+	"yusi": {"atkPerEquation": 10, "lv": {"atkPerEquation": [10, 14, 18, 22]}},
+	"wenyi": {"negativeCount": 4, "atkPerLost": 10, "lv": {"atkPerLost": [10, 14, 18, 22]}},
 	"jiyi": {},
-	"jiazu": {"atkPerBroken": 30},
-	"chunmei_pao": {"atkPer100": 20, "shardsPct": 10},
+	"jiazu": {"atkPerBroken": 30, "lv": {"atkPerBroken": [30, 33, 36, 39]}},
+	"chunmei_pao": {"atkPer100": 20, "shardsPct": 10, "lv": {"atkPer100": [20, 22, 24, 26]}},
 }
 
 # ================= 工具 =================
@@ -465,25 +472,19 @@ static func get_uni_modifiers(state: Dictionary) -> Dictionary:
 				mods["atkMult"] += blessing_val(state, _s(b.get("id", "")), "atkPerDot") * mini(dot_count, int(fx.get("maxDot", 4)))
 	return apply_curio_star_mods(state, mods)
 
-## 赐福残晶系列（星级 = 祝福星数和 + 方程星数和）
+## 赐福残晶系列（星级 = 祝福星数和 + 方程星数和；损毁奇物不生效）
 static func apply_curio_star_mods(state: Dictionary, mods: Dictionary) -> Dictionary:
 	var star_total: int = 0
 	for b in state.get("blessings", []):
 		star_total += int(b.get("star", 0))
 	for e in state.get("equations", []):
 		star_total += int(e.get("star", 0))
-	var curios: Array = state.get("curios", [])
-	var has_curio := func(id: String) -> bool:
-		for c in curios:
-			if _s(c.get("id", "")) == id:
-				return true
-		return false
-	if has_curio.call("canjing_lm"):
-		mods["atkNormalMult"] += float(CURIO_FX.get("canjing_lm", {}).get("atkPerStar", 2.5)) * star_total
-	if has_curio.call("canjing_lx"):
-		mods["skillDmgMult"] += float(CURIO_FX.get("canjing_lx", {}).get("atkPerStar", 2.5)) * star_total
-	if has_curio.call("canjing_fz"):
-		mods["atkMult"] += float(CURIO_FX.get("canjing_fz", {}).get("atkPerStar", 2.5)) * star_total
+	if _has_curio(state, "canjing_lm"):
+		mods["atkNormalMult"] += curio_val(state, "canjing_lm", "atkPerStar") * star_total
+	if _has_curio(state, "canjing_lx"):
+		mods["skillDmgMult"] += curio_val(state, "canjing_lx", "atkPerStar") * star_total
+	if _has_curio(state, "canjing_fz"):
+		mods["atkMult"] += curio_val(state, "canjing_fz", "atkPerStar") * star_total
 	return mods
 
 ## 按成员血量/护盾/战意动态计算的额外攻击修正
@@ -712,21 +713,21 @@ static func trigger_curio_on_combat_start(state: Dictionary) -> void:
 	var curios: Array = state.get("curios", [])
 	var has_curio := func(id: String) -> bool:
 		for x in curios:
-			if _s(x.get("id", "")) == id:
+			if _s(x.get("id", "")) == id and not x.get("broken", false):
 				return true
 		return false
 	if has_curio.call("wuxian"):
 		for t in state.get("team", []):
-			t["maxHp"] = ceili(float(t.get("maxHp", 1)) * (1 + float(CURIO_FX.get("wuxian", {}).get("maxHpMult", 20)) / 100.0))
+			t["maxHp"] = ceili(float(t.get("maxHp", 1)) * (1 + curio_val(state, "wuxian", "maxHpMult") / 100.0))
 			t["hp"] = minf(float(t.get("hp", 0)), float(t["maxHp"]))
 	if has_curio.call("jingque"):
 		for t in state.get("team", []):
-			t["maxHp"] = ceili(float(t.get("maxHp", 1)) * (1 + float(CURIO_FX.get("jingque", {}).get("atkDefHpPct", 35)) / 100.0))
+			t["maxHp"] = ceili(float(t.get("maxHp", 1)) * (1 + curio_val(state, "jingque", "atkDefHpPct") / 100.0))
 			t["status"]["atkBonus"] = int(t.get("status", {}).get("atkBonus", 0)) + 5
 	if has_curio.call("sheep"):
 		for e in c.get("enemies", []):
 			if e.get("alive", false):
-				e["hp"] = maxf(0.0, float(e.get("hp", 0)) - ceili(float(e.get("maxHp", 1)) * float(CURIO_FX.get("sheep", {}).get("hpPct", 30)) / 100.0))
+				e["hp"] = maxf(0.0, float(e.get("hp", 0)) - ceili(float(e.get("maxHp", 1)) * curio_val(state, "sheep", "hpPct") / 100.0))
 				if float(e["hp"]) <= 0:
 					e["alive"] = false
 					state["log"].append("羊皮卷：击败 %s" % _s(e.get("name", "")))
@@ -738,11 +739,11 @@ static func trigger_curio_on_combat_start(state: Dictionary) -> void:
 				break
 		if has_3star:
 			for t in state.get("team", []):
-				t["status"]["dmgBuffPct"] = float(t.get("status", {}).get("dmgBuffPct", 0)) + float(CURIO_FX.get("boshi", {}).get("atkMult", 25))
+				t["status"]["dmgBuffPct"] = float(t.get("status", {}).get("dmgBuffPct", 0)) + curio_val(state, "boshi", "atkMult")
 				t["status"]["dmgBuffTurns"] = 1
 	if has_curio.call("youmeng"):
 		for t in state.get("team", []):
-			t["status"]["dmgBuffPct"] = float(t.get("status", {}).get("dmgBuffPct", 0)) + float(CURIO_FX.get("youmeng", {}).get("atkMult", 50))
+			t["status"]["dmgBuffPct"] = float(t.get("status", {}).get("dmgBuffPct", 0)) + curio_val(state, "youmeng", "atkMult")
 			t["status"]["dmgBuffTurns"] = 1
 	if has_curio.call("heisenlin"):
 		var alive: Array = []
@@ -768,6 +769,10 @@ static func trigger_curio_on_win(state: Dictionary) -> void:
 		var w: int = int(maidi["wins"])
 		var pts: Array = CURIO_FX.get("maidi", {}).get("winPoints", [3, 6, 9])
 		var gs: Array = CURIO_FX.get("maidi", {}).get("gains", [50, 150, 250])
+		var gs_lv: Array = CURIO_FX.get("maidi", {}).get("lv", {}).get("gains", [])
+		var m_lv: int = maxi(1, int(maidi.get("enhanced", 1)))
+		if not gs_lv.is_empty():
+			gs = gs_lv[mini(m_lv, gs_lv.size()) - 1]
 		var gain: int = 0
 		for i in range(pts.size()):
 			if w >= int(pts[i]):
@@ -783,7 +788,7 @@ static func trigger_curio_on_win(state: Dictionary) -> void:
 		for x in state.get("curios", []):
 			if _s(x.get("id", "")) == "aruan":
 				x["wins"] = int(x.get("wins", 0)) + 1
-				if int(x["wins"]) >= int(CURIO_FX.get("aruan", {}).get("triggers", 2)):
+				if int(x["wins"]) >= int(curio_val(state, "aruan", "triggers")):
 					_break_curio(state, "aruan")
 					state["log"].append("阿阮袋：已损毁")
 				break
@@ -792,7 +797,7 @@ static func trigger_curio_on_win(state: Dictionary) -> void:
 		for x in state.get("curios", []):
 			if _s(x.get("id", "")) == "jiangwei":
 				x["wins"] = int(x.get("wins", 0)) + 1
-				if int(x["wins"]) >= int(CURIO_FX.get("jiangwei", {}).get("triggers", 2)):
+				if int(x["wins"]) >= int(curio_val(state, "jiangwei", "triggers")):
 					_break_curio(state, "jiangwei")
 					state["log"].append("降维骰子：已损毁")
 				break
@@ -813,6 +818,7 @@ static func _break_curio(state: Dictionary, id: String) -> void:
 			break
 
 ## 奇物强化数值（新规范）：按 enhanced 等级查 CURIO_FX[id].lv[field] 表；无表回退 CURIO_FX[id][field]
+## 支持条目级 cap（上限）/ min（下限），递减/递增序列越界等差延伸后封口
 static func curio_val(state: Dictionary, id: String, field: String) -> float:
 	var fx: Dictionary = CURIO_FX.get(id, {})
 	var lv_table: Array = fx.get("lv", {}).get(field, [])
@@ -821,12 +827,22 @@ static func curio_val(state: Dictionary, id: String, field: String) -> float:
 		if _s(c.get("id", "")) == id:
 			level = maxi(1, int(c.get("enhanced", 1)))
 			break
+	var v: float = 0.0
 	if not lv_table.is_empty():
 		if level <= lv_table.size():
-			return float(lv_table[level - 1])
-		var step: float = float(lv_table[1] - lv_table[0]) if lv_table.size() >= 2 else 0.0
-		return float(lv_table[lv_table.size() - 1]) + step * (level - lv_table.size())
-	return float(fx.get(field, 0))
+			v = float(lv_table[level - 1])
+		else:
+			var step: float = float(lv_table[1] - lv_table[0]) if lv_table.size() >= 2 else 0.0
+			v = float(lv_table[lv_table.size() - 1]) + step * (level - lv_table.size())
+	else:
+		v = float(fx.get(field, 0))
+	var cap_v: Variant = fx.get("cap")
+	if cap_v != null:
+		v = minf(v, float(cap_v))
+	var min_v: Variant = fx.get("min")
+	if min_v != null:
+		v = maxf(v, float(min_v))
+	return v
 
 static func _has_curio(state: Dictionary, id: String) -> bool:
 	for c in state.get("curios", []):
@@ -899,16 +915,16 @@ static func gain_curio(state: Dictionary, id: String, opts: Dictionary = {}) -> 
 		state["log"].append("时空棱镜：全队技能等级 +2")
 	# 分裂银币
 	if id == "silver":
-		var gain: int = ceili(float(state.get("shards", 0)) * float(CURIO_FX.get("silver", {}).get("shardsPct", 40)) / 100.0)
+		var gain: int = ceili(float(state.get("shards", 0)) * curio_val(state, "silver", "shardsPct") / 100.0)
 		state["shards"] = int(state.get("shards", 0)) + gain
 		state["log"].append("分裂银币：+%d 宇宙碎片" % gain)
 	# 失金爪锚
 	if id == "shijin":
-		state["shards"] = int(state.get("shards", 0)) + int(CURIO_FX.get("shijin", {}).get("gain", 500))
+		state["shards"] = int(state.get("shards", 0)) + int(curio_val(state, "shijin", "gain"))
 		state["log"].append("失金爪锚：+碎片")
 	# 临时赌资
 	if id == "linji":
-		state["shards"] = int(state.get("shards", 0)) + int(CURIO_FX.get("linji", {}).get("gain", 300))
+		state["shards"] = int(state.get("shards", 0)) + int(curio_val(state, "linji", "gain"))
 		state["log"].append("临时赌资：+碎片")
 	# 自适应礼品盒
 	if id == "adaptive":
@@ -921,9 +937,9 @@ static func gain_curio(state: Dictionary, id: String, opts: Dictionary = {}) -> 
 	# 暗海碎饵
 	if id == "anhai":
 		if randf() < 0.5:
-			state["shards"] = int(state.get("shards", 0)) + ceili(float(state.get("shards", 0)) * float(CURIO_FX.get("anhai", {}).get("gainPct", 15)) / 100.0)
+			state["shards"] = int(state.get("shards", 0)) + ceili(float(state.get("shards", 0)) * curio_val(state, "anhai", "gainPct") / 100.0)
 		else:
-			state["shards"] = maxi(0, int(state.get("shards", 0)) - ceili(float(state.get("shards", 0)) * float(CURIO_FX.get("anhai", {}).get("lossPct", 10)) / 100.0))
+			state["shards"] = maxi(0, int(state.get("shards", 0)) - ceili(float(state.get("shards", 0)) * curio_val(state, "anhai", "lossPct") / 100.0))
 	# 万象无常骰：强化 2 个随机祝福
 	if id == "wanxiang":
 		for i in range(2):
@@ -976,7 +992,7 @@ static func gain_curio(state: Dictionary, id: String, opts: Dictionary = {}) -> 
 		for b in state.get("blessings", []):
 			star_sum += int(b.get("star", 1)) * int(b.get("enhanced", 1))
 		state["blessings"] = []
-		state["shards"] = int(state.get("shards", 0)) + star_sum * int(CURIO_FX.get("louti", {}).get("shardsPerStar", 80))
+		state["shards"] = int(state.get("shards", 0)) + star_sum * int(curio_val(state, "louti", "shardsPerStar"))
 		state["log"].append("楼梯上的水母：祝福转碎片")
 	# 患者面具
 	if id == "huanzhe":

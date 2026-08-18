@@ -71,11 +71,11 @@ static func create_team(char_ids: Array) -> Array:
 static func add_shards(state: Dictionary, n: int) -> int:
 	if n > 0:
 		if has_curio(state, "zhutie"):
-			n = ceili(float(n) * float(UniBuffs.CURIO_FX.get("zhutie", {}).get("shardsMult", 1.3)))
+			n = ceili(float(n) * UniBuffs.curio_val(state, "zhutie", "shardsMult"))
 		if has_curio(state, "jidong"):
 			n = ceili(float(n) * (1.0 - float(UniBuffs.CURIO_FX.get("jidong", {}).get("shardsCut", 0.5))))
 		if has_curio(state, "tiancai"):
-			n = ceili(float(n) * float(UniBuffs.CURIO_FX.get("tiancai", {}).get("shardsMult", 1.5)))
+			n = ceili(float(n) * UniBuffs.curio_val(state, "tiancai", "shardsMult"))
 	state["shards"] = maxi(0, int(state.get("shards", 0)) + n)
 	return int(state["shards"])
 

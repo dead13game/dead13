@@ -47,17 +47,17 @@ static func shop_price(state: Dictionary, type: String, star: int) -> int:
 	var price_up: float = maxf(float(UniBuffs.CURIO_FX.get("gongsi", {}).get("priceMult", 0)), float(UniBuffs.CURIO_FX.get("zhongdeng", {}).get("priceMult", 0)))
 	if (UniCore.has_curio(state, "gongsi") or UniCore.has_curio(state, "zhongdeng")) and price_up > 0:
 		p = ceili(float(p) * price_up)
-	if UniCore.has_curio(state, "xiee") and UniBuffs.CURIO_FX.get("xiee", {}).has("priceCut"):
-		p = ceili(float(p) * float(UniBuffs.CURIO_FX["xiee"]["priceCut"]))
-	if UniCore.has_curio(state, "zhutie") and UniBuffs.CURIO_FX.get("zhutie", {}).has("priceMult"):
-		p = ceili(float(p) * float(UniBuffs.CURIO_FX["zhutie"]["priceMult"]))
+	if UniCore.has_curio(state, "xiee"):
+		p = ceili(float(p) * UniBuffs.curio_val(state, "xiee", "priceCut"))
+	if UniCore.has_curio(state, "zhutie"):
+		p = ceili(float(p) * UniBuffs.curio_val(state, "zhutie", "priceMult"))
 	return p
 
 ## 覆写价格（受奇物修正）
 static func overwrite_price(state: Dictionary) -> int:
 	var p: int = int(state.get("overwritePrice", 25))
-	if UniCore.has_curio(state, "xinyang") and UniBuffs.CURIO_FX.get("xinyang", {}).has("costCut"):
-		p = ceili(float(p) * float(UniBuffs.CURIO_FX["xinyang"]["costCut"]))
+	if UniCore.has_curio(state, "xinyang"):
+		p = ceili(float(p) * UniBuffs.curio_val(state, "xinyang", "costCut"))
 	if UniCore.has_curio(state, "jidong") and UniBuffs.CURIO_FX.get("jidong", {}).get("overwriteFree", false):
 		p = 0
 	if UniCore.has_curio(state, "mori") and UniBuffs.CURIO_FX.get("mori", {}).has("priceMult"):
@@ -154,7 +154,7 @@ static func overwrite_equation(state: Dictionary, eq_idx: int) -> Dictionary:
 static func reset_workbench(state: Dictionary) -> void:
 	var heat: int = int(UniConstants.UNI_CONST["BOSS_HEAT"])
 	if UniCore.has_curio(state, "huacheng"):
-		heat += int(UniBuffs.CURIO_FX.get("huacheng", {}).get("heat", 5))
+		heat += int(UniBuffs.curio_val(state, "huacheng", "heat"))
 	state["heat"] = heat
 
 ## 生成 3 星祝福三选一候选
