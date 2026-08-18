@@ -776,16 +776,16 @@ static func trigger_curio_on_win(state: Dictionary) -> void:
 			state["shards"] = int(state.get("shards", 0)) + gain
 			state["log"].append("埋点土：+%d 碎片" % gain)
 		if w >= 9:
-			state["curios"] = _filter_curios(state.get("curios", []), "maidi")
-			state["log"].append("埋点土：损毁")
+			_break_curio(state, "maidi")
+			state["log"].append("埋点土：已损毁")
 	# 阿阮袋
 	if _has_curio(state, "aruan"):
 		for x in state.get("curios", []):
 			if _s(x.get("id", "")) == "aruan":
 				x["wins"] = int(x.get("wins", 0)) + 1
 				if int(x["wins"]) >= int(CURIO_FX.get("aruan", {}).get("triggers", 2)):
-					state["curios"] = _filter_curios(state.get("curios", []), "aruan")
-					state["log"].append("阿阮袋：损毁")
+					_break_curio(state, "aruan")
+					state["log"].append("阿阮袋：已损毁")
 				break
 	# 降维骰子
 	if _has_curio(state, "jiangwei"):
@@ -793,8 +793,8 @@ static func trigger_curio_on_win(state: Dictionary) -> void:
 			if _s(x.get("id", "")) == "jiangwei":
 				x["wins"] = int(x.get("wins", 0)) + 1
 				if int(x["wins"]) >= int(CURIO_FX.get("jiangwei", {}).get("triggers", 2)):
-					state["curios"] = _filter_curios(state.get("curios", []), "jiangwei")
-					state["log"].append("降维骰子：损毁")
+					_break_curio(state, "jiangwei")
+					state["log"].append("降维骰子：已损毁")
 				break
 
 static func _filter_curios(curios: Array, id: String) -> Array:
@@ -804,9 +804,33 @@ static func _filter_curios(curios: Array, id: String) -> Array:
 			result.append(c)
 	return result
 
-static func _has_curio(state: Dictionary, id: String) -> bool:
+## 损毁奇物（新规范）：效果消失但保留在背包显示"已损毁"，后续可再次获得并强化
+static func _break_curio(state: Dictionary, id: String) -> void:
 	for c in state.get("curios", []):
 		if _s(c.get("id", "")) == id:
+			c["broken"] = true
+			state["log"].append("奇物「%s」已损毁" % _s(CURIOS.get(id, {}).get("name", id)))
+			break
+
+## 奇物强化数值（新规范）：按 enhanced 等级查 CURIO_FX[id].lv[field] 表；无表回退 CURIO_FX[id][field]
+static func curio_val(state: Dictionary, id: String, field: String) -> float:
+	var fx: Dictionary = CURIO_FX.get(id, {})
+	var lv_table: Array = fx.get("lv", {}).get(field, [])
+	var level: int = 1
+	for c in state.get("curios", []):
+		if _s(c.get("id", "")) == id:
+			level = maxi(1, int(c.get("enhanced", 1)))
+			break
+	if not lv_table.is_empty():
+		if level <= lv_table.size():
+			return float(lv_table[level - 1])
+		var step: float = float(lv_table[1] - lv_table[0]) if lv_table.size() >= 2 else 0.0
+		return float(lv_table[lv_table.size() - 1]) + step * (level - lv_table.size())
+	return float(fx.get(field, 0))
+
+static func _has_curio(state: Dictionary, id: String) -> bool:
+	for c in state.get("curios", []):
+		if _s(c.get("id", "")) == id and not c.get("broken", false):
 			return true
 	return false
 
@@ -859,6 +883,8 @@ static func gain_curio(state: Dictionary, id: String, opts: Dictionary = {}) -> 
 			exist = x
 			break
 	if exist != null:
+		# 新规范：损毁后可再次获得并强化（恢复未损毁 + 强化）
+		exist["broken"] = false
 		exist["enhanced"] = int(exist.get("enhanced", 1)) + 1
 		state["log"].append("奇物「%s」强化至 ×%d" % [_s(c.get("name", id)), exist["enhanced"]])
 		return {"ok": true, "enhanced": exist["enhanced"], "silent": opts.get("silent", false)}

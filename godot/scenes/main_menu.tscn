@@ -46,42 +46,57 @@ theme_override_font_sizes/font_size = 30
 
 [node name="NormalButton" type="Button" parent="."]
 layout_mode = 1
-offset_left = 285
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -255
 offset_top = 440
-offset_right = 795
+offset_right = 255
 offset_bottom = 524
+grow_horizontal = 2
 text = "经典模式"
 
 [node name="FootballButton" type="Button" parent="."]
 layout_mode = 1
-offset_left = 285
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -255
 offset_top = 560
-offset_right = 795
+offset_right = 255
 offset_bottom = 644
+grow_horizontal = 2
 text = "足球模式"
 
 [node name="SoloButton" type="Button" parent="."]
 layout_mode = 1
-offset_left = 285
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -255
 offset_top = 680
-offset_right = 795
+offset_right = 255
 offset_bottom = 764
+grow_horizontal = 2
 text = "单人模式"
 
 [node name="SimuniverseButton" type="Button" parent="."]
 layout_mode = 1
-offset_left = 285
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -255
 offset_top = 800
-offset_right = 795
+offset_right = 255
 offset_bottom = 884
+grow_horizontal = 2
 text = "模拟宇宙"
 
 [node name="RulesButton" type="Button" parent="."]
 layout_mode = 1
-offset_left = 285
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -255
 offset_top = 920
-offset_right = 795
+offset_right = 255
 offset_bottom = 1004
+grow_horizontal = 2
 text = "规则说明"
 
 [connection signal="pressed" from="NormalButton" to="." method="_on_normal_pressed"]

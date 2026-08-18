@@ -184,9 +184,9 @@ static func _apply_curio_region_hooks(state: Dictionary, r: Dictionary) -> void:
 	if UniCore.has_curio(state, "lubeite"):
 		UniCore.add_shards(state, int(UniBuffs.CURIO_FX.get("lubeite", {}).get("gain", 50)))
 		if int(state.get("shards", 0)) > int(UniBuffs.CURIO_FX.get("lubeite", {}).get("cap", 750)):
-			remove_curio.call("lubeite")
+			UniBuffs._break_curio(state, "lubeite")
 			UniCore.add_shards(state, -int(UniBuffs.CURIO_FX.get("lubeite", {}).get("penalty", 750)))
-			state["log"].append("鲁珀特帝国机械齿轮损毁")
+			state["log"].append("鲁珀特帝国机械齿轮：已损毁")
 	# 分裂金币
 	if UniCore.has_curio(state, "fenlie_jb"):
 		UniCore.add_shards(state, ceili(float(state.get("shards", 0)) * float(UniBuffs.CURIO_FX.get("fenlie_jb", {}).get("shardsPct", 5)) / 100.0))
@@ -195,10 +195,10 @@ static func _apply_curio_region_hooks(state: Dictionary, r: Dictionary) -> void:
 		UniCore.add_shards(state, int(UniBuffs.CURIO_FX.get("zuotian", {}).get("gain", 35)))
 		state["zuotianShrinks"] = int(state.get("zuotianShrinks", 0)) + 1
 		if int(state["zuotianShrinks"]) >= int(UniBuffs.CURIO_FX.get("zuotian", {}).get("triggers", 3)):
-			remove_curio.call("zuotian")
+			UniBuffs._break_curio(state, "zuotian")
 	# 睡眠和死亡
 	if UniCore.has_curio(state, "shui") and int(state.get("shards", 0)) <= int(UniBuffs.CURIO_FX.get("shui", {}).get("shardsMax", 10)):
-		remove_curio.call("shui")
+		UniBuffs._break_curio(state, "shui")
 		UniCore.add_shards(state, int(UniBuffs.CURIO_FX.get("shui", {}).get("gain", 400)))
 		state["log"].append("睡眠和死亡：损毁并 +400 碎片")
 	# 无爱之尘
@@ -215,9 +215,9 @@ static func _apply_curio_region_hooks(state: Dictionary, r: Dictionary) -> void:
 	if UniCore.has_curio(state, "linji"):
 		state["linjiRegions"] = int(state.get("linjiRegions", 0)) + 1
 		if int(state["linjiRegions"]) >= int(UniBuffs.CURIO_FX.get("linji", {}).get("regions", 5)):
-			remove_curio.call("linji")
+			UniBuffs._break_curio(state, "linji")
 			UniCore.add_shards(state, -int(UniBuffs.CURIO_FX.get("linji", {}).get("penalty", 450)))
-			state["log"].append("临时赌资：损毁并 -450 碎片")
+			state["log"].append("临时赌资：已损毁并 -450 碎片")
 	# 海绵王
 	if UniCore.has_curio(state, "haimian"):
 		for t in state.get("team", []):
@@ -227,15 +227,15 @@ static func _apply_curio_region_hooks(state: Dictionary, r: Dictionary) -> void:
 			t["maxHp"] = ceili(float(t.get("maxHp", 1)) * (1 + float(UniBuffs.CURIO_FX.get("haimian", {}).get("maxHpMult", 10)) / 100.0))
 		state["haimianCount"] = int(state.get("haimianCount", 0)) + 1
 		if int(state["haimianCount"]) >= int(UniBuffs.CURIO_FX.get("haimian", {}).get("triggers", 4)):
-			remove_curio.call("haimian")
+			UniBuffs._break_curio(state, "haimian")
 	# 菠萝
 	if UniCore.has_curio(state, "bobo"):
 		state["boboCount"] = int(state.get("boboCount", 0)) + 1
 		if int(state["boboCount"]) >= 3:
-			remove_curio.call("bobo")
+			UniBuffs._break_curio(state, "bobo")
 			for t in state.get("team", []):
 				t["hp"] = maxf(1.0, ceili(float(t.get("hp", 0)) * 0.01))
-			state["log"].append("菠萝：损毁，全队损失 99% 生命")
+			state["log"].append("菠萝：已损毁，全队损失 99% 生命")
 	# 水上书
 	if UniCore.has_curio(state, "shuishang"):
 		for t in state.get("team", []):
