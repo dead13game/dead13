@@ -287,6 +287,40 @@ func _test_events() -> void:
 	for t in s8["team"]:
 		lv_after += int(t["skillLevel"])
 	_check(lv_after > 4, "skill leveled up")
+	# ── 扩充事件（30 分支 + 30 奖励）与新增 effect ──
+	_check(UniEvents.UNI_EVENTS.size() >= 30, "branch events >= 30")
+	_check(UniEvents.UNI_REWARDS.size() >= 30, "reward events >= 30")
+	# 命运硬币：loseShards
+	var e1: Dictionary = UniState.create_uni_state()
+	UniCore.add_shards(e1, 300)
+	var r9: Dictionary = UniEvents.apply_event_option(e1, "fatecoin", 1)
+	_check(int(e1["shards"]) == 250, "fatecoin loseShards")
+	# 深渊之门：equationCount 2 个 1 星方程
+	var e2: Dictionary = UniState.create_uni_state()
+	var r10: Dictionary = UniEvents.apply_event_option(e2, "abyssgate", 1)
+	_check(e2["equations"].size() == 2, "abyssgate 2 equations")
+	# 流浪医师：revive 复活阵亡角色
+	var e3: Dictionary = UniState.create_uni_state()
+	e3["team"][0]["alive"] = false
+	e3["team"][0]["hp"] = 0.0
+	UniCore.add_shards(e3, 500)
+	var r11: Dictionary = UniEvents.apply_event_option(e3, "healdoctor", 1)
+	_check(e3["team"][0]["alive"] == true, "healdoctor revive")
+	# 饥饿的虚空：loseShieldPct + 2 星奇物
+	var e4: Dictionary = UniState.create_uni_state()
+	for t in e4["team"]:
+		t["shield"] = 100.0
+	var r12: Dictionary = UniEvents.apply_event_option(e4, "hungryvoid", 1)
+	var shield_ok: bool = true
+	for t in e4["team"]:
+		if float(t["shield"]) != 70.0:
+			shield_ok = false
+	_check(shield_ok, "hungryvoid loseShieldPct 30%")
+	_check(e4["curios"].size() == 2, "hungryvoid 2 curios")
+	# 睡眠花丛：获得负面奇物（curioStars [0,0]）
+	var e5: Dictionary = UniState.create_uni_state()
+	var r13: Dictionary = UniEvents.apply_event_option(e5, "sleepflower", 1)
+	_check(e5["curios"].size() == 1 and bool(UniBuffs.CURIOS[String(e5["curios"][0]["id"])].get("negative", false)), "sleepflower negative curio")
 
 # ===== 战斗基础 =====
 
