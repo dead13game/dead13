@@ -265,7 +265,7 @@ func _show_map() -> void:
 			_add_button("➡️ 继续前进", _on_advance)
 		"oddity":
 			# 奇遇：workbench 效果时可用一次造物调试台（设计第九框架 奇遇①）
-			if _s(r.get("oddityEffect", "")) == "workbench":
+			if str(r.get("oddityEffect", "")) == "workbench":
 				_add_button("🔧 造物调试台（奇遇）", _show_workbench)
 			_add_button("➡️ 继续前进", _on_advance)
 
