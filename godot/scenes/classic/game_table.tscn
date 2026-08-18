@@ -203,7 +203,7 @@ size_flags_vertical = 3
 
 [node name="AttackBtn" type="Button" parent="." unique_id=2128907346]
 unique_name_in_owner = true
-layout_mode = 0
+layout_mode = 1
 offset_left = 37.0
 offset_top = 1667.0
 offset_right = 157.0
@@ -212,7 +212,7 @@ text = "攻击"
 
 [node name="DefenseBtn" type="Button" parent="." unique_id=1360366870]
 unique_name_in_owner = true
-layout_mode = 0
+layout_mode = 1
 offset_left = 188.0
 offset_top = 1667.0
 offset_right = 308.0
@@ -221,7 +221,7 @@ text = "防御"
 
 [node name="GambleBtn" type="Button" parent="." unique_id=788039363]
 unique_name_in_owner = true
-layout_mode = 0
+layout_mode = 1
 offset_left = 356.0
 offset_top = 1667.0
 offset_right = 476.0
@@ -230,7 +230,7 @@ text = "赌命"
 
 [node name="SkillBtn" type="Button" parent="." unique_id=394133800]
 unique_name_in_owner = true
-layout_mode = 0
+layout_mode = 1
 offset_left = 37.0
 offset_top = 1790.0
 offset_right = 157.0
@@ -239,7 +239,7 @@ text = "技能"
 
 [node name="AllyBtn" type="Button" parent="." unique_id=812934001]
 unique_name_in_owner = true
-layout_mode = 0
+layout_mode = 1
 offset_left = 703.0
 offset_top = 1667.0
 offset_right = 823.0
@@ -248,7 +248,7 @@ text = "结盟"
 
 [node name="BetrayBtn" type="Button" parent="." unique_id=345337511]
 unique_name_in_owner = true
-layout_mode = 0
+layout_mode = 1
 offset_left = 875.0
 offset_top = 1667.0
 offset_right = 995.0
@@ -257,7 +257,7 @@ text = "背刺"
 
 [node name="HolyBtn" type="Button" parent="." unique_id=1037281058]
 unique_name_in_owner = true
-layout_mode = 0
+layout_mode = 1
 offset_left = 532.0
 offset_top = 1790.0
 offset_right = 652.0
@@ -284,7 +284,7 @@ text = "读档"
 
 [node name="StealBtn" type="Button" parent="." unique_id=156561239]
 unique_name_in_owner = true
-layout_mode = 0
+layout_mode = 1
 offset_left = 188.0
 offset_top = 1790.0
 offset_right = 308.0
@@ -293,7 +293,7 @@ text = "偷牌"
 
 [node name="DotBtn" type="Button" parent="." unique_id=628765096]
 unique_name_in_owner = true
-layout_mode = 0
+layout_mode = 1
 offset_left = 356.0
 offset_top = 1790.0
 offset_right = 476.0
@@ -302,7 +302,7 @@ text = "DoT"
 
 [node name="CancelBtn" type="Button" parent="." unique_id=1392112822]
 unique_name_in_owner = true
-layout_mode = 0
+layout_mode = 1
 offset_left = 532.0
 offset_top = 1667.0
 offset_right = 652.0
