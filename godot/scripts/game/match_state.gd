@@ -46,7 +46,11 @@ static func on_player_eliminated(match_state: Dictionary, game_state: Dictionary
 		if p.get("index") == killer_idx:
 			killer = p
 			break
-	var is_player_goal: bool = not killer.is_empty() and int(killer.get("characterId", 0)) == int(match_state.get("playerCharId", 0))
+	# 无存活击杀者（如同一波陷阱同归于尽）：不计进球，仅推进结束判定
+	if killer.is_empty():
+		check_match_end(match_state, game_state)
+		return
+	var is_player_goal: bool = int(killer.get("characterId", 0)) == int(match_state.get("playerCharId", 0))
 	var score: Array = match_state["score"]
 	if is_player_goal:
 		score[0] = int(score[0]) + 1

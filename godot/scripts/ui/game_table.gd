@@ -862,7 +862,9 @@ func _run_ai_step() -> void:
 				"gamble":
 					GameState.execute_gamble(_state)
 				"skill":
-					GameState.execute_skill(_state)
+					if not GameState.execute_skill(_state):
+						# 兜底：技能执行失败（冷却/阶段限制）时改防御，防止 AI 循环空转卡死
+						GameState.execute_defense(_state)
 		GameConstants.STEP["ATTACK_SHOW_CARD"]:
 			var t: Dictionary = GameAi.decide_target(_state, {"action": "attack", "characterId": cid})
 			GameState.execute_attack(_state, int(t.get("targetIndex", 0)))

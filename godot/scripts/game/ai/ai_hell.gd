@@ -255,6 +255,8 @@ static func score_target_hell(state: Dictionary, player: Dictionary, target: Dic
 
 static func decide_hell_target(state: Dictionary, player: Dictionary, context: String) -> Dictionary:
 	var targets: Array = _alive_opponents(state, player)
+	if targets.is_empty():
+		return {"targetIndex": -1, "reason": "no target"}
 	var best_idx: int = 0
 	var best_score: float = -INF
 	for t in targets:

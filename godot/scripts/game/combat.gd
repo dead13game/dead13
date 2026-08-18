@@ -83,6 +83,12 @@ static func execute_attack(state: Dictionary, target_idx: int) -> void:
 	var target: Dictionary = _find_player(state.get("players", []), target_idx)
 	if target.is_empty() or not target.get("alive", false):
 		return
+	# 防御性：不能攻击自己（AI 空目标兜底返回 -1/自己时保护）
+	if attacker.get("index") == target.get("index"):
+		_add_log(state, "不能攻击自己")
+		state["pendingAttackCard"] = null
+		state["step"] = GameConstants.STEP["PICK_ACTION"]
+		return
 
 	# 经典模式：不能攻击盟友
 	if state.get("matchContext") == null and attacker.get("relations", {}).get("allyIndex") == target_idx:

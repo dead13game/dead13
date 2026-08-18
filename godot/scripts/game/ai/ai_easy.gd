@@ -10,6 +10,12 @@ static func decide_easy_top(state: Dictionary, player: Dictionary) -> Dictionary
 	var can_atk: bool = GameAiCore.can_attack_ai(state)
 	var can_skill: bool = GameConstants.get_char_data(player).get("skillType", "") == "active" \
 		and int(player.get("skillUses", 0)) > 0 and state.get("currentWeather", "") != "arms"
+	# 对齐 execute_skill 的实际可用条件：PEACE 期与温迪(1)/雷神(3) 大招 round<10 不可用，
+	# 否则 AI 反复选大招失败会卡死 AI 循环
+	var cid_easy: int = int(player.get("characterId", 0))
+	if can_skill and (state.get("phase", "") == GameConstants.PHASE["PEACE"] \
+			or ((cid_easy == 1 or cid_easy == 3) and int(state.get("round", 0)) < 10)):
+		can_skill = false
 
 	if r < 0.55 and can_atk:
 		return {"action": "attack", "reason": "random(55%)"}
@@ -23,7 +29,9 @@ static func decide_easy_top(state: Dictionary, player: Dictionary) -> Dictionary
 
 static func decide_easy_target(state: Dictionary, player: Dictionary) -> Dictionary:
 	var alive: Array = _alive_opponents(state, player)
-	var idx: int = alive[0].get("index", 0) if not alive.is_empty() else 0
+	if alive.is_empty():
+		return {"targetIndex": -1, "reason": "no target"}
+	var idx: int = alive[0].get("index", 0)
 	return {"targetIndex": idx, "reason": "first opponent"}
 
 static func decide_easy_gamble(state: Dictionary, player: Dictionary, cards: Array) -> Dictionary:

@@ -244,6 +244,30 @@ func _test_ai() -> void:
 	state["players"][0]["aiDifficulty"] = "hell"
 	var top3: Dictionary = GameAi.decide_top_action(state)
 	_check(valid.has(top3["action"]), "hell ai valid action")
+	# 回归：easy AI 温迪在 round<10 时不选大招（否则 execute_skill 失败→AI 循环空转卡死）
+	var st2: Dictionary = _make_state([1, 2, 3, 4], false, 4)
+	st2["currentPlayerIndex"] = 0
+	st2["players"][0]["isAI"] = true
+	st2["players"][0]["aiDifficulty"] = "easy"
+	st2["players"][0]["characterId"] = 1  # 温迪
+	st2["players"][0]["skillUses"] = 3
+	st2["round"] = 6
+	var peace_phase: String = "peace"
+	st2["phase"] = peace_phase
+	var early_no_skill: bool = true
+	for i in range(20):
+		if String(GameAi.decide_top_action(st2).get("action", "")) == "skill":
+			early_no_skill = false
+	_check(early_no_skill, "easy venti no skill before round 10 / peace")
+	# round>=10 且非和平期 → easy 温迪可选大招
+	st2["round"] = 12
+	st2["phase"] = "normal"
+	var can_skill_late: bool = false
+	for i in range(40):
+		if String(GameAi.decide_top_action(st2).get("action", "")) == "skill":
+			can_skill_late = true
+			break
+	_check(can_skill_late, "easy venti can skill after round 10")
 
 # ===== serialize =====
 
