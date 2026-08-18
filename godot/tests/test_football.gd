@@ -137,6 +137,15 @@ func _test_world_cup() -> void:
 	_check(wc["knockoutOpponent"] != null, "knockout opponent")
 	var opp: Dictionary = wc["knockoutOpponent"]
 	_check(opp.has("charId") and opp.has("name"), "opponent fields")
+	# 回归：随机对手角色不得与玩家角色相同（否则双 AI，玩家被 AI 接管）
+	var player_char: int = 5
+	var exclude_ok: bool = true
+	for i in range(40):
+		if GameWorldCup.get_random_group_opponent_char(player_char) == player_char:
+			exclude_ok = false
+	var kopp: Dictionary = GameWorldCup.init_knockout_opponent(player_char)
+	_check(exclude_ok, "group opponent excludes player char")
+	_check(int(kopp.get("charId", -1)) != player_char, "knockout opponent excludes player char")
 
 	# 晋级到冠军
 	wc["knockoutRound"] = "Final"

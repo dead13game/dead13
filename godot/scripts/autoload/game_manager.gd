@@ -30,6 +30,9 @@ func new_classic_game(char_ids: Array, use_weather: bool, player_count: int) -> 
 
 ## 初始化一场 1v1 比赛
 func start_match(player_char_id: int, opponent_char_id: int, is_group: bool, player_name: String, opponent_name: String, subs_left: int, opponent_difficulty: String = "skilled") -> void:
+	# 防御：对手角色不得与玩家相同，否则 init_game 后两个玩家都会被标 AI（玩家被 AI 接管）
+	if opponent_char_id == player_char_id:
+		opponent_char_id = opponent_char_id % 11 + 1
 	state = GameState.create_game_state()
 	GameState.init_game(state, [player_char_id, opponent_char_id], false, 1)
 	# 名称

@@ -203,16 +203,18 @@ static func check_group_advancement(state: Dictionary) -> Dictionary:
 
 # ===== 淘汰赛 =====
 
-static func init_knockout_opponent() -> Dictionary:
+static func init_knockout_opponent(exclude_char: int = -1) -> Dictionary:
 	var names: Array = GameWorldCupConstants.AI_TEAM_NAMES
 	var name: String = names[randi() % names.size()]
 	var idx: int = names.find(name)
 	var emoji: String = GameWorldCupConstants.TEAM_EMOJIS[idx] if idx >= 0 else "🏳️"
-	# 随机选角色（排除开发者角色12）
+	# 随机选角色（排除开发者角色12 与玩家角色，避免同角色导致双方都被标 AI）
 	var chars: Array = []
 	for cid in GameConstants.CHARACTERS.keys():
-		if int(cid) != 12:
+		if int(cid) != 12 and int(cid) != exclude_char:
 			chars.append(int(cid))
+	if chars.is_empty():
+		chars = [1]
 	var char_id: int = chars[randi() % chars.size()]
 	return {"name": name, "emoji": emoji, "charId": char_id}
 
@@ -236,15 +238,17 @@ static func advance_knockout_round(state: Dictionary) -> void:
 		# 晋级下一轮
 		state["knockoutRound"] = order[current_idx + 1]
 
-	# 生成新对手
-	state["knockoutOpponent"] = init_knockout_opponent()
+	# 生成新对手（排除玩家角色，避免同角色双 AI）
+	state["knockoutOpponent"] = init_knockout_opponent(int(state.get("_playerCharId", -1)))
 
 static func eliminate_player(state: Dictionary) -> void:
 	state["phase"] = "eliminated"
 
-static func get_random_group_opponent_char() -> int:
+static func get_random_group_opponent_char(exclude_char: int = -1) -> int:
 	var chars: Array = []
 	for cid in GameConstants.CHARACTERS.keys():
-		if int(cid) != 12:
+		if int(cid) != 12 and int(cid) != exclude_char:
 			chars.append(int(cid))
+	if chars.is_empty():
+		chars = [1]
 	return chars[randi() % chars.size()]

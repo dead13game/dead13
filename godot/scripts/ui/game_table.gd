@@ -374,10 +374,11 @@ func _refresh_actions() -> void:
 	_gamble_btn.visible = show_bar
 	_holy_btn.visible = show_bar
 	_skill_btn.visible = show_bar
-	# 结盟/背刺：玩家数 >= 6 才显示
+	# 结盟/背刺：仅经典模式（无比赛/联赛上下文）且玩家数 >= 6 才显示
 	var _player_total: int = _state.get("players", []).size()
-	_ally_btn.visible = show_bar and _player_total >= 6
-	_betray_btn.visible = show_bar and _player_total >= 6
+	var _is_classic: bool = _state.get("matchContext") == null and _state.get("leagueContext") == null
+	_ally_btn.visible = show_bar and _is_classic and _player_total >= 6
+	_betray_btn.visible = show_bar and _is_classic and _player_total >= 6
 	# 存/读档：仅当前角色为菜月昴(11) 时显示
 	var _is_caiyueang: bool = int(p.get("characterId", 0)) == 11
 	_save_btn.visible = is_human and _is_caiyueang
@@ -396,11 +397,11 @@ func _refresh_actions() -> void:
 			_attack_btn.disabled = int(_state.get("round", 0)) < 4
 		_skill_btn.disabled = not GameState.can_use_skill(_state, p)
 		_holy_btn.disabled = not GameState.can_use_holy_word(_state, p)
-		_ally_btn.disabled = _state.get("phase", "") == GameConstants.PHASE["PEACE"] \
+		_ally_btn.disabled = not _is_classic or _state.get("phase", "") == GameConstants.PHASE["PEACE"] \
 			or _state.get("players", []).size() < 4 \
 			or p.get("relations", {}).get("allyIndex") != null \
 			or int(p.get("relations", {}).get("betrayalPenalty", 0)) > 0
-		_betray_btn.disabled = p.get("relations", {}).get("allyIndex") == null
+		_betray_btn.disabled = not _is_classic or p.get("relations", {}).get("allyIndex") == null
 
 	# 结算遮罩（比赛模式由 match_ui_changed 控制，经典模式用 gameOver）
 	var over: bool = _state.get("gameOver", false)

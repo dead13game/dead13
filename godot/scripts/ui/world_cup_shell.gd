@@ -255,7 +255,8 @@ func _opponent_name_for_match(wc: Dictionary, match_idx: int) -> String:
 func _start_group_match(match_idx: int) -> void:
 	var wc: Dictionary = GameManager.wc_state
 	var player_char_id: int = int(wc.get("_playerCharId", 1))
-	var opponent_char_id: int = GameWorldCup.get_random_group_opponent_char()
+	# 排除玩家角色，避免同角色导致双方都被标 AI（玩家被 AI 接管）
+	var opponent_char_id: int = GameWorldCup.get_random_group_opponent_char(player_char_id)
 	var opponent_name: String = _opponent_name_for_match(wc, match_idx)
 	var player_name: String = _s(wc.get("playerTeamName", "玩家"))
 	wc["_currentMatchIdx"] = match_idx
