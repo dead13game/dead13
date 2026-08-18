@@ -1,8 +1,22 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene format=3 uid="uid://dgvtt01ytm1sa"]
 
-[ext_resource type="Script" path="res://scripts/ui/main_menu.gd" id="1_menu"]
+[ext_resource type="Script" uid="uid://sjrc5wh2x34u" path="res://scripts/ui/main_menu.gd" id="1_menu"]
+[ext_resource type="Script" uid="uid://bxn36op3gn1d3" path="res://scripts/ui/starfield.gd" id="2_star"]
 
-[node name="MainMenu" type="Control"]
+[sub_resource type="Gradient" id="Gradient_bg"]
+offsets = PackedFloat32Array(0, 0.25, 0.5, 0.75, 1)
+colors = PackedColorArray(0.0196078, 0.0196078, 0.12549, 1, 0.0509804, 0.0627451, 0.207843, 1, 0.0705882, 0.0941176, 0.266667, 1, 0.0392157, 0.0588235, 0.180392, 1, 0.0235294, 0.0352941, 0.12549, 1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_bg"]
+gradient = SubResource("Gradient_bg")
+width = 1080
+height = 1920
+fill_from = Vector2(1, 0)
+fill_to = Vector2(0, 1)
+
+[sub_resource type="SystemFont" id="SystemFont_dlb4e"]
+
+[node name="MainMenu" type="Control" unique_id=351162177]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -11,92 +25,110 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_menu")
 
-[node name="Background" type="ColorRect" parent="."]
+[node name="Background" type="TextureRect" parent="." unique_id=360087715]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(0.06, 0.06, 0.09, 1)
+texture = SubResource("GradientTexture2D_bg")
 
-[node name="TitleLabel" type="Label" parent="."]
+[node name="Starfield" type="Node2D" parent="." unique_id=791611076]
+script = ExtResource("2_star")
+
+[node name="TitleLabel" type="Label" parent="." unique_id=2128787232]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_top = 180
-offset_bottom = 290
+offset_top = 180.0
+offset_bottom = 290.0
 grow_horizontal = 2
+theme_override_font_sizes/font_size = 84
 text = "亡命十三街"
 horizontal_alignment = 1
-theme_override_font_sizes/font_size = 84
 
-[node name="ModeLabel" type="Label" parent="."]
+[node name="ModeLabel" type="Label" parent="." unique_id=1851132225]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
-offset_top = 300
-offset_bottom = 350
+offset_top = 300.0
+offset_bottom = 350.0
 grow_horizontal = 2
-text = "Godot 移植版"
-horizontal_alignment = 1
 theme_override_font_sizes/font_size = 30
+text = "made by myracler&Lynacine"
+horizontal_alignment = 1
 
-[node name="NormalButton" type="Button" parent="."]
+[node name="NormalButton" type="Button" parent="." unique_id=270126284]
 layout_mode = 1
+anchors_preset = 5
 anchor_left = 0.5
 anchor_right = 0.5
-offset_left = -255
-offset_top = 440
-offset_right = 255
-offset_bottom = 524
+offset_left = -255.0
+offset_top = 440.0
+offset_right = 255.0
+offset_bottom = 524.0
 grow_horizontal = 2
+theme_override_fonts/font = SubResource("SystemFont_dlb4e")
+theme_override_font_sizes/font_size = 35
 text = "经典模式"
 
-[node name="FootballButton" type="Button" parent="."]
+[node name="FootballButton" type="Button" parent="." unique_id=1942865169]
 layout_mode = 1
+anchors_preset = 5
 anchor_left = 0.5
 anchor_right = 0.5
-offset_left = -255
-offset_top = 560
-offset_right = 255
-offset_bottom = 644
+offset_left = -255.0
+offset_top = 560.0
+offset_right = 255.0
+offset_bottom = 644.0
 grow_horizontal = 2
+theme_override_fonts/font = SubResource("SystemFont_dlb4e")
+theme_override_font_sizes/font_size = 35
 text = "足球模式"
 
-[node name="SoloButton" type="Button" parent="."]
+[node name="SoloButton" type="Button" parent="." unique_id=1810487026]
 layout_mode = 1
+anchors_preset = 5
 anchor_left = 0.5
 anchor_right = 0.5
-offset_left = -255
-offset_top = 680
-offset_right = 255
-offset_bottom = 764
+offset_left = -255.0
+offset_top = 680.0
+offset_right = 255.0
+offset_bottom = 764.0
 grow_horizontal = 2
+theme_override_fonts/font = SubResource("SystemFont_dlb4e")
+theme_override_font_sizes/font_size = 35
 text = "单人模式"
 
-[node name="SimuniverseButton" type="Button" parent="."]
+[node name="SimuniverseButton" type="Button" parent="." unique_id=1126081861]
 layout_mode = 1
+anchors_preset = 5
 anchor_left = 0.5
 anchor_right = 0.5
-offset_left = -255
-offset_top = 800
-offset_right = 255
-offset_bottom = 884
+offset_left = -255.0
+offset_top = 800.0
+offset_right = 255.0
+offset_bottom = 884.0
 grow_horizontal = 2
+theme_override_fonts/font = SubResource("SystemFont_dlb4e")
+theme_override_font_sizes/font_size = 35
 text = "模拟宇宙"
 
-[node name="RulesButton" type="Button" parent="."]
+[node name="RulesButton" type="Button" parent="." unique_id=1573627466]
 layout_mode = 1
+anchors_preset = 5
 anchor_left = 0.5
 anchor_right = 0.5
-offset_left = -255
-offset_top = 920
-offset_right = 255
-offset_bottom = 1004
+offset_left = -255.0
+offset_top = 920.0
+offset_right = 255.0
+offset_bottom = 1004.0
 grow_horizontal = 2
+theme_override_fonts/font = SubResource("SystemFont_dlb4e")
+theme_override_font_sizes/font_size = 35
 text = "规则说明"
 
 [connection signal="pressed" from="NormalButton" to="." method="_on_normal_pressed"]

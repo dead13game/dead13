@@ -26,8 +26,12 @@ window/size/viewport_width=1080
 window/size/viewport_height=1920
 window/size/mode=1
 window/stretch/mode="canvas_items"
-window/stretch/aspect="expand"
+window/stretch/aspect="keep"
 
 [gui]
 
 theme/custom_font="res://assets/fonts/default_theme_font.tres"
+
+[rendering]
+
+environment/defaults/default_clear_color=Color(0.0235294, 0.0352941, 0.12549, 1)

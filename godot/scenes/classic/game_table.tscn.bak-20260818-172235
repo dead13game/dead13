@@ -1,19 +1,7 @@
 [gd_scene format=3 uid="uid://b82t3mbxk1sor"]
 
 [ext_resource type="Script" uid="uid://ctpjhw4n6yi2o" path="res://scripts/ui/game_table.gd" id="1_table"]
-[ext_resource type="Script" uid="uid://bxn36op3gn1d3" path="res://scripts/ui/starfield.gd" id="2_star"]
 
-
-[sub_resource type="Gradient" id="Gradient_bg"]
-offsets = PackedFloat32Array(0, 0.25, 0.5, 0.75, 1)
-colors = PackedColorArray(0.0196078, 0.0196078, 0.12549, 1, 0.0509804, 0.0627451, 0.207843, 1, 0.0705882, 0.0941176, 0.266667, 1, 0.0392157, 0.0588235, 0.180392, 1, 0.0235294, 0.0352941, 0.12549, 1)
-
-[sub_resource type="GradientTexture2D" id="GradientTexture2D_bg"]
-gradient = SubResource("Gradient_bg")
-width = 1080
-height = 1920
-fill_from = Vector2(1, 0)
-fill_to = Vector2(0, 1)
 [node name="GameTable" type="Control" unique_id=1238366867]
 layout_mode = 3
 anchors_preset = 15
@@ -23,17 +11,15 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_table")
 
-[node name="Background" type="TextureRect" parent="." unique_id=1892849665]
+[node name="Background" type="ColorRect" parent="." unique_id=1892849665]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-texture = SubResource("GradientTexture2D_bg")
+color = Color(0.047393955, 0.07240664, 0.1394091, 1)
 
-[node name="Starfield" type="Node2D" parent="."]
-script = ExtResource("2_star")
 [node name="TopBar" type="PanelContainer" parent="." unique_id=1464100161]
 unique_name_in_owner = true
 layout_mode = 1
