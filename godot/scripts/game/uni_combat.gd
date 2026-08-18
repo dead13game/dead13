@@ -116,6 +116,9 @@ static func start_combat(state: Dictionary) -> Dictionary:
 		"immuneUsed": false,
 	}
 	state["combat"] = c
+	# 新规范（火神）：玛薇卡斗志每场战斗清零
+	for t in state.get("team", []):
+		t["status"]["spirit"] = 0
 	# 急救包
 	if int(state.get("items", {}).get("medkit", 0)) > 0:
 		state["items"]["medkit"] = int(state["items"]["medkit"]) - 1
@@ -260,7 +263,8 @@ static func player_attack(state: Dictionary, enemy_idx: int) -> Dictionary:
 	var mods: Dictionary = UniBuffs.get_uni_modifiers(state)
 	var flat: float = float(attacker.get("status", {}).get("atkBonus", 0))
 	var pct: float = float(attacker.get("status", {}).get("dmgBuffPct", 0))
-	var spirit_bonus: int = ceili(float(attacker.get("status", {}).get("spirit", 0)) / float(UniConstants.SPIRIT_PER_5))
+	# 玛薇卡斗志（新规范）：每层使下一次攻击伤害 +1（加在乘算增伤之前）
+	var spirit_stacks: float = float(attacker.get("status", {}).get("spirit", 0))
 	var next_boost: float = float(attacker.get("status", {}).get("nextAttackBoost", 0))
 	var shouzu_fx: Dictionary = UniBuffs.EQUATIONS.get("shouzu", {}).get("fx", {})
 	var kill_stacks: int = 0
@@ -276,7 +280,8 @@ static func player_attack(state: Dictionary, enemy_idx: int) -> Dictionary:
 		total_pct += 30
 	if c.get("buffs", []).has("dmgUp50"):
 		total_pct += 50
-	var dmg: int = maxi(0, ceili((raw + flat) * (1 + total_pct / 100.0)) + spirit_bonus)
+	# 新规范（火神）：攻击牌点数 → +少女攻防 → +斗志层数 → ×增伤百分比
+	var dmg: int = maxi(0, ceili((raw + flat + spirit_stacks) * (1 + total_pct / 100.0)))
 	if attacker.get("status", {}).get("nextAttackBoost", 0):
 		attacker["status"]["nextAttackBoost"] = 0
 	GameSoundEvents.record_sound(state, "attack")
@@ -642,13 +647,13 @@ static func _damage_enemy(state: Dictionary, enemy_idx: int, dmg: int, source_id
 	var shield_dmg: int = mini(int(enemy.get("shield", 0)), d)
 	enemy["shield"] = int(enemy.get("shield", 0)) - shield_dmg
 	d -= shield_dmg
-	# 玛薇卡斗志
-	if shield_dmg > 0 and source_idx >= 0:
+	# 玛薇卡斗志（新规范）：攻击一次敌人（只要造成伤害，破盾或扣血都算）→ +1 层；单场不归零
+	if (shield_dmg > 0 or d > 0) and source_idx >= 0:
 		var team: Array = state.get("team", [])
 		if source_idx >= 0 and source_idx < team.size():
 			var atk: Dictionary = team[source_idx]
 			if int(atk.get("status", {}).get("spiritCap", 0)) > 0:
-				atk["status"]["spirit"] = mini(int(atk.get("status", {}).get("spiritCap", 0)), int(atk.get("status", {}).get("spirit", 0)) + shield_dmg)
+				atk["status"]["spirit"] = mini(int(atk.get("status", {}).get("spiritCap", 0)), int(atk.get("status", {}).get("spirit", 0)) + 1)
 	enemy["hp"] = maxf(0.0, float(enemy.get("hp", 0)) - d)
 	c["_dmgSeq"] = int(c.get("_dmgSeq", 0)) + 1
 	c["lastDamage"] = {"type": "enemy", "idx": enemy_idx, "dmg": dmg, "seq": int(c["_dmgSeq"])}

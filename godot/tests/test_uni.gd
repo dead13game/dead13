@@ -440,7 +440,7 @@ func _test_skills() -> void:
 		var target: int = int(c["enemies"][0]["id"])
 		var r: Dictionary = UniCombat.player_skill(s, target, {})
 		_check(r["ok"] == true, "wendi ult ok")
-		_check(int(s["team"][active_idx]["skillCooldown"]) == 7, "cooldown 7")
+		_check(int(s["team"][active_idx]["skillCooldown"]) == 6, "cooldown 6（新规范）")
 	# 非当前角色不可开大
 	var other: int = (active_idx + 1) % 4
 	var r2: Dictionary = UniSkills.execute_uni_skill(s, other, {})

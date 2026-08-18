@@ -142,7 +142,7 @@ static func _do_skill(state: Dictionary, t: Dictionary, sk: Dictionary, lv: int,
 	var c: Dictionary = state.get("combat", {})
 	match int(t.get("charId", 0)):
 		1:
-			# 温迪：爆发 n 张牌
+			# 温迪（新规范）：抽 N 张牌，点数相加作为总伤害，享受所有加成（无 -2 修正）
 			var n: int = int(_val(sk.get("values", []), lv))
 			if not payload.has("targetIdx") or payload["targetIdx"] == null:
 				return {"ok": false, "reason": "需要目标"}
@@ -150,7 +150,7 @@ static func _do_skill(state: Dictionary, t: Dictionary, sk: Dictionary, lv: int,
 			var sum_val: int = 0
 			for p in cards:
 				sum_val += int(p.get("value", 0))
-			var dmg: int = maxi(0, ceili(float(maxi(0, sum_val - 2)) * (1 + _skill_dmg_mult(state, t) / 100.0)))
+			var dmg: int = maxi(0, ceili(float(sum_val) * (1 + _skill_dmg_mult(state, t) / 100.0)))
 			UniCombat.damage_enemy(state, int(payload["targetIdx"]), dmg, int(t.get("index", 0)))
 			state["log"].append("%s 爆发 %d 张牌（%d 伤害）" % [_s(t.get("name", "")), n, dmg])
 			return {"ok": true, "summary": {"cards": n, "dmg": dmg}}
@@ -218,7 +218,8 @@ static func _do_skill(state: Dictionary, t: Dictionary, sk: Dictionary, lv: int,
 				total_healed += new_max - int(m.get("hp", 0))
 				m["maxHp"] = new_max
 				m["hp"] = new_max
-			var bonus_dmg: int = ceili(float(total_healed) * 0.1)
+			var bonus_pct: float = _val(sk.get("dmgPct", [10, 12, 14, 16, 18, 20, 22, 24, 26, 30]), lv)
+			var bonus_dmg: int = ceili(float(total_healed) * bonus_pct / 100.0)
 			if bonus_dmg > 0:
 				var targets: Array = []
 				for e in c.get("enemies", []):
@@ -250,12 +251,14 @@ static func _do_skill(state: Dictionary, t: Dictionary, sk: Dictionary, lv: int,
 				state["log"].append("%s 全体敌人受 %d 点伤害" % [_s(t.get("name", "")), dot])
 				return {"ok": true, "summary": {"branch": "dot", "dot": dot, "turns": 0}}
 			var mods9: Dictionary = UniBuffs.get_uni_modifiers(state)
-			var shield9: int = ceili(float(n9) * float(UniConstants.LINIYA_SHIELD_VALUE) * (1 + float(mods9.get("shieldMult", 0)) / 100.0))
+			# 莉奈娅一技能（新规范）：全队获得 N 张防御牌（同正常防御操作，进 defensePile）
 			for m in state.get("team", []):
-				if m.get("alive", false):
-					m["shield"] = float(m.get("shield", 0)) + shield9
-			state["log"].append("%s 全队 +%d 张盾（%d 护盾）" % [_s(t.get("name", "")), n9, shield9])
-			return {"ok": true, "summary": {"branch": "shield", "shields": n9, "shield": shield9}}
+				if not m.get("alive", false):
+					continue
+				for i in range(n9):
+					m["status"]["defensePile"].append({"value": 2, "rank": "盾", "suit": "♦"})
+			state["log"].append("%s 全队获得 %d 张防御牌" % [_s(t.get("name", "")), n9])
+			return {"ok": true, "summary": {"branch": "shield", "defenseCards": n9}}
 		10:
 			# 爱蜜莉雅：敌方停 N 回合
 			var turns10: int = int(_val(sk.get("values", []), lv))
