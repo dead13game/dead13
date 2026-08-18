@@ -158,6 +158,9 @@ static func start_player_turn(state: Dictionary) -> void:
 			t["status"]["dmgBuffTurns"] = int(t["status"]["dmgBuffTurns"]) - 1
 			if int(t["status"]["dmgBuffTurns"]) == 0:
 				t["status"]["dmgBuffPct"] = 0
+		# 精英 C debuff（新规范）：造成伤害降低 50%，持续 2 回合
+		if int(t.get("status", {}).get("dmgDebuffTurns", 0)) > 0:
+			t["status"]["dmgDebuffTurns"] = int(t["status"]["dmgDebuffTurns"]) - 1
 		if int(t.get("status", {}).get("maxHpBuffTurns", 0)) > 0:
 			t["status"]["maxHpBuffTurns"] = int(t["status"]["maxHpBuffTurns"]) - 1
 			if int(t["status"]["maxHpBuffTurns"]) == 0:
@@ -542,18 +545,18 @@ static func enemy_resolve(state: Dictionary) -> Dictionary:
 
 ## 结算单个敌人行动
 static func _resolve_enemy_action(state: Dictionary, enemy: Dictionary, action: Dictionary) -> void:
-	var dmg_mult_now: int = UniConstants.dmg_mult(int(state.get("plane", 1)))
+	var dmg_mult_now: float = UniConstants.dmg_mult(int(state.get("plane", 1)))
 	var type: String = _s(action.get("type", ""))
 	if type == "single":
 		var target: Variant = _pick_alive_member(state)
 		if target == null:
 			return
 		var yiyi_cut: float = UniBuffs.blessing_val(state, "yiyi", "dmgCut") if int(enemy.get("dotTurns", 0)) > 0 else 0.0
-		var dmg: int = maxi(0, int(action.get("dmg", 0)) * dmg_mult_now - int(yiyi_cut))
+		var dmg: int = maxi(0, ceili(int(action.get("dmg", 0)) * dmg_mult_now) - int(yiyi_cut))
 		_damage_team_member(state, int(target), float(dmg))
 	elif type == "aoe":
 		var yiyi_cut2: float = UniBuffs.blessing_val(state, "yiyi", "dmgCut") if int(enemy.get("dotTurns", 0)) > 0 else 0.0
-		var dmg2: int = maxi(0, int(action.get("dmg", 0)) * dmg_mult_now - int(yiyi_cut2))
+		var dmg2: int = maxi(0, ceili(int(action.get("dmg", 0)) * dmg_mult_now) - int(yiyi_cut2))
 		for i in range(state.get("team", []).size()):
 			if state.get("team", [])[i].get("alive", false):
 				_damage_team_member(state, i, float(dmg2))
@@ -568,7 +571,7 @@ static func _resolve_enemy_action(state: Dictionary, enemy: Dictionary, action: 
 		if target2 != null:
 			enemy.get("locked", []).append(int(target2))
 	elif type == "hitLocked":
-		var dmg3: int = int(action.get("dmg", 0)) * dmg_mult_now
+		var dmg3: int = ceili(int(action.get("dmg", 0)) * dmg_mult_now)
 		var locked: Array = enemy.get("locked", [])
 		if locked.is_empty():
 			var target3: Variant = _pick_alive_member(state)
@@ -580,12 +583,13 @@ static func _resolve_enemy_action(state: Dictionary, enemy: Dictionary, action: 
 				if idx >= 0 and idx < tm.size() and tm[idx].get("alive", false):
 					_damage_team_member(state, int(idx), float(dmg3))
 	elif type == "debuff":
+		# 精英 C（新规范）：随机 1 名角色造成伤害降低 50%，持续 2 回合（最好标出哪个角色）
 		var target4: Variant = _pick_alive_member(state)
 		if target4 == null:
 			return
 		var t: Dictionary = state.get("team", [])[int(target4)]
-		t["status"]["dot"] = maxi(int(t.get("status", {}).get("dot", 0)), UniConstants.ENEMY_DEBUFF_DOT)
-		t["status"]["dotTurns"] = UniConstants.ENEMY_DEBUFF_DURATION
+		t["status"]["dmgDebuffTurns"] = UniConstants.ENEMY_DEBUFF_DMG_TURNS
+		state["log"].append("%s 受到减益：造成伤害降低 50%%（%d 回合）" % [_s(t.get("name", "")), UniConstants.ENEMY_DEBUFF_DMG_TURNS])
 	elif type == "healcut":
 		for t in state.get("team", []):
 			if t.get("alive", false):
@@ -609,7 +613,7 @@ static func _resolve_enemy_action(state: Dictionary, enemy: Dictionary, action: 
 			var target7: Variant = _pick_alive_member(state)
 			if target7 == null:
 				return
-			var dmg4: int = 6 * dmg_mult_now
+			var dmg4: int = ceili(6 * dmg_mult_now)
 			_damage_team_member(state, int(target7), float(dmg4))
 	# 敌人行动可能把全队打死
 	var all_dead: bool = true
@@ -643,6 +647,11 @@ static func _damage_enemy(state: Dictionary, enemy_idx: int, dmg: int, source_id
 			break
 	if enemy == null or not enemy.get("alive", false):
 		return
+	# 精英 C debuff（新规范）：我方目标造成的伤害降低 50%（最终伤害 ×0.5）
+	if source_idx >= 0 and source_idx < state.get("team", []).size():
+		var src_t: Dictionary = state["team"][source_idx]
+		if int(src_t.get("status", {}).get("dmgDebuffTurns", 0)) > 0:
+			dmg = ceili(float(dmg) * UniConstants.ENEMY_DEBUFF_DMG_CUT)
 	var d: int = dmg
 	var shield_dmg: int = mini(int(enemy.get("shield", 0)), d)
 	enemy["shield"] = int(enemy.get("shield", 0)) - shield_dmg
@@ -890,7 +899,7 @@ static func _finish_enemy_turn(state: Dictionary) -> void:
 	# 方程：苹果！苹果！
 	var pingguo_fx: Dictionary = UniBuffs.EQUATIONS.get("pingguo", {}).get("fx", {})
 	if _is_equation_active(state, "pingguo") and not pingguo_fx.is_empty() and int(c.get("round", 0)) % int(pingguo_fx.get("every", 3)) == 0:
-		var dmg: int = int(pingguo_fx.get("dmgMult", 20)) * UniConstants.dmg_mult(int(state.get("plane", 1)))
+		var dmg: int = ceili(float(int(pingguo_fx.get("dmgMult", 20))) * UniConstants.dmg_mult(int(state.get("plane", 1))))
 		for e in c.get("enemies", []):
 			if e.get("alive", false):
 				_damage_enemy(state, int(e.get("id", 0)), dmg, -1)

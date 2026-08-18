@@ -21,9 +21,11 @@ static func plane_mult(plane: int) -> int:
 		return int(PLANE_MULT[plane - 1])
 	return int(PLANE_MULT[PLANE_MULT.size() - 1]) + (plane - PLANE_MULT.size()) * 3
 
-## 伤害膨胀倍率 = 血量膨胀倍率 × 0.5，向上取整，最低 1
-static func dmg_mult(plane: int) -> int:
-	return maxi(1, ceili(float(plane_mult(plane)) * 0.5))
+## 伤害膨胀倍率（新规范）：第一位面固定 1，其余 = 血量倍率 × 0.5（保留小数，如 1.5/6.5/9.5/12.5）
+static func dmg_mult(plane: int) -> float:
+	if plane <= 1:
+		return 1.0
+	return float(plane_mult(plane)) * 0.5
 
 ## 位面换算：1-10 → 1；11-30 → 2；31-60 → 3；61+ 每 30 层 +1
 static func get_plane(floor: int) -> int:
@@ -137,15 +139,17 @@ const ENEMY_PATTERNS: Dictionary = {
 	},
 	"boss": {
 		"A": {"name": "帝王威压", "interlude": {"type": "aoe", "dmg": 8}, "actions": [{"type": "single", "dmg": 12}, {"type": "heal", "pct": 0.1}]},
-		"B": {"name": "权柄压制", "interlude": {"type": "healcut"}, "actions": [{"type": "aoe", "dmg": 6}, {"type": "stun"}]},
-		"C": {"name": "傀儡仪式", "interlude": {"type": "summon"}, "actions": [{"type": "aoe", "dmg": 6}, {"type": "puppet", "every": 5}]},
+		"B": {"name": "权柄压制", "interlude": {"type": "single", "dmg": 8}, "actions": [{"type": "aoe", "dmg": 6}, {"type": "stun"}]},
+		"C": {"name": "傀儡仪式", "interlude": {"type": "summon"}, "actions": [{"type": "aoe", "dmg": 6}, {"type": "puppet", "every": 3}]},
 	},
 }
 
 const ENEMY_DEBUFF_DOT: int = 2
 const ENEMY_DEBUFF_DURATION: int = 3
+const ENEMY_DEBUFF_DMG_CUT: float = 0.5
+const ENEMY_DEBUFF_DMG_TURNS: int = 2
 const PUPPET_DMG: int = 10
-const PUPPET_EVERY: int = 5
+const PUPPET_EVERY: int = 3
 const BOSS_HEAL_CUT: float = 0.5
 const ELITE_LOCK_DMG: int = 16
 
