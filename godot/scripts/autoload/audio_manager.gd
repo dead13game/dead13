@@ -35,9 +35,6 @@ var _bgm: AudioStreamPlayer = null
 var _bgm_name: String = ""
 var _bgm_playing: bool = false
 
-## 已跟踪的 soundQueue 长度（每状态一个）
-var _queue_tracked: Dictionary = {}  # state_id -> last_seq
-
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
@@ -48,23 +45,17 @@ func _process(_delta: float) -> void:
 	_check_state(GameManager.wc_state)
 	_check_state(GameManager.league_state)
 
-## 轮询一个状态的 soundQueue，播放新事件
+## 轮询一个状态的 soundQueue，播放新事件（播完即清空，避免残留音效下次补播造成串音）
 func _check_state(state: Dictionary) -> void:
 	if state.is_empty() or not state.has("soundQueue"):
 		return
 	var queue: Array = state["soundQueue"]
 	if queue.is_empty():
 		return
-	# 用状态引用本身作跟踪键（Dictionary 引用作 key 稳定，内容变化不影响）
-	var last_seq: int = int(_queue_tracked.get(state, 0))
-	var max_seq: int = 0
 	for entry in queue:
-		var seq: int = int(entry.get("seq", 0))
 		var type: String = String(entry.get("type", ""))
-		max_seq = maxi(max_seq, seq)
-		if seq > last_seq:
-			play(type)
-	_queue_tracked[state] = max_seq
+		play(type)
+	state["soundQueue"] = []
 
 ## 播放音效（含节流）
 func play(type: String) -> void:

@@ -403,21 +403,32 @@ func _refresh_actions() -> void:
 			or int(p.get("relations", {}).get("betrayalPenalty", 0)) > 0
 		_betray_btn.disabled = not _is_classic or p.get("relations", {}).get("allyIndex") == null
 
-	# 结算遮罩（比赛模式由 match_ui_changed 控制，经典模式用 gameOver）
+	# 结算遮罩（比赛模式由 match_ui_changed 控制，经典模式用 gameOver / 本机玩家阵亡）
 	var over: bool = _state.get("gameOver", false)
 	if _match_mode:
 		# 比赛模式：遮罩只在"over"时显示（由 _show_match_over 控制）
 		pass
 	else:
-		_overlay.visible = over
-		if over:
+		# 本机玩家（isAI==false）阵亡但游戏仍在进行 → 显示"你已阵亡"结算遮罩
+		var human_dead: bool = false
+		if not over:
+			for hp in _state.get("players", []):
+				if not hp.get("isAI", false) and not hp.get("alive", true):
+					human_dead = true
+					break
+		var show_overlay: bool = over or human_dead
+		_overlay.visible = show_overlay
+		if show_overlay:
 			var title: Label = _overlay.find_child("OverlayTitle", true, true)
 			if title != null:
-				var winner_idx: int = int(_state.get("winnerIndex", -1))
-				if winner_idx >= 0 and winner_idx < _state.get("players", []).size():
-					title.text = "%s 获胜！" % _state["players"][winner_idx].get("name", "?")
+				if over:
+					var winner_idx: int = int(_state.get("winnerIndex", -1))
+					if winner_idx >= 0 and winner_idx < _state.get("players", []).size():
+						title.text = "%s 获胜！" % _state["players"][winner_idx].get("name", "?")
+					else:
+						title.text = "全员阵亡"
 				else:
-					title.text = "全员阵亡"
+					title.text = "你已阵亡"
 
 # ============================================================
 #  比赛模式（换人 / 点球 / 赛果）
@@ -840,7 +851,8 @@ func _run_ai_loop() -> void:
 		steps += 1
 		if steps > 40:
 			break
-		await get_tree().create_timer(0.35).timeout
+		# AI 行动节奏：0.7s/步（玩家反馈太快，减缓一倍）
+		await get_tree().create_timer(0.7).timeout
 		_run_ai_step()
 		_refresh_all()
 	_ai_loop_running = false
