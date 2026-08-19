@@ -114,6 +114,11 @@ static func check_game_over(state: Dictionary) -> void:
 	var league_ctx = state.get("leagueContext")
 	if league_ctx != null:
 		if alive.is_empty():
+			# 3v3 全员阵亡：仍须触发团灭回调（surviving=-1 由控制器按死亡顺序计分/判平），否则流程卡死
+			if not state.get("_elimGuard", false):
+				state["_elimGuard"] = true
+				_call_context(league_ctx, "onTeamWipe", [-1])
+				state["_elimPaused"] = true
 			return
 		var teams_alive: Dictionary = {}
 		for p in alive:

@@ -66,11 +66,15 @@ static func apply_event_option(state: Dictionary, event_id: String, option_idx: 
 		return {"ok": false}
 	var opt: Dictionary = options[option_idx]
 
-	var outcome: Dictionary = opt
+	# 深拷贝：SOLO_EVENTS 是 const 只读字典，直接引用后写 outcome 会崩溃
+	var outcome: Dictionary = opt.duplicate(true)
 	var check: Dictionary = {}
 	if String(opt.get("type", "")) == "check":
 		check = roll_check(state, String(opt.get("attr", "str")), int(opt.get("dc", 10)))
-		outcome = check.get("success", false) if check.get("success", false) else opt.get("fail", {})
+		if check.get("success", false):
+			outcome = opt.get("success", {}).duplicate(true)
+		else:
+			outcome = opt.get("fail", {}).duplicate(true)
 
 	# 应用效果
 	if outcome.has("gold"):

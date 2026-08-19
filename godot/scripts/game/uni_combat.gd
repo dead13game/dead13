@@ -930,7 +930,8 @@ static func end_combat(state: Dictionary, result: String) -> void:
 		var shards: int = 0
 		if not reward.is_empty():
 			shards = int(reward.get("shards", 0))
-			if _has_curio(state, "posui"):
+			# 破碎咕咕钟（破损后不生效，用查 broken 的 UniBuffs._has_curio）
+			if UniBuffs._has_curio(state, "posui"):
 				shards = ceili(float(shards) * 0.75)
 			if _has_curio(state, "club"):
 				shards = ceili(float(shards) * 1.4)
@@ -941,17 +942,13 @@ static func end_combat(state: Dictionary, result: String) -> void:
 				if t.get("alive", false):
 					t["hp"] = float(t.get("maxHp", 1))
 			state["log"].append("香涎干酪：全队回复满生命")
-		# 福灵胶
+		# 福灵胶（新规范：1 次后损毁=broken 保留背包，可再次获得）
 		if _has_curio(state, "fujiao"):
 			var fid: String = UniBuffs.roll_blessing(3, 3)
 			if fid != "":
 				UniBuffs.gain_blessing(state, fid)
-			var curios: Array = state.get("curios", [])
-			for i in range(curios.size()):
-				if _s(curios[i].get("id", "")) == "fujiao":
-					curios.remove_at(i)
-					state["log"].append("福灵胶使用后损毁")
-					break
+			UniBuffs._break_curio(state, "fujiao")
+			state["log"].append("福灵胶：已损毁")
 		c["lastReward"] = {"shards": shards, "blessingPicks": int(reward.get("blessingPicks", 0))}
 		state["log"].append("战斗胜利%s" % ("，+%d 宇宙碎片" % shards if shards > 0 else ""))
 		# 胜利后祝福三选一

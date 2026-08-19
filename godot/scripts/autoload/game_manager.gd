@@ -185,7 +185,7 @@ func _league_on_team_wipe(surviving_team_id: int) -> void:
 	if ms.is_empty() or ms.get("matchOver", false):
 		return
 	ms["matchOver"] = true
-	ms["winner"] = surviving_team_id
+	ms["winner"] = surviving_team_id  # -1=全员阵亡，_finalize_league_score 按死亡顺序重新判定
 	_finalize_league_score()
 
 func _league_on_round_limit() -> void:
@@ -202,6 +202,10 @@ func _finalize_league_score() -> void:
 	var score: Dictionary = GameLeague.calculate_match_score(ms.get("deathOrder", []), 0, 1)
 	ms["playerScore"] = score.get("playerScore", 0)
 	ms["opponentScore"] = score.get("opponentScore", 0)
+	# 胜者以死亡顺序计分为准（覆盖团灭/全员阵亡时的初步判定）
+	var w: Variant = score.get("winner")
+	if w != null:
+		ms["winner"] = w
 	match_ui_changed.emit("over")
 
 # ===== 单机 =====
