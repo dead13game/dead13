@@ -232,57 +232,37 @@ func _refresh_header() -> void:
 func _refresh_players() -> void:
 	for child in _players_row.get_children():
 		child.queue_free()
-	for i in range(_state.get("players", []).size()):
-		_players_row.add_child(_make_player_slot(_state["players"][i]))
+	var players: Array = _state.get("players", [])
+	_player_seats.clear()
+	for i in range(players.size()):
+		var seat := _make_player_slot(players[i])
+		_players_row.add_child(seat)
+		_player_seats.append(seat)
+		# 受伤 / 死亡 / 防御击穿 检测（与上一次刷新对比）
+		var p: Dictionary = players[i]
+		var hp: int = int(p.get("hp", 0))
+		var prev_hp: int = _prev_hps.get(i, -1)
+		if prev_hp >= 0 and hp < prev_hp:
+			if hp <= 0:
+				seat.play_death()
+				_spawn_death_burst(seat.get_global_rect().get_center())
+			else:
+				seat.play_hurt()
+		var defs: int = p.get("defensePile", []).size()
+		var prev_defs: int = _prev_defs.get(i, -1)
+		if prev_defs >= 0 and defs < prev_defs:
+			seat.shake()
+		_prev_hps[i] = hp
+		_prev_defs[i] = defs
 
 func _make_player_slot(p: Dictionary) -> Control:
-	var btn := Button.new()
-	btn.custom_minimum_size = Vector2(294, 210)
+	var seat := PlayerSeat.new()
+	seat.setup(p)
 	var is_current: bool = _state.get("currentPlayerIndex", -1) == p.get("index")
-	var lines: PackedStringArray = []
-
-	var char_data: Dictionary = GameConstants.get_char_data(p)
-	var name_line: String = p.get("name", "?")
 	if is_current:
-		name_line = "▶ " + name_line
-	lines.append(name_line)
-	lines.append("%s · %s" % [char_data.get("name", "?"), p.get("characterId", 0)])
-	lines.append("HP %d/%d %s" % [p.get("hp", 0), p.get("maxHp", 0), "（阵亡）" if not p.get("alive", true) else ""])
-	lines.append("防御 %d  陷阱%s  饵%s" % [
-		p.get("defensePile", []).size(),
-		"有" if p.get("trap") != null else "无",
-		"有" if p.get("bait") != null else "无",
-	])
-	var se: Dictionary = p.get("statusEffects", {})
-	var rel: Dictionary = p.get("relations", {})
-	var status: PackedStringArray = []
-	if se.get("frozenBy") != null:
-		status.append("❄冻结")
-	if rel.get("allyIndex") != null:
-		status.append("🤝联盟")
-	if int(rel.get("betrayalPenalty", 0)) > 0:
-		status.append("⚠背刺惩罚%d" % rel.get("betrayalPenalty", 0))
-	if int(p.get("fightingSpirit", 0)) > 0:
-		status.append("斗志%d" % p.get("fightingSpirit", 0))
-	if se.get("stealTarget") != null:
-		status.append("偷牌中")
-	if se.get("dotTarget") != null:
-		status.append("DoT中")
-	if rel.get("gamblePenalty", false):
-		status.append("赌命惩罚")
-	if se.get("savepoint") != null:
-		status.append("存档点")
-	if p.get("isAI", false):
-		status.append("AI[%s]" % p.get("aiDifficulty", "easy"))
-	if not status.is_empty():
-		lines.append(" | ".join(status))
-	btn.text = "\n".join(lines)
-	btn.disabled = not p.get("alive", true)
-	var idx: int = int(p.get("index", 0))
-	btn.pressed.connect(func(): _on_player_clicked(idx))
-	if is_current:
-		btn.add_theme_stylebox_override("normal", _make_border_style(Color(0.9, 0.7, 0.2)))
-	return btn
+		seat.update_player(p, true)
+	seat.seat_clicked.connect(_on_player_clicked)
+	return seat
 
 func _make_border_style(border_color: Color) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
@@ -293,9 +273,15 @@ func _make_border_style(border_color: Color) -> StyleBoxFlat:
 	return sb
 
 func _refresh_center() -> void:
-	# 清空卡牌区
+	# 清空卡牌区前，记录旧牌（用于飞入墓地动画）
+	var old_cards: Array = []
 	for child in _card_row.get_children():
+		old_cards.append({
+			"pos": child.get_global_rect().get_center(),
+			"data": child.get_meta("card_data", {}),
+		})
 		child.queue_free()
+	_card_row_was_nonempty = old_cards.size() > 0
 
 	var step: String = _state.get("step", "")
 	var p: Dictionary = GameState.current_player(_state)
@@ -351,6 +337,21 @@ func _refresh_center() -> void:
 	_stage_label.text = stage_text
 	_info_label.text = info_text
 
+	# 抽牌/展示动画：这些步骤的卡牌从牌库飞到中央并翻面
+	if _card_row.get_child_count() > 0 and (
+		step == GameConstants.STEP["ATTACK_SHOW_CARD"]
+		or step == GameConstants.STEP["GAMBLE_PICK"]
+		or step == GameConstants.STEP["SKILL_NAHIDA"]):
+		_animate_deal(_card_row)
+	# 飞入墓地：旧牌消失且不是刚飞向目标（Vue _animToGrave）
+	var is_card_step := (
+		step == GameConstants.STEP["ATTACK_SHOW_CARD"]
+		or step == GameConstants.STEP["GAMBLE_PICK"]
+		or step == GameConstants.STEP["SKILL_NAHIDA"])
+	if _card_row_was_nonempty and not is_card_step and old_cards.size() > 0:
+		if Time.get_ticks_msec() - _last_fly_time > 900:
+			_animate_to_grave(old_cards)
+
 func _refresh_log() -> void:
 	var entries: Array = _state.get("messageLog", [])
 	while _last_log_count < entries.size():
@@ -358,7 +359,7 @@ func _refresh_log() -> void:
 		var l := Label.new()
 		l.text = entry
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		l.add_theme_font_size_override("font_size", 20)
+		l.add_theme_font_size_override("font_size", 26)
 		_log_list.add_child(l)
 		_last_log_count += 1
 
@@ -614,32 +615,185 @@ func _on_overlay_return() -> void:
 # ============================================================
 
 func _make_card_ui(card: Dictionary, face_up: bool, slot_idx: int = -1) -> Control:
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(96, 132)
-	var label := Label.new()
-	if face_up:
-		var rank: String = String(card.get("rank", "?"))
-		var suit: String = String(card.get("suit", ""))
-		label.text = "%s%s" % [rank, suit]
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		label.add_theme_font_size_override("font_size", 33)
-		if suit == "♥" or suit == "♦":
-			label.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
-		else:
-			label.add_theme_color_override("font_color", Color.WHITE)
-	else:
-		label.text = "🂠"
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		label.add_theme_font_size_override("font_size", 42)
-	panel.add_child(label)
-	panel.add_theme_stylebox_override("panel", _make_border_style(Color(0.55, 0.55, 0.65)))
+	var c := CardControl.new()
+	c.setup(card, face_up, slot_idx)
+	c.pivot_offset = c.size / 2
+	c.set_meta("card_data", card)
 	if slot_idx >= 0:
-		panel.gui_input.connect(func(ev: InputEvent):
-			if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
-				_on_card_clicked(slot_idx))
-	return panel
+		c.clicked.connect(_on_card_clicked)
+	# 防御牌显示残盾点数角标
+	var dv: Variant = card.get("defenseValue", card.get("value"))
+	if face_up and dv != null:
+		c.set_value_badge(int(dv))
+	return c
+
+# ============================================================
+#  卡牌动画（复现 Vue 版：牌库飞入 + 翻面）
+# ============================================================
+
+var _anim_layer: Control
+var _last_deal_ids: String = ""
+var _deal_anim_active: bool = false
+var _player_seats: Array = []
+var _prev_hps: Dictionary = {}
+var _prev_defs: Dictionary = {}
+var _card_row_was_nonempty: bool = false
+var _last_fly_time: int = -9999999
+
+## 牌库原点（动画起点，全局坐标；可调）
+const DECK_ORIGIN := Vector2(120, 1500)
+
+func _ensure_anim_layer() -> Control:
+	if _anim_layer == null:
+		_anim_layer = Control.new()
+		_anim_layer.name = "AnimLayer"
+		_anim_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_anim_layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+		add_child(_anim_layer)
+	return _anim_layer
+
+## 把 card_row 里刚生成的卡牌从牌库飞入中央并翻面（Vue _animDrawAttack / gambleDraw）
+func _animate_deal(row: HBoxContainer, stagger: float = 0.08) -> void:
+	var children := row.get_children()
+	if children.is_empty():
+		return
+	# 同一步骤重复刷新不重复播（同一组牌只播一次）
+	var ids := ""
+	for child in children:
+		var d: Dictionary = child.get_meta("card_data", {})
+		ids += String(d.get("id", "")) + "|"
+	if ids == _last_deal_ids and _deal_anim_active:
+		return
+	_last_deal_ids = ids
+	_deal_anim_active = true
+	var layer := _ensure_anim_layer()
+	var deck_local: Vector2 = DECK_ORIGIN - layer.global_position
+	# 真牌先藏起来（翻面时再显示）
+	for child in children:
+		child.modulate.a = 0.0
+	# 依次飞出替身
+	for i in range(children.size()):
+		var card: Control = children[i]
+		var target: Vector2 = card.get_global_rect().get_center() - layer.global_position
+		var flyer := CardControl.new()
+		flyer.setup(card.get_meta("card_data", {}), false)
+		flyer.pivot_offset = flyer.size / 2
+		flyer.scale = Vector2(0.4, 0.4)
+		flyer.modulate.a = 0.0
+		flyer.position = deck_local - flyer.size / 2
+		layer.add_child(flyer)
+		var delay := float(i) * stagger
+		var tw := create_tween()
+		tw.tween_property(flyer, "modulate:a", 1.0, 0.08).set_delay(delay)
+		tw.parallel().tween_property(flyer, "position", target - flyer.size / 2, 0.35) \
+			.set_delay(delay).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.parallel().tween_property(flyer, "scale", Vector2.ONE, 0.35) \
+			.set_delay(delay).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		# 到达：替身收起 → 真牌翻面出现
+		# bind 快照 card/flyer + is_instance_valid：动画播放中玩家点牌触发 _refresh_center
+		# queue_free 真牌后，异步回调访问已释放节点会崩溃
+		tw.tween_callback(_on_deal_land.bind(flyer, card))
+	# 全部播完后复位
+	var total := children.size()
+	var last_tw := create_tween()
+	last_tw.tween_interval((total - 1) * stagger + 0.6)
+	last_tw.tween_callback(func():
+		_deal_anim_active = false)
+
+## 翻面动画：scale.x 0→1（Vue setFlipProgress 效果）
+func _flip_card_in(card: Control) -> void:
+	card.scale = Vector2(0.05, 1.0)
+	card.pivot_offset = card.size / 2
+	var tw := create_tween()
+	tw.tween_property(card, "scale", Vector2.ONE, 0.22) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+## 发牌落地回调（bind 快照；真牌可能已被刷新释放，需 valid 检查）
+func _on_deal_land(flyer: Control, card: Control) -> void:
+	flyer.queue_free()
+	if is_instance_valid(card):
+		card.modulate.a = 1.0
+		_flip_card_in(card)
+
+## 攻击牌飞向目标座位（Vue flyToTarget），完成后再执行攻击
+func _animate_fly_to_target(target_idx: int, on_done: Callable) -> void:
+	_last_fly_time = Time.get_ticks_msec()
+	var layer := _ensure_anim_layer()
+	var cards := _card_row.get_children()
+	if cards.is_empty():
+		on_done.call()
+		return
+	var seat: Control = _player_seats[target_idx] if target_idx >= 0 and target_idx < _player_seats.size() else null
+	var target: Vector2 = layer.global_position
+	if seat != null:
+		target = seat.get_global_rect().get_center() - layer.global_position
+	else:
+		target = Vector2(540, 400) - layer.global_position
+	for i in range(cards.size()):
+		var card: Control = cards[i]
+		var flyer := CardControl.new()
+		flyer.setup(card.get_meta("card_data", {}), false)
+		flyer.pivot_offset = flyer.size / 2
+		flyer.scale = Vector2(1, 1)
+		flyer.position = card.get_global_rect().get_center() - layer.global_position - flyer.size / 2
+		layer.add_child(flyer)
+		card.modulate.a = 0.0
+		var tw := create_tween()
+		tw.set_parallel(true)
+		tw.tween_property(flyer, "position", target - flyer.size / 2, 0.45) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tw.tween_property(flyer, "scale", Vector2(0.6, 0.6), 0.45) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tw.tween_property(flyer, "modulate:a", 0.0, 0.45)
+		tw.chain().tween_callback(func():
+			flyer.queue_free())
+	var tw2 := create_tween()
+	tw2.tween_interval(0.5)
+	tw2.tween_callback(func():
+		on_done.call())
+
+## 死亡粒子爆发（Vue _death 大爆炸）：AnimLayer 上放射状飞散的小色块
+func _spawn_death_burst(pos: Vector2) -> void:
+	var layer := _ensure_anim_layer()
+	var rng := RandomNumberGenerator.new()
+	var base: Vector2 = pos - layer.global_position
+	for i in range(12):
+		var p := ColorRect.new()
+		p.color = Color(1.0, 0.6, 0.2, 1.0)
+		p.size = Vector2(9, 9)
+		p.pivot_offset = Vector2(4.5, 4.5)
+		p.position = base - Vector2(4.5, 4.5)
+		layer.add_child(p)
+		var ang: float = rng.randf_range(0.0, TAU)
+		var dist: float = rng.randf_range(18.0, 70.0)
+		var tw := create_tween()
+		tw.set_parallel(true)
+		tw.tween_property(p, "position", base + Vector2(cos(ang), sin(ang)) * dist - Vector2(4.5, 4.5), 0.5) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		tw.tween_property(p, "modulate:a", 0.0, 0.5)
+		tw.chain().tween_callback(func():
+			p.queue_free())
+
+## 飞入墓地（Vue _animToGrave）：旧牌飞向墓地并缩小淡出
+func _animate_to_grave(old_cards: Array) -> void:
+	var layer := _ensure_anim_layer()
+	var grave_pos: Vector2 = Vector2(960, 1500) - layer.global_position
+	for oc in old_cards:
+		var flyer := CardControl.new()
+		flyer.setup(oc.get("data", {}), false)
+		flyer.pivot_offset = flyer.size / 2
+		flyer.scale = Vector2(0.7, 0.7)
+		flyer.position = oc.get("pos") - layer.global_position - flyer.size / 2
+		layer.add_child(flyer)
+		var tw := create_tween()
+		tw.set_parallel(true)
+		tw.tween_property(flyer, "position", grave_pos - flyer.size / 2, 0.4) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tw.tween_property(flyer, "scale", Vector2(0.3, 0.3), 0.4) \
+			.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tw.tween_property(flyer, "modulate:a", 0.0, 0.4)
+		tw.chain().tween_callback(func():
+			flyer.queue_free())
 
 func _on_card_clicked(slot_idx: int) -> void:
 	var step: String = _state.get("step", "")
@@ -672,8 +826,11 @@ func _on_player_clicked(idx: int) -> void:
 
 	match step:
 		GameConstants.STEP["ATTACK_SHOW_CARD"]:
-			GameState.execute_attack(_state, idx)
-			_after_action()
+			_busy = true
+			_animate_fly_to_target(idx, func():
+				_busy = false
+				GameState.execute_attack(_state, idx)
+				_after_action())
 		GameConstants.STEP["SKILL_PICK_TARGET"]:
 			match cid:
 				3:
