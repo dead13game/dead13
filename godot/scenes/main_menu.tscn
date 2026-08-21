@@ -2,10 +2,8 @@
 
 [ext_resource type="Script" uid="uid://sjrc5wh2x34u" path="res://scripts/ui/main_menu.gd" id="1_menu"]
 [ext_resource type="Script" uid="uid://bxn36op3gn1d3" path="res://scripts/ui/starfield.gd" id="2_star"]
-[ext_resource type="FontFile" uid="uid://dmfbywhj44cum" path="res://assets/themes/calinou_dark/fira_sans_book.otf" id="3_5dd4i"]
 [ext_resource type="Texture2D" uid="uid://l2n3sb0quaj5" path="res://addons/at-icons/control/playing_card.svg" id="3_card"]
 [ext_resource type="Texture2D" uid="uid://d4k2vvp3eikhp" path="res://addons/at-icons/control/football.svg" id="4_football"]
-[ext_resource type="FontFile" uid="uid://ch6arnby2fd4y" path="res://addons/neocade_theme/fonts/inter_variable.ttf" id="5_lgwnu"]
 [ext_resource type="Texture2D" uid="uid://waigwj4auffp" path="res://addons/at-icons/control/tower.svg" id="5_tower"]
 [ext_resource type="Texture2D" uid="uid://cjnbkh746m2du" path="res://addons/at-icons/control/planet.svg" id="6_planet"]
 [ext_resource type="Texture2D" uid="uid://ct3mse6mjti7b" path="res://addons/at-icons/control/book.svg" id="7_book"]
@@ -75,7 +73,6 @@ offset_right = 255.0
 offset_bottom = 524.0
 grow_horizontal = 2
 theme_override_constants/icon_max_width = 34
-theme_override_fonts/font = ExtResource("3_5dd4i")
 theme_override_font_sizes/font_size = 35
 text = "经典模式"
 icon = ExtResource("3_card")
@@ -94,7 +91,6 @@ offset_right = 255.0
 offset_bottom = 644.0
 grow_horizontal = 2
 theme_override_constants/icon_max_width = 34
-theme_override_fonts/font = ExtResource("5_lgwnu")
 theme_override_font_sizes/font_size = 35
 text = "足球模式"
 icon = ExtResource("4_football")
@@ -114,7 +110,6 @@ offset_bottom = 764.0
 grow_horizontal = 2
 theme = ExtResource("7_flqon")
 theme_override_constants/icon_max_width = 34
-theme_override_fonts/font = ExtResource("3_5dd4i")
 theme_override_font_sizes/font_size = 35
 text = "单人模式"
 icon = ExtResource("5_tower")
@@ -133,7 +128,6 @@ offset_right = 255.0
 offset_bottom = 884.0
 grow_horizontal = 2
 theme_override_constants/icon_max_width = 34
-theme_override_fonts/font = ExtResource("3_5dd4i")
 theme_override_font_sizes/font_size = 35
 text = "模拟宇宙"
 icon = ExtResource("6_planet")
