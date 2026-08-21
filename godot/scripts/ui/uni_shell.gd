@@ -10,6 +10,7 @@ const UniSkills = preload("res://scripts/game/uni_skills.gd")
 const UniShop = preload("res://scripts/game/uni_shop.gd")
 const UniEvents = preload("res://scripts/game/uni_events.gd")
 const UniCore = preload("res://scripts/game/uni_core.gd")
+const UniMemberSeat = preload("res://scripts/ui/uni_member_seat.gd")
 const GameConstants = preload("res://scripts/game/constants.gd")
 const SaveManager = preload("res://scripts/autoload/save_manager.gd")
 
@@ -24,6 +25,9 @@ var _busy: bool = false
 @onready var _back_btn: Button = find_child("BackBtn", true, false) as Button
 @onready var _title: Label = %TitleLabel
 @onready var _status_label: Label = %StatusLabel
+@onready var _team_row: HBoxContainer = %TeamRow
+@onready var _enemy_panel: PanelContainer = %EnemyPanel
+@onready var _enemy_row: HBoxContainer = %EnemyRow
 @onready var _content: VBoxContainer = %ContentBox
 @onready var _log_box: VBoxContainer = %LogBox
 @onready var _action_bar: PanelContainer = %ActionBar
@@ -37,6 +41,7 @@ func _ready() -> void:
 	_bind_back()
 	_bind_action_bar()
 	_refresh_log()
+	_refresh_team()
 	_show_map()
 
 ## 场景节点缺失时降级：代码兜底创建（编辑器里搭一半也能跑）
@@ -50,6 +55,38 @@ func _ensure_nodes() -> void:
 		_status_label = Label.new()
 		_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		add_child(_status_label)
+	if _team_row == null:
+		var panel := PanelContainer.new()
+		panel.name = "TeamPanel"
+		LayoutRegistry.apply_to(panel, "UniTeamPanel", Control.PRESET_TOP_WIDE)
+		panel.add_theme_stylebox_override("panel", load("res://assets/styles/fantasy_panel.tres"))
+		add_child(panel)
+		var margin := MarginContainer.new()
+		margin.add_theme_constant_override("margin_left", 10)
+		margin.add_theme_constant_override("margin_right", 10)
+		margin.add_theme_constant_override("margin_top", 10)
+		margin.add_theme_constant_override("margin_bottom", 10)
+		panel.add_child(margin)
+		_team_row = HBoxContainer.new()
+		_team_row.add_theme_constant_override("separation", 8)
+		margin.add_child(_team_row)
+	if _enemy_panel == null or _enemy_row == null:
+		var ep := PanelContainer.new()
+		ep.name = "EnemyPanel"
+		LayoutRegistry.apply_to(ep, "UniEnemyPanel", Control.PRESET_TOP_WIDE)
+		ep.visible = false
+		ep.add_theme_stylebox_override("panel", load("res://assets/styles/fantasy_panel.tres"))
+		add_child(ep)
+		_enemy_panel = ep
+		var em := MarginContainer.new()
+		em.add_theme_constant_override("margin_left", 10)
+		em.add_theme_constant_override("margin_right", 10)
+		em.add_theme_constant_override("margin_top", 8)
+		em.add_theme_constant_override("margin_bottom", 8)
+		ep.add_child(em)
+		_enemy_row = HBoxContainer.new()
+		_enemy_row.add_theme_constant_override("separation", 10)
+		em.add_child(_enemy_row)
 	if _content == null:
 		_content = VBoxContainer.new()
 		_content.add_theme_constant_override("separation", 9)
@@ -115,6 +152,102 @@ func _refresh_status() -> void:
 	_status_label.text = "第 %d 层 · 位面 %d  |  💎%d  祝福%d 奇物%d 方程%d  |  存活 %d/%d" % [
 		floor_n, plane, shards, blessings, curios, eqs, alive, _s.get("team", []).size()]
 
+## 安全取 combat（uni_state 初始为 null；.get(key, default) 在 key 存在但值为 null 时返回 null）
+func _combat() -> Dictionary:
+	var c: Variant = _s.get("combat", {})
+	return c if c is Dictionary else {}
+
+## 队伍行（仿 Vue uni-battle__team）：显示全部已选角色，高亮当前行动角色
+func _refresh_team() -> void:
+	if _team_row == null:
+		return
+	for child in _team_row.get_children():
+		child.queue_free()
+	var active_idx: int = -1
+	var combat := _combat()
+	if not combat.is_empty() and combat.get("activeIdx", null) != null:
+		active_idx = int(combat["activeIdx"])
+	var team: Array = _s.get("team", [])
+	for i in range(team.size()):
+		var seat := UniMemberSeat.new()
+		seat.setup(team[i], i == active_idx, _skill_line(i))
+		_team_row.add_child(seat)
+
+## 技能行文本（仿 Vue）：技能名 + 冷却N / ✓可用 / 被动
+func _skill_line(member_idx: int) -> String:
+	var info: Variant = UniSkills.get_skill_info(_s, member_idx)
+	if not (info is Dictionary) or (info as Dictionary).is_empty():
+		return ""
+	var nm: String = String(info.get("name", ""))
+	var type: String = String(info.get("type", ""))
+	var cd: int = int(info.get("cooldown", 0))
+	if cd > 0:
+		return "%s（冷却%d）" % [nm, cd]
+	if type == "active":
+		return nm + " ✓可用"
+	return nm + "（被动）"
+
+## 敌方 HP 行（仿 Vue uni-enemy）：战斗时显示敌方卡片（名字+HP条+护盾）
+func _refresh_enemies() -> void:
+	if _enemy_panel == null or _enemy_row == null:
+		return
+	for child in _enemy_row.get_children():
+		child.queue_free()
+	var c := _combat()
+	var enemies: Array = c.get("enemies", []) if not c.is_empty() else []
+	_enemy_panel.visible = not enemies.is_empty()
+	for e in enemies:
+		_enemy_row.add_child(_make_enemy_card(e))
+
+func _make_enemy_card(e: Dictionary) -> Control:
+	var card := PanelContainer.new()
+	card.custom_minimum_size = Vector2(150, 60)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.16, 0.1, 0.1)
+	sb.border_color = Color(0.5, 0.3, 0.3)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(6)
+	card.add_theme_stylebox_override("panel", sb)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 2)
+	card.add_child(box)
+	var name_l := Label.new()
+	name_l.text = String(e.get("name", "?"))
+	name_l.add_theme_font_size_override("font_size", 26)
+	name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(name_l)
+	var row := HBoxContainer.new()
+	box.add_child(row)
+	var hp: float = float(e.get("hp", 0))
+	var max_hp: float = float(e.get("maxHp", 1))
+	var bar := ProgressBar.new()
+	bar.custom_minimum_size = Vector2(0, 16)
+	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar.max_value = max_hp if max_hp > 0 else 1
+	bar.value = hp
+	var bg_sb := StyleBoxFlat.new()
+	bg_sb.bg_color = Color(0.2, 0.12, 0.12)
+	bg_sb.set_corner_radius_all(4)
+	bar.add_theme_stylebox_override("background", bg_sb)
+	var fill_sb := StyleBoxFlat.new()
+	fill_sb.bg_color = Color(0.85, 0.3, 0.3)
+	fill_sb.set_corner_radius_all(4)
+	bar.add_theme_stylebox_override("fill", fill_sb)
+	row.add_child(bar)
+	var hp_l := Label.new()
+	hp_l.text = " %d/%d" % [int(hp), int(max_hp)]
+	hp_l.add_theme_font_size_override("font_size", 26)
+	row.add_child(hp_l)
+	if float(e.get("shield", 0)) > 0:
+		var sh := Label.new()
+		sh.text = "🛡%d" % int(e["shield"])
+		sh.add_theme_font_size_override("font_size", 26)
+		sh.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		box.add_child(sh)
+	if not e.get("alive", true):
+		card.modulate.a = 0.4
+	return card
+
 func _refresh_log() -> void:
 	var logs: Array = _s.get("log", [])
 	var existing: int = _log_box.get_child_count()
@@ -122,7 +255,7 @@ func _refresh_log() -> void:
 		var l := Label.new()
 		l.text = String(logs[existing])
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		l.add_theme_font_size_override("font_size", 18)
+		l.add_theme_font_size_override("font_size", 26)
 		_log_box.add_child(l)
 		existing += 1
 
@@ -130,11 +263,12 @@ func _clear_content() -> void:
 	for child in _content.get_children():
 		child.queue_free()
 
-func _add_label(text: String, font_size: int = 15) -> Label:
+func _add_label(text: String, font_size: int = 26) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.add_theme_font_size_override("font_size", font_size)
+	# 硬性规则：UI 文本最小 26px；空串仅作行距占位，不参与字号下限
+	l.add_theme_font_size_override("font_size", maxi(font_size, 26) if text != "" else font_size)
 	_content.add_child(l)
 	return l
 
@@ -161,6 +295,8 @@ func _show_map() -> void:
 	_view = "map"
 	_title.text = "模拟宇宙 · 第 %d 层" % _s.get("floor", 1)
 	_refresh_status()
+	_refresh_team()
+	_refresh_enemies()
 	_clear_content()
 	_set_action_bar(true)
 	if not _msg.is_empty():
@@ -356,8 +492,10 @@ func _show_battle() -> void:
 	_view = "battle"
 	_set_action_bar(false)
 	_refresh_status()
+	_refresh_team()
+	_refresh_enemies()
 	_clear_content()
-	var c: Dictionary = _s.get("combat", {})
+	var c := _combat()
 	if c.is_empty():
 		_finish_region()
 		return
@@ -406,7 +544,7 @@ func _show_battle() -> void:
 			line += " ☠%d" % e["dotTurns"]
 		var l := Label.new()
 		l.text = line
-		l.add_theme_font_size_override("font_size", 22)
+		l.add_theme_font_size_override("font_size", 26)
 		l.add_theme_color_override("font_color", Color(1.0, 0.6, 0.55))
 		_content.add_child(l)
 	# 我方当前行动者
@@ -441,7 +579,7 @@ func _run_enemy_actions() -> void:
 	var guard: int = 0
 	while guard < 60:
 		guard += 1
-		var c: Dictionary = _s.get("combat", {})
+		var c := _combat()
 		var phase: String = String(c.get("phase", ""))
 		if phase != "enemy-announce":
 			break
@@ -461,7 +599,7 @@ func _start_pick(kind: String) -> void:
 	_pick_targets = []
 	_title.text = "选择目标"
 	_clear_content()
-	var c: Dictionary = _s.get("combat", {})
+	var c := _combat()
 	if kind == "defend":
 		_add_label("为谁添加护盾？", 16)
 		for t in _s.get("team", []):
@@ -503,7 +641,7 @@ func _start_pick(kind: String) -> void:
 
 ## 开大：按角色分支（需目标/选成员/直接释放）
 func _on_skill_pressed() -> void:
-	var c: Dictionary = _s.get("combat", {})
+	var c := _combat()
 	var active_idx: int = int(c.get("activeIdx", 0))
 	var t: Dictionary = _s["team"][active_idx]
 	var char_id: int = int(t.get("charId", 0))

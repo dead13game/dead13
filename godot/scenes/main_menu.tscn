@@ -2,19 +2,19 @@
 
 [ext_resource type="Script" uid="uid://sjrc5wh2x34u" path="res://scripts/ui/main_menu.gd" id="1_menu"]
 [ext_resource type="Script" uid="uid://bxn36op3gn1d3" path="res://scripts/ui/starfield.gd" id="2_star"]
-
-[sub_resource type="Gradient" id="Gradient_bg"]
-offsets = PackedFloat32Array(0, 0.25, 0.5, 0.75, 1)
-colors = PackedColorArray(0.0196078, 0.0196078, 0.12549, 1, 0.0509804, 0.0627451, 0.207843, 1, 0.0705882, 0.0941176, 0.266667, 1, 0.0392157, 0.0588235, 0.180392, 1, 0.0235294, 0.0352941, 0.12549, 1)
-
-[sub_resource type="GradientTexture2D" id="GradientTexture2D_bg"]
-gradient = SubResource("Gradient_bg")
-width = 1080
-height = 1920
-fill_from = Vector2(1, 0)
-fill_to = Vector2(0, 1)
-
-[sub_resource type="SystemFont" id="SystemFont_dlb4e"]
+[ext_resource type="FontFile" uid="uid://dmfbywhj44cum" path="res://assets/themes/calinou_dark/fira_sans_book.otf" id="3_5dd4i"]
+[ext_resource type="Texture2D" uid="uid://l2n3sb0quaj5" path="res://addons/at-icons/control/playing_card.svg" id="3_card"]
+[ext_resource type="Texture2D" uid="uid://d4k2vvp3eikhp" path="res://addons/at-icons/control/football.svg" id="4_football"]
+[ext_resource type="FontFile" uid="uid://ch6arnby2fd4y" path="res://addons/neocade_theme/fonts/inter_variable.ttf" id="5_lgwnu"]
+[ext_resource type="Texture2D" uid="uid://waigwj4auffp" path="res://addons/at-icons/control/tower.svg" id="5_tower"]
+[ext_resource type="Texture2D" uid="uid://cjnbkh746m2du" path="res://addons/at-icons/control/planet.svg" id="6_planet"]
+[ext_resource type="Texture2D" uid="uid://ct3mse6mjti7b" path="res://addons/at-icons/control/book.svg" id="7_book"]
+[ext_resource type="Theme" uid="uid://corx3u7fsd2u3" path="res://assets/themes/calinou_dark.tres" id="7_flqon"]
+[ext_resource type="StyleBoxTexture" path="res://assets/styles/fantasy_panel.tres" id="20_fp"]
+[ext_resource type="StyleBoxTexture" path="res://assets/styles/fantasy_button_normal.tres" id="21_fbn"]
+[ext_resource type="StyleBoxTexture" path="res://assets/styles/fantasy_button_hover.tres" id="22_fbh"]
+[ext_resource type="StyleBoxTexture" path="res://assets/styles/fantasy_button_pressed.tres" id="23_fbp"]
+[ext_resource type="Texture2D" path="res://assets/images/game_bg.png" id="bg_img"]
 
 [node name="MainMenu" type="Control" unique_id=351162177]
 layout_mode = 3
@@ -23,6 +23,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = ExtResource("7_flqon")
 script = ExtResource("1_menu")
 
 [node name="Background" type="TextureRect" parent="." unique_id=360087715]
@@ -32,7 +33,9 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-texture = SubResource("GradientTexture2D_bg")
+texture = ExtResource("bg_img")
+expand_mode = 1
+stretch_mode = 6
 
 [node name="Starfield" type="Node2D" parent="." unique_id=791611076]
 script = ExtResource("2_star")
@@ -71,9 +74,14 @@ offset_top = 440.0
 offset_right = 255.0
 offset_bottom = 524.0
 grow_horizontal = 2
-theme_override_fonts/font = SubResource("SystemFont_dlb4e")
+theme_override_constants/icon_max_width = 34
+theme_override_fonts/font = ExtResource("3_5dd4i")
 theme_override_font_sizes/font_size = 35
 text = "经典模式"
+icon = ExtResource("3_card")
+theme_override_styles/normal = ExtResource("21_fbn")
+theme_override_styles/hover = ExtResource("22_fbh")
+theme_override_styles/pressed = ExtResource("23_fbp")
 
 [node name="FootballButton" type="Button" parent="." unique_id=1942865169]
 layout_mode = 1
@@ -85,9 +93,14 @@ offset_top = 560.0
 offset_right = 255.0
 offset_bottom = 644.0
 grow_horizontal = 2
-theme_override_fonts/font = SubResource("SystemFont_dlb4e")
+theme_override_constants/icon_max_width = 34
+theme_override_fonts/font = ExtResource("5_lgwnu")
 theme_override_font_sizes/font_size = 35
 text = "足球模式"
+icon = ExtResource("4_football")
+theme_override_styles/normal = ExtResource("21_fbn")
+theme_override_styles/hover = ExtResource("22_fbh")
+theme_override_styles/pressed = ExtResource("23_fbp")
 
 [node name="SoloButton" type="Button" parent="." unique_id=1810487026]
 layout_mode = 1
@@ -99,9 +112,15 @@ offset_top = 680.0
 offset_right = 255.0
 offset_bottom = 764.0
 grow_horizontal = 2
-theme_override_fonts/font = SubResource("SystemFont_dlb4e")
+theme = ExtResource("7_flqon")
+theme_override_constants/icon_max_width = 34
+theme_override_fonts/font = ExtResource("3_5dd4i")
 theme_override_font_sizes/font_size = 35
 text = "单人模式"
+icon = ExtResource("5_tower")
+theme_override_styles/normal = ExtResource("21_fbn")
+theme_override_styles/hover = ExtResource("22_fbh")
+theme_override_styles/pressed = ExtResource("23_fbp")
 
 [node name="SimuniverseButton" type="Button" parent="." unique_id=1126081861]
 layout_mode = 1
@@ -113,9 +132,14 @@ offset_top = 800.0
 offset_right = 255.0
 offset_bottom = 884.0
 grow_horizontal = 2
-theme_override_fonts/font = SubResource("SystemFont_dlb4e")
+theme_override_constants/icon_max_width = 34
+theme_override_fonts/font = ExtResource("3_5dd4i")
 theme_override_font_sizes/font_size = 35
 text = "模拟宇宙"
+icon = ExtResource("6_planet")
+theme_override_styles/normal = ExtResource("21_fbn")
+theme_override_styles/hover = ExtResource("22_fbh")
+theme_override_styles/pressed = ExtResource("23_fbp")
 
 [node name="RulesButton" type="Button" parent="." unique_id=1573627466]
 layout_mode = 1
@@ -127,9 +151,12 @@ offset_top = 920.0
 offset_right = 255.0
 offset_bottom = 1004.0
 grow_horizontal = 2
-theme_override_fonts/font = SubResource("SystemFont_dlb4e")
-theme_override_font_sizes/font_size = 35
+theme_override_constants/icon_max_width = 34
 text = "规则说明"
+icon = ExtResource("7_book")
+theme_override_styles/normal = ExtResource("21_fbn")
+theme_override_styles/hover = ExtResource("22_fbh")
+theme_override_styles/pressed = ExtResource("23_fbp")
 
 [connection signal="pressed" from="NormalButton" to="." method="_on_normal_pressed"]
 [connection signal="pressed" from="FootballButton" to="." method="_on_football_pressed"]

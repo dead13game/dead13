@@ -14,9 +14,9 @@ const SaveManager = preload("res://scripts/autoload/save_manager.gd")
 @onready var _deck_label: Label = %DeckLabel
 @onready var _turn_label: Label = %TurnLabel
 @onready var _score_label: Label = %ScoreLabel
-@onready var _stage_label: Label = %StageLabel
+@onready var _log_heading: Label = %LogHeading
 @onready var _info_label: Label = %InfoLabel
-@onready var _players_row: FlowContainer = %PlayersRow
+@onready var _players_row: GridContainer = %PlayersRow
 @onready var _card_row: HBoxContainer = %CardRow
 @onready var _log_list: VBoxContainer = %LogList
 @onready var _overlay: PanelContainer = %Overlay
@@ -71,7 +71,8 @@ func _ready() -> void:
 ## 场景节点缺失时降级：代码兜底创建（编辑器里搭一半也能跑）
 func _ensure_nodes() -> void:
 	if _players_row == null:
-		_players_row = FlowContainer.new()
+		_players_row = GridContainer.new()
+		_players_row.columns = 2
 		_players_row.add_theme_constant_override("h_separation", 12)
 		_players_row.add_theme_constant_override("v_separation", 12)
 		add_child(_players_row)
@@ -83,6 +84,7 @@ func _ensure_nodes() -> void:
 	if _log_list == null:
 		_log_list = VBoxContainer.new()
 		_log_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_log_list.add_theme_constant_override("separation", 4)
 		add_child(_log_list)
 	if _overlay == null:
 		_overlay = PanelContainer.new()
@@ -107,11 +109,11 @@ func _ensure_nodes() -> void:
 		_subs_box.add_theme_constant_override("separation", 9)
 		if _subs_panel != null:
 			_subs_panel.add_child(_subs_box)
-	if _stage_label == null:
-		_stage_label = Label.new()
-		_stage_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_stage_label.add_theme_font_size_override("font_size", 36)
-		add_child(_stage_label)
+	if _log_heading == null:
+		_log_heading = Label.new()
+		_log_heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_log_heading.add_theme_font_size_override("font_size", 28)
+		add_child(_log_heading)
 	if _info_label == null:
 		_info_label = Label.new()
 		_info_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -228,16 +230,26 @@ func _refresh_header() -> void:
 		var extra: String = "（加时）" if ms.get("isExtraTime", false) else ""
 		_score_label.text = "⚽ 玩家 %d : %d 对手 · 第%d局%s" % [
 			score[0], score[1], ms.get("matchRound", 1), extra]
+		_score_label.visible = true
+	else:
+		_score_label.visible = false
 
 func _refresh_players() -> void:
-	for child in _players_row.get_children():
-		child.queue_free()
 	var players: Array = _state.get("players", [])
-	_player_seats.clear()
+	# 清理多余座位（人数变化 / 重开对局时）
+	while _player_seats.size() > players.size():
+		var extra: Node = _player_seats.pop_back()
+		extra.queue_free()
+	# 座位复用：仅首次创建，之后每次行动只刷新数据——
+	# 之前每次行动都重建全部座位，新旧座位同帧并存导致 HP 条/整牌座跳动
 	for i in range(players.size()):
-		var seat := _make_player_slot(players[i])
-		_players_row.add_child(seat)
-		_player_seats.append(seat)
+		var seat: PlayerSeat = _player_seats[i] if i < _player_seats.size() else null
+		if seat == null:
+			seat = _make_player_slot(players[i])
+			_players_row.add_child(seat)
+			_player_seats.append(seat)
+		var is_current: bool = _state.get("currentPlayerIndex", -1) == int(players[i].get("index", -1))
+		seat.update_player(players[i], is_current)
 		# 受伤 / 死亡 / 防御击穿 检测（与上一次刷新对比）
 		var p: Dictionary = players[i]
 		var hp: int = int(p.get("hp", 0))
@@ -258,9 +270,6 @@ func _refresh_players() -> void:
 func _make_player_slot(p: Dictionary) -> Control:
 	var seat := PlayerSeat.new()
 	seat.setup(p)
-	var is_current: bool = _state.get("currentPlayerIndex", -1) == p.get("index")
-	if is_current:
-		seat.update_player(p, true)
 	seat.seat_clicked.connect(_on_player_clicked)
 	return seat
 
@@ -334,7 +343,7 @@ func _refresh_center() -> void:
 		_:
 			stage_text = "%s 的回合" % p.get("name", "?")
 
-	_stage_label.text = stage_text
+	_log_heading.text = stage_text
 	_info_label.text = info_text
 
 	# 抽牌/展示动画：这些步骤的卡牌从牌库飞到中央并翻面
@@ -641,7 +650,8 @@ var _card_row_was_nonempty: bool = false
 var _last_fly_time: int = -9999999
 
 ## 牌库原点（动画起点，全局坐标；可调）
-const DECK_ORIGIN := Vector2(120, 1500)
+## 新布局：牌库/墓地锚点在日志面板区（1070-1380），避免飞行动画穿过底部行动栏
+const DECK_ORIGIN := Vector2(120, 1150)
 
 func _ensure_anim_layer() -> Control:
 	if _anim_layer == null:
@@ -652,8 +662,17 @@ func _ensure_anim_layer() -> Control:
 		add_child(_anim_layer)
 	return _anim_layer
 
+## 防御性清理：开新动画前清掉 AnimLayer 上遗留的孤儿 flyer/粒子
+## （动画被打断时 tween 回调可能没执行 → 节点残留；这里兜底清干净）
+func _clear_anim_layer() -> void:
+	if _anim_layer == null:
+		return
+	for child in _anim_layer.get_children():
+		child.queue_free()
+
 ## 把 card_row 里刚生成的卡牌从牌库飞入中央并翻面（Vue _animDrawAttack / gambleDraw）
 func _animate_deal(row: HBoxContainer, stagger: float = 0.08) -> void:
+	_clear_anim_layer()
 	var children := row.get_children()
 	if children.is_empty():
 		return
@@ -717,6 +736,7 @@ func _on_deal_land(flyer: Control, card: Control) -> void:
 
 ## 攻击牌飞向目标座位（Vue flyToTarget），完成后再执行攻击
 func _animate_fly_to_target(target_idx: int, on_done: Callable) -> void:
+	_clear_anim_layer()
 	_last_fly_time = Time.get_ticks_msec()
 	var layer := _ensure_anim_layer()
 	var cards := _card_row.get_children()
@@ -754,6 +774,7 @@ func _animate_fly_to_target(target_idx: int, on_done: Callable) -> void:
 
 ## 死亡粒子爆发（Vue _death 大爆炸）：AnimLayer 上放射状飞散的小色块
 func _spawn_death_burst(pos: Vector2) -> void:
+	_clear_anim_layer()
 	var layer := _ensure_anim_layer()
 	var rng := RandomNumberGenerator.new()
 	var base: Vector2 = pos - layer.global_position
@@ -776,8 +797,9 @@ func _spawn_death_burst(pos: Vector2) -> void:
 
 ## 飞入墓地（Vue _animToGrave）：旧牌飞向墓地并缩小淡出
 func _animate_to_grave(old_cards: Array) -> void:
+	_clear_anim_layer()
 	var layer := _ensure_anim_layer()
-	var grave_pos: Vector2 = Vector2(960, 1500) - layer.global_position
+	var grave_pos: Vector2 = Vector2(960, 1150) - layer.global_position
 	for oc in old_cards:
 		var flyer := CardControl.new()
 		flyer.setup(oc.get("data", {}), false)

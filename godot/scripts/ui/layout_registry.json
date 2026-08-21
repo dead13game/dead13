@@ -1,0 +1,43 @@
+{
+	"comment": "脚本动态 UI 的布局单一真源。用 ui_adjust.gd 的 registry 模式修改（godot --headless --path godot --script res://tools/ui_adjust.gd -- cmd.json），不要手改本文件。条目字段: preset + anchor_* + offset_*",
+	"rects": {
+		"CardValueBadge": {
+			"anchor_bottom": 1.0,
+			"anchor_left": 0.0,
+			"anchor_right": 1.0,
+			"anchor_top": 1.0,
+			"offset_bottom": -6.0,
+			"offset_left": 24.0,
+			"offset_right": -24.0,
+			"offset_top": -26.0,
+			"preset": "BOTTOM_WIDE"
+		},
+		"UniEnemyPanel": {
+			"anchor_bottom": 0.0,
+			"anchor_left": 0.0,
+			"anchor_right": 1.0,
+			"anchor_top": 0.0,
+			"offset_bottom": 1575.0,
+			"offset_left": 24.0,
+			"offset_right": -24.0,
+			"offset_top": 1505.0,
+			"preset": "TOP_WIDE"
+		},
+		"UniTeamPanel": {
+			"anchor_bottom": 0.0,
+			"anchor_left": 0.0,
+			"anchor_right": 1.0,
+			"anchor_top": 0.0,
+			"offset_bottom": 316.0,
+			"offset_left": 24.0,
+			"offset_right": -24.0,
+			"offset_top": 138.0,
+			"preset": "TOP_WIDE"
+		}
+	},
+	"version": 1.0,
+	"window": {
+		"h": 1920.0,
+		"w": 1080.0
+	}
+}

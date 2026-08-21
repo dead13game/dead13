@@ -19,14 +19,20 @@ config/features=PackedStringArray("4.7")
 McpInteractionServer="*res://autoload/mcp_interaction_server.gd"
 GameManager="*res://scripts/autoload/game_manager.gd"
 AudioManager="*res://scripts/autoload/audio_manager.gd"
+FantasyThemeLoader="*res://scripts/autoload/fantasy_theme_loader.gd"
+UiDebugOverlay="*res://scripts/ui/ui_debug_overlay.gd"
 
 [display]
 
 window/size/viewport_width=1080
 window/size/viewport_height=1920
-window/size/mode=1
+window/size/window_width_override=540
+window/size/window_height_override=960
 window/stretch/mode="canvas_items"
-window/stretch/aspect="keep"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/at-icons/plugin.cfg")
 
 [gui]
 

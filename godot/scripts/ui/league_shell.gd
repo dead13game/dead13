@@ -213,7 +213,7 @@ func _show_round_result(round: int) -> void:
 	if lg.has("_lastScore"):
 		var score_label := Label.new()
 		score_label.text = "3v3 战报：你 %d : %d 对手" % [int(lg["_lastScore"][0]), int(lg["_lastScore"][1])]
-		score_label.add_theme_font_size_override("font_size", 24)
+		score_label.add_theme_font_size_override("font_size", 26)
 		score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		_content.add_child(score_label)
 	# 死亡顺序
@@ -227,7 +227,7 @@ func _show_round_result(round: int) -> void:
 		if not order_parts.is_empty():
 			var order_label := Label.new()
 			order_label.text = "死亡顺序：%s" % " → ".join(order_parts)
-			order_label.add_theme_font_size_override("font_size", 20)
+			order_label.add_theme_font_size_override("font_size", 26)
 			order_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			_content.add_child(order_label)
 

@@ -2,18 +2,23 @@
 
 [ext_resource type="Script" uid="uid://ctpjhw4n6yi2o" path="res://scripts/ui/game_table.gd" id="1_table"]
 [ext_resource type="Script" uid="uid://bxn36op3gn1d3" path="res://scripts/ui/starfield.gd" id="2_star"]
+[ext_resource type="Texture2D" uid="uid://n8ct7snp45j1" path="res://addons/at-icons/control/sword.svg" id="3_sword"]
+[ext_resource type="Texture2D" uid="uid://x40sadipuast" path="res://addons/at-icons/control/shield.svg" id="4_shield"]
+[ext_resource type="Texture2D" uid="uid://cgicuqnxixymx" path="res://addons/at-icons/control/dice.svg" id="5_dice"]
+[ext_resource type="Texture2D" uid="uid://dkmc74b8o8v0x" path="res://addons/at-icons/control/magic_wand.svg" id="6_wand"]
+[ext_resource type="Texture2D" uid="uid://da3exjwmwcve3" path="res://addons/at-icons/control/link.svg" id="7_link"]
+[ext_resource type="Texture2D" uid="uid://65158qi6d82x" path="res://addons/at-icons/control/heart_broken.svg" id="8_broken"]
+[ext_resource type="Texture2D" uid="uid://cip0jcapvsr8l" path="res://addons/at-icons/control/gem.svg" id="9_gem"]
+[ext_resource type="Texture2D" uid="uid://cdcd4l83jtir3" path="res://addons/at-icons/control/folder.svg" id="10_folder"]
+[ext_resource type="Texture2D" uid="uid://bwvkqaqffqo6o" path="res://addons/at-icons/control/folder_open.svg" id="11_fopen"]
+[ext_resource type="Texture2D" uid="uid://d4k2vvp3eikhp" path="res://addons/at-icons/control/football.svg" id="12_football"]
+[ext_resource type="StyleBox" path="res://assets/styles/fantasy_panel.tres" id="20_fp"]
+[ext_resource type="StyleBox" path="res://assets/styles/fantasy_button_normal.tres" id="21_fbn"]
+[ext_resource type="StyleBox" path="res://assets/styles/fantasy_button_hover.tres" id="22_fbh"]
+[ext_resource type="StyleBox" path="res://assets/styles/fantasy_button_pressed.tres" id="23_fbp"]
+[ext_resource type="Theme" uid="uid://corx3u7fsd2u3" path="res://assets/themes/calinou_dark.tres" id="theme_cal"]
+[ext_resource type="Texture2D" path="res://assets/images/game_bg.png" id="bg_img"]
 
-
-[sub_resource type="Gradient" id="Gradient_bg"]
-offsets = PackedFloat32Array(0, 0.25, 0.5, 0.75, 1)
-colors = PackedColorArray(0.0196078, 0.0196078, 0.12549, 1, 0.0509804, 0.0627451, 0.207843, 1, 0.0705882, 0.0941176, 0.266667, 1, 0.0392157, 0.0588235, 0.180392, 1, 0.0235294, 0.0352941, 0.12549, 1)
-
-[sub_resource type="GradientTexture2D" id="GradientTexture2D_bg"]
-gradient = SubResource("Gradient_bg")
-width = 1080
-height = 1920
-fill_from = Vector2(1, 0)
-fill_to = Vector2(0, 1)
 [node name="GameTable" type="Control" unique_id=1238366867]
 layout_mode = 3
 anchors_preset = 15
@@ -21,6 +26,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = ExtResource("theme_cal")
 script = ExtResource("1_table")
 
 [node name="Background" type="TextureRect" parent="." unique_id=1892849665]
@@ -30,18 +36,24 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-texture = SubResource("GradientTexture2D_bg")
+texture = ExtResource("bg_img")
+expand_mode = 1
+stretch_mode = 6
 
-[node name="Starfield" type="Node2D" parent="."]
+[node name="Starfield" type="Node2D" parent="." unique_id=319667831]
 script = ExtResource("2_star")
+
 [node name="TopBar" type="PanelContainer" parent="." unique_id=1464100161]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
+offset_left = 24.0
 offset_top = 12.0
+offset_right = -24.0
 offset_bottom = 78.0
 grow_horizontal = 2
+theme_override_styles/panel = ExtResource("20_fp")
 
 [node name="Inner" type="Control" parent="TopBar" unique_id=1901252973]
 layout_mode = 2
@@ -53,10 +65,11 @@ anchors_preset = 9
 anchor_bottom = 1.0
 offset_left = 24.0
 offset_top = 12.0
-offset_right = 140.0
+offset_right = 170.0
 offset_bottom = -12.0
 grow_vertical = 2
-theme_override_font_sizes/font_size = 32
+theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
+theme_override_font_sizes/font_size = 40
 text = "回合 1"
 vertical_alignment = 1
 
@@ -65,12 +78,13 @@ unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 9
 anchor_bottom = 1.0
-offset_left = 150.0
+offset_left = 184.0
 offset_top = 12.0
-offset_right = 320.0
+offset_right = 352.0
 offset_bottom = -12.0
 grow_vertical = 2
-theme_override_font_sizes/font_size = 32
+theme_override_colors/font_color = Color(1, 0.835, 0.31, 1)
+theme_override_font_sizes/font_size = 28
 text = "天气：无"
 vertical_alignment = 1
 
@@ -79,13 +93,13 @@ unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 9
 anchor_bottom = 1.0
-offset_left = 330.0
+offset_left = 364.0
 offset_top = 12.0
-offset_right = 500.0
+offset_right = 600.0
 offset_bottom = -12.0
 grow_vertical = 2
-theme_override_font_sizes/font_size = 32
-text = "牌库 104"
+theme_override_font_sizes/font_size = 28
+text = "牌库 104 / 墓地 12"
 vertical_alignment = 1
 
 [node name="TurnLabel" type="Label" parent="TopBar/Inner" unique_id=733571055]
@@ -93,26 +107,28 @@ unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 9
 anchor_bottom = 1.0
-offset_left = 652.0
+offset_left = 612.0
 offset_top = 12.0
-offset_right = 882.0
+offset_right = 764.0
 offset_bottom = -12.0
 grow_vertical = 2
-theme_override_font_sizes/font_size = 32
+theme_override_colors/font_color = Color(1, 0.85, 0.3, 1)
+theme_override_font_sizes/font_size = 28
 text = "当前：玩家1"
 vertical_alignment = 1
 
 [node name="ScoreLabel" type="Label" parent="TopBar/Inner" unique_id=738276173]
 unique_name_in_owner = true
+visible = false
 layout_mode = 1
 anchors_preset = 9
 anchor_bottom = 1.0
-offset_left = 750.0
+offset_left = 776.0
 offset_top = 12.0
 offset_right = 900.0
 offset_bottom = -12.0
 grow_vertical = 2
-theme_override_font_sizes/font_size = 32
+theme_override_font_sizes/font_size = 28
 vertical_alignment = 1
 
 [node name="MenuBtn" type="Button" parent="TopBar/Inner" unique_id=111132812]
@@ -120,38 +136,51 @@ unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 9
 anchor_bottom = 1.0
-offset_left = 910.0
+offset_left = 908.0
 offset_top = 10.0
-offset_right = 1040.0
+offset_right = 1032.0
 offset_bottom = -10.0
 grow_vertical = 2
-theme_override_font_sizes/font_size = 32
+theme_override_font_sizes/font_size = 28
+theme_override_styles/normal = ExtResource("21_fbn")
+theme_override_styles/pressed = ExtResource("23_fbp")
+theme_override_styles/hover = ExtResource("22_fbh")
 text = "返回"
 
-[node name="PlayersRow" type="FlowContainer" parent="." unique_id=663630278]
-unique_name_in_owner = true
+[node name="SeatScroll" type="ScrollContainer" parent="." unique_id=987654321]
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
 offset_left = 24.0
 offset_top = 90.0
 offset_right = -24.0
-offset_bottom = 540.0
+offset_bottom = 560.0
 grow_horizontal = 2
+horizontal_scroll_mode = 0
+
+[node name="SeatWrap" type="VBoxContainer" parent="SeatScroll" unique_id=987654322]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="PlayersRow" type="GridContainer" parent="SeatScroll/SeatWrap" unique_id=663630278]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
 theme_override_constants/h_separation = 12
 theme_override_constants/v_separation = 12
+columns = 2
 
-[node name="StageLabel" type="Label" parent="." unique_id=1229439950]
+[node name="InfoLabel" type="Label" parent="." unique_id=725358742]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
 offset_left = 24.0
-offset_top = 555.0
+offset_top = 568.0
 offset_right = -24.0
-offset_bottom = 625.0
+offset_bottom = 632.0
 grow_horizontal = 2
-theme_override_font_sizes/font_size = 36
+theme_override_font_sizes/font_size = 28
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -163,23 +192,10 @@ anchor_right = 1.0
 offset_left = 24.0
 offset_top = 640.0
 offset_right = -24.0
-offset_bottom = 1230.0
+offset_bottom = 1060.0
 grow_horizontal = 2
 theme_override_constants/separation = 15
 alignment = 1
-
-[node name="InfoLabel" type="Label" parent="." unique_id=725358742]
-unique_name_in_owner = true
-layout_mode = 1
-anchors_preset = 10
-anchor_right = 1.0
-offset_left = 24.0
-offset_top = 1245.0
-offset_right = -24.0
-offset_bottom = 1305.0
-grow_horizontal = 2
-horizontal_alignment = 1
-vertical_alignment = 1
 
 [node name="LogPanel" type="PanelContainer" parent="." unique_id=2135564671]
 unique_name_in_owner = true
@@ -188,12 +204,13 @@ anchors_preset = 12
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = 15.0
+offset_left = 24.0
 offset_top = -510.0
-offset_right = -15.0
+offset_right = -24.0
 offset_bottom = -270.0
 grow_horizontal = 2
 grow_vertical = 0
+theme_override_styles/panel = ExtResource("20_fp")
 
 [node name="LogMargin" type="MarginContainer" parent="LogPanel" unique_id=2125449837]
 layout_mode = 2
@@ -205,8 +222,10 @@ theme_override_constants/margin_bottom = 9
 [node name="LogTitle" type="VBoxContainer" parent="LogPanel/LogMargin" unique_id=1012528279]
 layout_mode = 2
 size_flags_vertical = 3
+theme_override_constants/separation = 4
 
 [node name="LogHeading" type="Label" parent="LogPanel/LogMargin/LogTitle" unique_id=1253802093]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 28
 text = "战斗日志"
@@ -214,130 +233,190 @@ text = "战斗日志"
 [node name="LogScroll" type="ScrollContainer" parent="LogPanel/LogMargin/LogTitle" unique_id=326753073]
 layout_mode = 2
 size_flags_vertical = 3
+horizontal_scroll_mode = 0
 
 [node name="LogList" type="VBoxContainer" parent="LogPanel/LogMargin/LogTitle/LogScroll" unique_id=972826424]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
+theme_override_constants/separation = 4
 
-[node name="AttackBtn" type="Button" parent="." unique_id=2128907346]
+[node name="ActionBar" type="PanelContainer" parent="." unique_id=2135564672]
 unique_name_in_owner = true
 layout_mode = 1
-offset_left = 37.0
-offset_top = 1667.0
-offset_right = 157.0
-offset_bottom = 1737.0
-theme_override_font_sizes/font_size = 23
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+offset_top = -530.0
+offset_right = -24.0
+offset_bottom = -24.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_styles/panel = ExtResource("20_fp")
+
+[node name="ActionInner" type="Control" parent="ActionBar" unique_id=2135564673]
+layout_mode = 2
+
+[node name="ActionVBox" type="VBoxContainer" parent="ActionBar/ActionInner" unique_id=2135564674]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 24
+alignment = 1
+
+[node name="Row1" type="HBoxContainer" parent="ActionBar/ActionInner/ActionVBox" unique_id=2135564675]
+layout_mode = 2
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="AttackBtn" type="Button" parent="ActionBar/ActionInner/ActionVBox/Row1" unique_id=2128907346]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(128, 70)
+layout_mode = 2
+theme_override_constants/icon_max_width = 22
+theme_override_font_sizes/font_size = 26
+theme_override_styles/normal = ExtResource("21_fbn")
+theme_override_styles/pressed = ExtResource("23_fbp")
+theme_override_styles/hover = ExtResource("22_fbh")
 text = "攻击"
+icon = ExtResource("3_sword")
 
-[node name="DefenseBtn" type="Button" parent="." unique_id=1360366870]
+[node name="DefenseBtn" type="Button" parent="ActionBar/ActionInner/ActionVBox/Row1" unique_id=1360366870]
 unique_name_in_owner = true
-layout_mode = 1
-offset_left = 188.0
-offset_top = 1667.0
-offset_right = 308.0
-offset_bottom = 1737.0
-theme_override_font_sizes/font_size = 23
+custom_minimum_size = Vector2(128, 70)
+layout_mode = 2
+theme_override_constants/icon_max_width = 22
+theme_override_font_sizes/font_size = 26
+theme_override_styles/normal = ExtResource("21_fbn")
+theme_override_styles/pressed = ExtResource("23_fbp")
+theme_override_styles/hover = ExtResource("22_fbh")
 text = "防御"
+icon = ExtResource("4_shield")
 
-[node name="GambleBtn" type="Button" parent="." unique_id=788039363]
+[node name="GambleBtn" type="Button" parent="ActionBar/ActionInner/ActionVBox/Row1" unique_id=788039363]
 unique_name_in_owner = true
-layout_mode = 1
-offset_left = 356.0
-offset_top = 1667.0
-offset_right = 476.0
-offset_bottom = 1737.0
-theme_override_font_sizes/font_size = 23
+custom_minimum_size = Vector2(128, 70)
+layout_mode = 2
+theme_override_constants/icon_max_width = 22
+theme_override_font_sizes/font_size = 26
+theme_override_styles/normal = ExtResource("21_fbn")
+theme_override_styles/pressed = ExtResource("23_fbp")
+theme_override_styles/hover = ExtResource("22_fbh")
 text = "赌命"
+icon = ExtResource("5_dice")
 
-[node name="SkillBtn" type="Button" parent="." unique_id=394133800]
+[node name="SkillBtn" type="Button" parent="ActionBar/ActionInner/ActionVBox/Row1" unique_id=394133800]
 unique_name_in_owner = true
-layout_mode = 1
-offset_left = 37.0
-offset_top = 1790.0
-offset_right = 157.0
-offset_bottom = 1860.0
-theme_override_font_sizes/font_size = 23
+custom_minimum_size = Vector2(128, 70)
+layout_mode = 2
+theme_override_constants/icon_max_width = 22
+theme_override_font_sizes/font_size = 26
+theme_override_styles/normal = ExtResource("21_fbn")
+theme_override_styles/pressed = ExtResource("23_fbp")
+theme_override_styles/hover = ExtResource("22_fbh")
 text = "技能"
+icon = ExtResource("6_wand")
 
-[node name="AllyBtn" type="Button" parent="." unique_id=812934001]
+[node name="HolyBtn" type="Button" parent="ActionBar/ActionInner/ActionVBox/Row1" unique_id=1037281058]
 unique_name_in_owner = true
-layout_mode = 1
-offset_left = 703.0
-offset_top = 1667.0
-offset_right = 823.0
-offset_bottom = 1737.0
-theme_override_font_sizes/font_size = 23
-text = "结盟"
-
-[node name="BetrayBtn" type="Button" parent="." unique_id=345337511]
-unique_name_in_owner = true
-layout_mode = 1
-offset_left = 875.0
-offset_top = 1667.0
-offset_right = 995.0
-offset_bottom = 1737.0
-theme_override_font_sizes/font_size = 23
-text = "背刺"
-
-[node name="HolyBtn" type="Button" parent="." unique_id=1037281058]
-unique_name_in_owner = true
-layout_mode = 1
-offset_left = 532.0
-offset_top = 1790.0
-offset_right = 652.0
-offset_bottom = 1860.0
-theme_override_font_sizes/font_size = 23
+custom_minimum_size = Vector2(128, 70)
+layout_mode = 2
+theme_override_constants/icon_max_width = 22
+theme_override_font_sizes/font_size = 26
+theme_override_styles/normal = ExtResource("21_fbn")
+theme_override_styles/pressed = ExtResource("23_fbp")
+theme_override_styles/hover = ExtResource("22_fbh")
 text = "圣言自明"
+icon = ExtResource("9_gem")
 
-[node name="SaveBtn" type="Button" parent="." unique_id=641094990]
+[node name="Row2" type="HBoxContainer" parent="ActionBar/ActionInner/ActionVBox" unique_id=2135564676]
+layout_mode = 2
+theme_override_constants/separation = 16
+alignment = 1
+
+[node name="CancelBtn" type="Button" parent="ActionBar/ActionInner/ActionVBox/Row2" unique_id=1392112822]
 unique_name_in_owner = true
-layout_mode = 0
-offset_left = 188.0
-offset_top = 1790.0
-offset_right = 308.0
-offset_bottom = 1860.0
+custom_minimum_size = Vector2(128, 70)
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+theme_override_styles/normal = ExtResource("21_fbn")
+theme_override_styles/pressed = ExtResource("23_fbp")
+theme_override_styles/hover = ExtResource("22_fbh")
+text = "取消"
+
+[node name="AllyBtn" type="Button" parent="ActionBar/ActionInner/ActionVBox/Row2" unique_id=812934001]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(128, 70)
+layout_mode = 2
+theme_override_constants/icon_max_width = 22
+theme_override_font_sizes/font_size = 26
+theme_override_styles/normal = ExtResource("21_fbn")
+theme_override_styles/pressed = ExtResource("23_fbp")
+theme_override_styles/hover = ExtResource("22_fbh")
+text = "结盟"
+icon = ExtResource("7_link")
+
+[node name="BetrayBtn" type="Button" parent="ActionBar/ActionInner/ActionVBox/Row2" unique_id=345337511]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(128, 70)
+layout_mode = 2
+theme_override_constants/icon_max_width = 22
+theme_override_font_sizes/font_size = 26
+theme_override_styles/normal = ExtResource("21_fbn")
+theme_override_styles/pressed = ExtResource("23_fbp")
+theme_override_styles/hover = ExtResource("22_fbh")
+text = "背刺"
+icon = ExtResource("8_broken")
+
+[node name="SaveBtn" type="Button" parent="ActionBar/ActionInner/ActionVBox/Row2" unique_id=641094990]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(128, 70)
+layout_mode = 2
+theme_override_constants/icon_max_width = 22
+theme_override_font_sizes/font_size = 26
+theme_override_styles/normal = ExtResource("21_fbn")
+theme_override_styles/pressed = ExtResource("23_fbp")
+theme_override_styles/hover = ExtResource("22_fbh")
 text = "存档"
+icon = ExtResource("10_folder")
 
-[node name="LoadBtn" type="Button" parent="." unique_id=1039750003]
+[node name="LoadBtn" type="Button" parent="ActionBar/ActionInner/ActionVBox/Row2" unique_id=1039750003]
 unique_name_in_owner = true
-layout_mode = 0
-offset_left = 356.0
-offset_top = 1790.0
-offset_right = 476.0
-offset_bottom = 1860.0
+custom_minimum_size = Vector2(128, 70)
+layout_mode = 2
+theme_override_constants/icon_max_width = 22
+theme_override_font_sizes/font_size = 26
+theme_override_styles/normal = ExtResource("21_fbn")
+theme_override_styles/pressed = ExtResource("23_fbp")
+theme_override_styles/hover = ExtResource("22_fbh")
 text = "读档"
+icon = ExtResource("11_fopen")
 
-[node name="StealBtn" type="Button" parent="." unique_id=156561239]
+[node name="StealBtn" type="Button" parent="ActionBar/ActionInner/ActionVBox/Row2" unique_id=156561239]
 unique_name_in_owner = true
-layout_mode = 1
-offset_left = 188.0
-offset_top = 1790.0
-offset_right = 308.0
-offset_bottom = 1860.0
-theme_override_font_sizes/font_size = 23
+custom_minimum_size = Vector2(128, 70)
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+theme_override_styles/normal = ExtResource("21_fbn")
+theme_override_styles/pressed = ExtResource("23_fbp")
+theme_override_styles/hover = ExtResource("22_fbh")
 text = "偷牌"
 
-[node name="DotBtn" type="Button" parent="." unique_id=628765096]
+[node name="DotBtn" type="Button" parent="ActionBar/ActionInner/ActionVBox/Row2" unique_id=628765096]
 unique_name_in_owner = true
-layout_mode = 1
-offset_left = 356.0
-offset_top = 1790.0
-offset_right = 476.0
-offset_bottom = 1860.0
-theme_override_font_sizes/font_size = 23
+custom_minimum_size = Vector2(128, 70)
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+theme_override_styles/normal = ExtResource("21_fbn")
+theme_override_styles/pressed = ExtResource("23_fbp")
+theme_override_styles/hover = ExtResource("22_fbh")
 text = "DoT"
-
-[node name="CancelBtn" type="Button" parent="." unique_id=1392112822]
-unique_name_in_owner = true
-layout_mode = 1
-offset_left = 532.0
-offset_top = 1667.0
-offset_right = 652.0
-offset_bottom = 1737.0
-theme_override_font_sizes/font_size = 23
-text = "取消"
 
 [node name="Overlay" type="PanelContainer" parent="." unique_id=673633313]
 unique_name_in_owner = true
@@ -348,6 +427,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_styles/panel = ExtResource("20_fp")
 
 [node name="OvCenter" type="CenterContainer" parent="Overlay" unique_id=1675550681]
 layout_mode = 2
@@ -376,6 +456,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_styles/panel = ExtResource("20_fp")
 
 [node name="SubsCenter" type="CenterContainer" parent="SubsPanel" unique_id=455520617]
 layout_mode = 2
@@ -413,6 +494,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_styles/panel = ExtResource("20_fp")
 
 [node name="PenCenter" type="CenterContainer" parent="PenaltyPanel" unique_id=255304071]
 layout_mode = 2
@@ -443,7 +525,12 @@ autowrap_mode = 3
 unique_name_in_owner = true
 custom_minimum_size = Vector2(300, 72)
 layout_mode = 2
-text = "⚽ 踢点球"
+theme_override_constants/icon_max_width = 26
+theme_override_styles/normal = ExtResource("21_fbn")
+theme_override_styles/pressed = ExtResource("23_fbp")
+theme_override_styles/hover = ExtResource("22_fbh")
+text = "踢点球"
+icon = ExtResource("12_football")
 
 [node name="PenaltyFinishBtn" type="Button" parent="PenaltyPanel/PenCenter/PenVBox" unique_id=557902563]
 unique_name_in_owner = true

@@ -1,7 +1,7 @@
 # CLAUDE.md — 亡命十三街 Godot 版架构参考
 
-亡命十三街 — 基于扑克牌的多人对战游戏。**当前形态：Vue 3 + PixiJS + Tauri 版 → Godot 4.7 迁移版（`godot/`）**。
-工作流与分工见 **agent.md**；本文件维护架构、构建关键点、关键文件、项目状态等辅助参考。
+亡命十三街 — 基于扑克牌的多人对战游戏。**当前形态： Godot 4.7 迁移版（`godot/`）**。
+工作流与分工见 **AGENTS.md**；本文件维护架构、构建关键点、关键文件、项目状态等辅助参考。
 最终目标：**手机浏览器打开 GitHub Pages 玩**（竖屏 1080×1920，单线程 Web 导出）。
 
 ## 常用命令
@@ -24,7 +24,7 @@ godot --headless --path godot --export-release "Windows Desktop"
 
 ## 禁用操作（硬规则）
 
-- **禁止**：`git push` / gh CLI / `git clone` / `git pull`（已写入 `reasonix.toml` deny）
+- **禁止**：`git push` / gh CLI / `git clone` / `git pull`
 - **允许**：本地 `git commit`；push 一律由项目作者手动执行
 
 ## 架构
@@ -55,13 +55,19 @@ godot/
       uni_combat.gd uni_skills.gd uni_shop.gd uni_events.gd
       ai/ ai_core.gd ai_easy.gd ai_skilled.gd ai_hell.gd ai.gd
     ui/                       # 场景驱动骨架 + 脚本动态内容
+      layout_registry.gd      # 动态 UI 布局单一真源（apply_to 约定，见「构建关键点」）
+      layout_registry.json    # 动态 UI 布局数据（preset + anchor_* + offset_*）
+      ui_debug_overlay.gd     # 运行时 UI 调试浮层（autoload，F1）
+  tools/
+    ui_adjust.gd              # UI 布局调整工具（headless）
+    ui_adjust_agent.md        # UI 调参子代理定义
   tests/                      # 10 套 headless 自测（含圣遗物）
 ```
 
 ## 游戏模式
 
 | 模式 | 逻辑文件 | 说明 |
-|---|---|---|
+| --- | --- | --- |
 | 经典对战 | game_state.gd + combat/gamble/alliance/skills 等 | 2-8 人扑克对战 |
 | 世界杯 | world_cup.gd + match_state.gd | 小组赛→淘汰赛 R16/QF/SF/Final；点球 |
 | 联赛 | league.gd + league_constants.gd | 10 队双循环 18 轮；**3v3 完整版**（选秀+6人+死亡顺序计分） |
@@ -82,7 +88,7 @@ STEP:  pickAction → attackShowCard → pickTarget → … → pickAction（循
 ## 核心规则（逻辑层）
 
 - `godot/scripts/game/` 是纯逻辑层 — 零 UI 依赖
-- 伤害计算：先 -2 再 2:1 联盟分配，向下取整
+- 经典模式伤害计算：先 -2 再 2:1 联盟分配，向下取整
 - 行动顺序按 `CHARACTERS[id].speed` 每回合重排（大=先动，dead 排末尾，同速按 index）
 - Player 嵌套字段写完整路径：`statusEffects.xxx` / `relations.xxx`
 - 开发日志：`state.soundQueue`（音效事件）由 audio_manager 消费；`state.log`/`messageLog`（文本）由 UI 显示
@@ -95,13 +101,25 @@ STEP:  pickAction → attackShowCard → pickTarget → … → pickAction（循
 - **节点约定**：脚本 `@onready var x = %UniqueName`；节点缺失时脚本降级兜底（场景搭一半也能跑）
 - **Container 陷阱**：Container 内子节点编辑器拖不动；要让人类拖动必须用绝对定位（PanelContainer/Control + anchor/offset）
 - **布局分工（固定不变）**：分辨率固定 1080×1920；**固定元素全部独立绝对定位**（数量恒定的按钮组/标签/区块，即使条件显隐也算固定元素）；**仅动态列表保留容器**（判断标准：数量会变才用容器）
+- **动态 UI 布局注册表（硬性约定，写新动态控件必守）**：脚本动态创建 + 需要绝对定位的控件，一律 `LayoutRegistry.apply_to(node, "名字", 预设)`（`scripts/ui/layout_registry.gd`），数值登记进 `scripts/ui/layout_registry.json`（preset + anchor_*+ offset_*），**禁止裸写 `offset_*` 硬编码**。收尾跑 `godot --headless --path godot --script res://tools/ui_adjust.gd -- <{"op":"audit"}>` 查漏登记（调用了但 JSON 没条目 = missing，必须补；有条目但无调用 = orphan，可清理）
+- **UI 布局统一调整体系**：调试浮层 `scripts/ui/ui_debug_overlay.gd`（autoload，进游戏按 F1：悬停/点选读节点名+rect，列表按字典序）→ 人类把「节点名+效果」发给子代理 → 子代理用 `tools/ui_adjust.gd`（headless，op: list/inspect/search/move/align/resize/set/registry/audit；场景 .tscn 与注册表都支持；容器子节点自动拦截；写前自动备份到 tools/.ui_adjust_backups/，已 gitignore）。子代理定义与用法见 `tools/ui_adjust_agent.md`、`docs/ui-adjust-workflow.md`
+- **布局设计分工（旧规则已废除）**：AI 负责**初步 UI 布局设计**——新 UI 区块/按钮/面板的初始位置/尺寸/间距按审美给初版（遵循布局准则，见上）；人类负责**最终微调与手感验收**（F1 调试浮层 + UI 调参子代理，报「节点名+效果」，不翻代码）；AI 仍不自己开游戏试错
 - **音频**：Godot 只支持 PCM/float WAV；非 PCM 导入失败（历史坑，坏文件已清理）
 - **字体（Web 必须）**：Godot 默认字体**不含中文字形**（桌面靠系统字体回退正常，Web 无回退 → 中文全乱码/方块）。项目已打包字体并设为默认：`assets/fonts/default_theme_font.tres`（FontVariation = NotoSansSC-VF.ttf 主字体 + NotoColorEmoji.ttf 回退），project.godot `gui/theme/custom_font` 指向它。**新增 UI 文本无需处理，自动生效**；如需换字体改 tres 即可。注意：勿用微软雅黑/宋体等版权字体分发
+
+## 视觉 / 主题约定（固定不变）
+
+- **素材**：整体 UI 用 Kenney 两包（CC0）——`assets/kenney/fantasy-ui-borders`（面板/按钮/分隔条边框）+ `assets/kenney/playing-cards`（抽的牌：手牌/赌命/观星）。卡牌**直接用贴图**（`card_textures.gd` 按 suit/rank 映射 `card_{suit}_{rank}.png`），不重画
+- **UI 文字最小字号 26px（硬性，场景 + 脚本生成均适用）**：新增任何 UI 文本字号不得低于 26；低于的一律提到 26
+- **所有 Button/Label 用 Fantasy 风格**：场景驱动的按钮/标签在 `.tscn` 里挂 `theme_override_styles`（`assets/styles/fantasy_*.tres`，StyleBoxTexture 九宫格，检查器可见可换图）；脚本动态创建的由全局 autoload `scripts/autoload/fantasy_theme_loader.gd` 自动套（`node_added` 钩子，已有 override 的跳过）
+- **主题引擎坑（本机 Godot 4.7.1）**：`Control.theme` / `gui/theme/custom` / `ThemeDB.default_theme` 的 **stylebox 与 color 运行时都不生效**，仅 `font_size` 生效；唯一可靠路径是 per-node `theme_override_*`（含 `node_added` 自动 override）。NeoCade 主题仅 `addons/` 保留未启用
+- **卡牌组件**：`scripts/ui/card_control.gd`（CardControl，Kenney 贴图 + 点数角标 + 点击信号）+ `scripts/ui/player_seat.gd`（角色牌桌：立绘/名字/角色/HP 条/状态/防御阵/陷阱/高亮/阵亡）
+- **战斗动画**（复现 Vue）：`scripts/ui/game_table.gd` 内——抽牌/发牌/翻牌（`_animate_deal`）、攻击牌飞向目标（`_animate_fly_to_target`）、飞入墓地（`_animate_to_grave`）、受伤闪白/防御击穿抖动/死亡粒子（`PlayerSeat` + `_spawn_death_burst`）
 
 ## 关键文件
 
 | 文件 | 说明 |
-|---|---|
+| --- | --- |
 | scripts/autoload/game_manager.gd | 跨场景状态 + 模式入口 + 3v3 死亡顺序回调 |
 | scripts/autoload/audio_manager.gd | 12 类 SFX 轮询 + menu/battle1/battle2 BGM |
 | scripts/autoload/save_manager.gd | localStorage / user:// 双后端 |
@@ -110,6 +128,10 @@ STEP:  pickAction → attackShowCard → pickTarget → … → pickAction（循
 | scripts/game/artifacts.gd | 圣遗物：击破计数(陷阱+2/防御+1)→8 发动圣言自明(每局2次, 2回合, 额外行动)；激活期间禁温迪/雷神/风堇大招（规则见 update_log/圣遗物系统.md） |
 | scripts/ui/solo_shell.gd | 单人主壳（场景骨架化样板） |
 | scripts/game/solo_combat.gd | 单机战斗（enemyBuff null 坑已修） |
+| scripts/ui/layout_registry.gd + .json | 动态 UI 布局单一真源（apply_to 约定 + 条目数据；新增动态绝对定位控件必登记） |
+| scripts/ui/ui_debug_overlay.gd | 运行时 UI 调试浮层（autoload；F1 开关，悬停/点选复制「节点名\|场景\|rect」） |
+| tools/ui_adjust.gd | UI 布局调整工具（headless；op: list/inspect/search/move/align/resize/set/registry/audit；写前自动备份） |
+| tools/ui_adjust_agent.md | UI 调参子代理定义（Spawn 模板见文末） |
 | export_presets.cfg | Web + Windows 预设 |
 
 ## 已修复的关键 Bug（禁止重复犯错）
@@ -124,3 +146,7 @@ STEP:  pickAction → attackShowCard → pickTarget → … → pickAction（循
 - 逻辑自测：`godot/tests/test_*.gd`（extends SceneTree，PASS/FAIL 输出，`quit(_failures)`）
 - 交互调试归人类（agent.md 分工）；AI 只用 headless 跑测试/校验语法（`godot_validate_script`）
 - AI 调试注意：`eval` 返回复杂对象易超时；复杂循环改独立测试脚本
+
+## node
+
+- 默认终端为Git Bash

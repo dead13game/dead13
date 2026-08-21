@@ -38,6 +38,8 @@ Sounds/
 # Godot
 godot/.godot/
 godot/build/
+# UI 调整工具的自动备份（可删，不入库）
+godot/tools/.ui_adjust_backups/
 
 # 迁移会话临时解压目录
 .migration-session/

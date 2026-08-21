@@ -134,7 +134,7 @@ func _refresh_log() -> void:
 		var l := Label.new()
 		l.text = String(logs[existing])
 		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		l.add_theme_font_size_override("font_size", 18)
+		l.add_theme_font_size_override("font_size", 26)
 		_log_box.add_child(l)
 		existing += 1
 
@@ -142,11 +142,12 @@ func _clear_content() -> void:
 	for child in _content.get_children():
 		child.queue_free()
 
-func _add_label(text: String, font_size: int = 15) -> Label:
+func _add_label(text: String, font_size: int = 26) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.add_theme_font_size_override("font_size", font_size)
+	# 硬性规则：UI 文本最小 26px；空串仅作行距占位，不参与字号下限
+	l.add_theme_font_size_override("font_size", maxi(font_size, 26) if text != "" else font_size)
 	_content.add_child(l)
 	return l
 
@@ -170,7 +171,7 @@ func _show_map() -> void:
 	if not _msg.is_empty():
 		var msg_label := Label.new()
 		msg_label.text = _msg
-		msg_label.add_theme_font_size_override("font_size", 21)
+		msg_label.add_theme_font_size_override("font_size", 26)
 		msg_label.add_theme_color_override("font_color", Color(0.6, 1.0, 0.7))
 		_content.add_child(msg_label)
 		_msg = ""

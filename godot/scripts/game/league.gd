@@ -293,6 +293,7 @@ static func calculate_match_score(death_order: Array, player_team_id: int, oppon
 					player_score += points
 				else:
 					opponent_score += points
+		# 双方都有存活（回合上限结束）：未淘汰者不参与名次计分 → 平局倾向（原设计）
 
 	var winner: Variant = null
 	if player_score > opponent_score:
