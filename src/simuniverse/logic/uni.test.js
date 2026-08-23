@@ -1736,16 +1736,22 @@ describe("模拟宇宙 M7：全量祝福效果", () => {
     });
   });
 
-  it("结膜：普攻后获得 3 张防御牌", () => {
+  it("结膜：普攻后抽 3 张牌，点数加入防御值", () => {
     const s = createUniState();
     gainBlessing(s, "jiemo");
     s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 2 }] };
     startCombat(s);
     const attackerIdx = s.combat.activeIdx;
-    const before = s.team[attackerIdx].status.defensePile.length;
-    setPoker(s, 5);
+    const before = s.team[attackerIdx].shield;
+    // drawPoker 从牌堆尾部 pop：普攻抽 5，结膜抽 4+3+2
+    s.combat.pokerDeck = [
+      { value: 2, rank: "2", suit: "♠" },
+      { value: 3, rank: "3", suit: "♠" },
+      { value: 4, rank: "4", suit: "♠" },
+      { value: 5, rank: "5", suit: "♠" },
+    ];
     playerAttack(s, s.combat.enemies[0].id);
-    expect(s.team[attackerIdx].status.defensePile.length).toBe(before + 3);
+    expect(s.team[attackerIdx].shield).toBe(before + 9); // 4+3+2
   });
 
   it("回光效应：受致命攻击免死回复 1%", () => {

@@ -4,6 +4,8 @@
 
 import { LOG_TYPE } from "../../game/gameLogger.js";
 import { EQUATION_DUPE_SHARDS } from "./uniConstants.js";
+// 延迟引用：drawPoker 仅在函数体内调用（uniCombat ↔ uniBuffs 循环依赖，运行时解析）
+import { drawPoker } from "./uniCombat.js";
 
 /** 祝福数据表（六命运，第一版 18 个：12×1星 + 4×2星 + 2×3星） */
 export const BLESSINGS = {
@@ -518,11 +520,12 @@ export function triggerOnAttackAfter(state, memberIdx, targetEnemyId, baseDmg) {
   if (!target) return;
   const jiemo = BLESSINGS.jiemo?.fx?.defCards || 0;
   if (jiemo && blessingMult(state, "jiemo") > 0) {
+    // 结膜：普攻后抽 N 张牌，点数直接加入防御（与防御行动同机制）
     const n = blessingVal(state, "jiemo", "defCards");
-    for (let i = 0; i < n; i++) {
-      t.status.defensePile.push({ value: 2, rank: "盾", suit: "♦" });
-    }
-    state.log.push(`结膜：${t.name} 普攻后获得 ${n} 张防御牌`);
+    const cards = drawPoker(state, n);
+    const total = cards.reduce((s, p) => s + p.value, 0);
+    t.shield += total;
+    state.log.push(`结膜：${t.name} 普攻后抽 ${n} 张牌（${cards.map((p) => p.rank + p.suit).join(" + ")} = ${total}），防御 +${total}`);
   }
   const yanliFx = BLESSINGS.yanli?.fx;
   if (yanliFx && blessingMult(state, "yanli") > 0) {
