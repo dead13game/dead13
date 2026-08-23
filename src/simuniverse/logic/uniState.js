@@ -24,12 +24,19 @@ import { createShopStock, resetWorkbench } from "./uniShop.js";
 import { rollEvent } from "./uniEvents.js";
 import {
   CURIO_FX,
+  CURIOS,
+  EQUATIONS,
   gainBlessing,
   rollBlessing,
+  rollCurio,
   gainCurio,
+  loseRandomBlessing,
   loseRandomCurio,
   gainEquation,
   rollEquation,
+  breakCurio,
+  loseCurio,
+  curioVal,
 } from "./uniBuffs.js";
 
 /** 默认队伍（前 4 个角色，便于测试；正式开局由 UI 选角） */
@@ -113,6 +120,8 @@ export function createUniState(charIds = DEFAULT_TEAM_IDS) {
     tempSkillBoost: 0, // 下次战斗技能等级 +N（经验卷轴 C，战斗结束失效）
     jarBrain: 0, // 罐中脑充能（0-100，SMR杏仁核等充能）
     uniFirstUltUsed: false, // 阈下知觉：首次终结技标记
+    // 被动技能指定队友（火神/少女 8-10 级）：{ mav: [idx...], shao: [idx...] }；null = 默认自动补足
+    passiveAssign: { mav: null, shao: null },
   };
   state.devLog = createGameLogger(() => state);
   state.devLog.info(LOG_TYPE.UNI_INIT, "模拟宇宙开始", {
@@ -129,13 +138,32 @@ export function createUniState(charIds = DEFAULT_TEAM_IDS) {
 
 // ---- 被动技能同步（少女/玛薇卡，等级变化时调用）----
 
-/** 技能受益成员：拥有者必含，其余按队伍 index 升序补足 */
-function beneficiaryTeam(state, ownerIdx, count) {
+/** 技能受益成员：拥有者必含；有指定列表时优先取指定（按序补足），否则按队伍 index 升序补足 */
+function beneficiaryTeam(state, ownerIdx, count, assign) {
   const set = [ownerIdx];
+  if (Array.isArray(assign)) {
+    for (const i of assign) {
+      if (set.length >= count) break;
+      if (!set.includes(i)) set.push(i);
+    }
+  }
   for (let i = 0; i < state.team.length && set.length < count; i++) {
     if (!set.includes(i)) set.push(i);
   }
   return set;
+}
+
+/**
+ * 指定被动技能受益队友（火神/少女 8-10 级）。
+ * @param {string} who 'mav'（火神斗志）| 'shao'（少女攻防）
+ * @param {number[]} memberIdxList 除拥有者外要享受加成队友的 index 数组
+ */
+export function setPassiveAssign(state, who, memberIdxList = []) {
+  state.passiveAssign = state.passiveAssign || { mav: null, shao: null };
+  const valid = memberIdxList.filter((i) => i >= 0 && i < state.team.length);
+  state.passiveAssign[who] = valid.length ? valid : null;
+  syncPassives(state);
+  return { ok: true, assign: state.passiveAssign[who] };
 }
 
 /** 同步被动技能状态（玛薇卡斗志 / 少女攻防加成），等级变化后调用 */
@@ -147,7 +175,7 @@ export function syncPassives(state) {
     const sk = UNI_SKILLS[6];
     const lv = Math.min(mav.skillLevel, 10);
     const cap = sk.values[lv - 1];
-    const benef = beneficiaryTeam(state, mav.index, sk.team[lv - 1]);
+    const benef = beneficiaryTeam(state, mav.index, sk.team[lv - 1], state.passiveAssign?.mav);
     team.forEach((t) => {
       if (benef.includes(t.index)) {
         t.status.spiritCap = cap;
@@ -163,7 +191,7 @@ export function syncPassives(state) {
     const sk = UNI_SKILLS[7];
     const lv = Math.min(shao.skillLevel, 10);
     const val = sk.values[lv - 1];
-    const benef = beneficiaryTeam(state, shao.index, sk.team[lv - 1]);
+    const benef = beneficiaryTeam(state, shao.index, sk.team[lv - 1], state.passiveAssign?.shao);
     team.forEach((t) => {
       const on = benef.includes(t.index);
       t.status.atkBonus = on ? val : 0;
@@ -334,46 +362,64 @@ export function enterRegion(state) {
 function applyCurioRegionHooks(state, r) {
   const battleLike = ["battle", "elite", "boss", "transform"].includes(r.type);
   const softLike = ["event", "reward", "adventure", "fortune"].includes(r.type);
-  const removeCurio = (id) => {
-    const i = state.curios.findIndex((c) => c.id === id);
-    if (i >= 0) state.curios.splice(i, 1);
-  };
   // 祭献投枪：战斗类 +35 / 软性类 -35（连续进入额外 +35）
   if (hasCurio(state, "jixian")) {
     if (battleLike) {
-      addShards(state, (CURIO_FX.jixian?.battleGain || 35) + (state.lastRegionType === r.type ? (CURIO_FX.jixian?.chainGain || 35) : 0));
+      addShards(state, curioVal(state, "jixian", "battleGain") + (state.lastRegionType === r.type ? curioVal(state, "jixian", "chainGain") : 0));
     } else if (softLike) {
-      addShards(state, -(CURIO_FX.jixian?.softLoss || 35));
+      addShards(state, -curioVal(state, "jixian", "softLoss"));
     }
   }
   // 鲁珀特帝国机械齿轮：+50，超过 750 损毁并 -750
   if (hasCurio(state, "lubeite")) {
-    addShards(state, CURIO_FX.lubeite?.gain || 50);
+    addShards(state, curioVal(state, "lubeite", "gain"));
     if (state.shards > (CURIO_FX.lubeite?.cap || 750)) {
-      removeCurio("lubeite");
+      breakCurio(state, "lubeite");
       addShards(state, -(CURIO_FX.lubeite?.penalty || 750));
       state.log.push("鲁珀特帝国机械齿轮损毁");
     }
   }
   // 分裂金币：+5% 碎片
   if (hasCurio(state, "fenlie_jb")) {
-    addShards(state, Math.ceil(state.shards * ((CURIO_FX.fenlie_jb?.shardsPct || 5) / 100)));
+    addShards(state, Math.ceil(state.shards * (curioVal(state, "fenlie_jb", "shardsPct") / 100)));
   }
-  // 昨天的重量：+35，碎片减少累计 3 次损毁
+  // 终端卫士：事件区域 +75 碎片（触发 3 次后损毁）
+  if (hasCurio(state, "zhongduan") && r.type === "event") {
+    const z = state.curios.find((c) => c.id === "zhongduan");
+    z.count = (z.count || 0) + 1;
+    addShards(state, curioVal(state, "zhongduan", "gain"));
+    state.log.push(`终端卫士：+${curioVal(state, "zhongduan", "gain")} 碎片`);
+    if (z.count >= (CURIO_FX.zhongduan?.triggers || 3)) {
+      breakCurio(state, "zhongduan");
+      state.log.push("终端卫士：已损毁");
+    }
+  }
+  // 大饼干：进入新位面时获得 1 个 1-2 星祝福（触发 2 次后损毁）
+  if (hasCurio(state, "dabinggan") && state.plane > (state.dabingganPlane || 1)) {
+    state.dabingganPlane = state.plane;
+    const d = state.curios.find((c) => c.id === "dabinggan");
+    d.count = (d.count || 0) + 1;
+    const count = curioVal(state, "dabinggan", "count");
+    for (let i = 0; i < count; i++) {
+      const id = rollBlessing(...(CURIO_FX.dabinggan?.starRange || [1, 2]));
+      if (id) gainBlessing(state, id, { silent: true });
+    }
+    state.log.push(`大饼干：进入新位面，获得 ${count} 个 1-2 星祝福`);
+    if (d.count >= (CURIO_FX.dabinggan?.triggers || 2)) breakCurio(state, "dabinggan");
+  }
+  // 昨天的重量：+35，碎片减少次数累计 3 次损毁（减少次数由 addShards 负增量统计）
   if (hasCurio(state, "zuotian")) {
-    addShards(state, CURIO_FX.zuotian?.gain || 35);
-    state.zuotianShrinks = (state.zuotianShrinks || 0) + 1;
-    if (state.zuotianShrinks >= (CURIO_FX.zuotian?.triggers || 3)) removeCurio("zuotian");
+    addShards(state, curioVal(state, "zuotian", "gain"));
   }
   // 睡眠和死亡：碎片 ≤10 损毁 +400
   if (hasCurio(state, "shui") && state.shards <= (CURIO_FX.shui?.shardsMax || 10)) {
-    removeCurio("shui");
-    addShards(state, CURIO_FX.shui?.gain || 400);
+    breakCurio(state, "shui");
+    addShards(state, curioVal(state, "shui", "gain"));
     state.log.push("睡眠和死亡：损毁并 +400 碎片");
   }
-  // 无爱之尘：奇物 ≥4 失去 3 个随机奇物 + 1 方程
+  // 无爱之尘：奇物 ≥4 失去自身与其他 3 个随机奇物 + 1 方程
   if (hasCurio(state, "wulian") && state.curios.length >= (CURIO_FX.wulian?.minCurios || 4)) {
-    removeCurio("wulian");
+    loseCurio(state, "wulian");
     for (let i = 0; i < (CURIO_FX.wulian?.loseCount || 3) && state.curios.length > 0; i++) loseRandomCurio(state);
     const eq = rollEquation(1, 3);
     if (eq) gainEquation(state, eq);
@@ -382,7 +428,7 @@ function applyCurioRegionHooks(state, r) {
   if (hasCurio(state, "linji")) {
     state.linjiRegions = (state.linjiRegions || 0) + 1;
     if (state.linjiRegions >= (CURIO_FX.linji?.regions || 5)) {
-      removeCurio("linji");
+      breakCurio(state, "linji");
       addShards(state, -(CURIO_FX.linji?.penalty || 450));
       state.log.push("临时赌资：损毁并 -450 碎片");
     }
@@ -392,39 +438,91 @@ function applyCurioRegionHooks(state, r) {
     for (const t of state.team) {
       if (!t.alive) continue;
       t.hp = Math.max(1, Math.ceil(t.hp * (1 - (CURIO_FX.haimian?.hpCut || 0.8))));
-      t.maxHp = Math.ceil(t.maxHp * (1 + (CURIO_FX.haimian?.maxHpMult || 10) / 100));
+      t.maxHp = Math.ceil(t.maxHp * (1 + curioVal(state, "haimian", "maxHpMult") / 100));
     }
     state.haimianCount = (state.haimianCount || 0) + 1;
-    if (state.haimianCount >= (CURIO_FX.haimian?.triggers || 4)) removeCurio("haimian");
+    if (state.haimianCount >= (CURIO_FX.haimian?.triggers || 4)) breakCurio(state, "haimian");
   }
   // 菠萝：累计 3 区域损毁 -99% 生命
   if (hasCurio(state, "bobo")) {
     state.boboCount = (state.boboCount || 0) + 1;
     if (state.boboCount >= 3) {
-      removeCurio("bobo");
+      breakCurio(state, "bobo");
       for (const t of state.team) t.hp = Math.max(1, Math.ceil(t.hp * 0.01));
       state.log.push("菠萝：损毁，全队损失 99% 生命");
     }
   }
-  // 水上书：回满 + 复活死亡角色
+  // 量子大乐透：进入区域 10% 概率获得负面奇物，10% 概率损毁（损毁时 +400）
+  if (hasCurio(state, "liangzi")) {
+    const roll = Math.random();
+    if (roll < 0.1) {
+      const negPool = Object.values(CURIOS).filter((c) => c.negative);
+      if (negPool.length) gainCurio(state, negPool[Math.floor(Math.random() * negPool.length)].id, { silent: true });
+    } else if (roll < 0.2) {
+      breakCurio(state, "liangzi");
+      addShards(state, curioVal(state, "liangzi", "gain"));
+      state.log.push("量子大乐透：损毁并 +400 碎片");
+    }
+  }
+  // 银河大乐透：进入区域 10% 概率获得奇物，10% 概率损毁并全队 -99% 当前生命
+  if (hasCurio(state, "yinhe")) {
+    const roll = Math.random();
+    if (roll < 0.1) {
+      const id = rollCurio(false, 1, 3);
+      if (id) gainCurio(state, id, { silent: true });
+    } else if (roll < 0.2) {
+      breakCurio(state, "yinhe");
+      const hpPct = curioVal(state, "yinhe", "hpPct");
+      for (const t of state.team) t.hp = Math.max(1, Math.ceil(t.hp * (1 - hpPct / 100)));
+      state.log.push(`银河大乐透：损毁，全队损失 ${hpPct}% 当前生命`);
+    }
+  }
+  // 采矿吸尘器（大型）：进入冒险/财富区域获得 1-2 星祝福（触发 5 次后损毁）
+  if (hasCurio(state, "caikuang") && (r.type === "adventure" || r.type === "fortune")) {
+    const c = state.curios.find((x) => x.id === "caikuang");
+    c.count = (c.count || 0) + 1;
+    const count = curioVal(state, "caikuang", "count");
+    for (let i = 0; i < count; i++) {
+      const id = rollBlessing(...(CURIO_FX.caikuang?.starRange || [1, 2]));
+      if (id) gainBlessing(state, id, { silent: true });
+    }
+    state.log.push(`采矿吸尘器：+${count} 个 1-2 星祝福`);
+    if (c.count >= (CURIO_FX.caikuang?.triggers || 5)) breakCurio(state, "caikuang");
+  }
+  // 失金爪锚：5 区域后损毁；碎片 <500 时失去 5 个随机祝福后损毁
+  if (hasCurio(state, "shijin")) {
+    const sj = state.curios.find((x) => x.id === "shijin");
+    if (state.shards < (CURIO_FX.shijin?.minShards || 500)) {
+      for (let i = 0; i < 5 && state.blessings.length; i++) loseRandomBlessing(state);
+      breakCurio(state, "shijin");
+      state.log.push("失金爪锚：碎片不足 500，失去 5 个祝福并损毁");
+    } else {
+      sj.regions = (sj.regions || 0) + 1;
+      if (sj.regions >= (CURIO_FX.shijin?.regions || 5)) breakCurio(state, "shijin");
+    }
+  }
+  // 有形幸运：碎片 <250 补足 250
+  if (hasCurio(state, "luck") && state.shards < curioVal(state, "luck", "floor")) {
+    addShards(state, curioVal(state, "luck", "floor") - state.shards);
+    state.log.push("有形幸运：宇宙碎片补足");
+  }
+  // 水上书：回满 + 复活死亡角色（满血复活）
   if (hasCurio(state, "shuishang")) {
     for (const t of state.team) {
       t.hp = t.maxHp;
       if (!t.alive) {
         t.alive = true;
-        t.hp = Math.max(1, Math.ceil(t.maxHp * 0.5));
+        t.hp = t.maxHp;
       }
       t.status.stunned = false;
       t.status.puppet = null;
     }
-    state.log.push("水上书：全队回满并复活");
+    state.log.push("水上书：全队回满并复活（满血）");
   }
-  // 大饼干：区域升级 1 个 1-2 星祝福（2 次损毁）
-  if (hasCurio(state, "dabinggan")) {
-    const id = rollBlessing(...(CURIO_FX.dabinggan?.starRange || [1, 2]));
-    if (id) gainBlessing(state, id);
-    state.dabingganCount = (state.dabingganCount || 0) + 1;
-    if (state.dabingganCount >= (CURIO_FX.dabinggan?.triggers || 2)) removeCurio("dabinggan");
+  // 和平的代价：进入商店 +150
+  if (hasCurio(state, "heping") && r.type === "shop") {
+    addShards(state, curioVal(state, "heping", "gain"));
+    state.log.push("和平的代价：+碎片");
   }
   // 纯美之袍：战斗类区域 +10% 碎片
   if (hasCurio(state, "chunmei_pao") && battleLike) {
@@ -434,6 +532,30 @@ function applyCurioRegionHooks(state, r) {
   if (hasCurio(state, "kuaile") && state.lastRegionType === r.type) {
     addShards(state, -(CURIO_FX.kuaile?.cost || 25));
     loseRandomCurio(state);
+  }
+  // 记忆轮：每次进入任意区域时，将所有方程替换为随机相同星级方程
+  if (hasCurio(state, "jiyi")) {
+    state.equations = state.equations.map((e) => {
+      const pool = Object.values(EQUATIONS).filter((x) => x.star === e.star && x.id !== e.id);
+      if (!pool.length) return e;
+      const next = pool[Math.floor(Math.random() * pool.length)];
+      return { id: next.id, star: next.star, enhanced: e.enhanced || 1 };
+    });
+    state.log.push("记忆轮：方程置换为随机同星级方程");
+  }
+  // 瘟疫巢都：随机失去 2 个负面奇物，获得 2 个随机祝福；每失去 1 个负面奇物，战斗伤害 +10%
+  if (hasCurio(state, "wenyi")) {
+    const negs = state.curios.filter((c) => c.negative && !c.broken);
+    const lostCount = Math.min(2, negs.length);
+    for (let i = 0; i < lostCount; i++) {
+      loseCurio(state, negs[i].id, true);
+    }
+    state.wenyiLost = (state.wenyiLost || 0) + lostCount;
+    for (let i = 0; i < 2; i++) {
+      const id = rollBlessing(1, 3);
+      if (id) gainBlessing(state, id, { silent: true });
+    }
+    if (lostCount > 0) state.log.push(`瘟疫巢都：失去 ${lostCount} 个负面奇物，获得 2 个祝福`);
   }
   // 记录上次区域类型（连续区域判定）
   state.lastRegionType = r.type;
@@ -492,19 +614,27 @@ export function advanceFloor(state) {
 
 // ---- 货币 ----
 
-/** 持有指定奇物 */
+/** 持有指定奇物（已损毁的不算持有） */
 export function hasCurio(state, id) {
-  return state.curios?.some((c) => c.id === id);
+  return state.curios?.some((c) => c.id === id && !c.broken);
 }
 
 /** 获得碎片（受奇物修正：铸铁齿轮指环 +30% / 机动指环 -50% / 天才八卦 +50%） */
 export function addShards(state, n) {
   if (n > 0) {
-    if (hasCurio(state, "zhutie")) n = Math.ceil(n * (CURIO_FX.zhutie?.shardsMult || 1.3));
+    if (hasCurio(state, "zhutie")) n = Math.ceil(n * curioVal(state, "zhutie", "shardsMult"));
     if (hasCurio(state, "jidong")) n = Math.ceil(n * (1 - (CURIO_FX.jidong?.shardsCut || 0.5)));
-    if (hasCurio(state, "tiancai")) n = Math.ceil(n * (CURIO_FX.tiancai?.shardsMult || 1.5));
+    if (hasCurio(state, "tiancai")) n = Math.ceil(n * curioVal(state, "tiancai", "shardsMult"));
   }
   state.shards = Math.max(0, state.shards + n);
+  // 昨天的重量：碎片减少次数累计 3 次损毁（所有减少碎片的行为都计数）
+  if (n < 0 && hasCurio(state, "zuotian")) {
+    state.shardsShrinkCount = (state.shardsShrinkCount || 0) + 1;
+    if (state.shardsShrinkCount >= (CURIO_FX.zuotian?.triggers || 3)) {
+      breakCurio(state, "zuotian");
+      state.log.push("昨天的重量：碎片减少 3 次，已损毁");
+    }
+  }
   if (n !== 0) {
     state.devLog.debug(LOG_TYPE.UNI_SHARDS, "宇宙碎片变化", {
       delta: n,
@@ -518,6 +648,14 @@ export function addShards(state, n) {
 export function spendShards(state, n) {
   if (state.shards < n) return false;
   state.shards -= n;
+  // 昨天的重量：碎片减少次数累计（商店/覆写/事件花费都算）
+  if (hasCurio(state, "zuotian")) {
+    state.shardsShrinkCount = (state.shardsShrinkCount || 0) + 1;
+    if (state.shardsShrinkCount >= (CURIO_FX.zuotian?.triggers || 3)) {
+      breakCurio(state, "zuotian");
+      state.log.push("昨天的重量：碎片减少 3 次，已损毁");
+    }
+  }
   state.devLog.debug(LOG_TYPE.UNI_SHARDS, "宇宙碎片消耗", {
     delta: -n,
     shards: state.shards,

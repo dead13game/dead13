@@ -731,7 +731,7 @@ describe("模拟宇宙 M2：战斗结束", () => {
 });
 
 describe("模拟宇宙 M3：角色技能", () => {
-  it("温迪：爆发 N 张牌（等级 1 = 2 张），伤害 = 牌面和 - 2", () => {
+  it("温迪：爆发 N 张牌（等级 1 = 2 张），伤害 = 牌面和（无 -2）", () => {
     const s = createUniState([1, 2, 3, 4]);
     startCombat(s);
     s.team[0].skillLevel = 1;
@@ -744,9 +744,9 @@ describe("模拟宇宙 M3：角色技能", () => {
     const hpBefore = enemy.hp;
     const r = playerSkill(s, enemy.id);
     expect(r.ok).toBe(true);
-    // 等级 1 → 2 张牌：4+3=7，-2 → 5
-    expect(enemy.hp).toBe(hpBefore - 5);
-    expect(s.team[0].skillCooldown).toBe(7);
+    // 等级 1 → 2 张牌：4+3=7（最新规则：无 -2，总伤害享受所有加成）
+    expect(enemy.hp).toBe(hpBefore - 7);
+    expect(s.team[0].skillCooldown).toBe(6);
   });
 
   it("钟离：全队护盾（等级 1 = 18）", () => {
@@ -899,9 +899,9 @@ describe("模拟宇宙 M3：角色技能", () => {
     startCombat(s);
     const r = playerSkill(s, s.combat.enemies[0].id);
     expect(r.ok).toBe(true);
-    expect(s.team[0].skillCooldown).toBe(7); // 开大当回合
+    expect(s.team[0].skillCooldown).toBe(6); // 开大当回合（温迪最新冷却 6）
     startPlayerTurn(s);
-    expect(s.team[0].skillCooldown).toBe(6); // 下回合 -1
+    expect(s.team[0].skillCooldown).toBe(5); // 下回合 -1
   });
 
   it("canUseUniSkill：冷却中 / 被动不可用", () => {
@@ -971,51 +971,40 @@ describe("模拟宇宙 M3：菜月昴死亡回归", () => {
 });
 
 describe("模拟宇宙 M4：事件系统", () => {
-  it("事件池完整性：9 事件 + 8 奖励 + 3 冒险", () => {
-    expect(Object.keys(UNI_EVENTS)).toHaveLength(9);
-    expect(Object.keys(UNI_REWARDS)).toHaveLength(8);
+  it("事件池完整性：30 事件 + 30 奖励 + 3 冒险", () => {
+    expect(Object.keys(UNI_EVENTS)).toHaveLength(30);
+    expect(Object.keys(UNI_REWARDS)).toHaveLength(30);
     expect(Object.keys(UNI_ADVENTURES)).toHaveLength(3);
   });
 
-  it("迷途商队 A：指引方向 → 1 次祝福三选一入队", () => {
+  it("旅行商人 A：支付 50 碎片 → 1 个 1 星祝福", () => {
     const s = createUniState();
-    const r = applyEventOption(s, "caravan", 0);
+    addShards(s, 100);
+    const r = applyEventOption(s, "traveling_merchant", 0);
     expect(r.ok).toBe(true);
-    expect(s.pendingBlessingPicks).toHaveLength(1);
-    expect(s.pendingBlessingPicks[0].candidates).toHaveLength(3);
-    // 选择祝福
-    const pick = s.pendingBlessingPicks[0].candidates[0];
-    const c = chooseBlessingPick(s, pick);
-    expect(c.ok).toBe(true);
-    expect(s.pendingBlessingPicks).toBeNull();
-    expect(s.blessings.some((b) => b.id === pick)).toBe(true);
+    expect(s.shards).toBe(50);
+    expect(s.blessings.some((b) => b.star === 1)).toBe(true);
   });
 
-  it("瘟疫村庄 B：封锁村庄 → +150 碎片", () => {
+  it("有毒的泉水 C：绕过 → +150 碎片", () => {
     const s = createUniState();
-    applyEventOption(s, "plague", 1);
+    applyEventOption(s, "poison_spring", 2);
     expect(s.shards).toBe(150);
   });
 
-  it("废弃哨塔 A：随机角色技能 +1", () => {
+  it("被遗弃的武器 A：指定角色技能 +2（needSkillTarget → applySkillUp）", () => {
     const s = createUniState();
-    const r = applyEventOption(s, "watchtower", 0);
+    const r = applyEventOption(s, "abandoned_weapon", 0);
     expect(r.ok).toBe(true);
-    expect(s.team.some((t) => t.skillLevel > 1)).toBe(true);
-  });
-
-  it("经验卷轴 A：指定角色技能 +2（needSkillTarget → applySkillUp）", () => {
-    const s = createUniState();
-    const r = applyEventOption(s, "expScroll", 0);
     expect(r.outcome.needSkillTarget).toBe(2);
     const up = applySkillUp(s, 1, 2);
     expect(up.ok).toBe(true);
     expect(s.team[1].skillLevel).toBe(3);
   });
 
-  it("经验卷轴 B：全队技能 +1；菜月昴不可升级", () => {
+  it("最后的篝火 B：全队技能 +1；菜月昴不可升级", () => {
     const s = createUniState([1, 11, 2, 3]);
-    applyEventOption(s, "expScroll", 1);
+    applyEventOption(s, "last_campfire", 1);
     expect(s.team[0].skillLevel).toBe(2);
     expect(s.team[1].skillLevel).toBe(1); // 菜月昴
     expect(s.team[2].skillLevel).toBe(2);
@@ -1066,9 +1055,17 @@ describe("模拟宇宙 M4：事件系统", () => {
     expect(["大吉", "中吉", "小吉", "凶"]).toContain(r.outcome.lottery.best);
   });
 
-  it("深渊裂缝 A：精英战胜利 → 指定角色技能 +2（事件战斗奖励 skillUpTarget 不再丢失）", () => {
+  it("大转盘：转动轮盘获得 3 档结果之一", () => {
     const s = createUniState();
-    const r = applyEventOption(s, "abyss", 0);
+    addShards(s, 100);
+    const r = applyEventOption(s, "big_wheel", 0);
+    expect(r.ok).toBe(true);
+    expect(r.outcome.roulette).toBeTruthy();
+  });
+
+  it("破损的传送门 B：精英战胜利 → 全队技能 +1（事件战斗奖励 skillUpAll）", () => {
+    const s = createUniState();
+    const r = applyEventOption(s, "broken_gate", 1);
     expect(r.outcome.battle).toBeTruthy();
     s.region = { type: "battle", name: "事件战斗", waves: r.outcome.battle.waves };
     startCombat(s);
@@ -1078,13 +1075,13 @@ describe("模拟宇宙 M4：事件系统", () => {
     });
     playerDefense(s, 0);
     expect(s.combat.phase).toBe("won");
-    expect(s.pendingSkillUpTarget).toBe(2); // 修复前此奖励被丢弃
+    expect(s.team.every((t) => t.skillLevel >= 2)).toBe(true); // 全队 +1
   });
 
   it("无可升级角色（只剩菜月昴）→ 技能升级奖励放弃，不卡死", () => {
     const s = createUniState([11, 11, 11, 11]); // 全队菜月昴
     s.team.slice(1).forEach((t) => (t.alive = false));
-    const r = applyEventOption(s, "expScroll", 0); // 经验卷轴 A：指定角色技能 +2
+    const r = applyEventOption(s, "abandoned_weapon", 0); // 指定角色技能 +2
     expect(r.ok).toBe(true);
     expect(r.outcome.needSkillTarget).toBeUndefined(); // 放弃奖励
     // 事件战斗奖励同样放弃
@@ -1149,24 +1146,24 @@ describe("模拟宇宙 M4：事件系统", () => {
     expect(s.combat.phase).toBe("won");
   });
 
-  it("迷途商队 B：护送 → 事件战斗 → 胜利后 2 次祝福三选一", () => {
+  it("强盗营地 C：拒绝 → 事件战斗（普通×5）→ 胜利 +150 碎片", () => {
     const s = createUniState();
-    const r = applyEventOption(s, "caravan", 1);
+    const r = applyEventOption(s, "bandit_camp", 2);
     expect(r.outcome.battle).toBeTruthy();
-    expect(r.outcome.battle.waves).toEqual([{ kind: "normal", count: 3 }]);
-    expect(s.pendingEventReward.blessingPick).toBe(2);
+    expect(r.outcome.battle.waves).toEqual([{ kind: "normal", count: 5 }]);
+    expect(s.pendingEventReward.shards).toBe(150);
     // 进入事件战斗
     s.region = { type: "battle", name: "事件战斗", waves: r.outcome.battle.waves };
     startCombat(s);
-    // 全灭敌人 + 玩家防御 → 波次清空 → 胜利
     s.combat.enemies.forEach((e) => {
       e.hp = 0;
       e.alive = false;
     });
+    const before = s.shards;
     playerDefense(s, 0);
     expect(s.combat.phase).toBe("won");
     expect(s.pendingEventReward).toBeNull();
-    expect(s.pendingBlessingPicks).toHaveLength(2);
+    expect(s.shards).toBe(before + 150);
   });
 
   it("急救包：战斗开始自动回 10% 并消耗", () => {
@@ -1178,10 +1175,9 @@ describe("模拟宇宙 M4：事件系统", () => {
     expect(s.team[0].hp).toBe(5 + Math.ceil(s.team[0].maxHp * 0.1));
   });
 
-  it("战术手册·进攻战术：下次战斗全队伤害 +30%", () => {
+  it("下次战斗 buff 机制（atkUp）：伤害 +30%，战斗结束失效", () => {
     const s = createUniState();
-    applyEventOption(s, "manual", 0); // 进攻战术
-    expect(s.nextBattleBuffs.atkUp).toBe(true);
+    s.nextBattleBuffs.atkUp = true;
     s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 1 }] };
     startCombat(s);
     expect(s.combat.buffs).toContain("atkUp");
@@ -1200,59 +1196,72 @@ describe("模拟宇宙 M4：事件系统", () => {
     expect(s.nextBattleBuffs).toEqual({});
   });
 
-  it("封印之门 B：解读符文（150 碎片 → 3 个 1~2 星祝福）", () => {
-    const s = createUniState();
-    addShards(s, 300);
-    const r = applyEventOption(s, "gate", 1);
-    expect(r.ok).toBe(true);
-    expect(s.shards).toBe(150);
-    // 3 次获得（可能含重复强化合并）
-    const totalGained = s.blessings.reduce((a, b) => a + (b.enhanced || 1), 0);
-    expect(totalGained).toBe(3);
-    s.blessings.forEach((b) => expect(b.star).toBeLessThanOrEqual(2));
-  });
-
-  it("古代祭坛 A：3 星方程 + 2 奇物，损失 60% 生命上限", () => {
+  it("回声洞穴 A：大喊 → 3 星方程 + 损失 20% 生命", () => {
     const s = createUniState();
     s.team.forEach((t) => (t.hp = t.maxHp));
-    const r = applyEventOption(s, "altar", 0);
+    const r = applyEventOption(s, "echo_cave", 0);
     expect(r.ok).toBe(true);
-    // 至少 1 个 3 星方程（奇物「纯美骑士精神」可能额外给方程）
     expect(s.equations.some((e) => e.star === 3)).toBe(true);
-    // 2 次奇物获得（可能含重复强化合并）
-    const curioGained = s.curios.reduce((a, c) => a + (c.enhanced || 1), 0);
-    expect(curioGained).toBe(2);
-    s.team.forEach((t) => expect(t.hp).toBe(Math.max(1, t.maxHp - Math.floor((t.maxHp * 60) / 100))));
+    s.team.forEach((t) => expect(t.hp).toBe(Math.max(1, t.maxHp - Math.floor((t.maxHp * 20) / 100))));
   });
 
-  it("神秘箱子 B：500 碎片但失去所有防御牌（defensePile 清空）", () => {
+  it("符文陷阱 B：硬扛符文 → 全队护盾减少 20%", () => {
     const s = createUniState();
     s.team.forEach((t) => {
-      t.status.defensePile.push({ value: 2, rank: "?", suit: "♠" }, { value: 4, rank: "?", suit: "♠" });
+      t.status.defensePile.push({ value: 2, rank: "?", suit: "♠" }, { value: 2, rank: "?", suit: "♠" }, { value: 2, rank: "?", suit: "♠" }, { value: 2, rank: "?", suit: "♠" }, { value: 2, rank: "?", suit: "♠" });
     });
-    const r = applyEventOption(s, "box", 1);
+    const r = applyEventOption(s, "rune_trap", 1);
     expect(r.ok).toBe(true);
-    expect(s.shards).toBe(500);
-    expect(s.team.every((t) => t.status.defensePile.length === 0)).toBe(true);
+    s.team.forEach((t) => expect(t.status.defensePile).toHaveLength(4)); // 5 → 保留 80% = 4
   });
 
-  it("防护卷轴 A：全队获得 5 张防御牌（defensePile）", () => {
+  it("老铁匠 A：加固护甲 → 全队 4 张防御牌", () => {
     const s = createUniState();
-    const r = applyEventOption(s, "scroll", 0);
+    const r = applyEventOption(s, "old_blacksmith", 0);
     expect(r.ok).toBe(true);
-    s.team.forEach((t) => expect(t.status.defensePile).toHaveLength(5));
+    s.team.forEach((t) => expect(t.status.defensePile).toHaveLength(4));
   });
 
-  it("迷途商队 C：100 碎片但全队失去 1 张防御牌", () => {
+  it("旅行商人 B：支付 100 碎片 → 全队 3 张防御牌", () => {
     const s = createUniState();
-    s.team.forEach((t) => {
-      t.status.defensePile.push({ value: 2, rank: "?", suit: "♠" }, { value: 4, rank: "?", suit: "♠" });
-    });
-    const r = applyEventOption(s, "caravan", 2);
+    addShards(s, 100);
+    const r = applyEventOption(s, "traveling_merchant", 1);
+    expect(r.ok).toBe(true);
+    expect(s.shards).toBe(0);
+    s.team.forEach((t) => expect(t.status.defensePile).toHaveLength(3));
+  });
+
+  it("流浪医师 B：支付 200 碎片复活一名阵亡角色（满血）", () => {
+    const s = createUniState();
+    addShards(s, 300);
+    s.team[2].alive = false;
+    s.team[2].hp = 0;
+    const r = applyEventOption(s, "wandering_doctor", 1);
     expect(r.ok).toBe(true);
     expect(s.shards).toBe(100);
-    s.team.forEach((t) => expect(t.status.defensePile).toHaveLength(1));
+    expect(s.team[2].alive).toBe(true);
+    expect(s.team[2].hp).toBe(s.team[2].maxHp);
   });
+
+  it("催眠花丛 B：吸入香气 → 获得 1 个负面奇物", () => {
+    const s = createUniState();
+    const r = applyEventOption(s, "sleepy_flowers", 1);
+    expect(r.ok).toBe(true);
+    expect(s.curios.some((c) => CURIOS[c.id]?.negative)).toBe(true);
+  });
+
+  it("幽灵商人 A：支付 2 个 2 星祝福 → +150 碎片", () => {
+    const s = createUniState();
+    gainBlessing(s, "ganlu"); // 1 星
+    gainBlessing(s, "qiebian"); // 2 星
+    gainBlessing(s, "huikui"); // 2 星
+    const r = applyEventOption(s, "ghost_merchant", 0);
+    expect(r.ok).toBe(true);
+    expect(s.shards).toBe(150);
+    expect(s.blessings.some((b) => b.id === "ganlu")).toBe(true); // 1 星保留
+    expect(s.blessings.filter((b) => b.star === 2)).toHaveLength(0); // 2 星被支付
+  });
+
   it("宏块抹除的航路：终结技伤害 +20%（仅开大，不作用于普攻）", () => {
     const s = createUniState([3, 1, 2, 4]); // 雷电将军在前
     gainBlessing(s, "hongkuai"); // 宏块：skillDmgMult +20%
@@ -1329,9 +1338,9 @@ describe("模拟宇宙 M4：事件系统", () => {
     gainBlessing(s, "yundi");
     for (let i = 0; i < 10; i++) gainBlessing(s, "yundi");
     expect(blessingVal(s, "yundi", "every")).toBe(6); // min 约束
-    // 无 lv 表祝福回退 fx（3 星）
+    // 3 星祝福读 lv 表首值（神性构筑·谐振传递 = 50%，文档最新）
     gainBlessing(s, "shenxing");
-    expect(blessingVal(s, "shenxing", "shieldPct")).toBe(100);
+    expect(blessingVal(s, "shenxing", "shieldPct")).toBe(50);
   });
 
   it("首领胜利：获得 250 碎片 + 2×3星祝福三选一 + 2 个 2~3 星方程（reward.equations 不再丢失）", () => {
@@ -1541,7 +1550,9 @@ describe("模拟宇宙 M5：奇物与方程效果", () => {
     });
     playerDefense(s, 0);
     expect(s.blessings.some((b) => b.star === 3)).toBe(true);
-    expect(s.curios.some((c) => c.id === "fujiao")).toBe(false); // 损毁
+    // 损毁 = 保留在背包标记 broken（可再次获得），效果消失
+    expect(s.curios.find((c) => c.id === "fujiao")?.broken).toBe(true);
+    expect(s.curios.some((c) => c.id === "fujiao" && !c.broken)).toBe(false);
   });
 
   it("时空棱镜：获得时全队技能等级 +2", () => {
@@ -1852,7 +1863,8 @@ describe("模拟宇宙 M8：全量奇物", () => {
       s.region = { type: "fortune", name: "财富" };
       enterRegion(s);
     }
-    expect(s.curios.some((c) => c.id === "linji")).toBe(false);
+    expect(s.curios.find((c) => c.id === "linji")?.broken).toBe(true);
+    expect(s.curios.some((c) => c.id === "linji" && !c.broken)).toBe(false);
     expect(s.shards).toBe(600 + 300 + 5 * 300 - 450);
   });
 

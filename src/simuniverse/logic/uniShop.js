@@ -13,6 +13,7 @@ import {
   gainBlessing,
   gainCurio,
   gainEquation,
+  curioVal,
 } from "./uniBuffs.js";
 import { spendShards, addShards } from "./uniState.js";
 
@@ -47,29 +48,36 @@ export function createShopStock(state) {
   return stock;
 }
 
-/** 商品价格（受奇物修正：公司/中等念头 +25%、邪恶卫星 -25%、铸铁齿轮 +30%） */
+/** 商品价格（受奇物修正：公司/中等念头 +25%、邪恶卫星 -25%、铸铁齿轮 +30%；已损毁不生效） */
 export function shopPrice(state, type, star) {
   let p = SHOP_PRICE[type][star] || 0;
-  const priceUp = Math.max(CURIO_FX.gongsi?.priceMult || 0, CURIO_FX.zhongdeng?.priceMult || 0);
-  if (state?.curios?.some((c) => c.id === "gongsi" || c.id === "zhongdeng") && priceUp) {
-    p = Math.ceil(p * priceUp);
+  const has = (id) => state?.curios?.some((c) => c.id === id && !c.broken);
+  if (has("gongsi") || has("zhongdeng")) {
+    p = Math.ceil(p * 1.25);
   }
-  if (state?.curios?.some((c) => c.id === "xiee") && CURIO_FX.xiee?.priceCut) {
-    p = Math.ceil(p * CURIO_FX.xiee.priceCut);
+  if (has("xiee") && CURIO_FX.xiee?.priceCut) {
+    p = Math.ceil(p * curioVal(state, "xiee", "priceCut"));
   }
-  if (state?.curios?.some((c) => c.id === "zhutie") && CURIO_FX.zhutie?.priceMult) {
+  if (has("zhutie") && CURIO_FX.zhutie?.priceMult) {
     p = Math.ceil(p * CURIO_FX.zhutie.priceMult);
   }
   return p;
 }
 
-/** 覆写价格（受奇物修正：信仰债券 -30%、机动指环 -100%、末日复眼 +1000%） */
+/** 覆写价格（受奇物修正：信仰债券 -30%、机动指环 -100%、末日复眼 +1000%；已损毁不生效） */
 export function overwritePrice(state) {
   let p = state.overwritePrice;
-  if (state.curios?.some((c) => c.id === "xinyang") && CURIO_FX.xinyang?.costCut) p = Math.ceil(p * CURIO_FX.xinyang.costCut);
-  if (state.curios?.some((c) => c.id === "jidong") && CURIO_FX.jidong?.overwriteFree) p = 0;
-  if (state.curios?.some((c) => c.id === "mori") && CURIO_FX.mori?.priceMult) p = Math.ceil(p * CURIO_FX.mori.priceMult);
+  const has = (id) => state.curios?.some((c) => c.id === id && !c.broken);
+  if (has("xinyang") && CURIO_FX.xinyang?.costCut) p = Math.ceil(p * CURIO_FX.xinyang.costCut);
+  if (has("jidong") && CURIO_FX.jidong?.overwriteFree) p = 0;
+  if (has("mori") && CURIO_FX.mori?.priceMult) p = Math.ceil(p * CURIO_FX.mori.priceMult);
   return p;
+}
+
+/** 覆写次数上限（铸铁的机动指环：降为 7；正常无上限） */
+function overwriteCap(state) {
+  const has = (id) => state.curios?.some((c) => c.id === id && !c.broken);
+  return has("jidong") ? (CURIO_FX.jidong?.overwriteCap || 7) : Infinity;
 }
 
 /** 购买商品（type: blessing/curio/equation） */
@@ -116,6 +124,10 @@ export function heatStrengthen(state, blessingIdx) {
 export function overwriteBlessing(state, blessingIdx) {
   const b = state.blessings[blessingIdx];
   if (!b) return { ok: false, reason: "无此祝福" };
+  // 铸铁的机动指环：覆写次数上限降为 7
+  if ((state.overwriteCount || 0) >= overwriteCap(state)) {
+    return { ok: false, reason: "覆写次数已达上限" };
+  }
   const price = overwritePrice(state);
   if (!spendShards(state, price)) return { ok: false, reason: "宇宙碎片不足" };
   const pool = blessingPool(b.star, b.star).filter((x) => x.id !== b.id);
@@ -124,6 +136,7 @@ export function overwriteBlessing(state, blessingIdx) {
   const enhanced = b.enhanced || 1;
   const heatEnhanced = b.heatEnhanced || 1;
   state.blessings[blessingIdx] = { id: next.id, star: next.star, enhanced, heatEnhanced };
+  state.overwriteCount = (state.overwriteCount || 0) + 1;
   state.overwritePrice = Math.min(UNI_CONST.OVERWRITE_CAP, price + UNI_CONST.OVERWRITE_STEP);
   state.log.push(
     `覆写祝福：「${BLESSINGS[b.id]?.name}」→「${next.name}」（${price} 碎片，下次 ${state.overwritePrice}）`,
@@ -135,12 +148,16 @@ export function overwriteBlessing(state, blessingIdx) {
 export function overwriteEquation(state, eqIdx) {
   const eq = state.equations[eqIdx];
   if (!eq) return { ok: false, reason: "无此方程" };
+  if ((state.overwriteCount || 0) >= overwriteCap(state)) {
+    return { ok: false, reason: "覆写次数已达上限" };
+  }
   const price = overwritePrice(state);
   if (!spendShards(state, price)) return { ok: false, reason: "宇宙碎片不足" };
   const pool = Object.values(EQUATIONS).filter((e) => e.star === eq.star && e.id !== eq.id);
   if (pool.length === 0) return { ok: false, reason: "无可替换方程" };
   const next = pool[Math.floor(Math.random() * pool.length)];
   state.equations[eqIdx] = { id: next.id, star: next.star, enhanced: eq.enhanced || 1 };
+  state.overwriteCount = (state.overwriteCount || 0) + 1;
   state.overwritePrice = Math.min(UNI_CONST.OVERWRITE_CAP, price + UNI_CONST.OVERWRITE_STEP);
   state.log.push(
     `覆写方程：「${EQUATIONS[eq.id]?.name}」→「${next.name}」（${price} 碎片）`,
@@ -150,7 +167,7 @@ export function overwriteEquation(state, eqIdx) {
 
 /** 首领层进入时重置热量与覆写价格（enterRegion 调用）；化作尘泥额外 +5 热量 */
 export function resetWorkbench(state) {
-  state.heat = UNI_CONST.BOSS_HEAT + (state.curios?.some((c) => c.id === "huacheng") ? (CURIO_FX.huacheng?.heat || 5) : 0);
+  state.heat = UNI_CONST.BOSS_HEAT + (state.curios?.some((c) => c.id === "huacheng" && !c.broken) ? (CURIO_FX.huacheng?.heat || 5) : 0);
   state.overwritePrice = UNI_CONST.OVERWRITE_BASE;
 }
 

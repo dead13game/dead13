@@ -112,7 +112,7 @@ STEP:  pickAction → attackShowCard → pickTarget → ... → pickAction（循
 
 | 工具                    | 用途                                                                                      |
 | ----------------------- | ----------------------------------------------------------------------------------------- |
-| `npm run test`        | 218 条 vitest 测试（9 文件：damage/alliance/deck/league/TableLayout/solo/uni×3），< 1s |
+| `npm run test`        | 220 条 vitest 测试（9 文件：damage/alliance/deck/league/TableLayout/solo/uni×3），< 1s |
 | 手动跑 test             | 改`src/game/*` 后必须跑 `npm run test`（项目无自动 hook，靠自觉）                     |
 | `window.__PIXI_APP__` | 浏览器控制台访问 PIXI Application 内部状态                                                |
 | `[game]` 日志         | `console.debug` 输出结构化 JSON，`window.__GAME_LOG_LEVEL__` 动态控制等级             |

@@ -2,8 +2,8 @@
 // 纯逻辑层，零依赖（设计文档 docs/simuniverse-design.md §8）
 
 import { UNI_SKILLS, LINIYA_SHIELD_VALUE } from "./uniConstants.js";
-import { drawPoker, damageEnemy, grantExtraAction } from "./uniCombat.js";
-import { getUniModifiers, triggerAfterSkill, blessingMult, blessingVal, BLESSINGS, isEquationUnlocked } from "./uniBuffs.js";
+import { drawPoker, damageEnemy, grantExtraAction, gainSpirit } from "./uniCombat.js";
+import { getUniModifiers, triggerAfterSkill, blessingMult, blessingVal, BLESSINGS, isEquationUnlocked, chargeJarBrain, applyHealSpread } from "./uniBuffs.js";
 import { LOG_TYPE } from "../../game/gameLogger.js";
 import { recordSound } from "../../game/soundEvents.js";
 /** 技能等级取值（数组按等级 1-10，越界取末项） */
@@ -84,6 +84,10 @@ export function executeUniSkill(state, charIndex, payload = {}) {
 
   // 冷却置满（含开大当回合，之后每回合 -1）
   t.skillCooldown = val(sk.cd, lv) || 0;
+  // 方程：超级体育生（施放终结技后为罐中脑充能 30%）
+  if (isEquationUnlocked(state, "chaoji") && state.equations?.some((e) => e.id === "chaoji")) {
+    chargeJarBrain(state, 30);
+  }
   // 记录最近施放的技能（UI 特效层按角色播放专属演出）
   if (c) {
     c.lastSkill = { charId: t.charId, actor: charIndex, seq: (c._skillSeq || 0) + 1 };
@@ -124,12 +128,14 @@ function doSkill(state, t, sk, lv, payload) {
   const c = state.combat;
   switch (t.charId) {
     case 1: {
-      // 温迪：爆发 n 张牌（1-9 级 2~10 张，10 级 10 张）伤害 = 牌面和 - 2
+      // 温迪：爆发 n 张牌（1-10 级 2~11 张）伤害 = 牌面和（可享受所有加成，无 -2）
       const n = val(sk.values, lv);
       if (payload.targetIdx == null) return { ok: false, reason: "需要目标" };
       const cards = drawPoker(state, n);
-      const dmg = Math.max(0, Math.ceil((cards.reduce((s, p) => s + p.value, 0) - 2) * (1 + skillDmgMult(state, t) / 100)));
+      const total = cards.reduce((s, p) => s + p.value, 0);
+      const dmg = Math.max(0, Math.ceil(total * (1 + skillDmgMult(state, t) / 100)));
       damageEnemy(state, payload.targetIdx, dmg, t.index);
+      gainSpirit(state, t.index);
       state.log.push(`${t.name} 爆发 ${n} 张牌（${dmg} 伤害）`);
       return { ok: true, summary: { cards: n, dmg } };
     }
@@ -143,10 +149,11 @@ function doSkill(state, t, sk, lv, payload) {
       return { ok: true, summary: { shield: gain } };
     }
     case 3: {
-      // 雷电将军：单体伤害
+      // 雷电将军：单体伤害（先扣护盾再扣血，可享受所有增益）
       if (payload.targetIdx == null) return { ok: false, reason: "需要目标" };
       const dmg = Math.ceil(val(sk.values, lv) * (1 + skillDmgMult(state, t) / 100));
       damageEnemy(state, payload.targetIdx, dmg, t.index);
+      gainSpirit(state, t.index);
       state.log.push(`${t.name} 对目标造成 ${dmg} 伤害`);
       return { ok: true, summary: { dmg } };
     }
@@ -177,6 +184,8 @@ function doSkill(state, t, sk, lv, payload) {
         if (m.status.healCut > 0) amount = Math.ceil(amount * (1 - m.status.healCut));
         m.hp = Math.min(m.maxHp, m.hp + amount);
       }
+      // 丰饶众生，一法界心：提供治疗时我方全体目标额外回复
+      applyHealSpread(state, t.index, healAmount);
       state.log.push(`${t.name} 全队增伤 ${pct}%（3 回合），治疗 ${healAmount}`);
       return { ok: true, summary: { pct, healAmount } };
     }
@@ -197,12 +206,15 @@ function doSkill(state, t, sk, lv, payload) {
         m.maxHp = newMax;
         m.hp = newMax; // 回满
       }
+      // 丰饶众生，一法界心：提供治疗时我方全体目标额外回复
+      applyHealSpread(state, t.index, totalHealed);
       const bonusDmg = Math.ceil(totalHealed * 0.1);
       if (bonusDmg > 0) {
         const targets = c.enemies.filter((e) => e.alive);
         if (targets.length > 0) {
           const victim = targets[Math.floor(Math.random() * targets.length)];
           damageEnemy(state, victim.id, Math.ceil(bonusDmg * (1 + skillDmgMult(state, t) / 100)), t.index);
+          gainSpirit(state, t.index);
         }
       }
       state.log.push(`${t.name} 全队生命上限 +${pct}% 并回满（附加 ${bonusDmg} 伤害）`);
@@ -229,6 +241,7 @@ function doSkill(state, t, sk, lv, payload) {
         for (const e of c.enemies) {
           if (e.alive) damageEnemy(state, e.id, Math.ceil(dot * (1 + skillDmgMult(state, t) / 100)), t.index);
         }
+        gainSpirit(state, t.index);
         state.log.push(`${t.name} 全体敌人受 ${dot} 点伤害`);
         return { ok: true, summary: { branch: "dot", dot, turns: 0 } };
       }
@@ -257,6 +270,7 @@ function doSkill(state, t, sk, lv, payload) {
       for (const e of c.enemies) {
         if (e.alive) damageEnemy(state, e.id, dmg, t.index);
       }
+      gainSpirit(state, t.index);
       state.log.push(`${t.name} 开发者指令：对敌方全体造成 ${dmg} 伤害`);
       return { ok: true, summary: { dmg, targets: c.enemies.filter((e) => e.alive).length } };
     }

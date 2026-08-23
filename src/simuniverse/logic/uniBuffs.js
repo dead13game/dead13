@@ -62,13 +62,13 @@ export const BLESSINGS = {
   beiju: { id: "beiju", name: "悲剧讲座", star: 2, fate: "虚无", desc: "敌方目标受到的持续伤害提高 20%", fx: { dotFlat: 1 }, lv: { dotPct: [20, 24, 28, 32] } },
   yiyi: { id: "yiyi", name: "意义质询", star: 2, fate: "虚无", desc: "陷入持续伤害状态的敌方目标造成的伤害降低 3 点", fx: { dmgCut: 3 }, lv: { dmgCut: [3, 4, 5, 6] } },
   // ── 3 星 ──
-  shenxing: { id: "shenxing", name: "神性构筑·谐振传递", star: 3, fate: "存护", desc: "施放攻击时，对目标造成自身当前护盾量 100% 的反震伤害", fx: { shieldPct: 100 } },
-  yifajie: { id: "yifajie", name: "丰饶众生，一法界心", star: 3, fate: "丰饶", desc: "角色提供治疗时，接受目标以外的队友回复回复量 30% 的生命", fx: { spreadPct: 30 } },
-  fanwu: { id: "fanwu", name: "反物质费逆方程", star: 3, fate: "毁灭", desc: "生命小于 50% 时，视作拥有 16 层战意（伤害 +16%、受伤 -16%）", fx: { zhandu: 16, hpBelow: 50 } },
-  huanyu: { id: "huanyu", name: "寰宇热寂特征数", star: 3, fate: "毁灭", desc: "受到攻击或消耗生命后获得 4 层战意，回合结束时失去 4 层", fx: { zhandu: 4 } },
-  yanmie: { id: "yanmie", name: "湮灭回归不等式", star: 3, fate: "繁育", desc: "受到攻击时，所受到的伤害由我方全体承担", fx: {} },
-  xingren: { id: "xingren", name: "SMR -2型杏仁核", star: 3, fate: "智识", desc: "使敌方目标受到致命伤害时，为「罐中脑」充能 50%", fx: { jarBrain: 50 } },
-  richu: { id: "richu", name: "日出之前", star: 3, fate: "虚无", desc: "我方每次造成持续伤害时，回复等同于造成的持续伤害点数的生命", fx: {} },
+  shenxing: { id: "shenxing", name: "神性构筑·谐振传递", star: 3, fate: "存护", desc: "施放攻击时，对受到攻击的敌方目标造成自身当前护盾量 50% 的反震伤害", fx: { shieldPct: 50 }, lv: { shieldPct: [50, 60, 70, 80] } },
+  yifajie: { id: "yifajie", name: "丰饶众生，一法界心", star: 3, fate: "丰饶", desc: "角色提供治疗时，我方全体目标额外回复等同于回复量 30% 的生命值", fx: { spreadPct: 30 }, lv: { spreadPct: [30, 35, 40, 45] } },
+  fanwu: { id: "fanwu", name: "反物质费逆方程", star: 3, fate: "毁灭", desc: "当前生命值百分比小于 50% 时，视作拥有 16 层战意效果", fx: { zhandu: 16, hpBelow: 50 }, lv: { zhandu: [16, 18, 20, 22] } },
+  huanyu: { id: "huanyu", name: "寰宇热寂特征数", star: 3, fate: "毁灭", desc: "角色受到攻击或消耗生命值后，获得 4 层战意效果", fx: { zhandu: 4 }, lv: { zhandu: [4, 5, 6, 7] } },
+  yanmie: { id: "yanmie", name: "湮灭回归不等式", star: 3, fate: "繁育", desc: "受到攻击时，角色所受到的伤害由我方全体平均分摊（强化后效果不变）", fx: {} },
+  xingren: { id: "xingren", name: "SMR -2型杏仁核", star: 3, fate: "智识", desc: "使敌方目标受到致命伤害时，为「罐中脑」充能 50%", fx: { jarBrain: 50 }, lv: { jarBrain: [50, 52, 54, 56] } },
+  richu: { id: "richu", name: "日出之前", star: 3, fate: "虚无", desc: "我方每次造成持续伤害时，回复等同于造成的持续伤害点数的生命值（强化后效果不变）", fx: {} },
 };
 
 /** 命运列表（事件/商店按命运筛选用） */
@@ -156,6 +156,11 @@ export function loseRandomBlessing(state) {
   const idx = Math.floor(Math.random() * state.blessings.length);
   const [removed] = state.blessings.splice(idx, 1);
   state.log.push(`失去祝福「${BLESSINGS[removed.id]?.name ?? removed.id}」`);
+  // 精神感应餐叉：失去祝福时获得 50 宇宙碎片（强化 +10/级）
+  if (state.curios?.some((c) => c.id === "jingshen" && !c.broken)) {
+    state.shards += curioVal(state, "jingshen", "gain");
+    state.log.push("精神感应餐叉：+50 碎片");
+  }
   return removed;
 }
 
@@ -163,6 +168,11 @@ export function loseRandomBlessing(state) {
 export function loseBlessingAt(state, idx) {
   if (idx < 0 || idx >= state.blessings.length) return null;
   const [removed] = state.blessings.splice(idx, 1);
+  // 精神感应餐叉：失去祝福时获得 50 宇宙碎片
+  if (state.curios?.some((c) => c.id === "jingshen" && !c.broken)) {
+    state.shards += curioVal(state, "jingshen", "gain");
+    state.log.push("精神感应餐叉：+50 碎片");
+  }
   return removed;
 }
 
@@ -226,6 +236,31 @@ export function getUniModifiers(state) {
   const fateCount = (f) => state.blessings.filter((b) => BLESSINGS[b.id]?.fate === f).length;
   const zhishuCount = fateCount("智识");
   const fengraoCount = fateCount("丰饶");
+  // 分裂咕咕钟：角色攻击力降低 5%（每复制体再 -5%）
+  const fenlieC = state.curios?.find((c) => c.id === "fenlie");
+  if (fenlieC && !fenlieC.broken) {
+    mods.atkMult -= 5 * (fenlieC.enhanced || 1);
+  }
+  // 家族缘结：每有 1 个已损毁的奇物，进入战斗时我方全体造成的伤害提高 30%
+  const jiazuC = state.curios?.find((c) => c.id === "jiazu");
+  if (jiazuC && !jiazuC.broken) {
+    const brokenCount = state.curios.filter((c) => c.broken).length;
+    mods.atkMult += (CURIO_FX.jiazu?.atkPerBroken || 30) * brokenCount;
+  }
+  // 虚高一丈：每有 1 个 1/2/3 星奇物，战斗伤害 +3%/6%/20%
+  const xugaoC = state.curios?.find((c) => c.id === "xugao");
+  if (xugaoC && !xugaoC.broken) {
+    const atkByStar = CURIO_FX.xugao?.atkByStar || [3, 6, 20];
+    for (const c of state.curios) {
+      if (c.broken) continue;
+      mods.atkMult += atkByStar[c.star - 1] || 0;
+    }
+  }
+  // 瘟疫巢都：每通过「区域失去负面奇物」失去 1 个，战斗伤害 +10%
+  const wenyiC = state.curios?.find((c) => c.id === "wenyi");
+  if (wenyiC && !wenyiC.broken) {
+    mods.atkMult += (state.wenyiLost || 0) * curioVal(state, "wenyi", "atkPerLost");
+  }
   for (const b of state.blessings) {
     const fx = BLESSINGS[b.id]?.fx;
     if (!fx) continue;
@@ -307,12 +342,11 @@ export function memberDmgTakenMods(state, memberIdx) {
   const t = state.team[memberIdx];
   if (!t) return 0;
   let extra = 0;
-  const fanwuFx = BLESSINGS.fanwu?.fx;
-  if (fanwuFx && blessingMult(state, "fanwu") > 0 && t.hp / t.maxHp < (fanwuFx.hpBelow || 50) / 100) {
-    extra += blessingVal(state, "fanwu", "zhandu");
+  // 预兆性景深：每有 1 层战意，受到的伤害降低 1%（战意本身不减伤，仅此祝福提供）
+  const yuzhaoFx = BLESSINGS.yuzhao?.fx;
+  if (yuzhaoFx && blessingMult(state, "yuzhao") > 0) {
+    extra += (t.status.zhandu || 0) * blessingVal(state, "yuzhao", "dmgTakenPer");
   }
-  // 战意：每层受伤 -1%
-  extra += (t.status.zhandu || 0) * 1;
   // 明澈琉璃身：满血受伤 -36%
   const mingcheFx = BLESSINGS.mingche?.fx;
   if (mingcheFx && blessingMult(state, "mingche") > 0 && t.hp >= t.maxHp) {
@@ -464,11 +498,13 @@ export function triggerAfterSkill(state, charIndex) {
       x.status.dmgBuffTurns = cuihuaFx.turns || 1;
     }
   }
-  // 罐中脑满 100%：下次攻击 +100%，清零
+  // 罐中脑：充能 ≥100% 时立即消耗 100% 充能，使当前行动角色施放大招后可再次激活大招（冷却清零）
   if ((state.jarBrain || 0) >= 100) {
-    t.status.nextAttackBoost = (t.status.nextAttackBoost || 0) + 100;
     state.jarBrain = 0;
-    state.log.push("罐中脑能量释放：下次攻击伤害 +100%");
+    if (t.skillCooldown > 0) {
+      t.skillCooldown = 0;
+      state.log.push("罐中脑能量释放：大招可再次激活");
+    }
   }
 }
 
@@ -501,6 +537,11 @@ export function triggerOnAttackAfter(state, memberIdx, targetEnemyId, baseDmg) {
     t.hp -= cost;
     const lost = t.maxHp - t.hp;
     c._pendingExtra = (c._pendingExtra || 0) + Math.ceil((lost * blessingVal(state, "zainan", "dmgPct")) / 100);
+    // 寰宇热寂特征数：消耗生命值后获得战意
+    const huanyuFx = BLESSINGS.huanyu?.fx;
+    if (huanyuFx && blessingMult(state, "huanyu") > 0 && cost > 0) {
+      t.status.zhandu = (t.status.zhandu || 0) + blessingVal(state, "huanyu", "zhandu");
+    }
   }
   // 裸脑质/飞溅蛊：普攻溅射随机相邻敌人
   const luonao = BLESSINGS.luonao?.fx?.splashPct || 0;
@@ -525,12 +566,6 @@ export function triggerOnEndTurn(state) {
       t.shield += Math.ceil((t.maxHp * blessingVal(state, "huikui", "shieldPct")) / 100);
     }
   }
-  const huanyuFx = BLESSINGS.huanyu?.fx;
-  if (huanyuFx && blessingMult(state, "huanyu") > 0) {
-    for (const t of state.team) {
-      t.status.zhandu = Math.max(0, (t.status.zhandu || 0) - blessingVal(state, "huanyu", "zhandu"));
-    }
-  }
 }
 
 /** 罐中脑充能（0-100 封顶） */
@@ -541,25 +576,30 @@ export function chargeJarBrain(state, n) {
 /** 战斗开始奇物钩子：无限递归代码/羊皮卷/博士之袍/精确优雅代码/有梦/黑森林 */
 export function triggerCurioOnCombatStart(state) {
   const c = state.combat;
-  // 无限递归的代码：生命上限 +20%
+  // 无限递归的代码：生命上限 +20%（强化 +4/级）
   if (state.curios?.some((x) => x.id === "wuxian")) {
     for (const t of state.team) {
-      t.maxHp = Math.ceil(t.maxHp * (1 + (CURIO_FX.wuxian?.maxHpMult || 20) / 100));
+      t.maxHp = Math.ceil(t.maxHp * (1 + curioVal(state, "wuxian", "maxHpMult") / 100));
       t.hp = Math.min(t.hp, t.maxHp);
     }
   }
-  // 精确优雅的代码：防御/攻击/生命上限 +35%
+  // 精确优雅的代码：生命上限 / 造成的伤害 / 护盾量 +35%（强化 +3/级）
   if (state.curios?.some((x) => x.id === "jingque")) {
+    const pct = curioVal(state, "jingque", "atkDefHpPct");
     for (const t of state.team) {
-      t.maxHp = Math.ceil(t.maxHp * (1 + (CURIO_FX.jingque?.atkDefHpPct || 35) / 100));
-      t.status.atkBonus = (t.status.atkBonus || 0) + 5;
+      t.maxHp = Math.ceil(t.maxHp * (1 + pct / 100));
+      t.hp = Math.min(t.hp, t.maxHp);
+      t.status.dmgBuffPct = (t.status.dmgBuffPct || 0) + pct;
+      t.status.dmgBuffTurns = 1;
+      t.shield += Math.ceil((t.maxHp * pct) / 100); // 护盾量 +35%
     }
+    state.log.push(`精确优雅的代码：全队生命上限/伤害/护盾 +${pct}%`);
   }
-  // 永不停嘴的羊皮卷：敌方全体受 30% 生命上限固定伤害
+  // 永不停嘴的羊皮卷：敌方全体受 30% 生命上限固定伤害（强化 +2/级）
   if (state.curios?.some((x) => x.id === "sheep")) {
     for (const e of c.enemies) {
       if (e.alive) {
-        e.hp = Math.max(0, e.hp - Math.ceil(e.maxHp * ((CURIO_FX.sheep?.hpPct || 30) / 100)));
+        e.hp = Math.max(0, e.hp - Math.ceil(e.maxHp * (curioVal(state, "sheep", "hpPct") / 100)));
         if (e.hp <= 0) {
           e.alive = false;
           state.log.push(`羊皮卷：击败 ${e.name}`);
@@ -567,18 +607,32 @@ export function triggerCurioOnCombatStart(state) {
       }
     }
   }
-  // 博士之袍：拥有 3 星方程 → 全队伤害 +25%
-  if (state.curios?.some((x) => x.id === "boshi") && state.equations?.some((e) => e.star === 3)) {
+  // 博士之袍：拥有已展开的 3 星方程 → 所有角色激活终结技 + 全队伤害 +25%（强化 +3/级）
+  if (state.curios?.some((x) => x.id === "boshi") && state.equations?.some((e) => e.star === 3 && isEquationUnlocked(state, e.id))) {
     for (const t of state.team) {
-      t.status.dmgBuffPct = (t.status.dmgBuffPct || 0) + (CURIO_FX.boshi?.atkMult || 25);
+      t.skillCooldown = 0; // 激活终结技
+      t.status.dmgBuffPct = (t.status.dmgBuffPct || 0) + curioVal(state, "boshi", "atkMult");
       t.status.dmgBuffTurns = 1;
     }
   }
-  // 有梦-0110：全队伤害 +50%
+  // 有梦-0110：全队伤害 +50%（强化 +2/级）
   if (state.curios?.some((x) => x.id === "youmeng")) {
     for (const t of state.team) {
-      t.status.dmgBuffPct = (t.status.dmgBuffPct || 0) + (CURIO_FX.youmeng?.atkMult || 50);
+      t.status.dmgBuffPct = (t.status.dmgBuffPct || 0) + curioVal(state, "youmeng", "atkMult");
       t.status.dmgBuffTurns = 1;
+    }
+    // 「15 回合后受到的伤害提高 10%」：记录回合标记，由战斗层在回合 15+ 应用
+    state.combat._youmengTurns = CURIO_FX.youmeng?.turns || 15;
+  }
+  // 纯美之袍：每拥有 100 宇宙碎片，全队伤害 +20%（强化 +2/级）
+  if (state.curios?.some((x) => x.id === "chunmei_pao")) {
+    const pct = Math.floor(state.shards / 100) * curioVal(state, "chunmei_pao", "atkPer100");
+    if (pct > 0) {
+      for (const t of state.team) {
+        t.status.dmgBuffPct = (t.status.dmgBuffPct || 0) + pct;
+        t.status.dmgBuffTurns = 1;
+      }
+      state.log.push(`纯美之袍：${Math.floor(state.shards / 100)}×100 碎片 → 全队伤害 +${pct}%`);
     }
   }
   // 黑森林咕咕钟：随机 1 名我方目标被攻击概率大幅提高（简化：标记 5 回合）
@@ -596,39 +650,67 @@ export function triggerCurioOnCombatStart(state) {
 export function triggerCurioOnWin(state) {
   // 埋点土：3/6/9 场胜利 +50/150/250，9 场损毁
   const maidi = state.curios?.find((x) => x.id === "maidi");
-  if (maidi) {
+  if (maidi && !maidi.broken) {
     maidi.wins = (maidi.wins || 0) + 1;
     const w = maidi.wins;
     const pts = CURIO_FX.maidi?.winPoints || [3, 6, 9];
     const gs = CURIO_FX.maidi?.gains || [50, 150, 250];
+    // 埋点土强化：所有数值每级递增 30（50→80→110…）
+    const lvBonus = Math.max(0, (maidi.enhanced || 1) - 1) * 30;
+    const gainsUp = gs.map((g) => g + lvBonus);
     let gain = 0;
-    for (let i = 0; i < pts.length; i++) if (w >= pts[i]) gain = gs[i];
+    for (let i = 0; i < pts.length; i++) if (w >= pts[i]) gain = gainsUp[i];
     if (gain > 0) {
       state.shards += gain;
       state.log.push(`埋点土：+${gain} 碎片`);
     }
     if (w >= 9) {
-      state.curios = state.curios.filter((x) => x.id !== "maidi");
-      state.log.push("埋点土：损毁");
+      breakCurio(state, "maidi");
+      state.log.push("埋点土：已损毁");
+    }
+  }
+  // 暗海碎饵：每 3 场战斗后随机获得当前 15% 或失去当前 10% 碎片（强化 +3%/级，上限 50%）
+  const anhai = state.curios?.find((x) => x.id === "anhai");
+  if (anhai && !anhai.broken) {
+    anhai.wins = (anhai.wins || 0) + 1;
+    if (anhai.wins >= (CURIO_FX.anhai?.battles || 3)) {
+      anhai.wins = 0;
+      if (Math.random() < 0.5) {
+        const pct = curioVal(state, "anhai", "gainPct");
+        const gain = Math.ceil(state.shards * (pct / 100));
+        state.shards += gain;
+        state.log.push(`暗海碎饵：获得当前 ${pct}% 碎片（+${gain}）`);
+      } else {
+        const pct = curioVal(state, "anhai", "lossPct");
+        const loss = Math.ceil(state.shards * (pct / 100));
+        state.shards = Math.max(0, state.shards - loss);
+        state.log.push(`暗海碎饵：失去当前 ${pct}% 碎片（-${loss}）`);
+      }
     }
   }
   // 阿阮袋：2 次战斗后损毁
   const aruan = state.curios?.find((x) => x.id === "aruan");
-  if (aruan) {
+  if (aruan && !aruan.broken) {
     aruan.wins = (aruan.wins || 0) + 1;
     if (aruan.wins >= (CURIO_FX.aruan?.triggers || 2)) {
-      state.curios = state.curios.filter((x) => x.id !== "aruan");
-      state.log.push("阿阮袋：损毁");
+      breakCurio(state, "aruan");
+      state.log.push("阿阮袋：已损毁");
     }
   }
   // 降维骰子：2 次战斗后损毁
   const jiangwei = state.curios?.find((x) => x.id === "jiangwei");
-  if (jiangwei) {
+  if (jiangwei && !jiangwei.broken) {
     jiangwei.wins = (jiangwei.wins || 0) + 1;
     if (jiangwei.wins >= (CURIO_FX.jiangwei?.triggers || 2)) {
-      state.curios = state.curios.filter((x) => x.id !== "jiangwei");
-      state.log.push("降维骰子：损毁");
+      breakCurio(state, "jiangwei");
+      state.log.push("降维骰子：已损毁");
     }
+  }
+  // 分裂咕咕钟：战斗胜利后 50% 概率再获得 1 个复制品（可叠加，最多 3 个）
+  const fenlie = state.curios?.find((x) => x.id === "fenlie");
+  if (fenlie && !fenlie.broken && (fenlie.enhanced || 1) < 3 && Math.random() < 0.5) {
+    fenlie.enhanced = (fenlie.enhanced || 1) + 1;
+    state.log.push(`分裂咕咕钟分裂出 1 个复制品（共 ${fenlie.enhanced} 个）`);
   }
 }
 
@@ -644,15 +726,13 @@ export function triggerOnEnemyDot(state) {
   }
 }
 
-/** 治疗扩散（丰饶众生，一法界心）：治疗某成员时其他存活成员回 30%（数值读 fx） */
+/** 治疗扩散（丰饶众生，一法界心）：提供治疗时我方全体目标额外回复回复量的 %（数值读 lv 表） */
 export function applyHealSpread(state, healerIdx, amount) {
-  const yifajieFx = BLESSINGS.yifajie?.fx;
-  const m = blessingMult(state, "yifajie");
-  if (!yifajieFx || m <= 0) return 0;
+  if (blessingMult(state, "yifajie") <= 0 || !amount || amount <= 0) return 0;
   let spread = 0;
   for (const t of state.team) {
-    if (!t.alive || t.index === healerIdx) continue;
-    const heal = Math.ceil((amount * yifajieFx.spreadPct) / 100 * m);
+    if (!t.alive) continue;
+    const heal = Math.ceil((amount * blessingVal(state, "yifajie", "spreadPct")) / 100);
     t.hp = Math.min(t.maxHp, t.hp + heal);
     spread += heal;
   }
@@ -758,77 +838,78 @@ export const CURIO_FX = {
   zhongdeng: { priceMult: 1.25 },
   heisenlin: { tauntTurns: 5 },
   bushu: { optionCut: 1 },
-  zhongduan: { gain: 75, triggers: 3 },
-  dabinggan: { triggers: 2, starRange: [1, 2] },
+  zhongduan: { gain: 75, triggers: 3, lv: { gain: [75, 85, 95, 105, 115, 125, 135, 145] } },
+  dabinggan: { triggers: 2, starRange: [1, 2], lv: { count: [1, 2, 3, 4, 5, 6] } },
   eye: { cost: 50, gainStar: 3 },
-  anhai: { gainPct: 15, lossPct: 10, battles: 3 },
-  shui: { shardsMax: 10, gain: 400 },
-  lieyang: { gain: 30 },
+  anhai: { gainPct: 15, lossPct: 10, battles: 3, lv: { gainPct: [15, 18, 21, 24, 27, 30, 33, 36, 39, 42, 45, 48, 51], lossPct: [10, 13, 16, 19, 22, 25, 28, 31, 34, 37, 40, 43, 46, 49] } },
+  shui: { shardsMax: 10, gain: 400, lv: { gain: [400, 420, 440, 460, 480, 500] } },
+  lieyang: { gain: 30, lv: { gain: [30, 35, 40, 45, 50, 55] } },
   wulian: { minCurios: 4, loseCount: 3 },
-  wuxian: { maxHpMult: 20 },
-  zhutie: { shardsMult: 1.3, priceMult: 1.3 },
+  wuxian: { maxHpMult: 20, lv: { maxHpMult: [20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80] } },
+  zhutie: { shardsMult: 1.3, priceMult: 1.3, lv: { shardsMult: [1.3, 1.32, 1.34, 1.36, 1.38, 1.4, 1.42, 1.44, 1.46, 1.48] } },
   adaptive: { minPct: 10, maxPct: 200 },
   jidong: { shardsCut: 0.5, overwriteFree: true, overwriteCap: 7 },
-  liangzi: { gain: 400 },
-  jixian: { battleGain: 35, softLoss: 35, chainGain: 35 },
-  yinhe: {},
-  linji: { gain: 300, regions: 5, penalty: 450 },
-  heping: { gain: 150 },
-  wanxiang: { count: 2 },
-  boshi: { atkMult: 25, needStar: 3 },
-  club: { shardsMult: 1.4 },
-  sheep: { hpPct: 30 },
+  liangzi: { gain: 400, lv: { gain: [400, 450, 500, 550, 600, 650] } },
+  jixian: { battleGain: 35, softLoss: 35, chainGain: 35, lv: { battleGain: [35, 40, 45, 50, 55], softLoss: [35, 40, 45, 50, 55], chainGain: [35, 40, 45, 50, 55] } },
+  yinhe: { hpPct: 99, lv: { hpPct: [99, 94, 89, 84, 79, 74, 69, 64, 59] } },
+  linji: { gain: 300, regions: 5, penalty: 450, lv: { gain: [300, 310, 320, 330, 340, 350] } },
+  heping: { gain: 150, lv: { gain: [150, 160, 170, 180, 190, 200] } },
+  wanxiang: { count: 2, lv: { count: [2, 3, 4, 5, 6] } },
+  boshi: { atkMult: 25, needStar: 3, lv: { atkMult: [25, 28, 31, 34, 37, 40] } },
+  club: { shardsMult: 1.4, lv: { shardsMult: [1.4, 1.42, 1.44, 1.46, 1.48, 1.5] } },
+  sheep: { hpPct: 30, lv: { hpPct: [30, 32, 34, 36, 38, 40] } },
   cheese: { healPct: 100 },
   yueqian: {},
-  zuotian: { gain: 35, triggers: 3 },
-  juedui: { count: 2 },
+  zuotian: { gain: 35, triggers: 3, lv: { gain: [35, 45, 55, 65, 75, 85] } },
+  juedui: { count: 2, lv: { count: [2, 3, 4, 5] } },
   maidi: { winPoints: [3, 6, 9], gains: [50, 150, 250] },
-  youmeng: { atkMult: 50, turns: 15, laterDmgPct: 10 },
-  lubeite: { gain: 50, cap: 750, penalty: 750 },
-  caikuang: { triggers: 5, starRange: [1, 2] },
-  canjing_lm: { atkPerStar: 2.5 },
-  canjing_lx: { atkPerStar: 2.5 },
-  canjing_fz: { atkPerStar: 2.5 },
-  shijin: { gain: 500, regions: 5, minShards: 500 },
-  hepingxiang: { maxTriggers: 4, minStar: 2 },
-  luck: { floor: 250 },
-  huacheng: { heat: 5 },
+  youmeng: { atkMult: 50, turns: 15, laterDmgPct: 10, lv: { atkMult: [50, 52, 54, 56, 58, 60], laterDmgPct: [10, 12, 14, 16, 18, 20] } },
+  lubeite: { gain: 50, cap: 750, penalty: 750, lv: { gain: [50, 60, 70, 80, 90, 100, 110, 120, 130, 140] } },
+  caikuang: { triggers: 5, starRange: [1, 2], lv: { count: [1, 2, 3, 4, 5] } },
+  canjing_lm: { atkPerStar: 2.5, lv: { atkPerStar: [2.5, 3, 3.5, 4, 4.5, 5] } },
+  canjing_lx: { atkPerStar: 2.5, lv: { atkPerStar: [2.5, 3, 3.5, 4, 4.5, 5] } },
+  canjing_fz: { atkPerStar: 2.5, lv: { atkPerStar: [2.5, 3, 3.5, 4, 4.5, 5] } },
+  shijin: { gain: 500, regions: 5, minShards: 500, lv: { gain: [500, 520, 540, 560, 580, 600] } },
+  hepingxiang: { maxTriggers: 4, minStar: 2, lv: { count: [1, 2, 3, 4, 5] } },
+  luck: { floor: 250, lv: { floor: [250, 270, 290, 310, 330, 350] } },
+  huacheng: { heat: 5, lv: { heat: [5, 6, 7, 8, 9, 10] } },
   xile: {},
-  haimian: { hpCut: 0.8, maxHpMult: 10, triggers: 4 },
-  fuhua: { hpCostPct: 20 },
+  haimian: { hpCut: 0.8, maxHpMult: 10, triggers: 4, lv: { maxHpMult: [10, 12, 14, 16, 18, 20] } },
+  fuhua: { hpCostPct: 20, lv: { hpCostPct: [20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10] } },
   lixing: { count: 3 },
   renzao: { max: 3 },
-  xugou: { healPct: 20 },
+  xugou: { healPct: 20, lv: { healPct: [20, 21, 22, 23, 24, 25] } },
   huanzhe: {},
-  tiancai: { shardsMult: 1.5 },
+  tiancai: { shardsMult: 1.5, lv: { shardsMult: [1.5, 1.52, 1.54, 1.56, 1.58, 1.6] } },
   shanyao: {},
-  fenlie_jb: { shardsPct: 5 },
+  fenlie_jb: { shardsPct: 5, lv: { shardsPct: [5, 6, 7, 8, 9, 10] } },
   fujiao: { blessingStar: 3 },
   jiangwei: { triggers: 2, extraPick: 1 },
-  louti: { shardsPerStar: 80 },
-  xiee: { priceCut: 0.75 },
-  kongwu: { fixCount: 2 },
-  xinyang: { costCut: 0.7 },
+  louti: { shardsPerStar: 80, lv: { shardsPerStar: [80, 82, 84, 86, 88, 90] } },
+  xiee: { priceCut: 0.75, lv: { priceCut: [0.75, 0.73, 0.71, 0.69, 0.67, 0.65, 0.63, 0.61, 0.59, 0.57, 0.55, 0.53, 0.51, 0.5] } },
+  kongwu: { fixCount: 2, lv: { fixCount: [2, 3, 4, 5, 6] } },
+  xinyang: { costCut: 0.7, lv: { costCut: [0.7, 0.68, 0.66, 0.64, 0.62, 0.6, 0.58, 0.56, 0.54, 0.52, 0.5] } },
   kaituo: {},
-  chuiyu: { maxExtra: 4 },
-  zhizun: { chance: 0.1, maxExtra: 5 },
-  jingshen: { gain: 50 },
-  zhenshi: { gain: 75 },
-  mori: { priceMult: 11, count: 3 },
-  wuren: { triggers: 2 },
-  aruan: { triggers: 2 },
-  chunmei: {},
-  silver: { shardsPct: 40 },
-  lens: { skillUp: 2 },
+  chuiyu: { maxExtra: 4, lv: { count: [1, 2, 3, 4] } },
+  zhizun: { chance: 0.1, maxExtra: 5, lv: { chance: [0.1, 0.12, 0.14, 0.16, 0.18, 0.2] } },
+  jingshen: { gain: 50, lv: { gain: [50, 60, 70, 80, 90, 100] } },
+  zhenshi: { gain: 75, lv: { gain: [75, 85, 95, 105, 115, 125] } },
+  mori: { priceMult: 11, count: 2, lv: { count: [2, 3, 4, 5, 6] } },
+  wuren: { triggers: 2, lv: { triggers: [2, 3, 4, 5] } },
+  aruan: { triggers: 2, lv: { count: [3, 4, 5, 6] } },
+  chunmei: { lv: { count: [1, 2, 3] } },
+  silver: { shardsPct: 40, lv: { shardsPct: [40, 42, 44, 46, 48, 50] } },
+  lens: { skillUp: 2, lv: { skillUp: [2, 3, 4, 5] } },
   shuishang: {},
-  jingque: { atkDefHpPct: 35, atkPct: 350 },
+  jingque: { atkDefHpPct: 35, lv: { atkDefHpPct: [35, 38, 41, 44, 47, 50] } },
   xugao: { shardsByStar: [20, 40, 120], atkByStar: [3, 6, 20] },
-  yusi: { atkPerEquation: 10 },
-  wenyi: { negativeCount: 4, atkPerLost: 10 },
+  yusi: { atkPerEquation: 10, lv: { atkPerEquation: [10, 14, 18, 22, 26, 30] } },
+  wenyi: { negativeCount: 4, atkPerLost: 10, lv: { atkPerLost: [10, 14, 18, 22, 26, 30] } },
   jiyi: {},
-  jiazu: { atkPerBroken: 30 },
-  chunmei_pao: { atkPer100: 20, shardsPct: 10 },
-};
+  jiazu: { atkPerBroken: 30, lv: { atkPerBroken: [30, 33, 36, 39, 42, 45] } },
+  chunmei_pao: { atkPer100: 20, shardsPct: 10, lv: { atkPer100: [20, 22, 24, 26, 28, 30] } },
+};;
+
 
 /** 随机 1 个奇物（excludeNegative 排除负面） */
 export function rollCurio(excludeNegative = false, minStar = 1, maxStar = 3) {
@@ -839,39 +920,84 @@ export function rollCurio(excludeNegative = false, minStar = 1, maxStar = 3) {
   return pool[Math.floor(Math.random() * pool.length)].id;
 }
 
-/** 获得奇物：已有则强化（×2、×3…）；部分奇物获得时立即生效 */
+/** 获得奇物：已有未损毁则强化；已损毁则恢复如新重新获得；部分奇物获得时立即生效 */
 export function gainCurio(state, id, opts = {}) {
   const c = CURIOS[id];
   if (!c) return { ok: false, reason: "无此奇物" };
+  // 分裂咕咕钟：达到 3 个时无法再获得
+  if (id === "fenlie") {
+    const have = state.curios.find((x) => x.id === "fenlie");
+    if (have && !have.broken && (have.enhanced || 1) >= 3) {
+      return { ok: false, reason: "分裂咕咕钟已达上限（3 个）" };
+    }
+  }
   const exist = state.curios.find((x) => x.id === id);
   if (exist) {
+    if (exist.broken) {
+      // 已损毁 → 重新获得（恢复如新，可再次强化）
+      exist.broken = false;
+      exist.enhanced = 1;
+      for (const k of Object.keys(exist)) {
+        if (k !== "id" && k !== "star" && k !== "enhanced" && k !== "broken") delete exist[k];
+      }
+      if (!opts.silent) state.log.push(`奇物「${c.name}」重新获得（恢复如新）`);
+      return { ok: true, reobtained: true, silent: opts.silent };
+    }
     exist.enhanced = (exist.enhanced || 1) + 1;
     state.log.push(`奇物「${c.name}」强化至 ×${exist.enhanced}`);
     return { ok: true, enhanced: exist.enhanced, silent: opts.silent };
   }
   state.curios.push({ id, star: c.star, enhanced: 1, broken: false });
   if (!opts.silent) state.log.push(`获得奇物「${c.name}」`);
-  // 时空棱镜：所有角色技能等级 +2（最多 10 级）
-  if (id === "lens") {
-    for (const t of state.team) {
-      if (t.charId !== 11) t.skillLevel = Math.min(10, t.skillLevel + 2);
+  // 空无烛剪：获得后随机修复 2 个已损毁奇物（剩余次数恢复初始）
+  if (id === "kongwu") {
+    const brokenIds = state.curios.filter((x) => x.broken).map((x) => x.id);
+    const fixCount = Math.min(curioVal(state, "kongwu", "fixCount"), brokenIds.length);
+    for (let i = 0; i < fixCount; i++) {
+      const bid = brokenIds[i];
+      const target = state.curios.find((x) => x.id === bid);
+      if (target) {
+        target.broken = false;
+        target.enhanced = 1;
+        for (const k of Object.keys(target)) {
+          if (k !== "id" && k !== "star" && k !== "enhanced" && k !== "broken") delete target[k];
+        }
+        state.log.push(`空无烛剪：修复「${CURIOS[bid]?.name}」`);
+      }
     }
-    state.log.push("时空棱镜：全队技能等级 +2");
   }
-  // 分裂银币：立即获得当前碎片 40%
+  // 虚高一丈：获得 1/2/3 星奇物时获得 20/40/120 碎片
+  const xugao = state.curios.find((x) => x.id === "xugao");
+  if (id !== "xugao" && xugao && !xugao.broken) {
+    const shardsByStar = CURIO_FX.xugao?.shardsByStar || [20, 40, 120];
+    const gain = shardsByStar[c.star - 1] || 0;
+    if (gain > 0) {
+      state.shards += gain;
+      state.log.push(`虚高一丈：+${gain} 宇宙碎片`);
+    }
+  }
+  // 时空棱镜：所有角色技能等级 +N（最多 5 级提升，最多 10 级）
+  if (id === "lens") {
+    const up = curioVal(state, "lens", "skillUp");
+    for (const t of state.team) {
+      if (t.charId !== 11) t.skillLevel = Math.min(10, t.skillLevel + up);
+    }
+    state.log.push(`时空棱镜：全队技能等级 +${up}`);
+  }
+  // 分裂银币：立即获得当前碎片 40%（强化 +2/级）
   if (id === "silver") {
-    const gain = Math.ceil(state.shards * ((CURIO_FX.silver?.shardsPct || 40) / 100));
+    const gain = Math.ceil(state.shards * (curioVal(state, "silver", "shardsPct") / 100));
     state.shards += gain;
     state.log.push(`分裂银币：+${gain} 宇宙碎片`);
   }
-  // 失金爪锚：+500
+  // 失金爪锚：+500（强化只强化立即获得）
   if (id === "shijin") {
-    state.shards += (CURIO_FX.shijin?.gain || 500);
+    state.shards += curioVal(state, "shijin", "gain");
     state.log.push("失金爪锚：+碎片");
   }
-  // 临时赌资：+300
+  // 临时赌资：+300（强化 +10/级）
   if (id === "linji") {
-    state.shards += (CURIO_FX.linji?.gain || 300);
+    state.shards += curioVal(state, "linji", "gain");
     state.log.push("临时赌资：+碎片");
   }
   // 自适应礼品盒：失去全部碎片，获得 10%-200% 随机
@@ -883,17 +1009,10 @@ export function gainCurio(state, id, opts = {}) {
     state.shards = Math.ceil(lost * pct);
     state.log.push(`自适应礼品盒：失去 ${lost}，获得 ${state.shards}`);
   }
-  // 暗海碎饵：15% / -10% 随机
-  if (id === "anhai") {
-    if (Math.random() < 0.5) {
-      state.shards += Math.ceil(state.shards * ((CURIO_FX.anhai?.gainPct || 15) / 100));
-    } else {
-      state.shards = Math.max(0, state.shards - Math.ceil(state.shards * ((CURIO_FX.anhai?.lossPct || 10) / 100)));
-    }
-  }
-  // 万象无常骰：强化 2 个随机祝福
+  // 万象无常骰：强化 N 个随机祝福（2→3→4→5）
   if (id === "wanxiang") {
-    for (let i = 0; i < 2 && state.blessings.length; i++) {
+    const count = curioVal(state, "wanxiang", "count");
+    for (let i = 0; i < count && state.blessings.length; i++) {
       const b = state.blessings[Math.floor(Math.random() * state.blessings.length)];
       b.heatEnhanced = (b.heatEnhanced || 1) + 1;
     }
@@ -921,11 +1040,20 @@ export function gainCurio(state, id, opts = {}) {
       if (eq) gainEquation(state, eq);
     }
   }
-  // 阿阮袋：3 个随机祝福
+  // 阿阮袋（3→6 个）/ 垂语果实（1→4 个）：立即随机祝福；开拓火漆每命途 1 个
   if (id === "aruan" || id === "chuiyu" || id === "kaituo") {
-    for (let i = 0; i < (id === "aruan" ? 3 : 1); i++) {
+    const count = id === "aruan" ? curioVal(state, "aruan", "count") : id === "chuiyu" ? curioVal(state, "chuiyu", "count") : 1;
+    for (let i = 0; i < count; i++) {
       const b = rollBlessing(1, 3);
       if (b) gainBlessing(state, b, { silent: true });
+    }
+  }
+  // 纯美骑士精神：获得 1-3 个随机方程（1→2→3）
+  if (id === "chunmei") {
+    const count = curioVal(state, "chunmei", "count");
+    for (let i = 0; i < count; i++) {
+      const eq = rollEquation(1, 3);
+      if (eq) gainEquation(state, eq);
     }
   }
   // 开拓火漆：每个命运 1 个祝福
@@ -939,11 +1067,11 @@ export function gainCurio(state, id, opts = {}) {
       }
     }
   }
-  // 楼梯上的水母：失去全部祝福转碎片（每星级 80）
+  // 楼梯上的水母：失去全部祝福转碎片（按星级之和，每星级 80；强化不重复计星）
   if (id === "louti") {
-    const starSum = state.blessings.reduce((a, b) => a + (b.star || 1) * (b.enhanced || 1), 0);
+    const starSum = state.blessings.reduce((a, b) => a + (b.star || 1), 0);
     state.blessings = [];
-    state.shards += starSum * (CURIO_FX.louti?.shardsPerStar || 80);
+    state.shards += starSum * curioVal(state, "louti", "shardsPerStar");
     state.log.push("楼梯上的水母：祝福转碎片");
   }
   // 患者面具：祝福全换（保留强化）
@@ -962,15 +1090,36 @@ export function gainCurio(state, id, opts = {}) {
       return { id: next.id, star: next.star, enhanced: c.enhanced || 1, broken: false };
     });
   }
-  // 绝对自灭药膏：+2 随机祝福 -2 随机祝福
+  // 绝对自灭药膏：+N 随机祝福 -N 随机祝福（2→3→4→5，最多 5）
   if (id === "juedui") {
-    for (let i = 0; i < 2; i++) {
+    const count = curioVal(state, "juedui", "count");
+    for (let i = 0; i < count; i++) {
       const b = rollBlessing(1, 3);
       if (b) gainBlessing(state, b, { silent: true });
     }
-    for (let i = 0; i < 2 && state.blessings.length; i++) {
+    for (let i = 0; i < count && state.blessings.length; i++) {
       state.blessings.splice(Math.floor(Math.random() * state.blessings.length), 1);
     }
+  }
+  // 末日复眼·先行版（2→6 个）/ 人造陨石球（1-3 个）：获得拥有祝福数量最多的命途的祝福
+  if (id === "mori" || id === "renzao") {
+    const count = id === "mori" ? curioVal(state, "mori", "count") : Math.max(1, Math.ceil(Math.random() * (CURIO_FX.renzao?.max || 3)));
+    const fateCounts = {};
+    for (const b of state.blessings) {
+      const f = BLESSINGS[b.id]?.fate;
+      if (f) fateCounts[f] = (fateCounts[f] || 0) + 1;
+    }
+    const maxCount = Object.keys(fateCounts).length ? Math.max(...Object.values(fateCounts)) : 0;
+    const topFates = Object.entries(fateCounts).filter(([, n]) => n === maxCount).map(([f]) => f);
+    const pool = Object.values(BLESSINGS).filter(
+      (b) => (topFates.length ? topFates.includes(b.fate) : true) && !state.blessings.some((x) => x.id === b.id),
+    );
+    for (let i = 0; i < count && pool.length; i++) {
+      const b = pool[Math.floor(Math.random() * pool.length)];
+      gainBlessing(state, b.id, { silent: true });
+      pool.splice(pool.indexOf(b), 1);
+    }
+    state.log.push(`${id === "mori" ? "末日复眼" : "人造陨石球"}：获得 ${Math.min(count, pool.length + (pool.length ? 0 : 0))} 个最多命途祝福`);
   }
   // 瘟疫巢都：4 个随机负面奇物
   if (id === "wenyi") {
@@ -989,6 +1138,12 @@ export function loseRandomCurio(state) {
   const idx = Math.floor(Math.random() * state.curios.length);
   const [removed] = state.curios.splice(idx, 1);
   state.log.push(`失去奇物「${CURIOS[removed.id]?.name ?? removed.id}」`);
+  // 真实机兵：失去奇物时 +75 碎片
+  const zhenshi = state.curios.find((c) => c.id === "zhenshi");
+  if (zhenshi && !zhenshi.broken) {
+    state.shards += 75;
+    state.log.push("真实机兵：+75 碎片");
+  }
   // 监督之眼：失去时获得 1 个随机 3 星奇物
   if (removed.id === "eye") {
     const pool = Object.values(CURIOS).filter((c) => c.star === 3);
@@ -997,12 +1152,90 @@ export function loseRandomCurio(state) {
       gainCurio(state, next.id);
     }
   }
-  // 真实机兵：失去奇物时 +75 碎片
-  if (state.curios.some((c) => c.id === "zhenshi")) {
-    state.shards += 75;
-    state.log.push("真实机兵：+75 碎片");
-  }
   return removed;
+}
+
+// ================= 奇物机制（损毁 / 失去 / 强化查表） =================
+
+/**
+ * 损毁奇物：效果消失但保留在背包（broken=true，UI 显示「已损毁」），后续可再次获得。
+ * 触发「烈阳之舞」（损毁时 +30 碎片）与「无人通讯」（恢复如新）。
+ */
+export function breakCurio(state, id, silent = false) {
+  const c = state.curios?.find((x) => x.id === id);
+  if (!c || c.broken) return false;
+  c.broken = true;
+  if (!silent) state.log.push(`奇物「${CURIOS[id]?.name || id}」已损毁`);
+  // 烈阳之舞：每次有奇物损毁时，获得 30 宇宙碎片
+  const lieyangFx = CURIO_FX.lieyang;
+  if (lieyangFx && !c.negative && state.curios.some((x) => x.id === "lieyang" && !x.broken)) {
+    state.shards += lieyangFx.gain || 30;
+    state.log.push("烈阳之舞：+30 宇宙碎片");
+  }
+  // 无人通讯：奇物损毁时使其恢复如新（触发 2 次后失去自身）
+  const wuren = state.curios.find((x) => x.id === "wuren");
+  if (wuren && !wuren.broken) {
+    wuren.triggers = (wuren.triggers || 0) + 1;
+    if (wuren.triggers >= (CURIO_FX.wuren?.triggers || 2)) {
+      loseCurio(state, "wuren", true);
+      state.log.push("无人通讯：次数用尽，失去自身");
+    } else {
+      c.broken = false; // 恢复如新
+      state.log.push("无人通讯：奇物恢复如新");
+      return true;
+    }
+  }
+  // 家族缘结：奇物损毁时，再获得 1 个可损毁奇物（不递归触发）
+  const jiazuFx = CURIO_FX.jiazu;
+  if (jiazuFx && state.curios.some((x) => x.id === "jiazu" && !x.broken)) {
+    const pool = Object.values(CURIOS).filter((x) => !x.negative && x.star >= 1 && x.star <= 3 && x.desc?.includes("损毁"));
+    if (pool.length) {
+      const next = pool[Math.floor(Math.random() * pool.length)];
+      if (next.id !== id) gainCurio(state, next.id, { silent: true });
+    }
+  }
+  return true;
+}
+
+/** 失去奇物：从背包移除（效果消失，可再次获得；触发真实机兵） */
+export function loseCurio(state, id, silent = false) {
+  const i = state.curios?.findIndex((x) => x.id === id);
+  if (i == null || i < 0) return false;
+  const [removed] = state.curios.splice(i, 1);
+  if (!silent) state.log.push(`失去奇物「${CURIOS[id]?.name || id}」`);
+  // 真实机兵：每次失去奇物时 +75 碎片（与失去几个无关；强化 +10/级）
+  const zhenshi = state.curios.find((x) => x.id === "zhenshi");
+  if (zhenshi && !zhenshi.broken) {
+    state.shards += curioVal(state, "zhenshi", "gain");
+    if (!silent) state.log.push("真实机兵：+碎片");
+  }
+  return true;
+}
+
+/** 奇物强化等级（1 级起，enhanced） */
+export function curioLevel(state, id) {
+  const c = state.curios?.find((x) => x.id === id && !x.broken);
+  if (!c) return 0;
+  return Math.max(1, c.enhanced || 1);
+}
+
+/**
+ * 奇物强化后数值：CURIO_FX[id].lv[field] 序列查表（按 enhanced，超出按等差延伸）；
+ * 无 lv 表回退 CURIO_FX[id][field]。
+ */
+export function curioVal(state, id, field) {
+  const fx = CURIO_FX[id];
+  if (!fx) return 0;
+  const c = state.curios?.find((x) => x.id === id);
+  if (!c || c.broken) return 0;
+  const lv = Math.max(1, c.enhanced || 1);
+  const table = fx.lv?.[field];
+  if (table && table.length > 0) {
+    if (lv <= table.length) return table[lv - 1];
+    const step = table.length >= 2 ? table[1] - table[0] : 0;
+    return table[table.length - 1] + step * (lv - table.length);
+  }
+  return fx[field] ?? 0;
 }
 
 // ================= 方程（第一版基础池，效果 M5 完整接入） =================
@@ -1050,6 +1283,40 @@ export function gainEquation(state, id, opts = {}) {
       t.hp = Math.min(t.hp, t.maxHp);
     }
     state.log.push("换心魔：全队生命上限 +40%");
+  }
+  // 破碎咕咕钟：展开 1 个方程后损毁
+  if (state.curios?.some((c) => c.id === "posui" && !c.broken)) {
+    const posui = state.curios.find((c) => c.id === "posui");
+    posui.eqCount = (posui.eqCount || 0) + 1;
+    if (posui.eqCount >= 1) {
+      breakCurio(state, "posui");
+      state.log.push("破碎咕咕钟：展开 1 个方程后损毁");
+    }
+  }
+  // 和平箱：展开 1 个 2 星及以上方程后获得 1 个随机祝福（触发 4 次后损毁）
+  if (eq.star >= 2 && state.curios?.some((c) => c.id === "hepingxiang" && !c.broken)) {
+    const hp = state.curios.find((c) => c.id === "hepingxiang");
+    const count = curioVal(state, "hepingxiang", "count");
+    for (let i = 0; i < count; i++) {
+      const b = rollBlessing(1, 3);
+      if (b) gainBlessing(state, b, { silent: true });
+    }
+    hp.count2 = (hp.count2 || 0) + 1;
+    state.log.push(`和平箱：展开方程，获得 ${count} 个随机祝福`);
+    if (hp.count2 >= (CURIO_FX.hepingxiang?.maxTriggers || 4)) breakCurio(state, "hepingxiang");
+  }
+  // 与死重逢：每展开 1 个方程后获得 1 个随机方程（最多 3 个）；每有 1 个展开方程伤害 +10%
+  if (state.curios?.some((c) => c.id === "yusi" && !c.broken)) {
+    const ys = state.curios.find((c) => c.id === "yusi");
+    ys.eqGain = (ys.eqGain || 0) + 1;
+    if (ys.eqGain <= 3) {
+      const next = rollEquation(1, 3);
+      if (next && next !== id) {
+        // 不递归触发（防无限）；用内部添加
+        state.equations.push({ id: next, star: EQUATIONS[next].star, enhanced: 1 });
+        state.log.push(`与死重逢：获得方程「${EQUATIONS[next].name}」`);
+      }
+    }
   }
   return { ok: true, star: eq.star, silent: opts.silent };
 }

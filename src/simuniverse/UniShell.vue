@@ -144,6 +144,11 @@
               <span v-if="t.skillCooldown > 0" class="uni-member__cd">冷却{{ t.skillCooldown }}</span>
               <span v-else-if="skillType(t) === 'active'" class="uni-member__ready">✓ 可用</span>
               <span v-else class="uni-member__passive">被动</span>
+              <button
+                v-if="canAssignPassive(t)"
+                class="uni-btn uni-btn--sm uni-assign-btn"
+                @click.stop="openAssignModal(t)"
+              >指定队友</button>
             </div>
             <div v-for="f in fxFor('member', t.index)" :key="f.id" class="uni-fx" :class="'uni-fx--' + f.tone">
               {{ f.text }}
@@ -371,14 +376,17 @@
               <span class="uni-bag-item__name">
                 <span v-if="c.star > 0" class="uni-star">{{ '★'.repeat(c.star) }}</span>
                 {{ bagCurio(c.id).name }}
+                <span v-if="c.broken" class="uni-tag uni-tag--bad">已损毁</span>
               </span>
               <span class="uni-bag-item__meta">
                 <span v-if="bagCurio(c.id).negative" class="uni-tag uni-tag--bad">负面</span>
+                <span v-if="(c.enhanced || 1) > 1" class="uni-tag uni-tag--boost">强化 ×{{ c.enhanced }}</span>
                 <span class="uni-bag-item__arrow">{{ expandedKey === 'curio-' + i ? '▲' : '▼' }}</span>
               </span>
             </div>
             <div v-if="expandedKey === 'curio-' + i" class="uni-bag-item__desc">
               {{ bagCurio(c.id).desc }}
+              <span v-if="c.broken">（已损毁：效果消失，后续可再次获得并强化）</span>
             </div>
           </div>
         </div>
@@ -445,6 +453,36 @@
           </button>
         </template>
         <button class="uni-btn uni-btn--sm uni-modal__cancel" @click="skillBranch = null">取消</button>
+      </div>
+    </div>
+
+    <!-- 指定队友弹层（火神斗志 / 少女攻防，8-10 级可指定受益队友） -->
+    <div v-if="assignModal" class="uni-modal">
+      <div class="uni-modal__box">
+        <h3 class="uni-modal__title">{{ assignModal.owner.name }}：指定受益队友（最多再选 {{ assignModal.maxExtra }} 人）</h3>
+        <p class="uni-panel__desc">{{ assignModal.desc }}</p>
+        <div class="uni-modal__members">
+          <button
+            v-for="m in uniState.team"
+            :key="m.index"
+            class="uni-charsel__card"
+            :class="{
+              'uni-charsel__card--selected': assignModal.selected.includes(m.index),
+              'uni-charsel__card--disabled': m.index === assignModal.owner.index,
+            }"
+            :disabled="m.index === assignModal.owner.index"
+            @click="toggleAssignMember(m.index)"
+          >
+            <div class="uni-charsel__avatar">
+              <img :src="iconOf(m.index)" :alt="m.name" @error="onImgError" />
+            </div>
+            <span class="uni-charsel__name">{{ m.name }}<span v-if="m.index === assignModal.owner.index">（自身）</span></span>
+          </button>
+        </div>
+        <button class="uni-btn uni-btn--primary" :disabled="!assignModal.selected.length" @click="confirmAssign">
+          确认（{{ assignModal.selected.length }}/{{ assignModal.maxExtra }}）
+        </button>
+        <button class="uni-btn uni-btn--sm uni-modal__cancel" @click="assignModal = null">取消</button>
       </div>
     </div>
 
@@ -729,7 +767,7 @@ import gsap from "gsap";
 import DevLogPanel from "../components/DevLogPanel.vue";
 import { SHOP_PRICE, REGION_META, UNI_SKILLS, ENEMY_PATTERNS } from "./logic/uniConstants.js";
 import { isEquationUnlocked } from "./logic/uniBuffs.js";
-import { CHARACTERS } from "./logic/uniState.js";
+import { CHARACTERS, setPassiveAssign } from "./logic/uniState.js";
 import { BLESSINGS, CURIOS, EQUATIONS } from "./logic/uniBuffs.js";
 import { shopPrice as uniShopPrice } from "./logic/uniShop.js";
 import { createUniEffects } from "./uniPixi.js";
@@ -1290,6 +1328,44 @@ function confirmNahida() {
   if (!s || !s.selected.length) return;
   const r = props.uni.doSkill(undefined, { members: s.selected });
   if (r.ok) skillBranch.value = null;
+}
+
+// ---- 指定队友弹层（火神 6 / 少女 7，8-10 级可指定受益队友） ----
+const assignModal = ref(null); // { who: 'mav'|'shao', owner, maxExtra, selected: [], desc }
+function canAssignPassive(t) {
+  if (!t.alive || !uniState.combat) return false;
+  if (t.charId !== 6 && t.charId !== 7) return false;
+  return Math.min(t.skillLevel, 10) >= 8;
+}
+function openAssignModal(t) {
+  const who = t.charId === 6 ? "mav" : "shao";
+  const lv = Math.min(t.skillLevel, 10);
+  const sk = UNI_SKILLS[t.charId];
+  const total = sk.team[lv - 1];
+  const cur = uniState.passiveAssign?.[who] || [];
+  assignModal.value = {
+    who,
+    owner: t,
+    maxExtra: total - 1,
+    selected: [...cur],
+    desc:
+      t.charId === 6
+        ? `斗志上限 ${sk.values[lv - 1]} 层；队伍中 ${total} 人拥有斗志，各自独立叠层（每次攻击造成伤害 +1 层，每层使下次攻击伤害 +1）`
+        : `攻击/防御 +${sk.values[lv - 1]}；队伍中 ${total} 人享受加成（加算于牌面，再参与百分比乘算）`,
+  };
+}
+function toggleAssignMember(idx) {
+  const s = assignModal.value;
+  if (!s || idx === s.owner.index) return;
+  const i = s.selected.indexOf(idx);
+  if (i >= 0) s.selected.splice(i, 1);
+  else if (s.selected.length < s.maxExtra) s.selected.push(idx);
+}
+function confirmAssign() {
+  const s = assignModal.value;
+  if (!s) return;
+  setPassiveAssign(uniState, s.who, s.selected);
+  assignModal.value = null;
 }
 
 const oddityText = computed(() => {
@@ -1938,10 +2014,25 @@ function onQuit() {
   margin-top: 6px;
   font-size: 12px;
   color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 .uni-member__cd { color: var(--gold); margin-left: 4px; }
 .uni-member__ready { color: var(--hp); margin-left: 4px; }
 .uni-member__passive { color: var(--text-dim); margin-left: 4px; }
+.uni-assign-btn {
+  margin-left: 6px;
+  padding: 1px 6px;
+  font-size: 11px;
+  color: var(--gold);
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  border-radius: 6px;
+  background: rgba(212, 175, 55, 0.12);
+  cursor: pointer;
+}
+.uni-assign-btn:hover { background: rgba(212, 175, 55, 0.25); }
 /* 敌人卡：暖暗底 + 暗红顶部条 */
 .uni-enemy {
   position: relative;

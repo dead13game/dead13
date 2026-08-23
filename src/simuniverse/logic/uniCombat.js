@@ -20,6 +20,8 @@ import {
   triggerCurioOnCombatStart,
   triggerCurioOnWin,
   chargeJarBrain,
+  breakCurio,
+  curioVal,
   blessingMult,
   blessingVal,
   isEquationUnlocked,
@@ -46,7 +48,6 @@ import {
   PUPPET_EVERY,
   BOSS_HEAL_CUT,
   ELITE_LOCK_DMG,
-  SPIRIT_PER_5,
 } from "./uniConstants.js";
 
 const POKER_DRAW = 1; // 每次行动抽 1 张扑克（先选行动再抽牌）
@@ -304,7 +305,8 @@ export function playerAttack(state, enemyIdx) {
   const mods = getUniModifiers(state);
   const flat = attacker.status.atkBonus || 0;
   const pct = attacker.status.dmgBuffPct || 0;
-  const spiritBonus = Math.ceil((attacker.status.spirit || 0) / SPIRIT_PER_5);
+  // 火神斗志：每层斗志使本次攻击伤害 +1（加算位置：牌面 + 少女加成 + 斗志 → 再乘增伤百分比）
+  const spiritBonus = attacker.status.spirit || 0;
   const nextBoost = attacker.status.nextAttackBoost || 0;
   // 方程：受诅教师（每消灭 1 敌人本场伤害 +20%，最多 3 层）
   const shouzuFx = EQUATIONS.shouzu?.fx;
@@ -320,7 +322,7 @@ export function playerAttack(state, enemyIdx) {
     (isEquationActive(state, "ruchong") && c.round === 1 ? (EQUATIONS.ruchong?.fx?.firstAtkMult || 60) : 0) +
     (c.buffs?.includes("atkUp") ? 30 : 0) +
     (c.buffs?.includes("dmgUp50") ? 50 : 0);
-  const dmg = Math.max(0, Math.ceil((raw + flat) * (1 + totalPct / 100)) + spiritBonus);
+  const dmg = Math.max(0, Math.ceil((raw + flat + spiritBonus) * (1 + totalPct / 100)));
   if (attacker.status.nextAttackBoost) attacker.status.nextAttackBoost = 0; // 炬火一次性
   recordSound(state, "attack");
   // 方程：遗迹魔法师（攻击后罐中脑 +8%）
@@ -340,6 +342,8 @@ export function playerAttack(state, enemyIdx) {
   c.lastPokerTarget = { type: "enemy", id: enemyIdx }; // 飞牌落点：攻击目标敌人
   c.pendingPoker = [];
   damageEnemy(state, enemyIdx, dmg, c.activeIdx);
+  // 火神斗志：攻击命中造成伤害 → 攻击者 +1 层（上限内；单场不归零，战斗结束清零）
+  gainSpirit(state, c.activeIdx);
   // 方程：梦魔主（攻击附加生命上限+护盾 10%）
   if (isEquationActive(state, "mengmo")) {
     c._pendingExtra = (c._pendingExtra || 0) + Math.ceil(((attacker.maxHp + attacker.shield) * (EQUATIONS.mengmo?.fx?.hpShieldPct || 10)) / 100);
@@ -607,13 +611,16 @@ function resolveEnemyAction(state, enemy, action) {
     if (target === null) return;
     // 意义质询：陷入持续伤害状态的敌人造成的伤害降低 3 点
     const yiyiCut = enemy.dotTurns > 0 ? blessingVal(state, "yiyi", "dmgCut") : 0;
-    const dmg = Math.max(0, action.dmg * dmgMultNow - yiyiCut);
+    // 有梦-0110：15 回合后受到的伤害提高 10%
+    const youmengUp = state.combat._youmengTurns && state.combat.round >= state.combat._youmengTurns ? (CURIO_FX.youmeng?.laterDmgPct || 10) : 0;
+    const dmg = Math.max(0, Math.ceil(action.dmg * dmgMultNow * (1 + youmengUp / 100)) - yiyiCut);
     state.devLog.info(LOG_TYPE.UNI_REGION, `${enemy.name} 攻击 ${state.team[target].name}`, { dmg });
     damageTeamMember(state, target, dmg);
   } else if (type === "aoe") {
     // 意义质询：dot 敌人 AOE 伤害 -3
     const yiyiCut = enemy.dotTurns > 0 ? blessingVal(state, "yiyi", "dmgCut") : 0;
-    const dmg = Math.max(0, action.dmg * dmgMultNow - yiyiCut);
+    const youmengUp = state.combat._youmengTurns && state.combat.round >= state.combat._youmengTurns ? (CURIO_FX.youmeng?.laterDmgPct || 10) : 0;
+    const dmg = Math.max(0, Math.ceil(action.dmg * dmgMultNow * (1 + youmengUp / 100)) - yiyiCut);
     state.devLog.info(LOG_TYPE.UNI_REGION, `${enemy.name} 全体攻击`, { dmg });
     for (let i = 0; i < state.team.length; i++) {
       if (state.team[i].alive) damageTeamMember(state, i, dmg);
@@ -663,6 +670,8 @@ function resolveEnemyAction(state, enemy, action) {
   } else if (type === "stun") {
     const target = pickAliveMember(state);
     if (target === null) return;
+    // 腐化异木果实：抵抗控制类负面效果（每次抵抗消耗 20% 生命上限）
+    if (resistControl(state, state.team[target])) return;
     state.team[target].status.stunned = true;
     state.devLog.info(LOG_TYPE.UNI_REGION, `${enemy.name} 眩晕 ${state.team[target].name}`, {});
   } else if (type === "summon") {
@@ -679,6 +688,8 @@ function resolveEnemyAction(state, enemy, action) {
     if (enemy.round % PUPPET_EVERY === 0 && enemy.round > 0) {
       const target = pickAliveMember(state);
       if (target === null) return;
+      // 腐化异木果实：抵抗傀儡控制
+      if (resistControl(state, state.team[target])) return;
       state.team[target].status.puppet = true;
       state.devLog.info(LOG_TYPE.UNI_REGION, `${enemy.name} 控制 ${state.team[target].name} 为傀儡`, {});
     } else {
@@ -702,6 +713,23 @@ function pickAliveMember(state, excludeIdx = -1) {
   return alive[Math.floor(Math.random() * alive.length)].i;
 }
 
+/** 腐化异木果实：角色抵抗控制类负面状态（每次抵抗消耗自身生命上限 % 的生命） */
+function resistControl(state, t) {
+  const fuhua = state.curios?.find((c) => c.id === "fuhua");
+  if (!fuhua || fuhua.broken) return false;
+  const cost = Math.ceil(t.maxHp * (curioVal(state, "fuhua", "hpCostPct") / 100));
+  t.hp = Math.max(1, t.hp - cost);
+  state.log.push(`腐化异木果实：${t.name} 抵抗控制效果（消耗 ${cost} 生命）`);
+  return true;
+}
+
+/** 火神斗志：拥有斗志的角色攻击命中后 +1 层（上限内；单场不归零，战斗结束清零） */
+export function gainSpirit(state, memberIdx) {
+  const t = state.team[memberIdx];
+  if (!t?.status?.spiritCap) return;
+  t.status.spirit = Math.min(t.status.spiritCap, t.status.spirit + 1);
+}
+
 // ---- 伤害结算 ----
 
 /** 对敌人造成伤害：护盾先扣，剩余扣 HP；击杀发转化奖励；波次清空检查 */
@@ -713,13 +741,6 @@ export function damageEnemy(state, enemyIdx, dmg, sourceIdx = -1) {
   const shieldDmg = Math.min(enemy.shield, d);
   enemy.shield -= shieldDmg;
   d -= shieldDmg;
-  // 玛薇卡斗志：破敌人护盾 → 攻击者攒斗志（上限内）
-  if (shieldDmg > 0 && sourceIdx >= 0) {
-    const atk = state.team[sourceIdx];
-    if (atk?.status?.spiritCap > 0) {
-      atk.status.spirit = Math.min(atk.status.spiritCap, atk.status.spirit + shieldDmg);
-    }
-  }
   enemy.hp = Math.max(0, enemy.hp - d);
   c.lastDamage = { type: "enemy", idx: enemyIdx, dmg, seq: (c._dmgSeq || 0) + 1 };
   c._dmgSeq = c._dmgSeq || 0;
@@ -763,9 +784,9 @@ function isEquationActive(state, id) {
   return hasEquation(state, id) && isEquationUnlocked(state, id);
 }
 
-/** 是否持有指定奇物 */
+/** 是否持有指定奇物（已损毁的不算） */
 function hasCurio(state, id) {
-  return state.curios?.some((c) => c.id === id);
+  return state.curios?.some((c) => c.id === id && !c.broken);
 }
 
 /** 推进到下一波；波次耗尽 → 胜利（不负责后续行动推进，由调用方处理） */
@@ -1004,15 +1025,20 @@ function endCombat(state, result) {
   const c = state.combat;
   if (!c || c.phase === "won" || c.phase === "lost") return;
   c.phase = result;
+  // 火神斗志：单场不归零，战斗结束后清零
+  for (const t of state.team) {
+    t.status.spirit = 0;
+  }
   if (result === "won") {
     recordSound(state, "match_end");
     const reward = REGION_REWARD[c.kind];
     let shards = 0;
-    if (reward) {
+    // 事件战斗（pendingEventReward）只发事件自身奖励，不叠加区域基础奖励
+    if (reward && !state.pendingEventReward) {
       shards = reward.shards || 0;
-      // 奇物修正：破碎咕咕钟（-25%）/ 俱乐部券（+40%）
+      // 奇物修正：破碎咕咕钟（-25%）/ 俱乐部券（+40%，强化 +2/级）
       if (hasCurio(state, "posui")) shards = Math.ceil(shards * 0.75);
-      if (hasCurio(state, "club")) shards = Math.ceil(shards * 1.4);
+      if (hasCurio(state, "club")) shards = Math.ceil(shards * curioVal(state, "club", "shardsMult"));
       addShards(state, shards);
     }
     // 奇物：香涎干酪（胜利后全队回满）
@@ -1024,27 +1050,47 @@ function endCombat(state, result) {
     if (hasCurio(state, "fujiao")) {
       const id = rollBlessing(3, 3);
       if (id) gainBlessing(state, id);
-      const idx = state.curios.findIndex((x) => x.id === "fujiao");
-      if (idx >= 0) {
-        const [removed] = state.curios.splice(idx, 1);
-        state.log.push("福灵胶使用后损毁");
-      }
+      breakCurio(state, "fujiao");
+      state.log.push("福灵胶使用后损毁");
     }
     c.lastReward = { shards, blessingPicks: reward?.blessingPicks || 0 };
     state.log.push(`战斗胜利${shards ? `，+${shards} 宇宙碎片` : ""}`);
     // 胜利后祝福三选一：按区域类型生成候选（battle 3×1-2星 / elite 3×2-3星 / boss 2×1-3星）
     // 事件战斗（pendingEventReward）只用事件自身奖励，不叠加区域基础奖励
     if (reward?.blessingPicks && !state.pendingEventReward) {
-      const starRange = reward.blessingStars || [1, 3];
-      const picks = [];
-      for (let i = 0; i < reward.blessingPicks; i++) {
-        picks.push({
-          candidates: rollBlessingCandidates(3, starRange[0], starRange[1]),
-          starRange,
-        });
+      // 天才俱乐部普通八卦：战斗结束后无法获得祝福 → 直接跳过
+      if (hasCurio(state, "tiancai")) {
+        state.log.push("天才俱乐部普通八卦：战斗结束后无法获得祝福");
+      } else {
+        let starRange = reward.blessingStars || [1, 3];
+        let optionCount = 3;
+        // 卜签咕咕钟：可选祝福选项减少 1 个（三选一 → 二选一）
+        if (hasCurio(state, "bushu")) optionCount = 2;
+        // 降维骰子：改为 4 次 1~2 星祝福二选一（2 次战斗后损毁）
+        if (hasCurio(state, "jiangwei")) {
+          starRange = [1, 2];
+          optionCount = 2;
+        }
+        const picks = [];
+        const pickTimes = hasCurio(state, "jiangwei") ? 4 : reward.blessingPicks;
+        for (let i = 0; i < pickTimes; i++) {
+          picks.push({
+            candidates: rollBlessingCandidates(optionCount, starRange[0], starRange[1]),
+            starRange,
+          });
+        }
+        state.pendingBlessingPicks = (state.pendingBlessingPicks || []).concat(picks);
+        state.log.push(`战斗胜利：可进行 ${pickTimes} 次祝福选择（${optionCount} 选 1）`);
       }
-      state.pendingBlessingPicks = (state.pendingBlessingPicks || []).concat(picks);
-      state.log.push(`战斗胜利：可进行 ${reward.blessingPicks} 次祝福三选一`);
+      // 阿阮袋：胜利后选祝福时无法选择，直接获得 3 个随机祝福（2 次战斗后损毁）
+      if (hasCurio(state, "aruan")) {
+        const count = curioVal(state, "aruan", "count");
+        for (let i = 0; i < count; i++) {
+          const id = rollBlessing(1, 3);
+          if (id) gainBlessing(state, id);
+        }
+        state.log.push(`阿阮袋：直接获得 ${count} 个随机祝福`);
+      }
     }
     // 胜利后方程奖励（首领 2 个 2~3 星方程）
     if (reward?.equations && !state.pendingEventReward) {
@@ -1083,6 +1129,14 @@ function endCombat(state, result) {
           state.pendingSkillUpTarget = (state.pendingSkillUpTarget || 0) + r.skillUpTarget;
           state.log.push(`事件战斗胜利：可指定角色技能等级 +${r.skillUpTarget}`);
         }
+      }
+      if (r.skillUpAll) {
+        for (const t of state.team) {
+          if (t.alive && t.charId !== 11) {
+            t.skillLevel = Math.min(10, t.skillLevel + r.skillUpAll);
+          }
+        }
+        state.log.push(`事件战斗胜利：全队技能等级 +${r.skillUpAll}`);
       }
       state.pendingEventReward = null;
     }
