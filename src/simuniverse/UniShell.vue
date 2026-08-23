@@ -130,6 +130,7 @@
             </div>
             <div class="uni-member__flags">
               <span v-if="t.shield > 0" class="uni-tag uni-tag--shield">🛡️{{ t.shield }}</span>
+              <span v-if="(t.status.defensePile?.length || 0) > 0" class="uni-tag uni-tag--shield">🛡️牌×{{ t.status.defensePile.length }}</span>
               <span v-if="t.status.spirit > 0" class="uni-tag uni-tag--spirit">🔥战意{{ t.status.spirit }}/{{ t.status.spiritCap }}</span>
               <span v-if="t.status.zhandu > 0" class="uni-tag uni-tag--spirit">⚡战意{{ t.status.zhandu }}层</span>
               <span v-if="(t.status.atkBonus || 0) > 0 || (t.status.defBonus || 0) > 0" class="uni-tag uni-tag--moon">🌙月相+{{ t.status.atkBonus || t.status.defBonus }}</span>

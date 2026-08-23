@@ -518,9 +518,11 @@ export function triggerOnAttackAfter(state, memberIdx, targetEnemyId, baseDmg) {
   if (!target) return;
   const jiemo = BLESSINGS.jiemo?.fx?.defCards || 0;
   if (jiemo && blessingMult(state, "jiemo") > 0) {
-    for (let i = 0; i < blessingVal(state, "jiemo", "defCards"); i++) {
+    const n = blessingVal(state, "jiemo", "defCards");
+    for (let i = 0; i < n; i++) {
       t.status.defensePile.push({ value: 2, rank: "盾", suit: "♦" });
     }
+    state.log.push(`结膜：${t.name} 普攻后获得 ${n} 张防御牌`);
   }
   const yanliFx = BLESSINGS.yanli?.fx;
   if (yanliFx && blessingMult(state, "yanli") > 0) {
