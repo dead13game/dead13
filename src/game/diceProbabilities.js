@@ -1,10 +1,10 @@
 // 骰子点数和权重表（纯逻辑，零依赖）
 //
-// 数据源：update_log/骰子概率.csv —— 两枚六面骰的点数和分布（2~12）
+// 数据源：src/game/骰子概率.csv —— 两枚六面骰的点数和分布（2~12）
 // 构建时经 Vite `?raw` 打包进 bundle；CSV 缺失/解析失败时回退经典双骰权重。
 // 所有掷骰统一走 rollWeightedDice，权重以本表为准（避免硬编码）。
 
-import diceCsv from "../../update_log/骰子概率.csv?raw";
+import diceCsv from "./骰子概率.csv?raw";
 
 /** 经典双骰权重（兜底，与 CSV 相同） */
 const FALLBACK_WEIGHTS = [

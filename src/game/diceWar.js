@@ -5,7 +5,7 @@
 // - 首轮随机配对 → 每轮胜者重新随机抽签（完全随机，不做赛区规避，允许内战）
 // - 八分之一决赛(8场) → 四分之一决赛(4场) → 半决赛(2场) → 决赛(七局四胜)
 // - 每局 30 轮常规时间：每轮先手、后手各掷一次骰子（2~12）
-// - 骰子点数和权重：update_log/骰子概率.csv（见 diceProbabilities.js，两枚六面骰分布）
+// - 骰子点数和权重：src/game/骰子概率.csv（见 diceProbabilities.js，两枚六面骰分布）
 // - 每 10 轮一段（前段/中段/末段）输出数据对比；30 轮平局进入加赛，逐轮掷到分胜负
 // - 对阵表写在前面的为先手，写在后面的为后手
 
@@ -89,7 +89,7 @@ export const CHAMPIONS_HISTORY = [
 
 /**
  * 掷一次骰子，返回 2~12。
- * 权重以 update_log/骰子概率.csv 为准（rollWeightedDice 按权重采样）。
+ * 权重以 src/game/骰子概率.csv 为准（rollWeightedDice 按权重采样）。
  */
 export function rollTwoDice(rng = Math.random) {
   return rollWeightedDice(rng);

@@ -116,7 +116,7 @@ describe("骰子", () => {
   });
 });
 
-describe("骰子概率表（update_log/骰子概率.csv）", () => {
+describe("骰子概率表（src/game/骰子概率.csv）", () => {
   it("CSV 解析出 2~12 的权重并升序排列", () => {
     const csv = "点数和,组合数,概率,大约概率\n2,1,1/36,2.78%\n3,2,2/36,5.56%\n12,1,1/36,2.78%\n7,6,6/36,16.67%\n";
     const w = parseDiceWeights(csv);
