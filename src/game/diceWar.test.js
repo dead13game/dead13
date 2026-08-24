@@ -20,14 +20,22 @@ import {
   getSeriesScore,
 } from "./diceWar.js";
 import { KIND, buildCommentaryRequest } from "./diceWarCommentator.js";
+import {
+  DICE_WEIGHTS,
+  DICE_BOUNDS,
+  DICE_TOTAL,
+  parseDiceWeights,
+  rollWeightedDice,
+} from "./diceProbabilities.js";
 
-/** 生成可复现的 rng：掷出指定骰子总和（2~12，映射为两个六面骰） */
+/**
+ * 生成可复现的 rng：掷出指定点数和（2~12）。
+ * 基于 骰子概率.csv 的累计权重区间，取桶中点，与 rollWeightedDice 完全一致。
+ */
 function diceRng(sum) {
-  const d1 = Math.min(sum - 1, 6);
-  const d2 = sum - d1;
-  const vals = [(d1 - 1) / 6, (d2 - 1) / 6];
-  let i = 0;
-  return () => vals[i++ % 2];
+  const b = DICE_BOUNDS.find((x) => x.sum === sum);
+  if (!b) throw new Error(`非法骰子点数: ${sum}`);
+  return () => (b.lo + b.hi) / 2;
 }
 
 /** 打一轮：先手 aSum，后手 bSum（可复现） */
@@ -88,7 +96,7 @@ describe("固定16人名单", () => {
 });
 
 describe("骰子", () => {
-  it("掷骰结果在 2~12 之间（模拟两个六面骰）", () => {
+  it("掷骰结果在 2~12 之间（按 骰子概率.csv 权重）", () => {
     for (let i = 0; i < 500; i++) {
       const v = rollTwoDice();
       expect(v).toBeGreaterThanOrEqual(2);
@@ -105,6 +113,37 @@ describe("骰子", () => {
       player: "a",
       value: 2,
     });
+  });
+});
+
+describe("骰子概率表（update_log/骰子概率.csv）", () => {
+  it("CSV 解析出 2~12 的权重并升序排列", () => {
+    const csv = "点数和,组合数,概率,大约概率\n2,1,1/36,2.78%\n3,2,2/36,5.56%\n12,1,1/36,2.78%\n7,6,6/36,16.67%\n";
+    const w = parseDiceWeights(csv);
+    expect(w.map((x) => x.sum)).toEqual([2, 3, 7, 12]);
+    expect(w.map((x) => x.weight)).toEqual([1, 2, 6, 1]);
+  });
+
+  it("CSV 数据不足时返回 null（触发兜底）", () => {
+    expect(parseDiceWeights("")).toBeNull();
+    expect(parseDiceWeights("点数和,组合数\n2,x\n")).toBeNull();
+  });
+
+  it("生效权重表 = 经典双骰分布 1,2,3,4,5,6,5,4,3,2,1，组合总数 36", () => {
+    expect(DICE_WEIGHTS.map((w) => w.weight)).toEqual([1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1]);
+    expect(DICE_WEIGHTS.map((w) => w.sum)).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+    expect(DICE_TOTAL).toBe(36);
+  });
+
+  it("按权重采样：每个点数区间中点都能精确掷出对应点数", () => {
+    for (const b of DICE_BOUNDS) {
+      expect(rollWeightedDice(() => (b.lo + b.hi) / 2)).toBe(b.sum);
+    }
+  });
+
+  it("权重采样边缘：0 与 0.999… 分别落在 2 与 12", () => {
+    expect(rollWeightedDice(() => 0)).toBe(2);
+    expect(rollWeightedDice(() => 0.999999)).toBe(12);
   });
 });
 
