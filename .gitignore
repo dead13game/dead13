@@ -33,3 +33,6 @@ scripts/
 Sounds/
 
 .reasonix/
+
+# Godot 版（Godot 4.7 迁移已终止，残留的编辑器缓存 / 构建产物 / 备份不入库）
+godot/
