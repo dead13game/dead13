@@ -237,7 +237,11 @@ function advancePhase(state, rng = Math.random) {
 
 /**
  * 开始下一场（或决赛的下一局）。
- * 返回新建的 match；锦标赛已结束返回 null。
+ * - 返回新建的 match：本阶段还有下一场，或决赛还有下一局。
+ * - 返回 null：两种情况——
+ *   ① 阶段已打完并推进到下一阶段（matchups 已生成，尚未开赛，由 UI 展示晋级名单后再次调用本函数开第一场）；
+ *   ② 锦标赛已结束（冠军已产生）。
+ *   调用方通过 state.champion 是否非空区分。
  */
 export function startNextMatch(state, rng = Math.random) {
   // 决赛：同一对选手继续下一局，直到一方 4 胜
@@ -248,14 +252,17 @@ export function startNextMatch(state, rng = Math.random) {
       return state.currentMatch;
     }
     state.currentMatch = null;
-    return null;
+    return null; // 决赛结束（冠军已产生）
+  }
+
+  // 当前阶段打完 → 只推进阶段（胜者重新抽签生成下一轮对阵），本调用不开赛
+  if (state.matchIndex + 1 >= state.matchups.length) {
+    if (!advancePhase(state, rng)) return null; // 锦标赛结束
+    state.currentMatch = null;
+    return null; // 阶段已推进，等 UI 展示晋级名单后再开第一场
   }
 
   state.matchIndex++;
-  if (state.matchIndex >= state.matchups.length) {
-    if (!advancePhase(state, rng)) return null; // 锦标赛结束
-    return startNextMatch(state, rng);
-  }
   const { a, b } = state.matchups[state.matchIndex];
   state.currentMatch = createMatch(state, a, b);
   return state.currentMatch;

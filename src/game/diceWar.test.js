@@ -240,12 +240,40 @@ describe("锦标赛结构", () => {
     expect(s.matchups.length).toBe(4);
   });
 
-  it("完整世锦赛：冠军产生，决赛 ≤7 局", () => {
+  it("阶段过渡不吞比赛：八强开赛从第1场开始（回归：曾跳过首场）", () => {
+    const s = createDiceWar();
+    startTournament(s, () => 0.5);
+    // 打完 8 场八分之一决赛
+    for (let i = 0; i < 8; i++) {
+      startNextMatch(s);
+      simulateMatch(s);
+    }
+    expect(s.phase).toBe("r16");
+    expect(s.advancers.length).toBe(8);
+    // 阶段结束 → 只推进、不开赛
+    expect(startNextMatch(s)).toBeNull();
+    expect(s.phase).toBe("qf");
+    expect(s.matchups.length).toBe(4);
+    expect(s.matchIndex).toBe(-1);
+    // 下一次调用创建四分之一决赛第 1 场（matchups[0]），而非第 2 场
+    const first = startNextMatch(s);
+    expect(first).not.toBeNull();
+    expect(s.matchIndex).toBe(0);
+    expect(first.a.name).toBe(ROSTER[s.matchups[0].a].name);
+    expect(first.b.name).toBe(ROSTER[s.matchups[0].b].name);
+  });
+
+  it("完整世锦赛：冠军产生，逐阶段场数与晋级人数正确", () => {
     const s = createDiceWar();
     startTournament(s);
     let guard = 0;
+    // 模拟 UI 流程：null = 阶段推进（下一轮循环开新阶段第一场）或锦标赛结束
     while (guard < 120) {
-      if (!startNextMatch(s)) break;
+      const next = startNextMatch(s);
+      if (!next) {
+        if (s.champion != null) break; // 锦标赛结束
+        continue; // 阶段已推进，继续开新阶段第一场
+      }
       simulateMatch(s);
       guard++;
     }
@@ -253,11 +281,24 @@ describe("锦标赛结构", () => {
     expect(s.champion).toBeGreaterThanOrEqual(0);
     expect(s.champion).toBeLessThan(ROSTER.length);
 
-    const finalMatches = s.finishedMatches.filter((m) => m.phase === "final");
+    // 每个阶段都打满：16强 8 场 → 8强 4 场 → 半决赛 2 场 → 决赛 4~7 局
+    const byPhase = (ph) => s.finishedMatches.filter((m) => m.phase === ph);
+    expect(byPhase("r16").length).toBe(8);
+    expect(byPhase("qf").length).toBe(4);
+    expect(byPhase("sf").length).toBe(2);
+    const finalMatches = byPhase("final");
     expect(finalMatches.length).toBeGreaterThanOrEqual(FINAL_WINS);
     expect(finalMatches.length).toBeLessThanOrEqual(7);
     // 总对局 = 8 + 4 + 2 + 决赛局数
     expect(s.finishedMatches.length).toBe(14 + finalMatches.length);
+
+    // 每场胜者都在本场选手中（无丢人/串场）
+    for (const rec of s.finishedMatches) {
+      expect([rec.a.name, rec.b.name]).toContain(rec.winner);
+    }
+    // 决赛每局都是同一对选手
+    const finalPair = new Set(finalMatches.flatMap((m) => [m.a.name, m.b.name]));
+    expect(finalPair.size).toBe(2);
 
     // 决赛大比分与胜场一致
     const sc = getSeriesScore(s);

@@ -530,18 +530,19 @@ function onNextMatch() {
   const prevPhase = dw.phase;
   const adv = [...dw.advancers];
   const next = startNextMatch(dw);
-  if (!next) {
+  if (next) {
+    uiMode.value = "match";
+    return;
+  }
+  // startNextMatch 返回 null：锦标赛结束（冠军产生）或阶段已推进
+  if (dw.champion != null) {
     uiMode.value = "champion";
     return;
   }
-  if (dw.phase !== prevPhase) {
-    // 上一阶段结束 → 展示晋级名单 + 新一轮对阵
-    advancersList.value = adv.map((i) => ROSTER[i]);
-    prevPhaseName.value = PHASE_META[prevPhase].listTitle;
-    uiMode.value = "phaseDone";
-  } else {
-    uiMode.value = "match";
-  }
+  // 阶段已推进：展示上一阶段晋级名单 + 新一轮对阵，开赛由「开始新一轮」触发
+  advancersList.value = adv.map((i) => ROSTER[i]);
+  prevPhaseName.value = PHASE_META[prevPhase].listTitle;
+  uiMode.value = "phaseDone";
 }
 
 function onRestart() {
