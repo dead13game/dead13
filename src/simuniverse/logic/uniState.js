@@ -674,7 +674,6 @@ export function reviveAtRest(state, charIndex) {
   }
   t.alive = true;
   t.hp = Math.max(1, Math.ceil(t.maxHp * 0.5)); // 复活后 50% 生命（最低 1）
-  t.status.defensePile = [];
   t.status.stunned = false;
   t.status.puppet = null;
   t.status.lockedBy = null;

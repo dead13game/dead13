@@ -288,6 +288,18 @@ export function drawPoker(state, n) {
   return drawn;
 }
 
+/**
+ * 统一抽牌入口：战斗内用战斗牌堆；战斗外（事件/区域层）用独立临时牌堆。
+ * 所有「获得 N 张防御牌 → 点数进护盾」的效果都走这里，与防御行动机制一致。
+ */
+export function drawPokerUnified(state, n) {
+  const c = state.combat;
+  if (c?.pokerDeck) return drawPoker(state, n);
+  const deck = shuffleDeck(createFullDeck(1));
+  const { drawn } = drawCards(deck, n);
+  return drawn;
+}
+
 // ---- 玩家三选一 ----
 
 /** 普攻：先抽 1 张牌，伤害 = 牌面值（+各类修正），目标敌人 */
@@ -838,26 +850,12 @@ function damageTeamMember(state, memberIdx, dmg) {
   }
   const finalDmg = Math.max(0, Math.ceil(dmg * taken));
   let remaining = finalDmg;
-  // 1. 独立护盾（钟离/莉奈娅/风堇技能护盾）
+  // 1. 护盾抵扣（防御行动/结膜/莉奈娅/钟离等统一进 shield）
   if (t.shield > 0) {
     const shieldDmg = Math.min(t.shield, remaining);
     t.shield -= shieldDmg;
     remaining -= shieldDmg;
     recordSound(state, "shield_break");
-  }
-  // 2. 防御牌逐张抵扣（沿用经典机制）
-  const pile = t.status.defensePile;
-  while (remaining > 0 && pile.length > 0) {
-    const top = pile[pile.length - 1];
-    if (top.value >= remaining) {
-      top.value -= remaining;
-      remaining = 0;
-      if (top.value === 0) pile.pop();
-    } else {
-      remaining -= top.value;
-      pile.pop();
-      recordSound(state, "shield_break");
-    }
   }
   const hpDmg = Math.min(t.hp, remaining);
   // 湮灭回归不等式：HP 伤害由我方全体分担
@@ -905,12 +903,10 @@ function damageTeamMember(state, memberIdx, dmg) {
     if (blessingMult(state, "huiguang") > 0 && !t.status.huiguangUsed) {
       t.status.huiguangUsed = true;
       t.hp = Math.max(1, Math.ceil(t.maxHp * 0.01));
-      t.status.defensePile = [];
       state.log.push(`回光效应：${t.name} 免于阵亡！`);
     } else {
       t.hp = 0;
       t.alive = false;
-      t.status.defensePile = [];
       state.log.push(`${t.name} 无法战斗`);
       state.devLog.warn(LOG_TYPE.UNI_REGION, `${t.name} 无法战斗`, { memberIdx });
     }

@@ -1,8 +1,8 @@
 // 模拟宇宙角色 PVE 技能 — 等级 1-10 查表 / 冷却 / 菜月昴读档
 // 纯逻辑层，零依赖（设计文档 docs/simuniverse-design.md §8）
 
-import { UNI_SKILLS, LINIYA_SHIELD_VALUE } from "./uniConstants.js";
-import { drawPoker, damageEnemy, grantExtraAction, gainSpirit } from "./uniCombat.js";
+import { UNI_SKILLS } from "./uniConstants.js";
+import { drawPokerUnified, damageEnemy, grantExtraAction, gainSpirit } from "./uniCombat.js";
 import { getUniModifiers, triggerAfterSkill, blessingMult, blessingVal, BLESSINGS, isEquationUnlocked, chargeJarBrain, applyHealSpread } from "./uniBuffs.js";
 import { LOG_TYPE } from "../../game/gameLogger.js";
 import { recordSound } from "../../game/soundEvents.js";
@@ -131,7 +131,7 @@ function doSkill(state, t, sk, lv, payload) {
       // 温迪：爆发 n 张牌（1-10 级 2~11 张）伤害 = 牌面和（可享受所有加成，无 -2）
       const n = val(sk.values, lv);
       if (payload.targetIdx == null) return { ok: false, reason: "需要目标" };
-      const cards = drawPoker(state, n);
+      const cards = drawPokerUnified(state, n);
       const total = cards.reduce((s, p) => s + p.value, 0);
       const dmg = Math.max(0, Math.ceil(total * (1 + skillDmgMult(state, t) / 100)));
       damageEnemy(state, payload.targetIdx, dmg, t.index);
@@ -245,12 +245,14 @@ function doSkill(state, t, sk, lv, payload) {
         state.log.push(`${t.name} 全体敌人受 ${dot} 点伤害`);
         return { ok: true, summary: { branch: "dot", dot, turns: 0 } };
       }
-      // 盾：全队获得 N 张盾（每张值 LINIYA_SHIELD_VALUE，乘祝福护盾加成）
-      const mods = getUniModifiers(state);
-      const shield = Math.ceil(n * LINIYA_SHIELD_VALUE * (1 + mods.shieldMult / 100));
-      for (const m of state.team) if (m.alive) m.shield += shield;
-      state.log.push(`${t.name} 全队 +${n} 张盾（${shield} 护盾）`);
-      return { ok: true, summary: { branch: "shield", shields: n, shield } };
+      // 盾：全队共抽 N 张牌，点数总和均分加盾（与防御行动同机制）
+      const cards = drawPokerUnified(state, n);
+      const total = cards.reduce((s, p) => s + p.value, 0);
+      const alive = state.team.filter((m) => m.alive);
+      const share = alive.length ? Math.ceil(total / alive.length) : 0;
+      for (const m of alive) m.shield += share;
+      state.log.push(`${t.name} 全队共抽 ${n} 张牌（${total} 点），每人防御 +${share}`);
+      return { ok: true, summary: { branch: "shield", shields: n, total, share } };
     }
     case 10: {
       // 爱蜜莉雅：敌方停 N 回合

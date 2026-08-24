@@ -4,8 +4,8 @@
 
 import { LOG_TYPE } from "../../game/gameLogger.js";
 import { EQUATION_DUPE_SHARDS } from "./uniConstants.js";
-// 延迟引用：drawPoker 仅在函数体内调用（uniCombat ↔ uniBuffs 循环依赖，运行时解析）
-import { drawPoker } from "./uniCombat.js";
+// 延迟引用：drawPokerUnified 仅在函数体内调用（uniCombat ↔ uniBuffs 循环依赖，运行时解析）
+import { drawPokerUnified } from "./uniCombat.js";
 
 /** 祝福数据表（六命运，第一版 18 个：12×1星 + 4×2星 + 2×3星） */
 export const BLESSINGS = {
@@ -356,7 +356,7 @@ export function memberDmgTakenMods(state, memberIdx) {
   }
   // 构筑·坚定：持盾受伤 -16%
   const jiandingFx = BLESSINGS.jianding?.fx;
-  if (jiandingFx && blessingMult(state, "jianding") > 0 && (t.shield > 0 || t.status.defensePile.length > 0)) {
+  if (jiandingFx && blessingMult(state, "jianding") > 0 && t.shield > 0) {
     extra += blessingVal(state, "jianding", "dmgTakenPct");
   }
   // 放射性衰变：生命 ≥50% 时补偿（getUniModifiers 给了满值）
@@ -433,9 +433,12 @@ export function triggerOnHeal(state, memberIdx, healAmount = 0) {
   if (!t) return;
   const rangzai = BLESSINGS.rangzai?.fx?.defCards || 0;
   if (rangzai && blessingMult(state, "rangzai") > 0) {
-    for (let i = 0; i < blessingVal(state, "rangzai", "defCards"); i++) {
-      t.status.defensePile.push({ value: 2, rank: "盾", suit: "♦" });
-    }
+    // 禳灾：接受治疗后抽 N 张牌，点数加入防御（与防御行动同机制）
+    const n = blessingVal(state, "rangzai", "defCards");
+    const cards = drawPokerUnified(state, n);
+    const total = cards.reduce((s, p) => s + p.value, 0);
+    t.shield += total;
+    state.log.push(`禳灾：${t.name} 接受治疗后抽 ${n} 张牌，防御 +${total}`);
   }
   const boreFx = BLESSINGS.bore?.fx;
   if (boreFx && blessingMult(state, "bore") > 0 && healAmount > 0) {
@@ -522,7 +525,7 @@ export function triggerOnAttackAfter(state, memberIdx, targetEnemyId, baseDmg) {
   if (jiemo && blessingMult(state, "jiemo") > 0) {
     // 结膜：普攻后抽 N 张牌，点数直接加入防御（与防御行动同机制）
     const n = blessingVal(state, "jiemo", "defCards");
-    const cards = drawPoker(state, n);
+    const cards = drawPokerUnified(state, n);
     const total = cards.reduce((s, p) => s + p.value, 0);
     t.shield += total;
     state.log.push(`结膜：${t.name} 普攻后抽 ${n} 张牌（${cards.map((p) => p.rank + p.suit).join(" + ")} = ${total}），防御 +${total}`);

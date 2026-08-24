@@ -447,7 +447,7 @@ describe("模拟宇宙 M2：玩家行动", () => {
     expect(target.shield).toBe(before + 7); // 牌面值 7 作为护盾
   });
 
-  it("防御牌抵扣伤害", () => {
+  it("护盾抵扣伤害", () => {
     const s = createUniState();
     startCombat(s);
     // 只留成员 0 存活，保证 single 攻击命中成员 0
@@ -457,13 +457,10 @@ describe("模拟宇宙 M2：玩家行动", () => {
         t.hp = 0;
       }
     });
-    // 给成员塞 2 张防御牌（值 5+5）
-    s.team[0].status.defensePile = [
-      { value: 5, rank: "5", suit: "♠" },
-      { value: 5, rank: "5", suit: "♦" },
-    ];
+    // 给成员 5 点护盾
+    s.team[0].shield = 5;
     const hpBefore = s.team[0].hp;
-    // 用普通 A（单体 5）打成员 0：完全被 5 点防御牌挡住
+    // 用普通 A（单体 5）打成员 0：完全被护盾挡住
     s.combat.enemies = [
       { id: 0, kind: "normal", name: "普通敌人1", pattern: "A", hp: 10, maxHp: 10, shield: 0, locked: [], round: 1, alive: true },
     ];
@@ -471,8 +468,8 @@ describe("模拟宇宙 M2：玩家行动", () => {
     s.combat.phase = "enemy-announce";
     enemyAnnounce(s);
     enemyResolve(s);
-    expect(s.team[0].hp).toBe(hpBefore); // 防御全挡
-    expect(s.team[0].status.defensePile).toHaveLength(1); // 剩 1 张（5 点被打掉）
+    expect(s.team[0].hp).toBe(hpBefore); // 护盾全挡
+    expect(s.team[0].shield).toBe(0); // 护盾耗尽
   });
 });
 
@@ -837,10 +834,11 @@ describe("模拟宇宙 M3：角色技能", () => {
     const s = createUniState([9, 1, 2, 3]);
     startCombat(s);
     s.combat.activeIdx = 0; // 模拟轮到莉奈娅
-    // 盾（等级 1 → 1 张 = 6 点）
+    // 盾（等级 1 → 全队共抽 1 张牌，点数均分加盾）
     const r1 = playerSkill(s, undefined, { branch: "shield" });
     expect(r1.ok).toBe(true);
-    s.team.forEach((t) => expect(t.shield).toBe(6));
+    expect(r1.effect.summary.share).toBeGreaterThan(0);
+    s.team.forEach((t) => expect(t.shield).toBe(r1.effect.summary.share));
     // 二技能 dot（等级 1 → 立即 3 点全体）
     s.team[0].skillCooldown = 0; // 重置冷却
     s.combat.activeIdx = 0;
@@ -1207,28 +1205,26 @@ describe("模拟宇宙 M4：事件系统", () => {
 
   it("符文陷阱 B：硬扛符文 → 全队护盾减少 20%", () => {
     const s = createUniState();
-    s.team.forEach((t) => {
-      t.status.defensePile.push({ value: 2, rank: "?", suit: "♠" }, { value: 2, rank: "?", suit: "♠" }, { value: 2, rank: "?", suit: "♠" }, { value: 2, rank: "?", suit: "♠" }, { value: 2, rank: "?", suit: "♠" });
-    });
+    s.team.forEach((t) => (t.shield = 100));
     const r = applyEventOption(s, "rune_trap", 1);
     expect(r.ok).toBe(true);
-    s.team.forEach((t) => expect(t.status.defensePile).toHaveLength(4)); // 5 → 保留 80% = 4
+    s.team.forEach((t) => expect(t.shield).toBe(80)); // 100 → 保留 80%
   });
 
-  it("老铁匠 A：加固护甲 → 全队 4 张防御牌", () => {
+  it("老铁匠 A：加固护甲 → 全队各抽 4 张牌进护盾", () => {
     const s = createUniState();
     const r = applyEventOption(s, "old_blacksmith", 0);
     expect(r.ok).toBe(true);
-    s.team.forEach((t) => expect(t.status.defensePile).toHaveLength(4));
+    s.team.forEach((t) => expect(t.shield).toBeGreaterThan(0)); // 4 张牌点数进护盾
   });
 
-  it("旅行商人 B：支付 100 碎片 → 全队 3 张防御牌", () => {
+  it("旅行商人 B：支付 100 碎片 → 全队各抽 3 张牌进护盾", () => {
     const s = createUniState();
     addShards(s, 100);
     const r = applyEventOption(s, "traveling_merchant", 1);
     expect(r.ok).toBe(true);
     expect(s.shards).toBe(0);
-    s.team.forEach((t) => expect(t.status.defensePile).toHaveLength(3));
+    s.team.forEach((t) => expect(t.shield).toBeGreaterThan(0)); // 3 张牌点数进护盾
   });
 
   it("流浪医师 B：支付 200 碎片复活一名阵亡角色（满血）", () => {

@@ -20,9 +20,7 @@ import {
   breakCurio,
 } from "./uniBuffs.js";
 import { UNI_SKILLS } from "./uniConstants.js";
-
-/** 防御牌 ↔ 护盾简化换算：1 张防御牌 = 2 点护盾（全队） */
-const DEF_CARD_SHIELD = 2;
+import { drawPokerUnified } from "./uniCombat.js";
 
 function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -51,23 +49,25 @@ function loseTeamHpPct(state, pct) {
   }
 }
 
-/** 全队获得/失去防御牌（±N 张，加入/移出 defensePile，与战斗内防御牌机制一致） */
+/**
+ * 全队获得/失去防御牌（±N 张，统一机制：获得 = 抽 N 张牌、点数加入护盾；失去 = 护盾减少）。
+ * 与防御行动/结膜/禳灾/莉奈娅一技能完全一致。
+ */
 function teamDefenseCards(state, n) {
   if (n >= 0) {
     for (const t of state.team) {
       if (!t.alive) continue;
-      for (let i = 0; i < n; i++) {
-        t.status.defensePile.push({ value: DEF_CARD_SHIELD, rank: "?", suit: "♠" });
-      }
+      const cards = drawPokerUnified(state, n);
+      const total = cards.reduce((s, p) => s + p.value, 0);
+      t.shield += total;
+      state.log.push(`${t.name} 获得 ${n} 张防御牌（${total} 点），防御 +${total}`);
     }
     return n;
   }
-  // 失去 |n| 张防御牌（从防御堆末尾移除）
+  // 失去 |n| 张防御牌：护盾减少（按每张牌面均值 5 点计）
   for (const t of state.team) {
     if (!t.alive) continue;
-    for (let i = 0; i < -n && t.status.defensePile.length > 0; i++) {
-      t.status.defensePile.pop();
-    }
+    t.shield = Math.max(0, t.shield + n * 5);
   }
   return n;
 }
@@ -1732,10 +1732,10 @@ export function applyEventOption(state, eventId, optionIdx) {
     }
   }
 
-  // 防御牌（±）
+  // 防御牌（±，统一机制：获得=抽牌加盾，见 teamDefenseCards）
   if (fx.defenseCards) teamDefenseCards(state, fx.defenseCards);
   if (fx.loseAllDefense) {
-    for (const t of state.team) t.status.defensePile = [];
+    for (const t of state.team) t.shield = 0;
   }
 
   // 祝福
@@ -1783,11 +1783,7 @@ export function applyEventOption(state, eventId, optionIdx) {
     const keep = 1 - fx.loseShieldPct / 100;
     for (const t of state.team) {
       if (!t.alive) continue;
-      // 护盾量 = 防御牌堆 × 单张值，按百分比移除防御牌
-      const remain = Math.floor(t.status.defensePile.length * keep);
-      t.status.defensePile = t.status.defensePile.slice(0, Math.max(0, remain));
-      // 战斗中已生成的行护盾也按比例扣
-      if (t.shield > 0) t.shield = Math.floor(t.shield * keep);
+      t.shield = Math.floor(t.shield * keep);
     }
   }
   // 随机一名角色失去全部护盾（强盗营地 B）
@@ -1795,7 +1791,6 @@ export function applyEventOption(state, eventId, optionIdx) {
     const alive = state.team.filter((t) => t.alive);
     if (alive.length) {
       const t = pick(alive);
-      t.status.defensePile = [];
       t.shield = 0;
       state.log.push(`${t.name} 失去全部护盾`);
     }
