@@ -74,6 +74,10 @@
             🌌 模拟宇宙
             <span class="mode-btn__desc">PVE 无尽深渊 · 位面爬塔</span>
           </button>
+          <button class="mode-btn mode-btn--dice" @click="selectMode('dicewar')">
+            🎲 娱乐模式
+            <span class="mode-btn__desc">骰子战争世锦赛 · 16人淘汰</span>
+          </button>
           <button class="mode-btn mode-btn--rules" @click="showRules = true">
             📖 规则说明
             <span class="mode-btn__desc">查看游戏详细规则</span>
@@ -151,6 +155,12 @@
       <UniShell
         v-else-if="gameMode === 'simuniverse'"
         :uni="uniController"
+        @quit="gameMode = null"
+      />
+
+      <!-- 娱乐模式：骰子战争世锦赛 -->
+      <DiceWarShell
+        v-else-if="gameMode === 'dicewar'"
         @quit="gameMode = null"
       />
 
@@ -264,6 +274,7 @@ import WorldCupShell from "./components/WorldCupShell.vue";
 import LeagueShell from "./components/LeagueShell.vue";
 import SoloShell from "./solo/SoloShell.vue";
 import UniShell from "./simuniverse/UniShell.vue";
+import DiceWarShell from "./components/DiceWarShell.vue";
 import OpeningVideo from "./components/OpeningVideo.vue";
 import { useGameController } from "./composables/useGameController.js";
 import { useSoloController } from "./solo/useSoloController.js";
@@ -763,6 +774,14 @@ body {
   background: linear-gradient(135deg, #ffe0b2, #ffcc80);
   transform: translateY(-2px);
   box-shadow: 0 4px 16px rgba(255, 111, 0, 0.2);
+}
+.mode-btn--dice {
+  border-color: #6a1b9a;
+  color: #7b1fa2;
+}
+.mode-btn--dice:hover {
+  border-color: #6a1b9a;
+  background: #f3e5f5;
 }
 
 /* 规则说明弹窗 */

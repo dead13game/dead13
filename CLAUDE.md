@@ -95,6 +95,7 @@ graph TD
 | 联赛     | `App.vue` leagueStarted | `src/game/league.js`                       | 10 支英超球队，tier 1-3（🏆争冠/⚔️欧战/🛡️保级）；队标`public/team-badges/{teamId}.png` |
 | 单机     | `App.vue` gameMode='solo' | `src/solo/logic/solo.js`               | 技能卡肉鸽：章节爬塔/抽3选2/事件检定/商店营地（DOM 渲染） |
 | 模拟宇宙 | `App.vue` gameMode='simuniverse' | `src/simuniverse/logic/uniState.js` | PVE 无尽深渊：位面 1-10/11-30/31-60/61+ 循环；扑克牌普攻/防御/开大三选一；敌人模板行动；祝福/奇物/方程；商店/休整/造物调试台；存档 `dead13_uni_save`；设计文档 `docs/simuniverse-design.md` |
+| 娱乐模式 | `App.vue` gameMode='dicewar' | `src/game/diceWar.js` + `diceWarCommentator.js` | 骰子战争世锦赛：16 人（原神8+崩铁8）随机配对淘汰；每局 30 轮先/后手各掷 2~12，每 10 轮段间对比，平局加赛；决赛七局四胜；每 10 轮 AI 解说（密钥存 `dead13_ai_settings`，浏览器直连 LLM，无本地兜底） |
 
 比赛状态机 `matchState.js` 在 1v1 游戏之上叠加进球、重置、换人、加时、点球逻辑。
 
@@ -112,7 +113,7 @@ STEP:  pickAction → attackShowCard → pickTarget → ... → pickAction（循
 
 | 工具                    | 用途                                                                                      |
 | ----------------------- | ----------------------------------------------------------------------------------------- |
-| `npm run test`        | 220 条 vitest 测试（9 文件：damage/alliance/deck/league/TableLayout/solo/uni×3），< 1s |
+| `npm run test`        | 247 条 vitest 测试（10 文件：damage/alliance/deck/league/TableLayout/solo/uni×3/diceWar），< 1s |
 | 手动跑 test             | 改`src/game/*` 后必须跑 `npm run test`（项目无自动 hook，靠自觉）                     |
 | `window.__PIXI_APP__` | 浏览器控制台访问 PIXI Application 内部状态                                                |
 | `[game]` 日志         | `console.debug` 输出结构化 JSON，`window.__GAME_LOG_LEVEL__` 动态控制等级             |
