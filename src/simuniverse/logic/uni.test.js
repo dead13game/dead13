@@ -40,7 +40,7 @@ import {
   grantExtraAction,
 } from "./uniCombat.js";
 import { executeUniSkill, canUseUniSkill } from "./uniSkills.js";
-import { gainBlessing, gainEquation, BLESSINGS, rollCurio, CURIOS, blessingVal, isEquationUnlocked, getUniModifiers, triggerOnHeal } from "./uniBuffs.js";
+import { gainBlessing, gainEquation, BLESSINGS, rollCurio, CURIOS, blessingVal, isEquationUnlocked, getUniModifiers, triggerOnHeal, memberHealMods } from "./uniBuffs.js";
 import {
   applyEventOption,
   chooseBlessingPick,
@@ -2173,5 +2173,120 @@ describe("模拟宇宙 M12：2026-08 逻辑修复回归", () => {
     // 战斗胜利不清 eventIds/eventIdx → goNextEvent 可进入第 2 个事件
     expect(s.region.eventIds).toEqual(["broken_gate", "hungry_chest"]);
     expect(s.region.eventIdx).toBe(0);
+  });
+});
+
+describe("模拟宇宙 M13：祝福效果接线（原无效果祝福修复）", () => {
+  it("回生：提供治疗后回复自身生命上限 12%（芙宁娜开大触发）", () => {
+    const s = createUniState([5, 1, 2, 3]);
+    gainBlessing(s, "huisheng");
+    startCombat(s);
+    const f = s.team[0];
+    f.hp = 1;
+    const healBase = Math.ceil((f.maxHp * 10) / 100); // 芙宁娜 lv1 治疗 10%
+    const huisheng = Math.ceil((f.maxHp * 12) / 100);
+    const r = playerSkill(s, undefined, {});
+    expect(r.ok).toBe(true);
+    expect(f.hp).toBe(1 + healBase + huisheng); // 治疗 + 回生（修复前无回生）
+  });
+
+  it("华盖：施放终结技后获得防御牌（护盾增加）", () => {
+    const s = createUniState([3, 1, 2, 4]); // 雷电将军在前
+    gainBlessing(s, "huagai");
+    startCombat(s);
+    s.combat.activeIdx = 0;
+    s.combat.turnIdx = s.combat.actionOrder.indexOf(0);
+    const enemy = s.combat.enemies[0];
+    const r = playerSkill(s, enemy.id, {});
+    expect(r.ok).toBe(true);
+    expect(s.team[0].shield).toBeGreaterThan(0); // 华盖抽 2 张牌点数进护盾（修复前 0）
+  });
+
+  it("切变结构：受击反震攻击来源敌人（+10%）并溅射相邻（25%）", () => {
+    const s = createUniState();
+    gainBlessing(s, "qiebian");
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 2 }] };
+    startCombat(s);
+    const [e0, e1] = s.combat.enemies;
+    s.combat.enemyQueue = [{ enemyIdx: e0.id, action: { type: "single", dmg: 5 }, desc: "x" }];
+    s.combat.phase = "enemy-announce";
+    enemyAnnounce(s);
+    const hp0 = e0.hp;
+    const hp1 = e1.hp;
+    enemyResolve(s);
+    expect(e0.hp).toBeLessThan(hp0); // 反震 ceil(5×1.1)=6
+    expect(e1.hp).toBeLessThan(hp1); // 相邻溅射 ceil(6×25%)=2（修复前均为 0）
+  });
+
+  it("亚共晶体：提供护盾时自身获得原护盾量 24% 的护盾", () => {
+    const s = createUniState();
+    gainBlessing(s, "yagong");
+    startCombat(s);
+    s.combat.activeIdx = 0;
+    setPoker(s, 10); // 牌面 10 → 加盾 10，亚共晶体回盾 ceil(10×24%)=3
+    const r = playerDefense(s, 0);
+    expect(r.ok).toBe(true);
+    expect(s.team[0].shield).toBe(13);
+  });
+
+  it("云镝：每 20 回合全队行动提前（actionOrder 翻倍）", () => {
+    const s = createUniState();
+    gainBlessing(s, "yundi");
+    startCombat(s);
+    const baseLen = s.combat.actionOrder.length;
+    s.combat.round = 19;
+    startPlayerTurn(s); // round → 20
+    expect(s.combat.round).toBe(20);
+    expect(s.combat.actionOrder.length).toBe(baseLen * 2); // 修复前不变
+  });
+
+  it("法雨：每丰饶祝福生命上限 +2 点（最多 6 层，战斗开始重算）", () => {
+    const s = createUniState();
+    const base = s.team[0].maxHp;
+    gainBlessing(s, "fayu"); // fayu 自身是丰饶 → +2
+    expect(s.team[0].maxHp).toBe(base + 2);
+    gainBlessing(s, "ganlu"); // 再 +1 丰饶
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 1 }] };
+    startCombat(s); // triggerOnCombatStart → applyMaxHpGrowth 重算
+    expect(s.team[0].maxHp).toBe(base + 4); // 修复前 maxHpMult 无人消费 = base
+  });
+
+  it("轨道红移：按强化等级提升生命上限（16% → 32%）", () => {
+    const s = createUniState();
+    const base = s.team[0].maxHp;
+    gainBlessing(s, "hongyi");
+    expect(s.team[0].maxHp).toBe(Math.ceil(base * 1.16));
+    gainBlessing(s, "hongyi"); // 强化 → lv2
+    expect(s.team[0].maxHp).toBe(Math.ceil(base * 1.32)); // 修复前强化无效，仍是 1.16
+  });
+
+  it("宝光烛日月：增伤走 lv 表（强化后 24% 而非固定 20%）", () => {
+    const s = createUniState();
+    gainBlessing(s, "baoguang");
+    gainBlessing(s, "baoguang"); // 强化 → lv2
+    triggerOnHeal(s, 0, 5);
+    expect(s.team[0].status.dmgBuffPct).toBe(24);
+  });
+
+  it("螺壳的纹理：防御行动护盾也吃 +10% 护盾量加成（统一入口）", () => {
+    const s = createUniState();
+    gainBlessing(s, "luoke");
+    startCombat(s);
+    s.combat.activeIdx = 0;
+    setPoker(s, 10);
+    const r = playerDefense(s, 0);
+    expect(r.ok).toBe(true);
+    expect(r.shield).toBe(11); // ceil(10×1.1)，修复前只对钟离大招生效 = 10
+    expect(s.team[0].shield).toBe(11);
+  });
+
+  it("放射性衰变：≥50% 血时 +20% 回复量不生效（memberHealMods 动态补偿）", () => {
+    const s = createUniState();
+    gainBlessing(s, "fangshe");
+    const t = s.team[0];
+    t.hp = t.maxHp; // 满血 → ≥50%
+    expect(memberHealMods(s, 0)).toBe(-20); // 修复前满血也吃 +20%
+    t.hp = Math.ceil(t.maxHp * 0.3); // <50%
+    expect(memberHealMods(s, 0)).toBe(0);
   });
 });

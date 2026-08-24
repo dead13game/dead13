@@ -4,6 +4,7 @@
 
 import { LOG_TYPE } from "../../game/gameLogger.js";
 import { EQUATION_DUPE_SHARDS } from "./uniConstants.js";
+import { CHARACTERS } from "../../game/constants.js";
 // 延迟引用：drawPokerUnified 仅在函数体内调用（uniCombat ↔ uniBuffs 循环依赖，运行时解析）
 import { drawPokerUnified } from "./uniCombat.js";
 
@@ -130,18 +131,19 @@ export function gainBlessing(state, id, opts = {}) {
       star: b.star,
       silent: !!opts.silent,
     });
+    // 生命上限成长（轨道红移% / 法雨点数）：强化后同样重算
+    if (id === "hongyi" || id === "fayu") {
+      applyMaxHpGrowth(state);
+    }
     return { ok: true, enhanced: exist.enhanced, star: b.star, silent: opts.silent };
   }
   state.blessings.push({ id, star: b.star, enhanced: 1 });
   if (!opts.silent) {
     state.log.push(`获得祝福「${b.name}」(${b.star}星·${b.fate})`);
   }
-  // 轨道红移：生命上限 +16%/层（一次性提升当前 maxHp）
-  if (id === "hongyi") {
-    for (const t of state.team) {
-      t.maxHp = Math.ceil(t.maxHp * 1.16);
-      t.hp = Math.min(t.hp, t.maxHp);
-    }
+  // 生命上限成长（轨道红移% / 法雨点数）立即生效；战斗开始也会按基准重算（幂等）
+  if (id === "hongyi" || id === "fayu") {
+    applyMaxHpGrowth(state);
   }
   state.devLog.info(LOG_TYPE.UNI_REGION, "获得祝福", {
     id,
@@ -282,7 +284,6 @@ export function getUniModifiers(state) {
       case "luoke": mods.shieldMult += blessingVal(state, b.id, "shieldMult"); break;
       case "lingzhu": mods.shieldMult += blessingVal(state, b.id, "shieldMult"); break;
       case "hongyi": mods.maxHpMult += blessingVal(state, b.id, "maxHpMult"); break;
-      case "fayu": mods.maxHpMult += blessingVal(state, b.id, "maxHpPer") * Math.min(fengraoCount, fx.maxStacks || 6); break;
       case "qingxu": {
         const dotCount = state.combat?.enemies?.filter((e) => e.alive && e.dotTurns > 0).length ?? 0;
         mods.atkMult += blessingVal(state, b.id, "atkPerDot") * Math.min(dotCount, fx.maxDot || 4);
@@ -330,6 +331,57 @@ function applyCurioStarMods(state, mods) {
     mods.atkMult += (CURIO_FX.canjing_fz?.atkPerStar || 2.5) * starTotal; // 对精英（简化并入全伤害）
   }
   return mods;
+}
+
+/**
+ * 生命上限成长（法雨点数 + 轨道红移百分比）：以角色初始生命为基准重算，幂等。
+ * 获得祝福与每场战斗开始时调用；风堇/传质等临时 maxHp buff 期间不缩水（只增不减）。
+ */
+export function applyMaxHpGrowth(state) {
+  const mods = getUniModifiers(state);
+  for (const t of state.team) {
+    if (!t.alive) continue;
+    const base = t.baseMaxHp || CHARACTERS[t.charId]?.hp || t.maxHp;
+    let fayuBonus = 0;
+    if (blessingMult(state, "fayu") > 0) {
+      const fengrao = state.blessings.filter((b) => BLESSINGS[b.id]?.fate === "丰饶").length;
+      fayuBonus = blessingVal(state, "fayu", "maxHpPer") * Math.min(fengrao, BLESSINGS.fayu?.fx?.maxStacks || 6);
+    }
+    const grown = Math.ceil(base * (1 + mods.maxHpMult / 100)) + fayuBonus;
+    if (grown > t.maxHp) {
+      t.maxHp = grown;
+      t.hp = Math.min(t.hp, t.maxHp);
+    }
+  }
+}
+
+/**
+ * 统一护盾增益入口：护盾量加成（螺壳的纹理/四棱锥体）→ 实际增量；
+ * 亚共晶体：为我方提供护盾时，提供者自身获得原护盾量 24% 的护盾。返回实际护盾增量。
+ */
+export function applyShieldGain(state, providerIdx, amount) {
+  if (amount <= 0) return 0;
+  const mods = getUniModifiers(state);
+  const gained = Math.ceil(amount * (1 + mods.shieldMult / 100));
+  if (providerIdx != null && blessingMult(state, "yagong") > 0) {
+    const self = state.team[providerIdx];
+    if (self && self.alive) {
+      self.shield += Math.ceil((gained * blessingVal(state, "yagong", "shieldPct")) / 100);
+      state.log.push(`亚共晶体：${self.name} 获得原护盾量 ${blessingVal(state, "yagong", "shieldPct")}% 的护盾`);
+    }
+  }
+  return gained;
+}
+
+/** 按成员血量动态计算的回复修正（放射性衰变：≥50% 血时补偿掉 <50% 才生效的 +20%） */
+export function memberHealMods(state, memberIdx) {
+  const t = state.team[memberIdx];
+  if (!t) return 0;
+  const fangsheFx = BLESSINGS.fangshe?.fx;
+  if (fangsheFx && blessingMult(state, "fangshe") > 0 && t.hp / t.maxHp >= (fangsheFx.hpBelow || 50) / 100) {
+    return -blessingVal(state, "fangshe", "healMultPct");
+  }
+  return 0;
 }
 
 /** 按成员血量/护盾/战意动态计算的额外攻击修正（数据表 fx 驱动） */
@@ -382,6 +434,8 @@ export function memberDmgTakenMods(state, memberIdx) {
 
 /** 战斗开始钩子：哨戒/储备度规/延寿（数值均读 BLESSINGS.fx） */
 export function triggerOnCombatStart(state) {
+  // 生命上限成长（法雨/轨道红移）：每次战斗开始按基准重算（幂等，只增不减）
+  applyMaxHpGrowth(state);
   for (const t of state.team) {
     if (!t.alive) continue;
     const shaojie = BLESSINGS.shaojie?.fx?.shieldPct || 0;
@@ -457,8 +511,20 @@ export function triggerOnHeal(state, memberIdx, healAmount = 0) {
   }
   const baoguangFx = BLESSINGS.baoguang?.fx;
   if (baoguangFx && blessingMult(state, "baoguang") > 0) {
-    t.status.dmgBuffPct = Math.max(t.status.dmgBuffPct || 0, baoguangFx.atkPct || 20);
+    t.status.dmgBuffPct = Math.max(t.status.dmgBuffPct || 0, blessingVal(state, "baoguang", "atkPct")); // 走 lv 表，强化生效
     t.status.dmgBuffTurns = baoguangFx.turns || 1;
+  }
+}
+
+/** 提供治疗后钩子（回生：提供者回复自身生命上限 %） */
+export function triggerOnHealProvided(state, providerIdx) {
+  const p = state.team[providerIdx];
+  if (!p || !p.alive) return;
+  const huishengFx = BLESSINGS.huisheng?.fx;
+  if (huishengFx && blessingMult(state, "huisheng") > 0) {
+    const heal = Math.ceil((p.maxHp * blessingVal(state, "huisheng", "healPct")) / 100);
+    p.hp = Math.min(p.maxHp, p.hp + heal);
+    state.log.push(`回生：${p.name} 提供治疗后回复 ${heal} 生命`);
   }
 }
 
@@ -494,6 +560,15 @@ export function triggerAfterSkill(state, charIndex) {
   const weihaiFx = BLESSINGS.weihai?.fx;
   if (weihaiFx && blessingMult(state, "weihai") > 0) {
     t.shield += Math.ceil(((t.maxHp - t.hp) * blessingVal(state, "weihai", "shieldPct")) / 100);
+  }
+  // 华盖：施放群攻技能（终结技）后，获得 2 张防御牌（点数进护盾，与防御行动同机制）
+  const huagaiDef = BLESSINGS.huagai?.fx?.defCards || 0;
+  if (huagaiDef && blessingMult(state, "huagai") > 0) {
+    const n = blessingVal(state, "huagai", "defCards");
+    const cards = drawPokerUnified(state, n);
+    const total = cards.reduce((s, p) => s + p.value, 0);
+    t.shield += total;
+    state.log.push(`华盖：${t.name} 施放终结技后抽 ${n} 张牌，防御 +${total}`);
   }
   const jiantiFx = BLESSINGS.jianti?.fx;
   if (jiantiFx && blessingMult(state, "jianti") > 0) {

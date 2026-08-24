@@ -3,7 +3,7 @@
 
 import { UNI_SKILLS } from "./uniConstants.js";
 import { drawPokerUnified, damageEnemy, grantExtraAction, gainSpirit } from "./uniCombat.js";
-import { getUniModifiers, triggerAfterSkill, triggerOnHeal, memberAtkMods, blessingMult, blessingVal, BLESSINGS, isEquationUnlocked, chargeJarBrain, applyHealSpread } from "./uniBuffs.js";
+import { getUniModifiers, triggerAfterSkill, triggerOnHeal, triggerOnHealProvided, applyShieldGain, memberHealMods, memberAtkMods, blessingMult, blessingVal, BLESSINGS, isEquationUnlocked, chargeJarBrain, applyHealSpread } from "./uniBuffs.js";
 import { LOG_TYPE } from "../../game/gameLogger.js";
 import { recordSound } from "../../game/soundEvents.js";
 /** 技能等级取值（数组按等级 1-10，越界取末项） */
@@ -146,10 +146,9 @@ function doSkill(state, t, sk, lv, payload) {
       return { ok: true, summary: { cards: n, dmg } };
     }
     case 2: {
-      // 钟离：全队护盾（乘祝福护盾加成）
+      // 钟离：全队护盾（统一护盾入口：螺壳/四棱锥体护盾量加成 + 亚共晶体）
       const shield = val(sk.values, lv);
-      const mods = getUniModifiers(state);
-      const gain = Math.ceil(shield * (1 + mods.shieldMult / 100));
+      const gain = applyShieldGain(state, t.index, shield);
       for (const m of state.team) if (m.alive) m.shield += gain;
       state.log.push(`${t.name} 全队 +${gain} 护盾`);
       return { ok: true, summary: { shield: gain } };
@@ -181,21 +180,24 @@ function doSkill(state, t, sk, lv, payload) {
       const healPct = val(sk.heal, lv);
       const mods = getUniModifiers(state);
       const healBase = Math.ceil((t.maxHp * healPct) / 100);
-      const healAmount = Math.ceil(healBase * (1 + mods.healMult / 100));
       for (const m of state.team) {
         if (!m.alive) continue;
         m.status.dmgBuffPct = Math.max(m.status.dmgBuffPct || 0, pct);
         m.status.dmgBuffTurns = 3;
-        let amount = healAmount;
+        // 放射性衰变：生命 ≥50% 时 +20% 回复量不生效（每成员按血量动态判定）
+        const memberMult = mods.healMult + memberHealMods(state, m.index);
+        let amount = Math.ceil(healBase * (1 + memberMult / 100));
         if (m.status.healCut > 0) amount = Math.ceil(amount * (1 - m.status.healCut));
         m.hp = Math.min(m.maxHp, m.hp + amount);
         // 受治疗钩子：禳灾（抽牌加盾）/ 般若船（额外回复）/ 宝光烛日月（增伤）
         triggerOnHeal(state, m.index, amount);
       }
-      // 丰饶众生，一法界心：提供治疗时我方全体目标额外回复
-      applyHealSpread(state, t.index, healAmount);
-      state.log.push(`${t.name} 全队增伤 ${pct}%（3 回合），治疗 ${healAmount}`);
-      return { ok: true, summary: { pct, healAmount } };
+      // 回生：提供治疗后回复自身生命上限 %
+      triggerOnHealProvided(state, t.index);
+      // 丰饶众生，一法界心：提供治疗时我方全体目标额外回复（按基础治疗额 spread）
+      applyHealSpread(state, t.index, healBase);
+      state.log.push(`${t.name} 全队增伤 ${pct}%（3 回合），治疗 ${healBase}`);
+      return { ok: true, summary: { pct, healAmount: healBase } };
     }
     case 6:
     case 7:
@@ -217,6 +219,8 @@ function doSkill(state, t, sk, lv, payload) {
         // 受治疗钩子：禳灾 / 般若船 / 宝光烛日月
         triggerOnHeal(state, m.index, healed);
       }
+      // 回生：提供治疗后回复自身生命上限 %
+      triggerOnHealProvided(state, t.index);
       // 丰饶众生，一法界心：提供治疗时我方全体目标额外回复
       applyHealSpread(state, t.index, totalHealed);
       const bonusDmg = Math.ceil(totalHealed * 0.1);
@@ -256,14 +260,15 @@ function doSkill(state, t, sk, lv, payload) {
         state.log.push(`${t.name} 全体敌人受 ${dot} 点伤害`);
         return { ok: true, summary: { branch: "dot", dot, turns: 0 } };
       }
-      // 盾：全队共抽 N 张牌，点数总和均分加盾（与防御行动同机制）
+      // 盾：全队共抽 N 张牌，点数总和均分加盾（统一护盾入口）
       const cards = drawPokerUnified(state, n);
       const total = cards.reduce((s, p) => s + p.value, 0);
       const alive = state.team.filter((m) => m.alive);
       const share = alive.length ? Math.ceil(total / alive.length) : 0;
-      for (const m of alive) m.shield += share;
-      state.log.push(`${t.name} 全队共抽 ${n} 张牌（${total} 点），每人防御 +${share}`);
-      return { ok: true, summary: { branch: "shield", shields: n, total, share } };
+      const gained = applyShieldGain(state, t.index, share);
+      for (const m of alive) m.shield += gained;
+      state.log.push(`${t.name} 全队共抽 ${n} 张牌（${total} 点），每人防御 +${gained}`);
+      return { ok: true, summary: { branch: "shield", shields: n, total, share: gained } };
     }
     case 10: {
       // 爱蜜莉雅：敌方停 N 回合

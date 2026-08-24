@@ -59,6 +59,7 @@ export function createTeam(charIds) {
       name: data.name,
       hp: data.hp,
       maxHp: data.hp,
+      baseMaxHp: data.hp, // 生命上限成长基准（轨道红移/法雨按此重算；风堇/传质等临时 buff 不落此字段）
       shield: 0,
       alive: true,
       skillLevel: 1, // 1-10（菜月昴不可升级，恒 1）
@@ -695,6 +696,10 @@ export function serializeUni(state) {
 export function deserializeUni(state, data) {
   if (!data) return false;
   Object.assign(state, JSON.parse(JSON.stringify(data)));
+  // 旧存档兜底：baseMaxHp 缺失 → 用角色初始生命（避免法雨/轨道红移重算二次叠加）
+  for (const t of state.team || []) {
+    if (t.baseMaxHp == null) t.baseMaxHp = CHARACTERS[t.charId]?.hp || t.maxHp;
+  }
   state.devLog = createGameLogger(() => state);
   return true;
 }

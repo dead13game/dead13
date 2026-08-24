@@ -11,6 +11,7 @@ import {
   getUniModifiers,
   memberAtkMods,
   memberDmgTakenMods,
+  applyShieldGain,
   triggerOnCombatStart,
   triggerOnDamaged,
   triggerOnHeal,
@@ -227,6 +228,11 @@ export function startPlayerTurn(state) {
     .filter((x) => state.team[x.i].alive)
     .sort((a, b) => b.speed - a.speed || a.i - b.i)
     .map((x) => x.i);
+  // 云镝逐步离：每经过 N 回合，全队行动提前 100%（简化 = 本回合每人额外行动一次）
+  if (blessingMult(state, "yundi") > 0 && c.round % (blessingVal(state, "yundi", "every") || 20) === 0) {
+    c.actionOrder = [...c.actionOrder, ...c.actionOrder];
+    state.log.push(`云镝：第 ${c.round} 回合全队行动提前 100%`);
+  }
   c.turnCount = 0;
   c.turnIdx = -1;
   c.waveClear = false;
@@ -405,7 +411,9 @@ export function playerDefense(state, targetIdx) {
   const actor = state.team[c.activeIdx];
   // 少女防御加成：防御者（少女被动受益者）额外护盾
   const defBonus = actor.status.defBonus || 0;
-  target.shield += shield + defBonus;
+  // 统一护盾入口：螺壳/四棱锥体护盾量加成 + 亚共晶体（提供者回盾）
+  const gained = applyShieldGain(state, actor.index, shield + defBonus);
+  target.shield += gained;
   c.lastPoker = poker;
   c.lastPokerTarget = { type: "member", id: targetIdx }; // 飞牌落点：被加护盾的成员
   c.pendingPoker = [];
@@ -415,10 +423,11 @@ export function playerDefense(state, targetIdx) {
     card: poker ? poker.rank + poker.suit : "",
     shield,
     defBonus,
+    gained,
     targetShield: target.shield,
   });
   finishPlayerAction(state);
-  return { ok: true, shield: shield + defBonus };
+  return { ok: true, shield: gained };
 }
 
 /** 开大：执行角色 PVE 技能（uniSkills.js），成功后推进行动 */
@@ -631,7 +640,7 @@ function resolveEnemyAction(state, enemy, action) {
     const youmengUp = state.combat._youmengTurns && state.combat.round >= state.combat._youmengTurns ? (CURIO_FX.youmeng?.laterDmgPct || 10) : 0;
     const dmg = Math.max(0, Math.ceil(action.dmg * dmgMultNow * (1 + youmengUp / 100)) - yiyiCut);
     state.devLog.info(LOG_TYPE.UNI_REGION, `${enemy.name} 攻击 ${state.team[target].name}`, { dmg });
-    damageTeamMember(state, target, dmg);
+    damageTeamMember(state, target, dmg, enemy.id);
   } else if (type === "aoe") {
     // 意义质询：dot 敌人 AOE 伤害 -3
     const yiyiCut = enemy.dotTurns > 0 ? blessingVal(state, "yiyi", "dmgCut") : 0;
@@ -639,7 +648,7 @@ function resolveEnemyAction(state, enemy, action) {
     const dmg = Math.max(0, Math.ceil(action.dmg * dmgMultNow * (1 + youmengUp / 100)) - yiyiCut);
     state.devLog.info(LOG_TYPE.UNI_REGION, `${enemy.name} 全体攻击`, { dmg });
     for (let i = 0; i < state.team.length; i++) {
-      if (state.team[i].alive) damageTeamMember(state, i, dmg);
+      if (state.team[i].alive) damageTeamMember(state, i, dmg, enemy.id);
     }
   } else if (type === "shield") {
     const shield = Math.ceil(enemy.maxHp * (action.pct || 0.3));
@@ -660,13 +669,13 @@ function resolveEnemyAction(state, enemy, action) {
     for (const idx of enemy.locked) {
       if (state.team[idx]?.alive) {
         state.devLog.info(LOG_TYPE.UNI_REGION, `${enemy.name} 狙击 ${state.team[idx].name}`, { dmg });
-        damageTeamMember(state, idx, dmg);
+        damageTeamMember(state, idx, dmg, enemy.id);
       }
     }
     if (enemy.locked.length === 0) {
       // 无锁定目标（如已死）：随机 1 人
       const target = pickAliveMember(state);
-      if (target !== null) damageTeamMember(state, target, dmg);
+      if (target !== null) damageTeamMember(state, target, dmg, enemy.id);
     }
   } else if (type === "debuff") {
     const target = pickAliveMember(state);
@@ -713,7 +722,7 @@ function resolveEnemyAction(state, enemy, action) {
       const target = pickAliveMember(state);
       if (target === null) return;
       const dmg = 6 * dmgMultNow;
-      damageTeamMember(state, target, dmg);
+      damageTeamMember(state, target, dmg, enemy.id);
     }
   }
   // 敌人行动可能把全队打死
@@ -837,8 +846,8 @@ export function chooseThirdWave(state, go) {
   return { ok: true, go: true };
 }
 
-/** 对我方成员造成伤害：独立护盾 → 防御牌 → 扣 HP → 死亡 */
-function damageTeamMember(state, memberIdx, dmg) {
+/** 对我方成员造成伤害：独立护盾 → 防御牌 → 扣 HP → 死亡；sourceEnemyIdx 供切变结构反震定位攻击来源 */
+function damageTeamMember(state, memberIdx, dmg, sourceEnemyIdx = -1) {
   const t = state.team[memberIdx];
   const c = state.combat;
   if (!t.alive) return;
@@ -886,6 +895,21 @@ function damageTeamMember(state, memberIdx, dmg) {
   c._dmgSeq = c._dmgSeq || 0;
   // 祝福：构筑·弥合（受击回盾）/ 戒律性闪变（残血回复）
   if (finalHpDmg > 0) triggerOnDamaged(state, memberIdx, finalHpDmg);
+  // 切变结构：受击反震（主目标 = 攻击来源敌人），并对相邻敌人溅射
+  if (sourceEnemyIdx >= 0 && blessingMult(state, "qiebian") > 0 && hpDmg > 0) {
+    const source = c.enemies?.find((e) => e.id === sourceEnemyIdx);
+    if (source && source.alive) {
+      const reflectPct = blessingVal(state, "qiebian", "reflectPct");
+      const splashPct = blessingVal(state, "qiebian", "splashPct");
+      const mainReflect = Math.ceil(hpDmg * (1 + reflectPct / 100));
+      damageEnemy(state, source.id, mainReflect, memberIdx);
+      const srcIdx = c.enemies.findIndex((e) => e.id === sourceEnemyIdx);
+      const neighbors = [c.enemies[srcIdx - 1], c.enemies[srcIdx + 1]].filter((e) => e && e.alive);
+      const adjDmg = Math.ceil(mainReflect * (splashPct / 100));
+      for (const nb of neighbors) damageEnemy(state, nb.id, adjDmg, memberIdx);
+      state.log.push(`切变结构：反震 ${mainReflect} 伤害给 ${source.name}${neighbors.length ? `，溅射 ${adjDmg} 给相邻敌人` : ""}`);
+    }
+  }
   // 反伤符文：反弹 100% 伤害给随机敌人
   if (hpDmg > 0 && c.buffs?.includes("reflect")) {
     const aliveEnemies = c.enemies.filter((e) => e.alive);
