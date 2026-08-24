@@ -46,6 +46,7 @@ import {
   chooseBlessingPick,
   applySkillUp,
   getEventDef,
+  describeEventOption,
   UNI_EVENTS,
   UNI_REWARDS,
   UNI_ADVENTURES,
@@ -1408,6 +1409,79 @@ describe("模拟宇宙 M4：事件系统", () => {
     const pool = Object.values(CHARACTERS).filter((c) => c.id !== 12);
     expect(pool.some((c) => c.id === 12)).toBe(false);
     expect(pool.length).toBe(11);
+  });
+});
+
+describe("模拟宇宙 M4：事件选项效果预览（describeEventOption）", () => {
+  const texts = (opt) => describeEventOption(opt).map((f) => f.text);
+
+  it("旅行商人 A：显示支付代价与获得祝福", () => {
+    const t = texts(UNI_EVENTS.traveling_merchant.options[0]);
+    expect(t).toContain("支付 50 宇宙碎片");
+    expect(t).toContain("获得 1 个 1 星祝福");
+  });
+
+  it("饥饿的虚空 A：显示损失生命与获得祝福星级区间", () => {
+    const t = texts(UNI_EVENTS.hungry_void.options[0]);
+    expect(t).toContain("全队损失 30% 生命上限");
+    expect(t).toContain("获得 2 个 2~3 星祝福");
+  });
+
+  it("符文陷阱 B：护盾损失可预览", () => {
+    const t = texts(UNI_EVENTS.rune_trap.options[1]);
+    expect(t).toContain("全队护盾减少 20%");
+  });
+
+  it("幽灵商人 A：失去指定星级祝福", () => {
+    const t = texts(UNI_EVENTS.ghost_merchant.options[0]);
+    expect(t).toContain("失去 2 个 2 星祝福");
+    expect(t).toContain("+150 宇宙碎片");
+  });
+
+  it("流浪医师 B：复活效果可预览", () => {
+    const t = texts(UNI_EVENTS.wandering_doctor.options[1]);
+    expect(t).toContain("支付 200 宇宙碎片");
+    expect(t).toContain("复活一名阵亡角色（满血）");
+  });
+
+  it("破损的传送门 B：事件战斗显示敌人与胜利奖励", () => {
+    const t = texts(UNI_EVENTS.broken_gate.options[1]);
+    expect(t.some((x) => x.includes("精英敌人 ×2"))).toBe(true);
+    expect(t.some((x) => x.includes("全队技能 +1"))).toBe(true);
+  });
+
+  it("冒险：骰子/翻牌/抽签/转盘显示机制说明", () => {
+    const dice = texts(UNI_ADVENTURES.dice.options[1]);
+    expect(dice.some((x) => x.includes("掷 1-6 点 ×30"))).toBe(true);
+    const cards = texts(UNI_ADVENTURES.cards.options[0]);
+    expect(cards.some((x) => x.includes("翻牌"))).toBe(true);
+    const lot = texts(UNI_ADVENTURES.lottery.options[0]);
+    expect(lot.some((x) => x.includes("抽 1 支签"))).toBe(true);
+    const wheel = texts(UNI_EVENTS.big_wheel.options[0]);
+    expect(wheel.some((x) => x.includes("大转盘"))).toBe(true);
+  });
+
+  it("无效果选项 → 显示「无效果」", () => {
+    expect(describeEventOption(UNI_EVENTS.hungry_chest.options[2])).toEqual([
+      { text: "无效果", tone: "neutral" },
+    ]);
+  });
+
+  it("奖励事件：地下溶洞 A 显示 +200 碎片", () => {
+    const t = texts(UNI_REWARDS.underground_cave.options[0]);
+    expect(t).toContain("+200 宇宙碎片");
+  });
+
+  it("全量事件选项预览不抛错且均有文本", () => {
+    for (const pool of [UNI_EVENTS, UNI_REWARDS, UNI_ADVENTURES]) {
+      for (const ev of Object.values(pool)) {
+        for (const opt of ev.options || []) {
+          const fx = describeEventOption(opt);
+          expect(fx.length).toBeGreaterThan(0);
+          expect(fx.every((f) => f.text.length > 0)).toBe(true);
+        }
+      }
+    }
   });
 });
 

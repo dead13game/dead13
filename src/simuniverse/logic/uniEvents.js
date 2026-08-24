@@ -1697,6 +1697,91 @@ export function rollEvent(type) {
   return pick(ids);
 }
 
+// ================= 选项效果预览（选择前展示） =================
+
+/** 事件战斗奖励 → 可读文本（battle.reward: { shards, blessingPick, skillUpAll }） */
+function describeBattleReward(r) {
+  const parts = [];
+  if (r.shards) parts.push(`+${r.shards} 宇宙碎片`);
+  if (r.blessingPick) parts.push(`${r.blessingPick} 次祝福三选一`);
+  if (r.skillUpAll) parts.push(`全队技能 +${r.skillUpAll}`);
+  return parts.length ? parts.join("、") : "";
+}
+
+/**
+ * 生成事件/奖励/冒险选项的效果预览（选择前展示）。
+ * 从 effects 定义生成可读文本列表；随机项只描述范围/概率，实际结果由选择后 diff 显示。
+ * 纯逻辑，零状态读取。
+ * @param {object} opt 事件选项（{ text, effects }）
+ * @returns {Array<{text: string, tone: 'good'|'bad'|'cost'|'info'|'neutral'}>}
+ */
+export function describeEventOption(opt) {
+  const fx = opt.effects || {};
+  const out = [];
+  const push = (text, tone) => out.push({ text, tone });
+  const starRange = (s) => (s ? (s[0] === s[1] ? `${s[0]} 星` : `${s[0]}~${s[1]} 星`) : "");
+  const abs = (v) => Math.abs(v);
+
+  // 代价（选择即支付，不足则选择失败）
+  if (fx.requireShards) push(`支付 ${fx.requireShards} 宇宙碎片`, "cost");
+  // 货币
+  if (fx.shards) {
+    push(fx.shards > 0 ? `+${fx.shards} 宇宙碎片` : `-${abs(fx.shards)} 宇宙碎片`, fx.shards > 0 ? "good" : "bad");
+  }
+  // 血量
+  if (fx.healPct) push(`全队回复 ${fx.healPct}% 生命`, "good");
+  if (fx.loseHpPct) push(`全队损失 ${fx.loseHpPct}% 生命上限`, "bad");
+  if (fx.loseHpAfter3) push("回满生命（3 层后额外损失 50% 生命上限）", "bad");
+  // 防御牌 / 护盾
+  if (fx.defenseCards) {
+    push(
+      fx.defenseCards > 0 ? `获得 ${fx.defenseCards} 张防御牌（护盾）` : `失去 ${abs(fx.defenseCards)} 张防御牌`,
+      fx.defenseCards > 0 ? "good" : "bad",
+    );
+  }
+  if (fx.loseAllDefense) push("失去全部防御牌", "bad");
+  if (fx.loseShieldPct) push(`全队护盾减少 ${fx.loseShieldPct}%`, "bad");
+  if (fx.loseAllShieldRandom) push("随机一名角色失去全部护盾", "bad");
+  // 祝福
+  if (fx.blessingCount) push(`获得 ${fx.blessingCount} 个${fx.blessingStars ? " " + starRange(fx.blessingStars) : ""}祝福`, "good");
+  if (fx.blessingPick) push(`${fx.blessingPick} 次祝福三选一`, "good");
+  // 奇物
+  if (fx.curioCount) push(`获得 ${fx.curioCount} 个${fx.curioStars ? " " + starRange(fx.curioStars) : ""}奇物`, "good");
+  if (fx.curioNegative || fx.negativeCurioCount) {
+    push(`获得 ${fx.curioNegative ? 1 : fx.negativeCurioCount} 个负面奇物`, "bad");
+  }
+  // 失去祝福/奇物
+  if (fx.loseBlessingStars) push(`失去 ${fx.loseBlessingStarsCount || 1} 个 ${starRange(fx.loseBlessingStars)}祝福`, "bad");
+  if (fx.loseBlessing) push(`失去 ${fx.loseBlessing} 个随机祝福`, "bad");
+  if (fx.loseCurio) push(`失去 ${fx.loseCurio} 个随机奇物`, "bad");
+  // 方程
+  if (fx.equationStar) push(`获得 ${fx.equationCount || 1} 个 ${fx.equationStar} 星方程`, "good");
+  // 复活
+  if (fx.revive) push("复活一名阵亡角色（满血）", "good");
+  // 技能
+  if (fx.skillUpRandom) push(`随机角色技能 +${fx.skillUpRandom} 级`, "good");
+  if (fx.skillUpTarget) push(`选择角色技能 +${fx.skillUpTarget} 级`, "good");
+  if (fx.skillUpAll) push(`全队技能 +${fx.skillUpAll} 级`, "good");
+  if (fx.tempSkillBoost) push(`下次战斗技能等级 +${fx.tempSkillBoost}`, "good");
+  // 物品 / buff
+  if (fx.medkit) push(`急救包 +${fx.medkit}`, "good");
+  if (fx.planeMaxHp) push(`本位面生命上限 +${fx.planeMaxHp}%`, "good");
+  if (fx.buff) push("下次战斗获得加成", "good");
+  // 事件战斗
+  if (fx.battle) {
+    const b = fx.battle;
+    const reward = b.reward ? `，胜利后：${describeBattleReward(b.reward)}` : "";
+    push(`进入战斗：${b.kind === "elite" ? "精英" : "普通"}敌人 ×${b.count}${reward}`, "info");
+  }
+  // 冒险
+  if (fx.gamble) push(`投入 ${fx.gamble.cost} 碎片，掷 1-6 点 ×${fx.gamble.mult} 收益`, "info");
+  if (fx.fortuneCard) push("翻牌：40% 2 祝福 / 30% 2 奇物 / 30% 1 方程", "info");
+  if (fx.lottery) push(`抽 ${fx.lottery.count} 支签取最好（大吉/中吉/小吉/凶，${fx.lottery.cost} 碎片）`, "info");
+  if (fx.roulette) push("大转盘：1/3 +200 碎片 / 1/3 2 星祝福 / 1/3 +80 碎片", "info");
+
+  return out.length ? out : [{ text: "无效果", tone: "neutral" }];
+}
+
 // ================= 选项应用 =================
 
 /**

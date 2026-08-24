@@ -319,6 +319,7 @@ export function useUniController() {
   function snapshotUni(s) {
     return {
       shards: s.shards,
+      shield: s.team.reduce((a, t) => a + (t.shield || 0), 0),
       blessings: s.blessings.map((b) => `${b.id}@${b.enhanced || 1}x${b.heatEnhanced || 1}`).sort().join(","),
       curios: s.curios.map((c) => c.id).sort().join(","),
       equations: s.equations.map((e) => e.id).sort().join(","),
@@ -358,10 +359,14 @@ export function useUniController() {
     if (dMax > 0) out.push(`⬆️ 生命上限 +${dMax}`);
     if (after.defPile > before.defPile) out.push(`🛡️ 防御牌 +${after.defPile - before.defPile}`);
     else if (after.defPile < before.defPile) out.push(`🛡️ 防御牌 -${before.defPile - after.defPile}`);
+    const dShield = after.shield - before.shield;
+    if (dShield > 0) out.push(`🛡️ 护盾 +${dShield}`);
+    else if (dShield < 0) out.push(`🛡️ 护盾 -${-dShield}`);
     if (after.medkit > before.medkit) out.push(`💊 急救包 +${after.medkit - before.medkit}`);
     if (after.buffs > before.buffs) out.push(`⚔️ 下次战斗获得加成`);
     if (after.tempBoost > before.tempBoost) out.push(`下次战斗技能等级 +${after.tempBoost - before.tempBoost}`);
     if (after.alive < before.alive) out.push(`有角色无法战斗`);
+    else if (after.alive > before.alive) out.push(`❤️ 复活了 ${after.alive - before.alive} 名角色`);
     return out.length ? out : ["（无效果）"];
   }
 

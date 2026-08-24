@@ -545,7 +545,7 @@
       </template>
     </section>
 
-    <!-- 事件 -->
+    <!-- 事件 / 奖励 / 冒险 -->
     <section v-if="uiMode === 'event'" class="uni-panel">
       <h2 class="uni-panel__title">{{ ev?.title }}</h2>
       <p class="uni-panel__desc">{{ ev?.desc }}</p>
@@ -557,6 +557,14 @@
           @click="uni.doEventOption(i)"
         >
           <span class="uni-choice__name">{{ opt.text }}</span>
+          <span class="uni-option-fx">
+            <span
+              v-for="(fx, j) in describeEventOption(opt)"
+              :key="j"
+              class="uni-tag"
+              :class="'uni-tag--fx-' + fx.tone"
+            >{{ fx.text }}</span>
+          </span>
         </button>
       </div>
     </section>
@@ -769,6 +777,7 @@ import { SHOP_PRICE, REGION_META, UNI_SKILLS, ENEMY_PATTERNS } from "./logic/uni
 import { isEquationUnlocked } from "./logic/uniBuffs.js";
 import { CHARACTERS, setPassiveAssign } from "./logic/uniState.js";
 import { BLESSINGS, CURIOS, EQUATIONS } from "./logic/uniBuffs.js";
+import { describeEventOption } from "./logic/uniEvents.js";
 import { shopPrice as uniShopPrice } from "./logic/uniShop.js";
 import { createUniEffects } from "./uniPixi.js";
 
@@ -2484,6 +2493,19 @@ function onQuit() {
   color: #999;
   border-color: rgba(255, 255, 255, 0.12);
 }
+/* 选项效果预览（选择前展示在事件选项按钮上） */
+.uni-option-fx {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+  margin-top: 2px;
+}
+.uni-tag--fx-good { background: rgba(120, 220, 160, 0.14); color: #a5e8c0; border-color: rgba(120, 220, 160, 0.3); }
+.uni-tag--fx-bad { background: rgba(220, 110, 90, 0.16); color: #f0b8a8; border-color: rgba(220, 110, 90, 0.35); }
+.uni-tag--fx-cost { background: rgba(200, 162, 95, 0.18); color: #e8d4a8; border-color: rgba(200, 162, 95, 0.35); }
+.uni-tag--fx-info { background: rgba(100, 130, 160, 0.18); color: #c0d8ec; border-color: rgba(100, 130, 160, 0.35); }
+.uni-tag--fx-neutral { background: rgba(255, 255, 255, 0.06); color: #999; border-color: rgba(255, 255, 255, 0.12); }
 /* 图鉴 */
 .uni-btn--album {
   background: rgba(90, 120, 255, 0.25);
