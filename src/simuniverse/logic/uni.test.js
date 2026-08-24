@@ -37,9 +37,10 @@ import {
   enemyResolve,
   nextWave,
   chooseThirdWave,
+  grantExtraAction,
 } from "./uniCombat.js";
 import { executeUniSkill, canUseUniSkill } from "./uniSkills.js";
-import { gainBlessing, gainEquation, BLESSINGS, rollCurio, CURIOS, blessingVal, isEquationUnlocked } from "./uniBuffs.js";
+import { gainBlessing, gainEquation, BLESSINGS, rollCurio, CURIOS, blessingVal, isEquationUnlocked, getUniModifiers, triggerOnHeal } from "./uniBuffs.js";
 import {
   applyEventOption,
   chooseBlessingPick,
@@ -2042,5 +2043,135 @@ describe("模拟宇宙 M11：审查修复回归", () => {
     startPlayerTurn(s);
     expect(s.combat.phase).toBe("wave-clear");
     expect(s.combat.turnIdx).toBe(0); // 未被推进到下一名角色（修复前会变 1）
+  });
+});
+
+describe("模拟宇宙 M12：2026-08 逻辑修复回归", () => {
+  it("纳西妲立即行动：已行动过目标不生效（禁止双动），未行动目标插队", () => {
+    const s = createUniState([4, 1, 2, 3]);
+    startCombat(s);
+    const c = s.combat;
+    c.activeIdx = 0; // 纳西妲当前行动
+    c.actionOrder = [0, 1, 2, 3];
+    c.turnIdx = 0;
+    // 自身已行动过 → 不生效（修复前会被插回队列造成双动）
+    expect(grantExtraAction(s, 0)).toBe(false);
+    // 未行动目标 3 → 提到剩余队列最前
+    expect(grantExtraAction(s, 3)).toBe(true);
+    expect(c.actionOrder).toEqual([0, 3, 1, 2]);
+    // 已行动过的 1（turnIdx 推进到 2）→ 不生效，队列不变
+    c.actionOrder = [0, 1, 2, 3];
+    c.turnIdx = 2;
+    expect(grantExtraAction(s, 1)).toBe(false);
+    expect(c.actionOrder).toEqual([0, 1, 2, 3]);
+  });
+
+  it("终结技吃通用增伤：芙宁娜全队增伤 20% 后雷电将军开大伤害 ×1.2", () => {
+    const s = createUniState([5, 3, 1, 2]); // 芙宁娜(0) + 雷电将军(1)
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 3 }] };
+    startCombat(s);
+    s.combat.activeIdx = 0;
+    const r = playerSkill(s, undefined, {}); // 芙宁娜开大：全队增伤 20%
+    expect(r.ok).toBe(true);
+    const c = s.combat;
+    c.activeIdx = 1;
+    c.turnIdx = c.actionOrder.indexOf(1);
+    const enemy = c.enemies[0];
+    const hpBefore = enemy.hp;
+    playerSkill(s, enemy.id, {}); // 雷电将军开大：lv1 = 20
+    expect(enemy.hp).toBe(Math.max(0, hpBefore - Math.ceil(20 * 1.2))); // 修复前不吃增伤 = 20
+  });
+
+  it("方程常驻加成接线：蠕行之蛇/行星碰碰车在 getUniModifiers 生效（需展开）", () => {
+    const s = createUniState();
+    gainEquation(s, "ruchong");
+    // 未展开：常驻 +10% 不生效
+    expect(getUniModifiers(s).atkMult).toBe(0);
+    forceUnlock(s, "ruchong");
+    // 已展开：常驻 +10% 生效（forceUnlock 会顺带塞入「季风」等祝福，可能额外叠加 atkMult → ≥10）
+    expect(getUniModifiers(s).atkMult).toBeGreaterThanOrEqual(10); // 修复前方程 case 死在祝福循环里 = 0
+    // 行星碰碰车：dot 敌人存在时 5+15=20，否则 5
+    const s2 = createUniState();
+    gainEquation(s2, "xingqiu");
+    forceUnlock(s2, "xingqiu");
+    expect(getUniModifiers(s2).atkMult).toBe(5);
+    s2.combat = { enemies: [{ alive: true, dotTurns: 1 }] };
+    // dot 敌人：行星碰碰车 5+15；forceUnlock 顺带塞入的「清虚」祝福在敌人带 dot 时再 +3 → ≥20
+    expect(getUniModifiers(s2).atkMult).toBeGreaterThanOrEqual(20);
+  });
+
+  it("受治疗钩子接线：持有禳灾时治疗触发抽牌加盾（triggerOnHeal 不再死代码）", () => {
+    const s = createUniState();
+    gainBlessing(s, "rangzai");
+    const before = s.team[0].shield;
+    triggerOnHeal(s, 0, 5);
+    expect(s.team[0].shield).toBeGreaterThan(before); // 禳灾抽牌点数进护盾
+  });
+
+  it("无祝福时战斗奇物修正仍生效：分裂咕咕钟 atkMult -5", () => {
+    const s = createUniState();
+    s.curios.push({ id: "fenlie", star: 1, enhanced: 1 });
+    expect(getUniModifiers(s).atkMult).toBe(-5); // 修复前无祝福早返回 = 0
+  });
+
+  it("已损毁奇物战斗开始不再生效：羊皮卷 broken 后进战斗敌人不掉血", () => {
+    const s = createUniState();
+    s.curios.push({ id: "sheep", star: 1, enhanced: 1, broken: true });
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 1 }] };
+    startCombat(s);
+    const e = s.combat.enemies[0];
+    expect(e.hp).toBe(e.maxHp); // 未受羊皮卷 30% 生命上限伤害
+  });
+
+  it("抽三支取最好：只结算等级最高一支（大吉），凶签不扣血", () => {
+    const s = createUniState();
+    addShards(s, 200);
+    const spy = vi.spyOn(Math, "random");
+    // 三支签：大吉(0.05)、凶(0.9)、凶(0.95)；大吉结算 rollBlessing(3,3)×3 用三个不同值取 3 个不同祝福
+    spy
+      .mockReturnValueOnce(0.05)
+      .mockReturnValueOnce(0.9)
+      .mockReturnValueOnce(0.95)
+      .mockReturnValueOnce(0.1)
+      .mockReturnValueOnce(0.3)
+      .mockReturnValueOnce(0.6);
+    const hpBefore = s.team.map((t) => t.hp);
+    const r = applyEventOption(s, "lottery", 1); // 抽三支取最好（100 碎片）
+    spy.mockRestore();
+    expect(r.ok).toBe(true);
+    expect(r.outcome.lottery.best).toBe("大吉");
+    expect(s.blessings).toHaveLength(3);
+    expect(s.blessings.every((b) => b.star === 3)).toBe(true);
+    s.team.forEach((t, i) => expect(t.hp).toBe(hpBefore[i])); // 凶未结算，不扣血
+  });
+
+  it("热量强化 ×2 乘法：两次强化后 heatEnhanced = 4（修复前 +1 为 3）", () => {
+    const s = createUniState();
+    gainBlessing(s, "ganlu");
+    s.heat = 5;
+    heatStrengthen(s, 0);
+    heatStrengthen(s, 0);
+    expect(s.blessings[0].heatEnhanced).toBe(4);
+  });
+
+  it("事件战斗胜利后 region 保留 eventIds（第 2 事件可继续，不被跳层）", () => {
+    const s = createUniState();
+    s.region = generateRegion(s, "event");
+    s.region.eventIds = ["broken_gate", "hungry_chest"];
+    s.region.eventIdx = 0;
+    const r = applyEventOption(s, s.region.eventIds[0], 1); // broken_gate B：事件战斗
+    expect(r.outcome.battle).toBeTruthy();
+    // 模拟控制器：region 切换为战斗区域（保留 eventIds）
+    s.region = { ...s.region, type: "battle", name: r.outcome.battle.desc, waves: r.outcome.battle.waves };
+    startCombat(s);
+    s.combat.enemies.forEach((e) => {
+      e.hp = 0;
+      e.alive = false;
+    });
+    playerDefense(s, 0);
+    expect(s.combat.phase).toBe("won");
+    // 战斗胜利不清 eventIds/eventIdx → goNextEvent 可进入第 2 个事件
+    expect(s.region.eventIds).toEqual(["broken_gate", "hungry_chest"]);
+    expect(s.region.eventIdx).toBe(0);
   });
 });

@@ -1987,31 +1987,49 @@ function runFortuneCard(state) {
   return { kind: "equation", count: 1 };
 }
 
-/** 抽签：大吉(3×3星祝福)/中吉(1加权奇物)/小吉(2×1~2星祝福)/凶(损失20%生命上限) */
+/** 抽签：大吉(3×3星祝福)/中吉(1加权奇物)/小吉(2×1~2星祝福)/凶(损失20%生命上限) —— 只抽签不结算 */
 function drawLotteryOne(state) {
   const r = Math.random();
   if (r < 0.1) {
-    for (let i = 0; i < 3; i++) {
-      const id = rollBlessing(3, 3);
-      if (id) gainBlessing(state, id, { silent: true });
-    }
-    return { level: 4, name: "大吉" };
+    return { level: 4, name: "大吉", kind: "bless3" };
   }
   if (r < 0.3) {
     // 中吉：1 个加权奇物（约定：加权奇物 = 3 星奇物）
-    const id = rollCurio(false, 3, 3);
-    if (id) gainCurio(state, id, { silent: true });
-    return { level: 3, name: "中吉" };
+    return { level: 3, name: "中吉", kind: "curio3" };
   }
   if (r < 0.7) {
-    for (let i = 0; i < 2; i++) {
-      const id = rollBlessing(1, 2);
-      if (id) gainBlessing(state, id, { silent: true });
-    }
-    return { level: 2, name: "小吉" };
+    return { level: 2, name: "小吉", kind: "bless12" };
   }
-  loseTeamHpPct(state, 20);
-  return { level: 1, name: "凶" };
+  return { level: 1, name: "凶", kind: "loseHp" };
+}
+
+/** 结算单支签的效果（仅对 best 调用，避免「抽三支取最好」三支全结算） */
+function applyLotteryDraw(state, d) {
+  if (!d) return;
+  switch (d.kind) {
+    case "bless3":
+      for (let i = 0; i < 3; i++) {
+        const id = rollBlessing(3, 3);
+        if (id) gainBlessing(state, id, { silent: true });
+      }
+      break;
+    case "curio3": {
+      const id = rollCurio(false, 3, 3);
+      if (id) gainCurio(state, id, { silent: true });
+      break;
+    }
+    case "bless12":
+      for (let i = 0; i < 2; i++) {
+        const id = rollBlessing(1, 2);
+        if (id) gainBlessing(state, id, { silent: true });
+      }
+      break;
+    case "loseHp":
+      loseTeamHpPct(state, 20);
+      break;
+    default:
+      break;
+  }
 }
 
 function runLottery(state, lot) {
@@ -2023,6 +2041,8 @@ function runLottery(state, lot) {
     draws.push(d);
     if (!best || d.level > best.level) best = d;
   }
+  // 「取最好」：只结算等级最高的一支（大吉 > 中吉 > 小吉 > 凶）
+  applyLotteryDraw(state, best);
   state.log.push(`抽签：${draws.map((d) => d.name).join("、")}（取${best.name}）`);
   return { cost: lot.cost, draws, best: best.name };
 }

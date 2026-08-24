@@ -13,6 +13,7 @@ import {
   memberDmgTakenMods,
   triggerOnCombatStart,
   triggerOnDamaged,
+  triggerOnHeal,
   triggerOnKill,
   triggerOnEnemyDot,
   triggerOnAttackAfter,
@@ -142,7 +143,10 @@ export function startCombat(state) {
   if (state.items?.medkit > 0) {
     state.items.medkit -= 1;
     for (const t of state.team) {
-      if (t.alive) t.hp = Math.min(t.maxHp, t.hp + Math.ceil(t.maxHp * 0.1));
+      if (!t.alive) continue;
+      const healed = Math.ceil(t.maxHp * 0.1);
+      t.hp = Math.min(t.maxHp, t.hp + healed);
+      triggerOnHeal(state, t.index, healed);
     }
     state.log.push("使用急救包，全队回复 10% 生命");
   }
@@ -435,14 +439,14 @@ export function grantExtraAction(state, memberIdx) {
   const t = state.team[memberIdx];
   if (!t || !t.alive) return false;
   if (t.status.stunned || t.status.puppet) return false;
-  // 已在剩余行动顺序中 → 提到最前；否则（已行动过）追加到最前
   const remaining = c.actionOrder.slice(c.turnIdx + 1);
-  if (!remaining.includes(memberIdx)) {
-    c.actionOrder.splice(c.turnIdx + 1, 0, memberIdx);
-  } else {
-    c.actionOrder.splice(c.turnIdx + 1, 1);
-    c.actionOrder.splice(c.turnIdx + 1, 0, memberIdx);
-  }
+  // 目标不在剩余行动顺序 = 已行动过 → 不生效（禁止双动）
+  if (!remaining.includes(memberIdx)) return false;
+  // 目标仍在剩余队列 → 提到最前：删除目标原位置，插入当前行动者之后
+  // （注意不能用 splice(turnIdx+1, 1) 删队首：那会顶掉下一名玩家而非目标）
+  const pos = c.actionOrder.indexOf(memberIdx);
+  c.actionOrder.splice(pos, 1);
+  c.actionOrder.splice(c.turnIdx + 1, 0, memberIdx);
   return true;
 }
 

@@ -110,7 +110,8 @@ export function heatStrengthen(state, blessingIdx) {
   const cost = b.star; // 1 星 1 热量，2 星 2 热量，3 星 3 热量
   if (state.heat < cost) return { ok: false, reason: "热量不足" };
   state.heat -= cost;
-  b.heatEnhanced = (b.heatEnhanced || 1) + 1;
+  // 强化后该祝福效果 ×2（与重复强化叠加，乘法；与奇遇「强化随机祝福」的 heatEnhanced ×2 语义一致）
+  b.heatEnhanced = (b.heatEnhanced || 1) * 2;
   state.log.push(`热量强化祝福「${BLESSINGS[b.id]?.name}」（效果倍率 ${b.heatEnhanced}，剩余 ${state.heat} 热量）`);
   state.devLog.info(LOG_TYPE.UNI_REGION, "造物调试台：热量强化", {
     blessingIdx,

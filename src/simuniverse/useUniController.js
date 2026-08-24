@@ -1,4 +1,4 @@
-﻿// 模拟宇宙控制器 — 区域流程 / 战斗操作 / 事件 / 商店 / 工作台 / 存档
+// 模拟宇宙控制器 — 区域流程 / 战斗操作 / 事件 / 商店 / 工作台 / 存档
 // 桥接：UniShell.vue ↔ 纯逻辑层（uniState / uniCombat / uniEvents / uniShop / uniSkills / uniBuffs）
 
 import { reactive, ref } from "vue";
@@ -284,7 +284,10 @@ export function useUniController() {
 
   function doEventOption(optionIdx) {
     const before = snapshotUni(uniState);
-    const r = applyEventOption(uniState, uniState.region.eventId, optionIdx);
+    // 事件区域存 eventIds[]（2 个事件依次处理），reward/adventure 存 eventId —— 与 getCurrentEvent 同款解析
+    const region = uniState.region;
+    const evId = region?.eventIds ? region.eventIds[region.eventIdx || 0] : region?.eventId;
+    const r = applyEventOption(uniState, evId, optionIdx);
     if (!r.ok) return r;
     const effects = diffUni(before, snapshotUni(uniState));
     eventResult.value = { ...r, effects };
@@ -293,7 +296,8 @@ export function useUniController() {
       return r;
     }
     if (r.outcome?.battle) {
-      // 事件战斗：把 region 切换为战斗区域（startCombat 依赖 region.waves）
+      // 事件战斗：把 region 切换为战斗区域（startCombat 依赖 region.waves）；
+      // 保留 eventIds/eventIdx 供战斗胜利后继续第 2 个事件（goNextEvent 还原 type）
       uniState.region = {
         ...uniState.region,
         type: "battle",
@@ -432,6 +436,11 @@ export function useUniController() {
       r.eventIdx = (r.eventIdx || 0) + 1;
       eventResult.value = null;
       skillTargetPending.value = null;
+      // 事件内战斗胜利后 region.type 被覆盖为 battle → 还原为事件区域，继续第 2 个事件
+      if (r.type === "battle") {
+        r.type = "event";
+        uniState.combat = null;
+      }
       enterCurrentMode();
       return { ok: true, next: true };
     }

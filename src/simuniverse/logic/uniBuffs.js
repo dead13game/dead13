@@ -232,8 +232,8 @@ export function getUniModifiers(state) {
     shieldMult: 0,
     maxHpMult: 0,
   };
-  if (!state.blessings?.length) {
-    return applyCurioStarMods(state, mods); // 无祝福仍应用奇物（赐福残晶）
+  if (!state.blessings?.length && !state.equations?.length && !state.curios?.length) {
+    return mods; // 无任何成长 → 无修正（仍走奇物修正段与赐福残晶，见下）
   }
   const fateCount = (f) => state.blessings.filter((b) => BLESSINGS[b.id]?.fate === f).length;
   const zhishuCount = fateCount("智识");
@@ -271,14 +271,6 @@ export function getUniModifiers(state) {
       case "jifeng": mods.atkMult += blessingVal(state, b.id, "atkMult"); break;
       case "hongkuai": mods.skillDmgMult += blessingVal(state, b.id, "atkMult"); break; // 终结技伤害
       case "chilun": mods.skillDmgMult += blessingVal(state, b.id, "atkPer") * Math.min(zhishuCount, fx.max || 5); break; // 终结技伤害
-      case "ruchong": mods.atkMult += (fx.atkMult || 0); break; // 蠕行之蛇：敌方受伤 +10%（方程）
-      case "xingqiu":
-        mods.atkMult += (fx.atkMult || 0); // 行星碰碰车（方程）
-        if (state.combat?.enemies?.some((e) => e.alive && e.dotTurns > 0)) {
-          mods.atkMult += (fx.dotAtkMult || 0);
-        }
-        break;
-      case "chitu": mods.atkMult += (fx.atkMult || 0); break; // 吃土绑架犯（方程）
       case "xuansi": mods.atkNormalMult += blessingVal(state, b.id, "atkMult"); break;
       case "penliu": mods.dmgTakenMult += blessingVal(state, b.id, "dmgTakenPct"); break;
       case "fangshe":
@@ -300,6 +292,25 @@ export function getUniModifiers(state) {
         break;
     }
   }
+  // 方程常驻修正：行星碰碰车 / 吃土绑架犯 / 蠕行之蛇（需已展开；方程在 state.equations，不能挂在祝福循环里）
+  for (const eq of state.equations || []) {
+    if (!isEquationUnlocked(state, eq.id)) continue;
+    const fx = EQUATIONS[eq.id]?.fx;
+    if (!fx) continue;
+    switch (eq.id) {
+      case "ruchong": mods.atkMult += (fx.atkMult || 0); break; // 蠕行之蛇：敌方全体受伤 +10%
+      case "xingqiu": {
+        mods.atkMult += (fx.atkMult || 0); // 行星碰碰车：伤害提高
+        if (state.combat?.enemies?.some((e) => e.alive && e.dotTurns > 0)) {
+          mods.atkMult += (fx.dotAtkMult || 0); // 敌方处于持续伤害 → 额外提高
+        }
+        break;
+      }
+      case "chitu": mods.atkMult += (fx.atkMult || 0); break; // 吃土绑架犯
+      default:
+        break;
+    }
+  }
   // 奇物：赐福残晶系列（星级 = 祝福星数和 + 方程星数和）
   return applyCurioStarMods(state, mods);
 }
@@ -309,13 +320,13 @@ function applyCurioStarMods(state, mods) {
   const starTotal =
     (state.blessings || []).reduce((a, b) => a + b.star, 0) +
     (state.equations || []).reduce((a, e) => a + e.star, 0);
-  if (state.curios?.some((c) => c.id === "canjing_lm")) {
+  if (state.curios?.some((c) => c.id === "canjing_lm" && !c.broken)) {
     mods.atkNormalMult += (CURIO_FX.canjing_lm?.atkPerStar || 2.5) * starTotal; // 普攻
   }
-  if (state.curios?.some((c) => c.id === "canjing_lx")) {
+  if (state.curios?.some((c) => c.id === "canjing_lx" && !c.broken)) {
     mods.skillDmgMult += (CURIO_FX.canjing_lx?.atkPerStar || 2.5) * starTotal; // 终结技
   }
-  if (state.curios?.some((c) => c.id === "canjing_fz")) {
+  if (state.curios?.some((c) => c.id === "canjing_fz" && !c.broken)) {
     mods.atkMult += (CURIO_FX.canjing_fz?.atkPerStar || 2.5) * starTotal; // 对精英（简化并入全伤害）
   }
   return mods;
@@ -585,14 +596,14 @@ export function chargeJarBrain(state, n) {
 export function triggerCurioOnCombatStart(state) {
   const c = state.combat;
   // 无限递归的代码：生命上限 +20%（强化 +4/级）
-  if (state.curios?.some((x) => x.id === "wuxian")) {
+  if (state.curios?.some((x) => x.id === "wuxian" && !x.broken)) {
     for (const t of state.team) {
       t.maxHp = Math.ceil(t.maxHp * (1 + curioVal(state, "wuxian", "maxHpMult") / 100));
       t.hp = Math.min(t.hp, t.maxHp);
     }
   }
   // 精确优雅的代码：生命上限 / 造成的伤害 / 护盾量 +35%（强化 +3/级）
-  if (state.curios?.some((x) => x.id === "jingque")) {
+  if (state.curios?.some((x) => x.id === "jingque" && !x.broken)) {
     const pct = curioVal(state, "jingque", "atkDefHpPct");
     for (const t of state.team) {
       t.maxHp = Math.ceil(t.maxHp * (1 + pct / 100));
@@ -604,7 +615,7 @@ export function triggerCurioOnCombatStart(state) {
     state.log.push(`精确优雅的代码：全队生命上限/伤害/护盾 +${pct}%`);
   }
   // 永不停嘴的羊皮卷：敌方全体受 30% 生命上限固定伤害（强化 +2/级）
-  if (state.curios?.some((x) => x.id === "sheep")) {
+  if (state.curios?.some((x) => x.id === "sheep" && !x.broken)) {
     for (const e of c.enemies) {
       if (e.alive) {
         e.hp = Math.max(0, e.hp - Math.ceil(e.maxHp * (curioVal(state, "sheep", "hpPct") / 100)));
@@ -616,7 +627,7 @@ export function triggerCurioOnCombatStart(state) {
     }
   }
   // 博士之袍：拥有已展开的 3 星方程 → 所有角色激活终结技 + 全队伤害 +25%（强化 +3/级）
-  if (state.curios?.some((x) => x.id === "boshi") && state.equations?.some((e) => e.star === 3 && isEquationUnlocked(state, e.id))) {
+  if (state.curios?.some((x) => x.id === "boshi" && !x.broken) && state.equations?.some((e) => e.star === 3 && isEquationUnlocked(state, e.id))) {
     for (const t of state.team) {
       t.skillCooldown = 0; // 激活终结技
       t.status.dmgBuffPct = (t.status.dmgBuffPct || 0) + curioVal(state, "boshi", "atkMult");
@@ -624,7 +635,7 @@ export function triggerCurioOnCombatStart(state) {
     }
   }
   // 有梦-0110：全队伤害 +50%（强化 +2/级）
-  if (state.curios?.some((x) => x.id === "youmeng")) {
+  if (state.curios?.some((x) => x.id === "youmeng" && !x.broken)) {
     for (const t of state.team) {
       t.status.dmgBuffPct = (t.status.dmgBuffPct || 0) + curioVal(state, "youmeng", "atkMult");
       t.status.dmgBuffTurns = 1;
@@ -633,7 +644,7 @@ export function triggerCurioOnCombatStart(state) {
     state.combat._youmengTurns = CURIO_FX.youmeng?.turns || 15;
   }
   // 纯美之袍：每拥有 100 宇宙碎片，全队伤害 +20%（强化 +2/级）
-  if (state.curios?.some((x) => x.id === "chunmei_pao")) {
+  if (state.curios?.some((x) => x.id === "chunmei_pao" && !x.broken)) {
     const pct = Math.floor(state.shards / 100) * curioVal(state, "chunmei_pao", "atkPer100");
     if (pct > 0) {
       for (const t of state.team) {
@@ -644,7 +655,7 @@ export function triggerCurioOnCombatStart(state) {
     }
   }
   // 黑森林咕咕钟：随机 1 名我方目标被攻击概率大幅提高（简化：标记 5 回合）
-  if (state.curios?.some((x) => x.id === "heisenlin")) {
+  if (state.curios?.some((x) => x.id === "heisenlin" && !x.broken)) {
     const alive = state.team.filter((t) => t.alive);
     if (alive.length) {
       const target = alive[Math.floor(Math.random() * alive.length)];

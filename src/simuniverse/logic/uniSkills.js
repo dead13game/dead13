@@ -3,7 +3,7 @@
 
 import { UNI_SKILLS } from "./uniConstants.js";
 import { drawPokerUnified, damageEnemy, grantExtraAction, gainSpirit } from "./uniCombat.js";
-import { getUniModifiers, triggerAfterSkill, blessingMult, blessingVal, BLESSINGS, isEquationUnlocked, chargeJarBrain, applyHealSpread } from "./uniBuffs.js";
+import { getUniModifiers, triggerAfterSkill, triggerOnHeal, memberAtkMods, blessingMult, blessingVal, BLESSINGS, isEquationUnlocked, chargeJarBrain, applyHealSpread } from "./uniBuffs.js";
 import { LOG_TYPE } from "../../game/gameLogger.js";
 import { recordSound } from "../../game/soundEvents.js";
 /** 技能等级取值（数组按等级 1-10，越界取末项） */
@@ -116,12 +116,18 @@ export function executeUniSkill(state, charIndex, payload = {}) {
 }
 
 /** 各角色技能实现 */
-/** 终结技（角色技能）伤害加成：常驻 skillDmgMult + 一次性 nextSkillBoost（阈下知觉），一次性标记消耗 */
+/** 终结技（角色技能）伤害加成：终结技专属 skillDmgMult + 通用增伤（atkMult/dmgBuffPct/memberAtkMods）+ 一次性 nextSkillBoost（阈下知觉），一次性标记消耗 */
 function skillDmgMult(state, t) {
   const mods = getUniModifiers(state);
   const oneShot = t.status.nextSkillBoost || 0;
   if (t.status.nextSkillBoost) t.status.nextSkillBoost = 0;
-  return mods.skillDmgMult + oneShot;
+  return (
+    mods.skillDmgMult +
+    mods.atkMult +
+    (t.status.dmgBuffPct || 0) +
+    memberAtkMods(state, t.index) +
+    oneShot
+  );
 }
 
 function doSkill(state, t, sk, lv, payload) {
@@ -166,7 +172,7 @@ function doSkill(state, t, sk, lv, payload) {
       for (const idx of members) {
         if (grantExtraAction(state, idx)) granted += 1;
       }
-      state.log.push(`${t.name} 让 ${members.length} 名角色立即行动`);
+      state.log.push(`${t.name} 让 ${granted} 名角色立即行动`);
       return { ok: true, summary: { granted, members } };
     }
     case 5: {
@@ -183,6 +189,8 @@ function doSkill(state, t, sk, lv, payload) {
         let amount = healAmount;
         if (m.status.healCut > 0) amount = Math.ceil(amount * (1 - m.status.healCut));
         m.hp = Math.min(m.maxHp, m.hp + amount);
+        // 受治疗钩子：禳灾（抽牌加盾）/ 般若船（额外回复）/ 宝光烛日月（增伤）
+        triggerOnHeal(state, m.index, amount);
       }
       // 丰饶众生，一法界心：提供治疗时我方全体目标额外回复
       applyHealSpread(state, t.index, healAmount);
@@ -202,9 +210,12 @@ function doSkill(state, t, sk, lv, payload) {
         const newMax = Math.ceil((m.maxHp * (100 + pct)) / 100);
         m.status.maxHpBuffPct = pct;
         m.status.maxHpBuffTurns = 3;
-        totalHealed += newMax - m.hp;
+        const healed = Math.max(0, newMax - m.hp);
+        totalHealed += healed;
         m.maxHp = newMax;
         m.hp = newMax; // 回满
+        // 受治疗钩子：禳灾 / 般若船 / 宝光烛日月
+        triggerOnHeal(state, m.index, healed);
       }
       // 丰饶众生，一法界心：提供治疗时我方全体目标额外回复
       applyHealSpread(state, t.index, totalHealed);
