@@ -148,7 +148,7 @@ function doSkill(state, t, sk, lv, payload) {
     case 2: {
       // 钟离：全队护盾（统一护盾入口：螺壳/四棱锥体护盾量加成 + 亚共晶体）
       const shield = val(sk.values, lv);
-      const gain = applyShieldGain(state, t.index, shield);
+      const gain = applyShieldGain(state, t.index, shield, "skill");
       for (const m of state.team) if (m.alive) m.shield += gain;
       state.log.push(`${t.name} 全队 +${gain} 护盾`);
       return { ok: true, summary: { shield: gain } };
@@ -192,8 +192,8 @@ function doSkill(state, t, sk, lv, payload) {
         // 受治疗钩子：禳灾（抽牌加盾）/ 般若船（额外回复）/ 宝光烛日月（增伤）
         triggerOnHeal(state, m.index, amount);
       }
-      // 回生：提供治疗后回复自身生命上限 %
-      triggerOnHealProvided(state, t.index);
+      // 回生/大愿般若船：提供治疗后回复（amount = 本次提供的治疗量）
+      triggerOnHealProvided(state, t.index, healBase);
       // 丰饶众生，一法界心：提供治疗时我方全体目标额外回复（按基础治疗额 spread）
       applyHealSpread(state, t.index, healBase);
       state.log.push(`${t.name} 全队增伤 ${pct}%（3 回合），治疗 ${healBase}`);
@@ -219,8 +219,8 @@ function doSkill(state, t, sk, lv, payload) {
         // 受治疗钩子：禳灾 / 般若船 / 宝光烛日月
         triggerOnHeal(state, m.index, healed);
       }
-      // 回生：提供治疗后回复自身生命上限 %
-      triggerOnHealProvided(state, t.index);
+      // 回生/大愿般若船：提供治疗后回复（amount = 本次提供的治疗量）
+      triggerOnHealProvided(state, t.index, totalHealed);
       // 丰饶众生，一法界心：提供治疗时我方全体目标额外回复
       applyHealSpread(state, t.index, totalHealed);
       const bonusDmg = Math.ceil(totalHealed * 0.1);
@@ -243,11 +243,12 @@ function doSkill(state, t, sk, lv, payload) {
         const dot = val(sk.dot, lv);
         const turns = val(sk.dotTurns, lv);
         if (turns > 0) {
-          // 6-10 级：持续 dot
+          // 6-10 级：持续 dot（记录施放者，供 dot 击杀时触发击杀钩子/罐中脑充能）
           for (const e of c.enemies) {
             if (!e.alive) continue;
             e.dotDmg = dot;
             e.dotTurns = turns;
+            e.dotSource = t.index;
           }
           state.log.push(`${t.name} 全体敌人受 ${dot} 点持续伤害（${turns} 回合）`);
           return { ok: true, summary: { branch: "dot", dot, turns } };
@@ -265,7 +266,7 @@ function doSkill(state, t, sk, lv, payload) {
       const total = cards.reduce((s, p) => s + p.value, 0);
       const alive = state.team.filter((m) => m.alive);
       const share = alive.length ? Math.ceil(total / alive.length) : 0;
-      const gained = applyShieldGain(state, t.index, share);
+      const gained = applyShieldGain(state, t.index, share, "skill");
       for (const m of alive) m.shield += gained;
       state.log.push(`${t.name} 全队共抽 ${n} 张牌（${total} 点），每人防御 +${gained}`);
       return { ok: true, summary: { branch: "shield", shields: n, total, share: gained } };

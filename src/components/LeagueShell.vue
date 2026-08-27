@@ -35,10 +35,20 @@
           <span class="lsb-name">{{ currentPlayerTeam?.name }}</span>
         </div>
         <div class="lsb-score">
-          <span class="lsb-round"
+          <span class="lsb-score-num">{{ liveScore[0] }} : {{ liveScore[1] }}</span>
+          <span
+            v-if="matchState?.isTiebreaker"
+            class="lsb-round"
+            title="名次积分：第6名1分 ~ 第1名6分"
+            >⚔️ 加赛 · 名次分</span
+          >
+          <span
+            v-else
+            class="lsb-round"
+            title="名次积分：第6名1分 ~ 第1名6分"
             >R{{ matchState?._currentRound || 1 }}/{{
-              matchState?.maxRounds || 60
-            }}</span
+              matchState?.maxRounds ?? 30
+            }} · 名次分</span
           >
         </div>
         <div class="lsb-team lsb-team--opponent">
@@ -109,6 +119,7 @@ import LeagueDraft from "./LeagueDraft.vue";
 import LeagueStandings from "./LeagueStandings.vue";
 import LeagueRoundResult from "./LeagueRoundResult.vue";
 import { useLeagueController } from "../composables/useLeagueController.js";
+import { calculateMatchScore } from "../game/league.js";
 import { CAT } from "../game/gameLogger.js";
 import {
   startAttack,
@@ -165,7 +176,6 @@ const _difficulty = ref("skilled");
 const _useAI = ref(props.useAI ?? true);
 const _artifactId = ref(null);
 const _opponentArtifactId = ref(null);
-const scoreboardClicks = ref(0);
 
 // ---- 设置事件 ----
 function onSelectTeam(teamId) {
@@ -196,17 +206,39 @@ function onDraftComplete(draft) {
   startMatchWithDraft(draft);
 }
 
-// ---- 记分牌点击 ----
+// ---- 记分牌 5 连击 → 打开 DevLogPanel（与世界杯一致） ----
+let scoreboardClicks = 0;
+let scoreboardTimer = null;
+
 function onScoreboardClick() {
-  // 预留：5连击调试
-  scoreboardClicks.value++;
-  if (scoreboardClicks.value >= 5) {
-    scoreboardClicks.value = 0;
+  scoreboardClicks++;
+  if (scoreboardTimer) clearTimeout(scoreboardTimer);
+  if (scoreboardClicks >= 5) {
+    gameShellRef.value?.toggleDevLog();
+    scoreboardClicks = 0;
+  } else {
+    scoreboardTimer = setTimeout(() => {
+      scoreboardClicks = 0;
+    }, 1500);
   }
 }
 
 // ---- 本轮结果轮次 ----
 const roundResultsRound = computed(() => leagueState._currentRound || 1);
+
+// ---- 实时锁定积分（规则v3.0，类似世界杯记分牌）----
+// 按已阵亡顺序结算名次积分（6/5/4/3/2/1），团灭时剩余名次自动补全给存活队；
+// 双方均有人存活时只计已锁定名次，比赛结束即最终比分。
+const liveScore = computed(() => {
+  const ms = matchState.value;
+  if (!ms) return [0, 0];
+  const { playerScore, opponentScore } = calculateMatchScore(
+    ms.deathOrder || [],
+    0,
+    1,
+  );
+  return [playerScore, opponentScore];
+});
 
 // ---- 积分榜继续 ----
 function onStandingsContinue() {
@@ -424,6 +456,7 @@ defineExpose({
 
 onBeforeUnmount(() => {
   if (aiTimer) clearTimeout(aiTimer);
+  if (scoreboardTimer) clearTimeout(scoreboardTimer);
 });
 </script>
 
@@ -446,6 +479,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   gap: 16px;
   padding: 8px 16px;
+  padding-top: max(8px, env(safe-area-inset-top));
   background: rgba(10, 15, 40, 0.94);
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   cursor: pointer;
@@ -454,27 +488,47 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
 }
 .lsb-name {
   font-size: 14px;
   font-weight: 600;
   color: #e0e0e0;
+  max-width: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .lsb-score {
   text-align: center;
 }
+.lsb-score-num {
+  display: block;
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
 .lsb-round {
-  font-size: 13px;
+  font-size: 12px;
   color: #ffd700;
   font-weight: 700;
+  display: block;
+  white-space: nowrap;
 }
 
 /* 保存按钮 */
 .league-save-btn {
   position: fixed;
-  top: 44px;
+  top: max(60px, calc(env(safe-area-inset-top) + 52px));
   right: 12px;
   z-index: 101;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 8px;
@@ -485,6 +539,31 @@ onBeforeUnmount(() => {
 }
 .league-save-btn:hover {
   background: rgba(255, 255, 255, 0.16);
+}
+
+/* 窄屏适配（对齐世界杯记分牌） */
+@media (max-width: 500px) {
+  .league-scoreboard {
+    gap: 8px;
+    padding: 6px 10px;
+    padding-top: max(6px, env(safe-area-inset-top));
+  }
+  .lsb-team {
+    gap: 4px;
+  }
+  .lsb-name {
+    font-size: 11px;
+    max-width: 56px;
+  }
+  .lsb-score-num {
+    font-size: 18px;
+  }
+  .lsb-round {
+    font-size: 10px;
+  }
+  .league-save-btn {
+    right: 8px;
+  }
 }
 
 /* 联赛结束 */

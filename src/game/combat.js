@@ -136,6 +136,35 @@ export function executeAttack(state, targetIdx) {
 
   const baseCardValue = card.value;
 
+  // 围攻惩罚（3V3 联赛规则v3.0）：
+  // 同一回合内第2次及后续攻击该目标时，本次攻击伤害减半（向上取整，最低为1）。
+  // 只统计“攻击”行动——技能伤害不计数；攻击被防御完全抵消或被陷阱反弹仍算一次攻击。
+  let isBesieged = false;
+  if (state.leagueContext && target.teamId >= 0) {
+    target.attackedThisRound = (target.attackedThisRound || 0) + 1;
+    isBesieged = target.attackedThisRound >= 2;
+    if (isBesieged) {
+      addLog(
+        state,
+        `${target.name} 被围攻（本回合第${target.attackedThisRound}次受击，伤害减半）`,
+      );
+      state.devLog.info(
+        CAT.ATTACK,
+        `围攻惩罚: ${target.name} 本回合第${target.attackedThisRound}次受击，伤害减半`,
+        {
+          targetIndex: target.index,
+          attackedThisRound: target.attackedThisRound,
+        },
+      );
+    } else {
+      state.devLog.debug(
+        CAT.ATTACK,
+        `围攻计数: ${target.name} 本回合第1次受击（不受影响）`,
+        { targetIndex: target.index, attackedThisRound: target.attackedThisRound },
+      );
+    }
+  }
+
   if (state.pendingVentiCards) {
     attackCards = state.pendingVentiCards;
     attackValue = attackCards[0].value + attackCards[1].value;
@@ -363,6 +392,18 @@ export function executeAttack(state, targetIdx) {
   if (!trapTriggered && attacker.artifactActive && attacker.artifactId) {
     const result = applyArtifactDamageBoost(attacker, attackValue, state);
     attackValue = result.value;
+  }
+
+  // 围攻惩罚：第2次及后续攻击伤害减半（向上取整，最低为1）
+  if (isBesieged) {
+    const before = attackValue;
+    attackValue = Math.max(1, Math.ceil(attackValue / 2));
+    addLog(state, `围攻减半：${before} → ${attackValue} 点`);
+    state.devLog.info(
+      CAT.ATTACK,
+      `围攻惩罚减半: ${target.name} 受击伤害 ${before} → ${attackValue}`,
+      { targetIndex: target.index, before, after: attackValue },
+    );
   }
 
   // 联盟平摊

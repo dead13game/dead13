@@ -30,6 +30,8 @@ import {
   getNextWeather,
 } from "./weather.js";
 
+import { computeDefenseReinforcement } from "./league.js";
+
 import {
   startAttack,
   executeAttack,
@@ -392,6 +394,38 @@ function nextPlayer(state, _depth = 0) {
       state.leagueContext.onRoundLimit();
       state._elimPaused = true;
       return;
+    }
+
+    // 3V3 联赛（规则v3.0）：新回合开始，所有玩家行动之前
+    if (state.leagueContext) {
+      // 1) 清零围攻计数（本回合受击次数）
+      for (const p of state.players) {
+        if (p.alive) p.attackedThisRound = 0;
+      }
+
+      // 2) 劣势方防御补给：存活人数少的一方每人获得 X 张防御牌（X=人数差）
+      //    从牌库顶抽 X 张，盖置到防御区顶部，不消耗行动次数；人数相等时不触发
+      const reinforcement = computeDefenseReinforcement(state.players);
+      if (reinforcement) {
+        const { weakerTeamId, diff } = reinforcement;
+        ensureDeck(state, diff);
+        const r = drawCards(state.deck, diff);
+        state.deck = r.remaining;
+        for (const p of state.players) {
+          if (p.alive && p.teamId === weakerTeamId) {
+            r.drawn.forEach((c) => {
+              p.defensePile.push({ ...c, faceUp: false });
+            });
+          }
+        }
+        const teamName = weakerTeamId === 0 ? "玩家队" : "对手队";
+        addLog(state, `劣势方补给：${teamName} 每人获得 ${diff} 张防御牌`);
+        state.devLog.info(
+          CAT.STATE,
+          `劣势方防御补给: ${teamName} 每人 +${diff} 张防御牌（人数差 ${diff}）`,
+          { weakerTeamId, diff },
+        );
+      }
     }
 
     // 联盟/背刺回合处理

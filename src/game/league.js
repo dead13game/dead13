@@ -362,17 +362,26 @@ export function checkTiebreakerNeeded(state) {
  */
 export function calculateMatchScore(deathOrder, playerTeamId, opponentTeamId) {
   const totalPlayers = 6;
-  const rankPoints = [0, 2, 3, 4, 5, 7]; // 第6名到第1名的积分
+  const playersPerTeam = 3;
+  // 第6名到第1名的积分（规则v3.0：1/2/3/4/5/6）
+  const rankPoints = [
+    RANK_POINTS[6],
+    RANK_POINTS[5],
+    RANK_POINTS[4],
+    RANK_POINTS[3],
+    RANK_POINTS[2],
+    RANK_POINTS[1],
+  ];
 
   // 按死亡顺序分配排名：deathOrder[0]=第6名, ..., deathOrder[5]=第1名
-  // 如果deathOrder不足6人（一方团灭），剩余名次随机分配给胜方
+  // 如果deathOrder不足6人（一方团灭），剩余名次全部归存活方
   let playerScore = 0;
   let opponentScore = 0;
 
   // 先计算已确定的名次
   deathOrder.forEach((entry, i) => {
     const rank = totalPlayers - i; // 6, 5, 4, ...
-    const points = rankPoints[i]; // 第6名=0分, 第5名=2分, ...
+    const points = rankPoints[i]; // 第6名=1分, 第5名=2分, ...
     if (entry.teamId === playerTeamId) {
       playerScore += points;
     } else if (entry.teamId === opponentTeamId) {
@@ -380,21 +389,26 @@ export function calculateMatchScore(deathOrder, playerTeamId, opponentTeamId) {
     }
   });
 
-  // 剩余名次随机分配给存活者所属队伍
+  // 剩余名次分配：某队 3 人全部阵亡（该队团灭）→ 剩余高名次全归另一队。
+  // 注意：存活方可能也先阵亡过人（如对手先死1人、随后玩家3人全灭），
+  // 此时 deathOrder 同时含两队，不能再用"缺席于 deadTeamIds"推断存活方。
   const remainingRanks = totalPlayers - deathOrder.length;
+  let survivingTeam = null;
   if (remainingRanks > 0) {
-    // 确定存活者属于哪队
-    const deadTeamIds = new Set(deathOrder.map((e) => e.teamId));
-    // 团灭的那队不在 deadTeamIds 里的就是存活队（或者双方都有人存活=平局情况）
-    const survivingTeam =
-      deadTeamIds.has(playerTeamId) && !deadTeamIds.has(opponentTeamId)
-        ? opponentTeamId
-        : !deadTeamIds.has(playerTeamId) && deadTeamIds.has(opponentTeamId)
-          ? playerTeamId
-          : null;
+    let playerDeaths = 0;
+    let opponentDeaths = 0;
+    for (const e of deathOrder) {
+      if (e.teamId === playerTeamId) playerDeaths++;
+      else if (e.teamId === opponentTeamId) opponentDeaths++;
+    }
+    if (playerDeaths >= playersPerTeam) {
+      survivingTeam = opponentTeamId;
+    } else if (opponentDeaths >= playersPerTeam) {
+      survivingTeam = playerTeamId;
+    }
+    // 两队都未满 3 死 = 双方均有人存活（30回合平局场景），剩余名次不分配
 
     if (survivingTeam !== null) {
-      // 一方团灭，剩余名次全归胜方
       for (let i = deathOrder.length; i < totalPlayers; i++) {
         const points = rankPoints[i];
         if (survivingTeam === playerTeamId) {
@@ -404,12 +418,36 @@ export function calculateMatchScore(deathOrder, playerTeamId, opponentTeamId) {
         }
       }
     }
-    // survivingTeam === null 意味着双方都还有人存活（60回合平局情况）
-    // 不需要分配剩余名次
   }
 
-  const winner =
-    playerScore > opponentScore ? 0 : opponentScore > playerScore ? 1 : null;
+  // 胜负判定：双方均有人存活时名次未定，winner 应为 null（平局），
+  // 由调用方（回合上限）决定；其余情况按已确定积分比较。
+  const undecided = remainingRanks > 0 && survivingTeam === null;
+  const winner = undecided
+    ? null
+    : playerScore > opponentScore
+      ? 0
+      : opponentScore > playerScore
+        ? 1
+        : null;
 
   return { playerScore, opponentScore, winner };
+}
+
+// ---- 3v3 劣势方防御补给（规则v3.0） ----
+
+/**
+ * 劣势方防御补给计算：双方存活人数不等时，劣势方每人获得 X 张防御牌，X=人数差。
+ * 每回合开始阶段（所有玩家行动之前）调用，双方人数相等或任一方团灭时不触发。
+ * @param {Array} players - 全部玩家（含 teamId / alive）
+ * @returns {{ weakerTeamId: number, diff: number } | null}
+ */
+export function computeDefenseReinforcement(players) {
+  if (!Array.isArray(players)) return null;
+  const alive = players.filter((p) => p && p.alive);
+  const team0 = alive.filter((p) => p.teamId === 0).length;
+  const team1 = alive.filter((p) => p.teamId === 1).length;
+  // 人数相等 或 任一方已团灭（比赛应已结束）时不补给
+  if (team0 === team1 || team0 === 0 || team1 === 0) return null;
+  return { weakerTeamId: team0 < team1 ? 0 : 1, diff: Math.abs(team0 - team1) };
 }

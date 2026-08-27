@@ -187,7 +187,9 @@ export function useLeagueController() {
       },
       onNewRound: (round) => {
         if (matchState.value && !matchState.value.matchOver) {
-          matchState.value._currentRound = round;
+          // clamp 到上限：第31回合触发平局判定时记分牌不应显示 R31/30
+          const ms = matchState.value;
+          ms._currentRound = Math.min(round, ms.maxRounds);
         }
       },
       onRoundLimit: () => {
@@ -540,7 +542,9 @@ export function useLeagueController() {
       },
       onNewRound: (round) => {
         if (matchState.value && !matchState.value.matchOver) {
-          matchState.value._currentRound = round;
+          // clamp 到上限：第31回合触发平局判定时记分牌不应显示 R31/30
+          const ms = matchState.value;
+          ms._currentRound = Math.min(round, ms.maxRounds);
         }
       },
       onRoundLimit: () => {

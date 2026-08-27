@@ -103,16 +103,16 @@ export function shopBuy(state, type, idx) {
 
 // ---- 造物调试台（首领层 / 奇遇） ----
 
-/** 热量强化祝福：消耗热量使该祝福效果 ×2（1/2/3 星需 1/2/3 热量） */
+/** 热量强化祝福：消耗热量使该祝福效果升级 1 级（1/2/3 星需 1/2/3 热量；无效果倍率，强化即升一级） */
 export function heatStrengthen(state, blessingIdx) {
   const b = state.blessings[blessingIdx];
   if (!b) return { ok: false, reason: "无此祝福" };
   const cost = b.star; // 1 星 1 热量，2 星 2 热量，3 星 3 热量
   if (state.heat < cost) return { ok: false, reason: "热量不足" };
   state.heat -= cost;
-  // 强化后该祝福效果 ×2（与重复强化叠加，乘法；与奇遇「强化随机祝福」的 heatEnhanced ×2 语义一致）
-  b.heatEnhanced = (b.heatEnhanced || 1) * 2;
-  state.log.push(`热量强化祝福「${BLESSINGS[b.id]?.name}」（效果倍率 ${b.heatEnhanced}，剩余 ${state.heat} 热量）`);
+  // 强化即升一级：每强化 1 次 heatEnhanced +1（与重复强化的等级叠加，按 lv 表提升效果）
+  b.heatEnhanced = (b.heatEnhanced || 1) + 1;
+  state.log.push(`热量强化祝福「${BLESSINGS[b.id]?.name}」（效果等级+1，剩余 ${state.heat} 热量）`);
   state.devLog.info(LOG_TYPE.UNI_REGION, "造物调试台：热量强化", {
     blessingIdx,
     heat: state.heat,

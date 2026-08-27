@@ -27,6 +27,7 @@ export function createPlayer(index, charData, name, teamId) {
     fightingSpirit: 0,
     moonPhase: 0,
     loadUses: charData.loadMaxUses,
+    attackedThisRound: 0, // 围攻计数：本回合内受到的攻击次数（第2次起减半，回合开始清零）
     // 状态效果
     statusEffects: {
       frozenBy: null,

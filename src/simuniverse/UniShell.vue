@@ -225,16 +225,7 @@
             开大{{ skillCdText }}
           </button>
         </div>
-        <div v-else-if="actionChoice && !targetMode" class="uni-battle__buttons">
-          <button
-            class="uni-btn uni-btn--attack"
-            @click="onExecuteAttack"
-          >
-            执行攻击（{{ drawnPoker?.value }}）
-          </button>
-          <button v-if="actionChoice === 'defense'" class="uni-btn uni-btn--defense" @click="onExecuteDefense">
-            执行防御（{{ drawnPoker?.value }}）
-          </button>
+        <div v-else-if="targetMode" class="uni-battle__buttons">
           <button class="uni-btn uni-btn--cancel" @click="onCancelAction">取消</button>
         </div>
         <div v-if="battleMsg" class="uni-battle__msg">{{ battleMsg }}</div>
@@ -1406,27 +1397,27 @@ function shopPrice(state, type, star) {
 
 function onAttackClick() {
   const r = props.uni.chooseAction("attack");
-  if (r.ok) actionChoice.value = "attack";
-}
-function onDefenseClick() {
-  const r = props.uni.chooseAction("defense");
-  if (r.ok) actionChoice.value = "defense";
-}
-function onExecuteAttack() {
-  actionChoice.value = null;
+  if (!r.ok) return;
+  // 缩短流程：抽牌后直接进入选目标，省掉中间的「执行攻击」确认
+  actionChoice.value = "attack";
   pendingSkill.value = false;
   targetMode.value = "enemy";
   selectedEnemy.value = null;
   props.uni.battleMsg.value = "选择目标敌人";
 }
-function onExecuteDefense() {
-  actionChoice.value = null;
+function onDefenseClick() {
+  const r = props.uni.chooseAction("defense");
+  if (!r.ok) return;
+  // 缩短流程：抽牌后直接进入选目标，省掉中间的「执行防御」确认
+  actionChoice.value = "defense";
   targetMode.value = "member";
   props.uni.battleMsg.value = "选择要加护盾的成员";
 }
 function onCancelAction() {
   if (uniState.combat) uniState.combat.pendingPoker = [];
   actionChoice.value = null;
+  targetMode.value = null;
+  pendingSkill.value = false;
   props.uni.battleMsg.value = "";
 }
 function onEnemyClick(enemyId) {
@@ -1437,13 +1428,17 @@ function onEnemyClick(enemyId) {
     : props.uni.doAttack(enemyId);
   if (r.ok) {
     targetMode.value = null;
+    actionChoice.value = null;
     pendingSkill.value = false;
   }
 }
 function onMemberClick(memberIdx) {
   if (targetMode.value === "member") {
     const r = props.uni.doDefense(memberIdx);
-    if (r.ok) targetMode.value = null;
+    if (r.ok) {
+      targetMode.value = null;
+      actionChoice.value = null;
+    }
   }
 }
 function onSkillClick() {

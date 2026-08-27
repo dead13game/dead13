@@ -48,7 +48,7 @@ export const BLESSINGS = {
   baoguang: { id: "baoguang", name: "宝光烛日月", star: 2, fate: "丰饶", desc: "提供治疗时，双方造成的伤害提高 20%，持续 1 回合", fx: { atkPct: 20, turns: 1 }, lv: { atkPct: [20, 24, 28, 32] } },
   yanli: { id: "yanli", name: "厌离邪秽苦", star: 2, fate: "繁育", desc: "施放攻击后，对目标造成其当前生命值 30% 的附加伤害", fx: { hpPct: 30 }, lv: { hpPct: [30, 33, 36, 39] } },
   mingche: { id: "mingche", name: "明澈琉璃身", star: 2, fate: "繁育", desc: "当前生命值等于生命上限时，受到的伤害降低 36%", fx: { dmgTakenPct: 36 }, lv: { dmgTakenPct: [36, 38, 40, 42] }, cap: 50 },
-  bore: { id: "bore", name: "大愿般若船", star: 2, fate: "丰饶", desc: "接受治疗后，额外回复等同于回复量 30% 的生命值", fx: { healPct: 30 }, lv: { healPct: [30, 35, 40, 45] } },
+  bore: { id: "bore", name: "大愿般若船", star: 2, fate: "丰饶", desc: "角色接受治疗时，提供治疗的角色额外回复等同于回复量 30% 的生命值", fx: { healPct: 30 }, lv: { healPct: [30, 35, 40, 45] } },
   yundi: { id: "yundi", name: "云镝逐步离", star: 2, fate: "繁育", desc: "我方全体每经过 20 回合后，所有角色行动提前 100%", fx: { every: 30 }, lv: { every: [20, 18, 16, 14] }, min: 6 },
   feihong: { id: "feihong", name: "飞虹诛凿齿", star: 2, fate: "丰饶", desc: "消灭敌方目标后，回复自身生命上限 30%", fx: { healPct: 48 }, lv: { healPct: [30, 33, 36, 39] } },
   zainan: { id: "zainan", name: "灾难性共振", star: 2, fate: "毁灭", desc: "攻击时若处于战意效果，消耗当前生命 10%，对目标造成已损失生命 60% 的附加伤害", fx: { costPct: 10, dmgPct: 60 }, lv: { dmgPct: [60, 64, 68, 72] } },
@@ -60,7 +60,7 @@ export const BLESSINGS = {
   cuihua: { id: "cuihua", name: "催化剂", star: 2, fate: "智识", desc: "终结技未施放攻击时，全队伤害提高 20% 持续 1 回合（最多叠加 3 次）", fx: { atkPct: 20, cap: 60, turns: 1 }, lv: { atkPct: [20, 24, 28, 32] } },
   yuxia: { id: "yuxia", name: "分析·阈下知觉", star: 2, fate: "智识", desc: "首次终结技伤害提高 30%", fx: { atkPct: 50 }, lv: { atkPct: [30, 34, 38, 42] } },
   chilun: { id: "chilun", name: "齿轮啮合的王座", star: 2, fate: "智识", desc: "每有 1 个「智识」祝福，终结技伤害提高 5%（最多 5 次）", fx: { atkPer: 5, max: 5 }, lv: { atkPer: [5, 6, 7, 8] } },
-  fangshe: { id: "fangshe", name: "放射性衰变", star: 2, fate: "毁灭", desc: "生命百分比低于 50% 时，受到的伤害降低 10%，回复量提高 20%", fx: { dmgTakenPct: 10, healMultPct: 20, hpBelow: 50 }, lv: { healMultPct: [20, 24, 28, 32] } },
+  fangshe: { id: "fangshe", name: "放射性衰变", star: 2, fate: "毁灭", desc: "生命百分比低于 50% 时，回复量提高 20%", fx: { healMultPct: 20, hpBelow: 50 }, lv: { healMultPct: [20, 24, 28, 32] } },
   feijian: { id: "feijian", name: "飞溅蛊", star: 2, fate: "繁育", desc: "普攻伤害会对相邻目标造成原伤害 10% 的伤害", fx: { splashPct: 10 }, lv: { splashPct: [10, 14, 18, 22] }, cap: 60 },
   beiju: { id: "beiju", name: "悲剧讲座", star: 2, fate: "虚无", desc: "敌方目标受到的持续伤害提高 20%", fx: { dotFlat: 1 }, lv: { dotPct: [20, 24, 28, 32] } },
   yiyi: { id: "yiyi", name: "意义质询", star: 2, fate: "虚无", desc: "陷入持续伤害状态的敌方目标造成的伤害降低 3 点", fx: { dmgCut: 3 }, lv: { dmgCut: [3, 4, 5, 6] } },
@@ -180,13 +180,15 @@ export function loseBlessingAt(state, idx) {
   return removed;
 }
 
-/** 祝福强化倍数（重复获得 × enhanced，热量强化 × heatEnhanced） */
+/** 是否持有祝福（该祝福是否当前生效） */
 export function blessingMult(state, id) {
-  const b = state.blessings.find((x) => x.id === id);
-  return b ? (b.enhanced || 1) * (b.heatEnhanced || 1) : 0;
+  return state.blessings.some((x) => x.id === id) ? 1 : 0;
 }
 
-/** 祝福强化等级（1 级起：enhanced + heatEnhanced - 1，重复/热量强化各 +1 级） */
+/**
+ * 祝福等级：1 级起。重复获得（enhanced）+1 级；热量/奇遇强化（heatEnhanced）每 1 次 +1 级。
+ * 最新设计「祝福强化就是升一级（按 lv 表提升效果），无效果倍率」。
+ */
 export function blessingLevel(state, id) {
   const b = state.blessings.find((x) => x.id === id);
   if (!b) return 0;
@@ -194,14 +196,16 @@ export function blessingLevel(state, id) {
 }
 
 /**
- * 祝福强化后数值：按等级查 BLESSINGS[id].lv[field] 表；
- * 等级超出表长时按等差步长延伸（文档序列为等差数列）；
- * 无 lv 表则回退 fx[field]；受 fx.cap（上限）/ fx.min（下限）约束。
+ * 祝福强化后数值：按祝福等级查 BLESSINGS[id].lv[field] 表（文档序列为等差）；
+ * 等级超出表长时按等差步长延伸；无 lv 表回退 fx[field]；
+ * 强化即升一级：重复获得 / 热量强化 / 奇遇强化统一计入等级；
+ * cap / min 约束作用于最终值。
  */
 export function blessingVal(state, id, field) {
   const def = BLESSINGS[id];
   if (!def) return 0;
   const lv = blessingLevel(state, id);
+  if (lv <= 0) return 0;
   const table = def.lv?.[field];
   let v = 0;
   if (table && table.length > 0) {
@@ -276,13 +280,12 @@ export function getUniModifiers(state) {
       case "xuansi": mods.atkNormalMult += blessingVal(state, b.id, "atkMult"); break;
       case "penliu": mods.dmgTakenMult += blessingVal(state, b.id, "dmgTakenPct"); break;
       case "fangshe":
-        mods.dmgTakenMult += (fx.dmgTakenPct || 0); // 生命<50%（动态修正兜底，这里给满值）
+        // 补充文档：放射性衰变仅提供生命<50% 时的回复量 +%（动态由 memberHealMods 兜底，这里给满值）
         mods.healMult += blessingVal(state, b.id, "healMultPct");
         break;
       case "ganlu": mods.healMult += blessingVal(state, b.id, "healMult"); break;
       case "chaoxi": mods.healMult += blessingVal(state, b.id, "healMult"); break;
-      case "luoke": mods.shieldMult += blessingVal(state, b.id, "shieldMult"); break;
-      case "lingzhu": mods.shieldMult += blessingVal(state, b.id, "shieldMult"); break;
+      // 螺壳/四棱锥体：护盾量加成按来源（防御/大招）在 applyShieldGain 内计算，不在此聚合
       case "hongyi": mods.maxHpMult += blessingVal(state, b.id, "maxHpMult"); break;
       case "qingxu": {
         const dotCount = state.combat?.enemies?.filter((e) => e.alive && e.dotTurns > 0).length ?? 0;
@@ -356,13 +359,23 @@ export function applyMaxHpGrowth(state) {
 }
 
 /**
- * 统一护盾增益入口：护盾量加成（螺壳的纹理/四棱锥体）→ 实际增量；
+ * @param {string} source 护盾来源：'defense' 防御行动；'skill' 技能大招；其他（祝福/方程生成）。用于螺壳/四棱锥体按文档限定生效范围。
+ * 螺壳的纹理（luoke）：只加成防御行动的盾；四棱锥体（lingzhu）：只加成防御行动+大招的盾。
  * 亚共晶体：为我方提供护盾时，提供者自身获得原护盾量 24% 的护盾。返回实际护盾增量。
  */
-export function applyShieldGain(state, providerIdx, amount) {
+export function applyShieldGain(state, providerIdx, amount, source = "") {
   if (amount <= 0) return 0;
-  const mods = getUniModifiers(state);
-  const gained = Math.ceil(amount * (1 + mods.shieldMult / 100));
+  // 按来源计算护盾量加成
+  const isDefense = source === "defense";
+  const isSkill = source === "skill";
+  let shieldMult = 0;
+  if (isDefense) {
+    if (blessingMult(state, "luoke") > 0) shieldMult += blessingVal(state, "luoke", "shieldMult");
+    if (blessingMult(state, "lingzhu") > 0) shieldMult += blessingVal(state, "lingzhu", "shieldMult");
+  } else if (isSkill) {
+    if (blessingMult(state, "lingzhu") > 0) shieldMult += blessingVal(state, "lingzhu", "shieldMult");
+  }
+  const gained = Math.ceil(amount * (1 + shieldMult / 100));
   if (providerIdx != null && blessingMult(state, "yagong") > 0) {
     const self = state.team[providerIdx];
     if (self && self.alive) {
@@ -384,6 +397,21 @@ export function memberHealMods(state, memberIdx) {
   return 0;
 }
 
+/**
+ * 角色当前有效战意层数：真实层数 + 反物质费逆方程（生命<50% 时视作 +16 层虚拟战意，强化 +2/级）。
+ * 虚拟层数完全等同真实战意：参与增伤（每层 +1%）、预兆性景深减伤、灾难性共振与冰霜巨人的战意判定/消耗。
+ */
+export function effectiveZhandu(state, memberIdx) {
+  const t = state.team[memberIdx];
+  if (!t) return 0;
+  let z = t.status.zhandu || 0;
+  const fanwuFx = BLESSINGS.fanwu?.fx;
+  if (fanwuFx && blessingMult(state, "fanwu") > 0 && t.hp / t.maxHp < (fanwuFx.hpBelow || 50) / 100) {
+    z += blessingVal(state, "fanwu", "zhandu");
+  }
+  return z;
+}
+
 /** 按成员血量/护盾/战意动态计算的额外攻击修正（数据表 fx 驱动） */
 export function memberAtkMods(state, memberIdx) {
   const t = state.team[memberIdx];
@@ -393,12 +421,8 @@ export function memberAtkMods(state, memberIdx) {
   if (baofaFx && blessingMult(state, "baofa") > 0 && t.hp / t.maxHp < (baofaFx.hpBelow || 50) / 100) {
     extra += blessingVal(state, "baofa", "atkPct");
   }
-  const fanwuFx = BLESSINGS.fanwu?.fx;
-  if (fanwuFx && blessingMult(state, "fanwu") > 0 && t.hp / t.maxHp < (fanwuFx.hpBelow || 50) / 100) {
-    extra += blessingVal(state, "fanwu", "zhandu"); // 每层战意 = 1% 伤害
-  }
-  // 战意：每层伤害 +1%
-  extra += (t.status.zhandu || 0) * 1;
+  // 战意：每层伤害 +1%（含反物质费逆的虚拟层数）
+  extra += effectiveZhandu(state, memberIdx) * 1;
   return extra;
 }
 
@@ -407,10 +431,10 @@ export function memberDmgTakenMods(state, memberIdx) {
   const t = state.team[memberIdx];
   if (!t) return 0;
   let extra = 0;
-  // 预兆性景深：每有 1 层战意，受到的伤害降低 1%（战意本身不减伤，仅此祝福提供）
+  // 预兆性景深：每有 1 层战意，受到的伤害降低 1%（战意本身不减伤，仅此祝福提供；含虚拟战意）
   const yuzhaoFx = BLESSINGS.yuzhao?.fx;
   if (yuzhaoFx && blessingMult(state, "yuzhao") > 0) {
-    extra += (t.status.zhandu || 0) * blessingVal(state, "yuzhao", "dmgTakenPer");
+    extra += effectiveZhandu(state, memberIdx) * blessingVal(state, "yuzhao", "dmgTakenPer");
   }
   // 明澈琉璃身：满血受伤 -36%
   const mingcheFx = BLESSINGS.mingche?.fx;
@@ -421,11 +445,6 @@ export function memberDmgTakenMods(state, memberIdx) {
   const jiandingFx = BLESSINGS.jianding?.fx;
   if (jiandingFx && blessingMult(state, "jianding") > 0 && t.shield > 0) {
     extra += blessingVal(state, "jianding", "dmgTakenPct");
-  }
-  // 放射性衰变：生命 ≥50% 时补偿（getUniModifiers 给了满值）
-  const fangsheFx = BLESSINGS.fangshe?.fx;
-  if (fangsheFx && blessingMult(state, "fangshe") > 0 && t.hp / t.maxHp >= (fangsheFx.hpBelow || 50) / 100) {
-    extra -= blessingVal(state, "fangshe", "dmgTakenPct");
   }
   return extra;
 }
@@ -453,6 +472,29 @@ export function triggerOnCombatStart(state) {
   }
 }
 
+/**
+ * 戒律性闪变：受到攻击或消耗生命值后，若当前生命 <35%（强化后阈值 35→37→39→41…），
+ * 回复自身生命上限 12%（强化 +2/级…单次），但每回合通过该方式最多累计回复自身生命上限 36%。
+ * @returns 实际回复量
+ */
+export function applyShanbianHeal(state, memberIdx) {
+  const t = state.team[memberIdx];
+  if (!t || !t.alive) return 0;
+  const fx = BLESSINGS.shanbian?.fx;
+  if (!fx || blessingMult(state, "shanbian") <= 0) return 0;
+  if (t.hp / t.maxHp >= (fx.hpBelow || 35) / 100) return 0; // 当前生命 ≥ 阈值不触发
+  // 每回合累计限制：本回合已用上限 - 已恢复
+  const spent = t.status.shanbianHealUsed || 0;
+  const capPct = fx.capPct ?? 36;
+  const room = Math.ceil((t.maxHp * capPct) / 100) - spent;
+  if (room <= 0) return 0;
+  const heal = Math.min(Math.ceil((t.maxHp * blessingVal(state, "shanbian", "healPct")) / 100), room);
+  t.hp = Math.min(t.maxHp, t.hp + heal);
+  t.status.shanbianHealUsed = spent + heal;
+  state.log.push(`戒律性闪变：${t.name} 回复 ${heal} 生命（本回合累计 ${t.status.shanbianHealUsed}）`);
+  return heal;
+}
+
 /** 受到伤害后钩子（弥合/闪变/传质/热寂/卫星/冰霜巨人，数值均读 fx） */
 export function triggerOnDamaged(state, memberIdx, hpLoss) {
   const t = state.team[memberIdx];
@@ -462,16 +504,16 @@ export function triggerOnDamaged(state, memberIdx, hpLoss) {
     t.shield += Math.ceil((hpLoss * blessingVal(state, "mihe", "shieldPct")) / 100);
   }
   const shanbianFx = BLESSINGS.shanbian?.fx;
-  if (shanbianFx && blessingMult(state, "shanbian") > 0 && t.hp / t.maxHp < (shanbianFx.hpBelow || 35) / 100) {
-    t.hp = Math.min(t.maxHp, t.hp + Math.ceil((t.maxHp * blessingVal(state, "shanbian", "healPct")) / 100));
-  }
+  // 戒律性闪变：受击后若生命<35%，回复 12%（每回合最多累计回复 36% 生命上限，见 applyShanbianHeal 累计）
+  applyShanbianHeal(state, memberIdx);
   const chuanzhiFx = BLESSINGS.chuanzhi?.fx;
   if (chuanzhiFx && blessingMult(state, "chuanzhi") > 0) {
     t.maxHp = Math.ceil(t.maxHp * (1 + blessingVal(state, "chuanzhi", "maxHpPct") / 100));
     t.status.maxHpBuffTurns = chuanzhiFx.turns || 2;
   }
   const huanyuFx = BLESSINGS.huanyu?.fx;
-  if (huanyuFx && blessingMult(state, "huanyu") > 0 && hpLoss > 0) {
+  // 寰宇热寂特征数：受到攻击后获得战意（护盾全挡的受击同样触发；消耗生命值场景见 zainan/腐化异木果实）
+  if (huanyuFx && blessingMult(state, "huanyu") > 0) {
     t.status.zhandu = (t.status.zhandu || 0) + blessingVal(state, "huanyu", "zhandu");
   }
   const weixingFx = BLESSINGS.weixing?.fx;
@@ -479,11 +521,21 @@ export function triggerOnDamaged(state, memberIdx, hpLoss) {
     t.status.weixingUsed = true;
     t.shield += Math.ceil((t.maxHp * blessingVal(state, "weixing", "shieldPct")) / 100);
   }
-  // 方程：冰霜巨人
+  // 方程：冰霜巨人（每回合最多 1 次：受击后生命<40% 且拥有足够战意时，消耗战意回复并强化）
   const bingkuangFx = EQUATIONS.bingkuang?.fx;
-  if (bingkuangFx && state.equations?.some((e) => e.id === "bingkuang") && hpLoss > 0 && t.hp / t.maxHp < (bingkuangFx.hpBelow || 40) / 100) {
-    if ((t.status.zhandu || 0) >= (bingkuangFx.zhanduCost || 5)) {
-      t.status.zhandu -= bingkuangFx.zhanduCost;
+  if (
+    bingkuangFx &&
+    state.equations?.some((e) => e.id === "bingkuang") &&
+    hpLoss > 0 &&
+    t.hp / t.maxHp < (bingkuangFx.hpBelow || 40) / 100 &&
+    !t.status.bingkuangUsed
+  ) {
+    if (effectiveZhandu(state, t.index) >= (bingkuangFx.zhanduCost || 5)) {
+      // 先扣真实战意；不足部分扣虚拟层数（虚拟耗尽即不再扣并为 0）
+      const cost = bingkuangFx.zhanduCost || 5;
+      const real = t.status.zhandu || 0;
+      t.status.zhandu = Math.max(0, real - cost);
+      t.status.bingkuangUsed = true;
       t.hp = Math.min(t.maxHp, t.hp + Math.ceil((t.maxHp * bingkuangFx.healPct) / 100));
       t.status.dmgBuffPct = (t.status.dmgBuffPct || 0) + (bingkuangFx.atkPct || 150);
       t.status.dmgBuffTurns = bingkuangFx.turns || 2;
@@ -505,10 +557,6 @@ export function triggerOnHeal(state, memberIdx, healAmount = 0) {
     t.shield += total;
     state.log.push(`禳灾：${t.name} 接受治疗后抽 ${n} 张牌，防御 +${total}`);
   }
-  const boreFx = BLESSINGS.bore?.fx;
-  if (boreFx && blessingMult(state, "bore") > 0 && healAmount > 0) {
-    t.hp = Math.min(t.maxHp, t.hp + Math.ceil((healAmount * blessingVal(state, "bore", "healPct")) / 100));
-  }
   const baoguangFx = BLESSINGS.baoguang?.fx;
   if (baoguangFx && blessingMult(state, "baoguang") > 0) {
     t.status.dmgBuffPct = Math.max(t.status.dmgBuffPct || 0, blessingVal(state, "baoguang", "atkPct")); // 走 lv 表，强化生效
@@ -516,8 +564,8 @@ export function triggerOnHeal(state, memberIdx, healAmount = 0) {
   }
 }
 
-/** 提供治疗后钩子（回生：提供者回复自身生命上限 %） */
-export function triggerOnHealProvided(state, providerIdx) {
+/** 提供治疗后钩子（回生：提供者回复自身生命上限 %；大愿般若船：提供者额外回复所提供回复量的 %）。amount = 本次提供的总治疗量 */
+export function triggerOnHealProvided(state, providerIdx, amount = 0) {
   const p = state.team[providerIdx];
   if (!p || !p.alive) return;
   const huishengFx = BLESSINGS.huisheng?.fx;
@@ -525,6 +573,13 @@ export function triggerOnHealProvided(state, providerIdx) {
     const heal = Math.ceil((p.maxHp * blessingVal(state, "huisheng", "healPct")) / 100);
     p.hp = Math.min(p.maxHp, p.hp + heal);
     state.log.push(`回生：${p.name} 提供治疗后回复 ${heal} 生命`);
+  }
+  // 大愿般若船：提供治疗的角色额外回复等同于所提供回复量 % 的生命值（补充文档：提供者受益）
+  const boreFx = BLESSINGS.bore?.fx;
+  if (boreFx && blessingMult(state, "bore") > 0 && amount > 0) {
+    const heal = Math.ceil((amount * blessingVal(state, "bore", "healPct")) / 100);
+    p.hp = Math.min(p.maxHp, p.hp + heal);
+    state.log.push(`大愿般若船：${p.name} 提供治疗后额外回复 ${heal} 生命`);
   }
 }
 
@@ -626,7 +681,8 @@ export function triggerOnAttackAfter(state, memberIdx, targetEnemyId, baseDmg) {
     c._pendingExtra = (c._pendingExtra || 0) + Math.ceil((t.shield * blessingVal(state, "shenxing", "shieldPct")) / 100);
   }
   const zainanFx = BLESSINGS.zainan?.fx;
-  if (zainanFx && blessingMult(state, "zainan") > 0 && (t.status.zhandu || 0) > 0) {
+  // 灾难性共振：攻击时若处于战意效果（含反物质费逆的虚拟战意）→ 消耗生命触发附加伤害
+  if (zainanFx && blessingMult(state, "zainan") > 0 && effectiveZhandu(state, t.index) > 0) {
     const cost = Math.ceil((t.hp * zainanFx.costPct) / 100);
     t.hp -= cost;
     const lost = t.maxHp - t.hp;
@@ -636,6 +692,8 @@ export function triggerOnAttackAfter(state, memberIdx, targetEnemyId, baseDmg) {
     if (huanyuFx && blessingMult(state, "huanyu") > 0 && cost > 0) {
       t.status.zhandu = (t.status.zhandu || 0) + blessingVal(state, "huanyu", "zhandu");
     }
+    // 戒律性闪变：消耗生命值后若生命<35% 触发回复（每回合累计上限）
+    if (cost > 0) applyShanbianHeal(state, t.index);
   }
   // 裸脑质/飞溅蛊：普攻溅射随机相邻敌人
   const luonao = BLESSINGS.luonao?.fx?.splashPct || 0;
@@ -810,12 +868,13 @@ export function triggerCurioOnWin(state) {
 
 /** 敌方持续伤害结算后钩子：虚妄供品 → 全队回 2%（数值读 fx） */
 export function triggerOnEnemyDot(state) {
-  const gongpinFx = BLESSINGS.gongpin?.fx;
   const m = blessingMult(state, "gongpin");
-  if (gongpinFx && m > 0) {
+  if (m > 0) {
+    // 虚妄供品：敌方每受 1 次持续伤害，我方全体回复各自生命上限 %（按等级，文档 lv [2,4,6,8]）
+    const healPct = blessingVal(state, "gongpin", "healPct");
     for (const t of state.team) {
       if (!t.alive) continue;
-      t.hp = Math.min(t.maxHp, t.hp + Math.ceil((t.maxHp * gongpinFx.healPct) / 100 * m));
+      t.hp = Math.min(t.maxHp, t.hp + Math.ceil((t.maxHp * healPct) / 100));
     }
   }
 }
@@ -1103,7 +1162,7 @@ export function gainCurio(state, id, opts = {}) {
     state.shards = Math.ceil(lost * pct);
     state.log.push(`自适应礼品盒：失去 ${lost}，获得 ${state.shards}`);
   }
-  // 万象无常骰：强化 N 个随机祝福（2→3→4→5）
+  // 万象无常骰：强化 N 个随机祝福（升一级，与热量强化同语义；2→3→4→5）
   if (id === "wanxiang") {
     const count = curioVal(state, "wanxiang", "count");
     for (let i = 0; i < count && state.blessings.length; i++) {

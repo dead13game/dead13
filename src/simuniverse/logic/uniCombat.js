@@ -12,6 +12,7 @@ import {
   memberAtkMods,
   memberDmgTakenMods,
   applyShieldGain,
+  applyShanbianHeal,
   triggerOnCombatStart,
   triggerOnDamaged,
   triggerOnHeal,
@@ -183,6 +184,11 @@ export function startPlayerTurn(state) {
   c.round += 1;
   // 进入玩家回合（dot 结算若触发 wave-clear/全灭会覆盖 phase，由下方检查拦截）
   c.phase = "player-action";
+  // 复位每回合限 1 次的标记（冰霜巨人）与每回合重置的累计值（戒律性闪变回复累计）
+  for (const t of state.team) {
+    t.status.bingkuangUsed = false;
+    t.status.shanbianHealUsed = 0;
+  }
   // 技能冷却递减（开大当回合已置满，之后每回合 -1）
   for (const t of state.team) {
     if (t.skillCooldown > 0) t.skillCooldown -= 1;
@@ -412,7 +418,7 @@ export function playerDefense(state, targetIdx) {
   // 少女防御加成：防御者（少女被动受益者）额外护盾
   const defBonus = actor.status.defBonus || 0;
   // 统一护盾入口：螺壳/四棱锥体护盾量加成 + 亚共晶体（提供者回盾）
-  const gained = applyShieldGain(state, actor.index, shield + defBonus);
+  const gained = applyShieldGain(state, actor.index, shield + defBonus, "defense");
   target.shield += gained;
   c.lastPoker = poker;
   c.lastPokerTarget = { type: "member", id: targetIdx }; // 飞牌落点：被加护盾的成员
@@ -745,6 +751,12 @@ function resistControl(state, t) {
   const cost = Math.ceil(t.maxHp * (curioVal(state, "fuhua", "hpCostPct") / 100));
   t.hp = Math.max(1, t.hp - cost);
   state.log.push(`腐化异木果实：${t.name} 抵抗控制效果（消耗 ${cost} 生命）`);
+  // 寰宇热寂特征数：消耗生命值后获得战意（与灾难性共振的消耗同规则）
+  if (blessingMult(state, "huanyu") > 0 && cost > 0) {
+    t.status.zhandu = (t.status.zhandu || 0) + blessingVal(state, "huanyu", "zhandu");
+  }
+  // 戒律性闪变：消耗生命值后若生命<35% 触发回复
+  if (cost > 0) applyShanbianHeal(state, t.index);
   return true;
 }
 
@@ -871,7 +883,7 @@ function damageTeamMember(state, memberIdx, dmg, sourceEnemyIdx = -1) {
     recordSound(state, "shield_break");
   }
   const hpDmg = Math.min(t.hp, remaining);
-  // 湮灭回归不等式：HP 伤害由我方全体分担
+  // 湮灭回归不等式：HP 伤害由我方全体平均分摊（分摊者完全视为受到攻击：受击钩子 + 回光/死亡处理）
   let finalHpDmg = hpDmg;
   if (blessingMult(state, "yanmie") > 0 && hpDmg > 0) {
     const alive = state.team.filter((x) => x.alive);
@@ -880,11 +892,10 @@ function damageTeamMember(state, memberIdx, dmg, sourceEnemyIdx = -1) {
       for (const x of alive) {
         if (x === t) continue;
         x.hp = Math.max(0, x.hp - share);
-        if (x.hp <= 0) {
-          x.hp = 0;
-          x.alive = false;
-          state.log.push(`${x.name} 因伤害分担倒下`);
-        }
+        // 分摊视为「受到攻击」：触发弥合/闪变/传质/寰宇热寂/卫星等受击钩子（数值按分摊量）
+        if (share > 0) triggerOnDamaged(state, x.index, share);
+        // 分摊致死：回光效应（全队一次）→ 阵亡 → 全灭判定
+        handleMemberDeath(state, x);
       }
       finalHpDmg = share;
     }
@@ -893,8 +904,9 @@ function damageTeamMember(state, memberIdx, dmg, sourceEnemyIdx = -1) {
   if (remaining > 0) recordSound(state, "hit");
   c.lastDamage = { type: "member", idx: memberIdx, dmg: finalDmg, seq: (c._dmgSeq || 0) + 1 };
   c._dmgSeq = c._dmgSeq || 0;
-  // 祝福：构筑·弥合（受击回盾）/ 戒律性闪变（残血回复）
-  if (finalHpDmg > 0) triggerOnDamaged(state, memberIdx, finalHpDmg);
+  // 祝福：构筑·弥合（受击回盾）/ 戒律性闪变（残血回复）/ 传质 / 寰宇热寂（受击战意）等
+  // 「受到攻击」判定以敌人发动的原始伤害 dmg>0 为准：护盾全挡（hpDmg=0）也算受到攻击（寰宇热寂仍获得战意）
+  if (dmg > 0) triggerOnDamaged(state, memberIdx, finalHpDmg);
   // 切变结构：受击反震（主目标 = 攻击来源敌人），并对相邻敌人溅射
   if (sourceEnemyIdx >= 0 && blessingMult(state, "qiebian") > 0 && hpDmg > 0) {
     const source = c.enemies?.find((e) => e.id === sourceEnemyIdx);
@@ -926,22 +938,28 @@ function damageTeamMember(state, memberIdx, dmg, sourceEnemyIdx = -1) {
     hpDmg,
     hp: t.hp,
   });
-  if (t.hp <= 0) {
-    // 回光效应：受致命攻击免死，回复 1% 生命（全队单场一次）
-    if (blessingMult(state, "huiguang") > 0 && !t.status.huiguangUsed) {
-      t.status.huiguangUsed = true;
-      t.hp = Math.max(1, Math.ceil(t.maxHp * 0.01));
-      state.log.push(`回光效应：${t.name} 免于阵亡！`);
-    } else {
-      t.hp = 0;
-      t.alive = false;
-      state.log.push(`${t.name} 无法战斗`);
-      state.devLog.warn(LOG_TYPE.UNI_REGION, `${t.name} 无法战斗`, { memberIdx });
-    }
-    if (state.team.every((x) => !x.alive)) {
-      endCombat(state, "lost");
-    }
+  handleMemberDeath(state, t);
+}
+
+/** 成员死亡处理：回光效应（全队单场一次）→ 阵亡 → 全灭判定 */
+function handleMemberDeath(state, t) {
+  if (t.hp > 0 || !t.alive) return false;
+  const c = state.combat;
+  // 回光效应：受致命攻击免死，回复至生命上限 1%（全队单场一次）
+  if (blessingMult(state, "huiguang") > 0 && !c.huiguangUsed) {
+    c.huiguangUsed = true;
+    t.hp = Math.max(1, Math.ceil(t.maxHp * 0.01));
+    state.log.push(`回光效应：${t.name} 免于阵亡！`);
+    return false;
   }
+  t.hp = 0;
+  t.alive = false;
+  state.log.push(`${t.name} 无法战斗`);
+  state.devLog.warn(LOG_TYPE.UNI_REGION, `${t.name} 无法战斗`, { memberIdx: t.index });
+  if (state.team.every((x) => !x.alive)) {
+    endCombat(state, "lost");
+  }
+  return true;
 }
 
 /** 我方 dot 结算（回合开始，无视防御牌） */
@@ -967,13 +985,11 @@ function tickEnemyDots(state) {
   const c = state.combat;
   if (!c) return;
   let anyTicked = false;
-  let totalDotDmg = 0;
   for (const e of c.enemies) {
     if (!e.alive || !e.dotTurns) continue;
     anyTicked = true;
     // 悲剧讲座：持续伤害 +1 点
     const dotDmg = e.dotDmg + (blessingMult(state, "beiju") > 0 ? Math.ceil(e.dotDmg * (blessingVal(state, "beiju", "dotPct") / 100)) : 0);
-    totalDotDmg += dotDmg;
     e.hp = Math.max(0, e.hp - dotDmg);
     e.dotTurns -= 1;
     state.devLog.debug(LOG_TYPE.UNI_REGION, `${e.name} 受持续伤害`, {
@@ -984,6 +1000,16 @@ function tickEnemyDots(state) {
       e.alive = false;
       recordSound(state, "kill");
       state.log.push(`击败 ${e.name}（持续伤害）`);
+      // 祝福：飞虹诛凿齿（消灭敌人回血）/ SMR杏仁核（致命伤害充能罐中脑）——dot 击杀同样触发（施放者为来源）
+      if (e.dotSource != null) triggerOnKill(state, e.dotSource);
+      // 日出之前：施放者回复等同于造成的持续伤害点数的生命值
+      if (blessingMult(state, "richu") > 0 && e.dotSource != null) {
+        const caster = state.team[e.dotSource];
+        if (caster && caster.alive) {
+          caster.hp = Math.min(caster.maxHp, caster.hp + dotDmg);
+          state.log.push(`日出之前：${caster.name} 回复 ${dotDmg} 生命`);
+        }
+      }
       if (c.kind === "transform" && e.kind === "elite") {
         addShards(state, TRANSFORM_ELITE_SHARDS);
         state.devLog.info(LOG_TYPE.UNI_SHARDS, "转化第三波精英被持续伤害消灭", {
@@ -995,13 +1021,6 @@ function tickEnemyDots(state) {
   // 祝福：虚妄供品（敌方受持续伤害 → 全队回 2%）
   if (anyTicked) {
     triggerOnEnemyDot(state);
-    // 日出之前：我方每次造成持续伤害时回复同等生命
-    if (blessingMult(state, "richu") > 0 && totalDotDmg > 0) {
-      for (const t of state.team) {
-        if (!t.alive) continue;
-        t.hp = Math.min(t.maxHp, t.hp + totalDotDmg);
-      }
-    }
   }
   if (c.enemies.length > 0 && c.enemies.every((e) => !e.alive)) {
     // 波次清空（dot 造成的全灭在回合开始处理）
@@ -1049,9 +1068,12 @@ function endCombat(state, result) {
   const c = state.combat;
   if (!c || c.phase === "won" || c.phase === "lost") return;
   c.phase = result;
-  // 火神斗志：单场不归零，战斗结束后清零
+  // 火神斗志 + 战意：单场不归零，战斗结束后清零
   for (const t of state.team) {
     t.status.spirit = 0;
+    t.status.zhandu = 0;
+    // 单场标记复位：哨戒卫星（每名角色单场一次）
+    t.status.weixingUsed = false;
   }
   if (result === "won") {
     recordSound(state, "match_end");

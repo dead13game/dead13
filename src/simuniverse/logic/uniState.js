@@ -562,7 +562,7 @@ function applyCurioRegionHooks(state, r) {
   state.lastRegionType = r.type;
 }
 
-/** 随机强化 N 个祝福（heatEnhanced ×2），返回实际强化数 */
+/** 随机强化 N 个祝福（heatEnhanced +1 级，与重复/热量强化同义：升一级），返回实际强化数 */
 function strengthenRandomBlessings(state, n) {
   const idxs = state.blessings.map((_, i) => i);
   // 洗牌取前 n 个
@@ -572,9 +572,9 @@ function strengthenRandomBlessings(state, n) {
   }
   const chosen = idxs.slice(0, Math.min(n, idxs.length));
   for (const i of chosen) {
-    state.blessings[i].heatEnhanced = (state.blessings[i].heatEnhanced || 1) * 2;
+    state.blessings[i].heatEnhanced = (state.blessings[i].heatEnhanced || 1) + 1;
   }
-  state.log.push(`奇遇：强化了 ${chosen.length} 个随机祝福（效果 ×2）`);
+  state.log.push(`奇遇：强化了 ${chosen.length} 个随机祝福（效果等级+1）`);
   return chosen.length;
 }
 

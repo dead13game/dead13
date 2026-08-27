@@ -41,19 +41,19 @@ export const TIER_3 = [8, 9, 10];
 
 /** 联赛比赛配置 */
 export const LEAGUE_MATCH_CONFIG = {
-  maxRounds: 60, // 60回合上限
+  maxRounds: 30, // 30回合上限（规则v3.0：原60改为30）
   deckCount: 3, // 3副牌（6人用）
   playersPerTeam: 3,
 };
 
-/** 排名积分映射：排名 → 积分数 */
+/** 排名积分映射：排名 → 积分数（规则v3.0：第1名6 … 第6名1） */
 export const RANK_POINTS = {
-  1: 7,
+  1: 6,
   2: 5,
   3: 4,
   4: 3,
   5: 2,
-  6: 0,
+  6: 1,
 };
 
 /** 联赛积分 */

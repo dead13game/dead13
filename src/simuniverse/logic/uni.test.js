@@ -63,6 +63,9 @@ import {
   gainCurio,
   gainEquation,
   blessingMult,
+  effectiveZhandu,
+  applyShanbianHeal,
+  chargeJarBrain,
   CURIOS,
   EQUATIONS,
 } from "./uniBuffs.js";
@@ -1316,7 +1319,7 @@ describe("模拟宇宙 M4：事件系统", () => {
     expect(enemy.hp).toBe(Math.max(0, hpBefore - Math.ceil(20 * 1.025))); // 1 星 ×2.5%
   });
 
-  it("祝福强化等级：炬火按 lv 表取值（20→30→40→50），热量强化 +1 级", () => {
+  it("祝福强化等级：炬火按 lv 表取值（20→30→40→50），热量强化升一级", () => {
     const s = createUniState();
     gainBlessing(s, "juhuo");
     expect(blessingVal(s, "juhuo", "atkPct")).toBe(20); // 1 级
@@ -1324,8 +1327,8 @@ describe("模拟宇宙 M4：事件系统", () => {
     expect(blessingVal(s, "juhuo", "atkPct")).toBe(30);
     gainBlessing(s, "juhuo"); // 3 级
     expect(blessingVal(s, "juhuo", "atkPct")).toBe(40);
-    s.blessings[0].heatEnhanced = 2; // 热量强化 → 等级 +1
-    expect(blessingVal(s, "juhuo", "atkPct")).toBe(50);
+    s.blessings[0].heatEnhanced = 2; // 1 次热量强化 → 升一级
+    expect(blessingVal(s, "juhuo", "atkPct")).toBe(50); // 4 级
   });
 
   it("祝福强化上限：双极喷流 cap 50、云镝 min 6、等级越界取末值", () => {
@@ -1518,16 +1521,18 @@ describe("模拟宇宙 M5：商店与造物调试台", () => {
     expect(shopBuy(s, "blessing", 1).ok).toBe(false);
   });
 
-  it("热量强化：1 星祝福消耗 1 热量，效果 ×2；热量不足拒绝", () => {
+  it("热量强化：1 星祝福消耗 1 热量，效果升一级；热量不足拒绝", () => {
     const s = createUniState();
     gainBlessing(s, "ganlu"); // 1 星
     s.heat = 5;
     const r = heatStrengthen(s, 0);
     expect(r.ok).toBe(true);
     expect(s.heat).toBe(4);
-    expect(s.blessings[0].heatEnhanced).toBe(2);
-    // 祝福倍数：1（基础）×2（热量）= 2
-    expect(blessingMult(s, "ganlu")).toBe(2);
+    expect(s.blessings[0].heatEnhanced).toBe(2); // 1 次热量强化
+    // 祝福升一级：甘露 12% → 24%（lv 表）
+    expect(blessingVal(s, "ganlu", "healMult")).toBe(24);
+    // 仍持有该祝福
+    expect(blessingMult(s, "ganlu")).toBe(1);
     // 热量不足
     s.heat = 0;
     expect(heatStrengthen(s, 0).ok).toBe(false);
@@ -2082,9 +2087,9 @@ describe("模拟宇宙 M11：审查修复回归", () => {
     enterRegion(s);
     vi.restoreAllMocks();
     expect(s.region.oddityEffect).toBe("strengthen");
-    // 强化 8 个随机祝福（2 个全部强化 ×2）
-    expect(s.blessings[0].heatEnhanced).toBe((orig1 || 1) * 2);
-    expect(s.blessings[1].heatEnhanced).toBe((orig2 || 1) * 2);
+    // 奇遇：强化 8 个随机祝福（2 个祝福全部升一级）
+    expect(s.blessings[0].heatEnhanced).toBe((orig1 || 1) + 1);
+    expect(s.blessings[1].heatEnhanced).toBe((orig2 || 1) + 1);
   });
 
   it("精英 B 锁定不累积：新一轮重新锁定清空旧目标", () => {
@@ -2219,13 +2224,15 @@ describe("模拟宇宙 M12：2026-08 逻辑修复回归", () => {
     s.team.forEach((t, i) => expect(t.hp).toBe(hpBefore[i])); // 凶未结算，不扣血
   });
 
-  it("热量强化 ×2 乘法：两次强化后 heatEnhanced = 4（修复前 +1 为 3）", () => {
+  it("热量强化升一级：两次强化后 heatEnhanced = 3（每 1 次 +1 级，无倍率）", () => {
     const s = createUniState();
     gainBlessing(s, "ganlu");
     s.heat = 5;
     heatStrengthen(s, 0);
     heatStrengthen(s, 0);
-    expect(s.blessings[0].heatEnhanced).toBe(4);
+    expect(s.blessings[0].heatEnhanced).toBe(3); // 初值 1，两次 +1
+    // 甘露 12% → 升 2 级 → lv 表 [12,24,36,48] 第 3 档 = 36%
+    expect(blessingVal(s, "ganlu", "healMult")).toBe(36);
   });
 
   it("事件战斗胜利后 region 保留 eventIds（第 2 事件可继续，不被跳层）", () => {
@@ -2362,5 +2369,175 @@ describe("模拟宇宙 M13：祝福效果接线（原无效果祝福修复）", 
     expect(memberHealMods(s, 0)).toBe(-20); // 修复前满血也吃 +20%
     t.hp = Math.ceil(t.maxHp * 0.3); // <50%
     expect(memberHealMods(s, 0)).toBe(0);
+  });
+});
+
+describe("模拟宇宙祝M：最新文档补充（般若船/闪变/衰变/dot击杀/分摊/热量/螺壳范围）", () => {
+  it("大愿般若船：提供治疗的角色（非接受者）额外回复回复量 30%", () => {
+    const s = createUniState();
+    gainBlessing(s, "bore");
+    // 芙宁娜开大（charId 5）：全队治疗自身生命上限%、提供者（芙宁娜）获般若船额外回复
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 1 }] };
+    startCombat(s);
+    s.combat.activeIdx = 0;
+    // 队伍默认 [温迪1,钟离2,雷电3,纳西妲4]，改为芙宁娜方便开大 → 直接用芙宁娜创建队伍
+    // 重新创建以芙宁娜为队首
+    const s2 = createUniState([5, 2, 3, 4]);
+    gainBlessing(s2, "bore");
+    gainBlessing(s2, "huiguang");
+    s2.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 1 }] };
+    startCombat(s2);
+    s2.combat.activeIdx = 0;
+    s2.combat.turnIdx = s2.combat.actionOrder.indexOf(0);
+    const furu = s2.team[0];
+    furu.hp = Math.floor(furu.maxHp * 0.5); // 留出血量观察提供者的额外回复
+    const hpBefore = furu.hp;
+    const r = playerSkill(s2, undefined, {});
+    expect(r.ok).toBe(true);
+    // 般若船按所提供治疗量（芙宁娜生命上限×10%）的 30% 额外回复提供者
+    const healBase = Math.ceil((furu.maxHp * 10) / 100);
+    const bonus = Math.ceil((healBase * 30) / 100);
+    expect(furu.hp).toBe(Math.min(furu.maxHp, hpBefore + healBase + bonus));
+  });
+
+  it("戒律性闪变：生命<35%时触发；每回合最多累计回复 36% 生命上限", () => {
+    const s = createUniState();
+    gainBlessing(s, "shanbian"); // fx capPct 36, healPct 12
+    // 用足够高的生命上限避免单次回复跨过 35% 阈值
+    s.team[0].maxHp = 100;
+    s.team[0].hp = Math.floor(s.team[0].maxHp * 0.2); // 20% → 触发
+    const hero = s.team[0];
+    const first = applyShanbianHeal(s, 0);
+    // 单次回复 = 12% 生命上限
+    expect(first).toBe(Math.ceil(100 * 0.12)); // 12
+    // 第二次仍在 <35%（20%+12%=32%），生命上限 100 下累计未到 36%（12<36）→ 继续回 12
+    const second = applyShanbianHeal(s, 0);
+    expect(second).toBe(12);
+    expect(hero.status.shanbianHealUsed).toBe(24);
+    // 继续触发直至到达单回合 36% 上限：第三次 32%→44% 已 ≥35% 不触发；验证 cap 逻辑用直接强制
+    hero.hp = Math.floor(hero.maxHp * 0.34); // 34% 仍 <35%
+    hero.status.shanbianHealUsed = Math.ceil(100 * 0.30); // 模拟已累计 30%
+    const capped = applyShanbianHeal(s, 0);
+    // 剩余 6%，但单次 12% → 截断为 6%
+    expect(capped).toBe(6);
+    expect(hero.status.shanbianHealUsed).toBe(36);
+  });
+
+  it("放射性衰变：不再提供受伤减免（仅 <50% 回复 +20%）", () => {
+    const s = createUniState();
+    gainBlessing(s, "fangshe");
+    const mods = getUniModifiers(s);
+    // 移除受伤减免后 dmgTakenMult 不应含 fangshe 的 10%
+    // 满血（≥50%）时 memberHealMods 补偿 -20
+    const t = s.team[0];
+    t.hp = t.maxHp;
+    expect(memberHealMods(s, 0)).toBe(-20);
+    t.hp = Math.floor(t.maxHp * 0.3);
+    expect(memberHealMods(s, 0)).toBe(0);
+    // dmgTakenMult 不因 fangshe 而增加受伤减免
+    expect(mods.dmgTakenMult).toBe(0);
+  });
+
+  it("SMR杏仁核：敌方因持续伤害死亡时充能罐中脑（dot 击杀触发）", () => {
+    const s = createUniState();
+    gainBlessing(s, "xingren");
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 1 }] };
+    startCombat(s);
+    const e = s.combat.enemies[0];
+    e.dotDmg = 5;
+    e.dotTurns = 1;
+    e.dotSource = 0;
+    e.hp = 3; // dot 一击致死
+    startPlayerTurn(s);
+    expect(e.alive).toBe(false);
+    // 杏仁核充能：击杀死 50% → 罐中脑 ≥50（若不足 100 封顶，32）
+    expect(s.jarBrain || 0).toBe(50);
+  });
+
+  it("湮灭回归不等式分摊：分摊者完全视为受击，触发寰宇热寂战意", () => {
+    const s = createUniState();
+    gainBlessing(s, "yanmie");
+    gainBlessing(s, "huanyu");
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 1 }] };
+    startCombat(s);
+    s.team.forEach((t) => {
+      t.hp = t.maxHp;
+    });
+    // 敌人单攻成员0，伤害被平摊；成员1-3作为分摊者也触发热寂
+    s.combat.enemyQueue = [{ enemyIdx: 0, action: { type: "single", dmg: 20 }, desc: "x" }];
+    s.combat.phase = "enemy-announce";
+    enemyAnnounce(s);
+    enemyResolve(s);
+    // 成员0为受击者（hpLoss>0触发热寂），分摊者也同样获得战意
+    s.team.forEach((t) => {
+      if (t.hp < t.maxHp) expect(t.status.zhandu || 0).toBeGreaterThanOrEqual(4);
+    });
+  });
+
+  it("热量强化为升一级（按 lv 表提升效果，非倍率）", () => {
+    const s = createUniState();
+    gainBlessing(s, "ganlu");
+    expect(blessingVal(s, "ganlu", "healMult")).toBe(12); // 1 级
+    s.heat = 5;
+    heatStrengthen(s, 0); // 升一级
+    expect(blessingVal(s, "ganlu", "healMult")).toBe(24); // 2 级（lv 表 [12,24,36,48]）
+    s.heat = 5;
+    heatStrengthen(s, 0); // 再升一级
+    expect(blessingVal(s, "ganlu", "healMult")).toBe(36); // 3 级
+  });
+
+  it("战意战斗结束清零，哨戒卫星单场标记复位", () => {
+    const s = createUniState();
+    gainBlessing(s, "huanyu");
+    gainBlessing(s, "weixing");
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 1 }] };
+    startCombat(s);
+    const t = s.team[0];
+    t.status.zhandu = 9;
+    t.status.weixingUsed = true;
+    // 结束战斗（清空敌人）
+    s.combat.enemies.forEach((e) => {
+      e.hp = 0;
+      e.alive = false;
+    });
+    playerDefense(s, 0);
+    expect(s.combat.phase).toBe("won");
+    expect(t.status.zhandu).toBe(0);
+    expect(t.status.weixingUsed).toBe(false);
+  });
+
+  it("螺壳的纹理只加成防御行动的盾（不加成祝福/方程生成的盾）", () => {
+    const s = createUniState();
+    gainBlessing(s, "luoke"); // 护盾 +10%（仅防御行动）
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 1 }] };
+    startCombat(s);
+    s.combat.activeIdx = 0;
+    setPoker(s, 10);
+    const r = playerDefense(s, 0);
+    expect(r.shield).toBe(11); // 防御行动吃 +10% → ceil(10*1.1)=11
+    // 祝福生成的护盾（哨戒）不应受螺壳加成
+    const s2 = createUniState();
+    gainBlessing(s2, "luoke");
+    gainBlessing(s2, "shaojie"); // 哨戒：进入战斗 = 16% 生命上限护盾
+    s2.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 1 }] };
+    startCombat(s2);
+    // 哨戒盾 = ceil(maxHp*0.16)，不应被 luoke ×1.1
+    const shaojieShield = Math.ceil((s2.team[0].maxHp * 16) / 100);
+    expect(s2.team[0].shield).toBe(shaojieShield); // 不被 luoke 加成
+  });
+
+  it("四棱锥体只加成防御行动 + 大招的盾（不加成祝福盾）", () => {
+    // 大招（钟离）吃 +30%
+    const s = createUniState([2, 1, 3, 4]); // 钟离队首
+    gainBlessing(s, "lingzhu");
+    s.region = { type: "battle", name: "战斗", waves: [{ kind: "normal", count: 1 }] };
+    startCombat(s);
+    s.combat.activeIdx = 0;
+    s.combat.turnIdx = s.combat.actionOrder.indexOf(0);
+    const zl = s.team[0];
+    const r = playerSkill(s, undefined, {});
+    expect(r.ok).toBe(true);
+    // 钟离 Lv1 全队 18 盾，×1.3 = ceil(18*1.3)=24
+    expect(zl.shield).toBe(Math.ceil(18 * 1.3));
   });
 });

@@ -10,7 +10,7 @@ import { checkGameOver } from "./damage.js";
  */
 export function serializeGameState(state) {
   const data = {
-    version: 2,
+    version: 3,
     players: state.players.map((p) => ({
       index: p.index,
       name: p.name,
@@ -25,6 +25,7 @@ export function serializeGameState(state) {
       fightingSpirit: p.fightingSpirit,
       moonPhase: p.moonPhase,
       loadUses: p.loadUses,
+      attackedThisRound: p.attackedThisRound ?? 0,
       statusEffects: {
         frozenBy: p.statusEffects.frozenBy,
         stealTarget: p.statusEffects.stealTarget
@@ -108,6 +109,7 @@ export function deserializeGameState(state, saveData) {
       fightingSpirit: sp.fightingSpirit ?? 0,
       moonPhase: sp.moonPhase ?? 0,
       loadUses: sp.loadUses ?? charData?.loadMaxUses ?? 0,
+      attackedThisRound: sp.attackedThisRound ?? 0,
       statusEffects: {
         frozenBy: se.frozenBy ?? null,
         stealTarget: se.stealTarget ? { ...se.stealTarget } : null,

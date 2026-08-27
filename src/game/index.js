@@ -121,6 +121,7 @@ export {
   isLeagueFinished,
   checkTiebreakerNeeded,
   calculateMatchScore,
+  computeDefenseReinforcement,
 } from "./league.js";
 
 // ── leagueConstants ──

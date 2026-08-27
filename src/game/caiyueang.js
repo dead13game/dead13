@@ -45,6 +45,7 @@ function deepCloneState(state) {
       fightingSpirit: p.fightingSpirit,
       moonPhase: p.moonPhase,
       loadUses: p.loadUses,
+      attackedThisRound: p.attackedThisRound ?? 0,
       statusEffects: {
         ignoreTrapThisTurn: p.statusEffects.ignoreTrapThisTurn,
         extraAction: p.statusEffects.extraAction,
