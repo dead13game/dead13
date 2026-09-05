@@ -12,6 +12,7 @@ import {
   startTournament,
   startNextMatch,
   rollDice,
+  rollDiceN,
   rollTwoDice,
   continueAfterSegment,
   getSegmentSummary,
@@ -305,6 +306,46 @@ describe("锦标赛结构", () => {
     expect(sc).not.toBeNull();
     expect(Math.max(sc.aWins, sc.bWins)).toBe(FINAL_WINS);
     expect(finalMatches.length).toBe(sc.aWins + sc.bWins);
+  });
+});
+
+describe("连续掷骰 rollDiceN（10连）", () => {
+  function freshMatch() {
+    const s = createDiceWar();
+    startTournament(s, () => 0.5);
+    startNextMatch(s);
+    return s;
+  }
+
+  it("从第 1 轮起一枚 10 连：掷满 20 次、快进 10 轮、停在段间解说点", () => {
+    const s = freshMatch();
+    const rolled = rollDiceN(s, 20, () => diceRng(7)); // 每轮 7v7（等分不触发平局）
+    expect(rolled).toBe(20);
+    expect(s.currentMatch.round).toBe(10);
+    // 第 10 轮整结束进入段间（解说点），10连不可越过它继续
+    expect(s.currentMatch.phase).toBe("segment");
+  });
+
+  it("n 有余量时绝不越过解说点：距段末不足 20 次 → 停在段间", () => {
+    const s = freshMatch();
+    // 先手动掷到第 9 轮完 (round=9, phase=rollA)：还差 1 整轮(2次)就到第10轮段末
+    for (let i = 0; i < 18; i++) rollDice(s, () => diceRng(7)); // 18次 = 9轮
+    expect(s.currentMatch.round).toBe(9);
+    expect(s.currentMatch.phase).toBe("rollA");
+    const rolled = rollDiceN(s, 20, () => diceRng(7));
+    expect(rolled).toBe(2); // 只允许掷完第10轮即停，撞段间
+    expect(s.currentMatch.round).toBe(10);
+    expect(s.currentMatch.phase).toBe("segment");
+  });
+
+  it("单局结束（over）后再次 10 连无可掷、也不自动推进下一场", () => {
+    const s = freshMatch();
+    // A 每轮 12 分大胜 30 轮 → 干净落 over（playRounds 自动 continue 段间）
+    playRounds(s, 30, 12, 2);
+    expect(s.currentMatch.phase).toBe("over");
+    const again = rollDiceN(s, 20, () => diceRng(7));
+    expect(again).toBe(0); // over 后无可掷
+    expect(s.currentMatch.phase).toBe("over"); // 未越界推进
   });
 });
 

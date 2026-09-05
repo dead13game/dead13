@@ -121,20 +121,21 @@
       </div>
 
       <!-- 掷骰按钮 -->
-      <button
-        v-if="match.phase === 'rollA'"
-        class="dw-primary dw-primary--big"
-        @click="onRoll"
+      <div
+        v-if="match.phase === 'rollA' || match.phase === 'rollB'"
+        class="dw-rollbar"
       >
-        🎲 掷骰子吧（先手 {{ match.a.name }}）
-      </button>
-      <button
-        v-else-if="match.phase === 'rollB'"
-        class="dw-primary dw-primary--big"
-        @click="onRoll"
-      >
-        🎲 掷骰子吧（后手 {{ match.b.name }}）
-      </button>
+        <button class="dw-primary dw-primary--mid" @click="onRoll">
+          🎲 掷骰子（{{ match.phase === 'rollA' ? '先手 ' + match.a.name : '后手 ' + match.b.name }}）
+        </button>
+        <button
+          class="dw-primary dw-primary--ten dw-primary--mid"
+          @click="onRollTen"
+          title="一次触发 20 次掷骰（快进 10 轮），最多推进到下一次 AI 解说点即止"
+        >
+          🔟 10连
+        </button>
+      </div>
 
       <!-- 段间对比 -->
       <div v-if="match.phase === 'segment'" class="dw-panel dw-panel--segment">
@@ -306,7 +307,7 @@
 </template>
 
 <script setup>
-import { reactive, ref, computed, watch } from "vue";
+import { reactive, ref, computed, watch, nextTick, onMounted } from "vue";
 import {
   ROSTER,
   PHASE_META,
@@ -318,6 +319,7 @@ import {
   startTournament,
   startNextMatch,
   rollDice,
+  rollDiceN,
   continueAfterSegment,
   getSegmentSummary,
   getMatchupLabel,
@@ -327,7 +329,13 @@ import {
 import { KIND, buildCommentaryRequest } from "../game/diceWarCommentator.js";
 import SoundManager from "../audio/SoundManager.js";
 
+const props = defineProps({
+  restore: { type: Boolean, default: false },
+});
 const emit = defineEmits(["quit"]);
+
+// 骰子世锦赛存档键（独立于经典/单机/模拟宇宙存档）
+const SAVE_KEY = "dead13_dicewar_save";
 
 // ---- 状态 ----
 const dw = reactive(createDiceWar());
@@ -335,6 +343,75 @@ const uiMode = ref("setup"); // setup | matchups | match | phaseDone | champion
 const advancersList = ref([]); // 上一阶段晋级名单快照
 const prevPhaseName = ref("");
 const rollFlash = ref(0); // 骰子弹跳动画 key
+
+// 读档/初始化期间抑制解说统计 watch 的自动触发，改由装载逻辑按需触发
+const isRestoring = ref(false);
+
+// ---- 世锦赛存档 ----
+function captureIndices() {
+  return advancersList.value.map((p) => ROSTER.indexOf(p));
+}
+function gatherState() {
+  return {
+    uiMode: uiMode.value,
+    advList: captureIndices(),
+    prevPhaseName: prevPhaseName.value,
+    dw: JSON.parse(JSON.stringify(dw)),
+  };
+}
+function persistSave() {
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(gatherState()));
+  } catch {
+    /* 存储满/不可用：忽略，不阻断游玩 */
+  }
+}
+function clearSave() {
+  localStorage.removeItem(SAVE_KEY);
+}
+function hasSave() {
+  return !!localStorage.getItem(SAVE_KEY);
+}
+/** 载入存档，若找不到档或解析失败返回 false */
+function loadPersisted() {
+  const raw = localStorage.getItem(SAVE_KEY);
+  if (!raw) return false;
+  try {
+    const data = JSON.parse(raw);
+    if (data && data.dw) {
+      // 重建整棵状态，直接展开回 reactive dw
+      const fresh = createDiceWar();
+      Object.assign(fresh, data.dw);
+      isRestoring.value = true;
+      Object.assign(dw, fresh);
+      uiMode.value = data.uiMode || "setup";
+      advancersList.value = (data.advList || []).map((i) => (ROSTER[i] ? ROSTER[i] : null)).filter(Boolean);
+      prevPhaseName.value = data.prevPhaseName || "";
+      isRestoring.value = false;
+      return true;
+    }
+  } catch {
+    /* 坏档：当作不存在 */
+  }
+  return false;
+}
+/** 载入后按挂起状态触发一次解说（读档恢复观感），成功后可从外部刷新 */
+function refreshCommentaryIfHanging() {
+  const m = dw.currentMatch;
+  if (dw.champion != null && uiMode.value === "champion") {
+    return KIND.CHAMPION;
+  }
+  if (m) {
+    if (m.phase === "segment") {
+      const seg = m.round / SEGMENT_LEN;
+      return seg === 1 ? KIND.PRE : KIND.MID;
+    }
+    if (m.phase === "over") {
+      return m.overtime ? KIND.OVERTIME : KIND.FINAL;
+    }
+  }
+  return null;
+}
 
 // ---- AI 解说 ----
 const AI_DEFAULTS = {
@@ -508,6 +585,7 @@ function onStartTournament() {
   startTournament(dw);
   commentary.value = { status: "idle", kind: "", text: "", error: "" };
   uiMode.value = "matchups";
+  clearSave(); // 新一届取代旧档
 }
 
 function onStartFirstMatch() {
@@ -520,6 +598,14 @@ function onRoll() {
   if (!r) return;
   SoundManager.play("click");
   rollFlash.value++;
+  persistSave(); // 每掷一步留档，刷新/误退都不丢
+}
+
+function onRollTen() {
+  SoundManager.play("click");
+  const rolled = rollDiceN(dw, SEGMENT_LEN * 2); // 20 次掷 = 10 轮（10连）
+  if (rolled > 0) rollFlash.value++;
+  persistSave();
 }
 
 function onContinueSegment() {
@@ -532,26 +618,36 @@ function onNextMatch() {
   const next = startNextMatch(dw);
   if (next) {
     uiMode.value = "match";
+    persistSave();
     return;
   }
   // startNextMatch 返回 null：锦标赛结束（冠军产生）或阶段已推进
   if (dw.champion != null) {
     uiMode.value = "champion";
-    return;
+    return; // 完赛跳转，不清档（退出时清）
   }
   // 阶段已推进：展示上一阶段晋级名单 + 新一轮对阵，开赛由「开始新一轮」触发
   advancersList.value = adv.map((i) => ROSTER[i]);
   prevPhaseName.value = PHASE_META[prevPhase].listTitle;
   uiMode.value = "phaseDone";
+  persistSave();
 }
 
 function onRestart() {
   startTournament(dw);
   commentary.value = { status: "idle", kind: "", text: "", error: "" };
   uiMode.value = "matchups";
+  clearSave();
 }
 
 function onQuit() {
+  // 开场前无进度 → 清档；中途退出 → 自动留档；夺冠收官 → 清档（完成无需续）
+  if (dw.phase) {
+    if (dw.champion != null) clearSave();
+    else persistSave();
+  } else {
+    clearSave();
+  }
   emit("quit");
 }
 
@@ -560,6 +656,7 @@ watch(
   () => dw.currentMatch?.phase,
   (ph) => {
     if (!ph) return;
+    if (isRestoring.value) return; // 读档阶段，避免重复触发解/音效
     if (ph === "segment") {
       const seg = dw.currentMatch.round / SEGMENT_LEN;
       triggerCommentary(seg === 1 ? KIND.PRE : KIND.MID);
@@ -572,9 +669,23 @@ watch(
 watch(
   () => dw.champion,
   (c) => {
-    if (c != null) triggerCommentary(KIND.CHAMPION);
+    if (c != null && !isRestoring.value) triggerCommentary(KIND.CHAMPION);
   },
 );
+
+// ---- 装载入口：供「继续世锦赛」读档恢复现场 ----
+onMounted(() => {
+  if (!props.restore) return;
+  const ok = loadPersisted();
+  if (!ok) return;
+  commentary.value = { status: "idle", kind: "", text: "", error: "" };
+  // 读档后停留在解说挂起点（段间/结束/冠军）则重新请求一次解说，保持观感连贯
+  nextTick(() => {
+    const kind = refreshCommentaryIfHanging();
+    if (kind) triggerCommentary(kind);
+  });
+});
+
 </script>
 
 <style scoped>
@@ -652,6 +763,24 @@ watch(
 .dw-primary--big {
   font-size: 17px;
   padding: 14px 30px;
+}
+.dw-rollbar {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+}
+.dw-primary--mid {
+  font-size: 15px;
+  padding: 11px 18px;
+  white-space: nowrap;
+}
+.dw-primary--ten {
+  background: linear-gradient(135deg, #6a1b9a, #ab47bc);
+  box-shadow: 0 4px 16px rgba(106, 27, 154, 0.4);
+}
+.dw-primary--ten:hover {
+  background: linear-gradient(135deg, #8e24aa, #ce93d8);
 }
 .dw-ghost {
   background: rgba(255, 255, 255, 0.06);

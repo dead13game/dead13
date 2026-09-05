@@ -78,6 +78,14 @@
             🎲 娱乐模式
             <span class="mode-btn__desc">骰子战争世锦赛 · 16人淘汰</span>
           </button>
+          <button
+            v-if="dicewarHasSave"
+            class="mode-btn mode-btn--dice-continue"
+            @click="continueDiceWar"
+          >
+            🎲 继续世锦赛
+            <span class="mode-btn__desc">从上次对阵继续骰子战</span>
+          </button>
           <button class="mode-btn mode-btn--rules" @click="showRules = true">
             📖 规则说明
             <span class="mode-btn__desc">查看游戏详细规则</span>
@@ -161,7 +169,8 @@
       <!-- 娱乐模式：骰子战争世锦赛 -->
       <DiceWarShell
         v-else-if="gameMode === 'dicewar'"
-        @quit="gameMode = null"
+        :restore="dicewarRestore"
+        @quit="onDiceWarQuit"
       />
 
       <!-- 世界杯模式：设置界面 -->
@@ -309,7 +318,10 @@ const uniController = useUniController();
 const uniHasSave = ref(false);
 
 // ---- 模式选择 ----
-const gameMode = ref(null); // null | 'normal' | 'football' | 'worldcup' | 'league'
+const gameMode = ref(null); // null | 'normal' | 'football' | 'worldcup' | 'league' | 'solo' | 'simuniverse' | 'dicewar'
+const dicewarRestore = ref(false); // 进入骰子世锦赛时是否自动读档（继续）
+const dicewarHasSave = ref(false);
+const DICEWAR_SAVE_KEY = "dead13_dicewar_save";
 const wcStarted = ref(false);
 const wcTeamName = ref("");
 const wcSelectedChar = ref("");
@@ -332,6 +344,7 @@ onMounted(() => {
   hasSave.value = !!localStorage.getItem("dead13_save");
   soloHasSave.value = soloController.hasSoloSave();
   uniHasSave.value = uniController.hasUniSave();
+  refreshDicewarHasSave();
 
   // 主背景音乐：首次用户交互后启动（浏览器自动播放策略限制）
   const startBgm = () => {
@@ -371,6 +384,8 @@ function selectMode(mode) {
     soloController.initSolo(); // 进入单机模式即开新局（默认角色）
   } else if (mode === "simuniverse") {
     uniController.initUni(); // 进入模拟宇宙即开新局
+  } else if (mode === "dicewar") {
+    dicewarRestore.value = false; // 从"娱乐模式"进入开新局（不从存档继续）
   }
   gameMode.value = mode;
 }
@@ -426,6 +441,32 @@ function continueUni() {
   if (uniController.loadUni()) {
     gameMode.value = "simuniverse";
   }
+}
+
+// ---- 骰子世锦赛存档（独立键 dead13_dicewar_save） ----
+/** 是否有"进行中"的世锦赛可续（存在且有当前回合/对局） */
+function refreshDicewarHasSave() {
+  try {
+    const raw = localStorage.getItem(DICEWAR_SAVE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    dicewarHasSave.value = !!(data && data.dw && data.dw.phase);
+  } catch {
+    dicewarHasSave.value = false;
+  }
+}
+/** 从主菜单"继续世锦赛"读档进入 */
+function continueDiceWar() {
+  playClick();
+  refreshDicewarHasSave();
+  if (!dicewarHasSave.value) return;
+  dicewarRestore.value = true;
+  gameMode.value = "dicewar";
+}
+/** 从骰子世锦赛返回主菜单（退回时重新评估是否还有可续档） */
+function onDiceWarQuit() {
+  gameMode.value = null;
+  nextTick(refreshDicewarHasSave);
 }
 
 // 继续游戏（读档）
@@ -782,6 +823,17 @@ body {
 .mode-btn--dice:hover {
   border-color: #6a1b9a;
   background: #f3e5f5;
+}
+.mode-btn--dice-continue {
+  border-color: #6a1b9a;
+  color: #e65100;
+  background: linear-gradient(135deg, #fff8e1, #f3e5f5);
+}
+.mode-btn--dice-continue:hover {
+  border-color: #e65100;
+  background: linear-gradient(135deg, #ffe0b2, #e1bee7);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(255, 111, 0, 0.2);
 }
 
 /* 规则说明弹窗 */

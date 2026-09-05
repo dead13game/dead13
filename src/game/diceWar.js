@@ -313,6 +313,29 @@ export function rollDice(state, rng = Math.random) {
   return null;
 }
 
+/**
+ * 连续掷骰：最多掷 n 次（每 2 次完成 1 轮）。
+ * 「10连」语义：n=20 = 快进 10 轮；但掷骰途中若进入 AI 解说挂起状态
+ * （段间对比 segment / 单局结束 over，含加赛分胜负）立即停止——不能越过
+ * 解说点继续快进。返回实际掷骰次数。
+ * @param {object} state 世锦赛状态
+ * @param {number} n 最多掷骰次数
+ * @param {() => number} [rng]
+ * @returns {number} 实际掷骰次数（可能小于 n：撞解说点提前停 / 无可掷）
+ */
+export function rollDiceN(state, n, rng = Math.random) {
+  let rolled = 0;
+  while (rolled < n) {
+    const r = rollDice(state, rng);
+    if (!r) break; // 非掷骰阶段 / 单局已结束，无可掷
+    rolled++; // 每次掷出都计入完成次数
+    const m = state.currentMatch;
+    // 本轮掷出后进入解说挂起状态 → 停，把解说点完整留给 UI
+    if (m && (m.phase === "segment" || m.phase === "over")) break;
+  }
+  return rolled;
+}
+
 /** 段间对比展示后继续 */
 export function continueAfterSegment(state) {
   const m = state.currentMatch;
