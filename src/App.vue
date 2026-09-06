@@ -224,8 +224,25 @@
             <button class="rules-modal__close" @click="showRules = false">
               ✕
             </button>
-            <h2 class="rules-modal__title">《亡命十三街》快速规则</h2>
-            <div class="rules-modal__content">
+            <h2 class="rules-modal__title">《亡命十三街》规则说明</h2>
+            <!-- 页签栏 -->
+            <div class="rules-modal__tabs">
+              <button
+                v-for="t in rulesTabList"
+                :key="t.id"
+                class="rules-modal__tab"
+                :class="{ 'rules-modal__tab--active': activeRulesTab === t.id }"
+                @click="activeRulesTab = t.id"
+              >
+                {{ t.label }}
+              </button>
+            </div>
+
+            <!-- 总览页 -->
+            <div
+              v-if="activeRulesTab === 'overview'"
+              class="rules-modal__content"
+            >
               <p class="rules-modal__summary">
                 一句话概括：选一个角色，抽牌对战，活到最后。
               </p>
@@ -260,13 +277,90 @@
               </ul>
               <h3 class="rules-modal__section-title">胜负判定：</h3>
               <p>活到最后的人获胜。</p>
-              <h3 class="rules-modal__section-title">特色玩法：</h3>
+              <h3 class="rules-modal__section-title">六个模式：</h3>
               <ul>
-                <li>世界杯模式——小组赛+淘汰赛，1v1对战</li>
-                <li>联盟机制——结盟、平摊伤害、背叛</li>
-                <li>2-8人对战——AI补位，一个人也能玩</li>
+                <li>经典对战——2-8人扑克对战，角色+天气+联盟</li>
+                <li>世界杯——小组赛+淘汰赛，1v1对战</li>
+                <li>联赛——10队双循环18轮，3v3球队对战</li>
+                <li>单机——技能卡肉鸽爬塔</li>
+                <li>模拟宇宙——PVE 无尽深渊</li>
+                <li>骰子战争——16人淘汰世锦赛</li>
               </ul>
+              <p class="rules-modal__section-hint">
+                ⚠️ 各模式的详细规则，请点击上方对应页签查看。
+              </p>
             </div>
+
+            <!-- 经典对战页（占位，正文待补充） -->
+            <div v-else-if="activeRulesTab === 'normal'" class="rules-modal__content">
+              <!-- 在此粘贴「经典对战」规则正文 -->
+              <p class="rules-mode-page__placeholder">
+                ⏳ 经典对战规则内容待补充 —— 用正文替换整个提示块即可。
+              </p>
+            </div>
+
+            <!-- 单机页（占位，正文待补充） -->
+            <div v-else-if="activeRulesTab === 'solo'" class="rules-modal__content">
+              <!-- 在此粘贴「单机」规则正文 -->
+              <p class="rules-mode-page__placeholder">
+                ⏳ 单机模式规则内容待补充 —— 用正文替换整个提示块即可。
+              </p>
+            </div>
+
+            <!-- 世界杯页（占位，正文待补充） -->
+            <div v-else-if="activeRulesTab === 'worldcup'" class="rules-modal__content">
+              <!-- 在此粘贴「世界杯」规则正文 -->
+              <p class="rules-mode-page__placeholder">
+                ⏳ 世界杯模式规则内容待补充 —— 用正文替换整个提示块即可。
+              </p>
+            </div>
+
+            <!-- 联赛页（占位，正文待补充） -->
+            <div v-else-if="activeRulesTab === 'league'" class="rules-modal__content">
+              <!-- 在此粘贴「联赛」规则正文 -->
+              <p class="rules-mode-page__placeholder">
+                ⏳ 联赛模式规则内容待补充 —— 用正文替换整个提示块即可。
+              </p>
+            </div>
+
+            <!-- 模拟宇宙页（占位，正文待补充） -->
+            <div v-else-if="activeRulesTab === 'simuniverse'" class="rules-modal__content">
+              <!-- 在此粘贴「模拟宇宙」规则正文 -->
+              <p class="rules-mode-page__placeholder">
+                ⏳ 模拟宇宙模式规则内容待补充 —— 用正文替换整个提示块即可。
+              </p>
+            </div>
+
+            <!-- 骰子战争页（占位，正文待补充） -->
+            <div v-else-if="activeRulesTab === 'dicewar'" class="rules-modal__content">
+              <!-- 在此粘贴「骰子战争」规则正文 -->
+              <p class="rules-mode-page__placeholder">
+                ⏳ 骰子战争规则内容待补充 —— 用正文替换整个提示块即可。
+              </p>
+            </div>
+
+            <!-- 史诗按钮 -->
+            <div class="rules-modal__footer">
+              <button class="rules-modal__epic" @click="showEpic = true">
+                📜 史诗
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+
+      <!-- 史诗序文弹窗（整页展示） -->
+      <Transition name="easter">
+        <div
+          v-if="showEpic"
+          class="epic-overlay"
+          @click.self="showEpic = false"
+        >
+          <div class="epic-modal">
+            <button class="rules-modal__close" @click="showEpic = false">
+              ✕
+            </button>
+            <div class="epic-modal__body">{{ EPIC_PROLOGUE }}</div>
           </div>
         </div>
       </Transition>
@@ -290,6 +384,7 @@ import { useSoloController } from "./solo/useSoloController.js";
 import { useUniController } from "./simuniverse/useUniController.js";
 import { deserializeGameState } from "./game/gameState.js";
 import { AI_TEAM_NAMES } from "./game/worldCupConstants.js";
+import { EPIC_PROLOGUE } from "./data/epic.js";
 import SoundManager from "./audio/SoundManager.js";
 
 const {
@@ -581,6 +676,19 @@ const showOpening = ref(true);
 
 // 彩蛋
 const showRules = ref(false);
+
+// 规则说明弹窗：页签与史诗
+const rulesTabList = [
+  { id: "overview", label: "总览" },
+  { id: "normal", label: "经典对战" },
+  { id: "solo", label: "单机" },
+  { id: "worldcup", label: "世界杯" },
+  { id: "league", label: "联赛" },
+  { id: "simuniverse", label: "模拟宇宙" },
+  { id: "dicewar", label: "骰子战争" },
+];
+const activeRulesTab = ref("overview");
+const showEpic = ref(false);
 const easterEgg = ref(false);
 let titleClickTimer = null;
 
@@ -854,9 +962,9 @@ body {
   background: #1a1a2e;
   border-radius: 14px;
   padding: 24px;
-  max-width: 480px;
+  max-width: 620px;
   width: 100%;
-  max-height: 80vh;
+  max-height: 84vh;
   display: flex;
   flex-direction: column;
   color: #e0e0e0;
@@ -894,6 +1002,8 @@ body {
 }
 .rules-modal__content {
   overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
   font-size: 13px;
   line-height: 1.8;
   padding-right: 4px;
@@ -928,6 +1038,128 @@ body {
 }
 .rules-modal__content strong {
   color: #fff;
+}
+
+/* 规则弹窗页签栏 */
+.rules-modal__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.rules-modal__tab {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #cfcfcf;
+  font-size: 12px;
+  line-height: 1;
+  padding: 7px 4px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex: 1 1 0;
+  min-width: 58px;
+  text-align: center;
+}
+.rules-modal__tab:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+.rules-modal__tab--active {
+  background: #ff8f00;
+  border-color: #ff8f00;
+  color: #1a1a2e;
+  font-weight: bold;
+}
+
+/* 模式规则页占位（正文待补充时显示） */
+.rules-mode-page__placeholder {
+  border: 1px dashed rgba(255, 143, 0, 0.45);
+  border-radius: 8px;
+  padding: 28px 16px;
+  text-align: center;
+  color: #b9a97e;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+/* 总览页提示小字 */
+.rules-modal__section-hint {
+  margin-top: 8px;
+  color: #9e9e9e;
+  font-size: 12px;
+}
+
+/* 史诗按钮 */
+.rules-modal__footer {
+  margin-top: 14px;
+  text-align: center;
+}
+.rules-modal__epic {
+  background: linear-gradient(135deg, #8d6e2f, #d4a643);
+  border: 1px solid #e8c86a;
+  color: #2a1f0a;
+  font-size: 14px;
+  font-weight: bold;
+  padding: 8px 34px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 10px rgba(212, 166, 67, 0.25);
+}
+.rules-modal__epic:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(212, 166, 67, 0.4);
+}
+
+/* 史诗序文弹窗（整页展示，宣纸古风） */
+.epic-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+  padding: 16px;
+}
+.epic-modal {
+  background: #f7f1e0;
+  border-radius: 6px;
+  max-width: 760px;
+  width: 100%;
+  max-height: 90vh;
+  position: relative;
+  box-shadow: 0 10px 50px rgba(0, 0, 0, 0.6);
+  border: 1px solid #d9c79a;
+}
+.epic-modal .rules-modal__close {
+  color: #8a7a52;
+}
+.epic-modal .rules-modal__close:hover {
+  background: rgba(138, 122, 82, 0.15);
+  color: #4a3b18;
+}
+.epic-modal__body {
+  overflow-y: auto;
+  max-height: 90vh;
+  padding: 36px 34px 40px;
+  white-space: pre-wrap;
+  font-family: "Kaiti SC", "STKaiti", "KaiTi", "SimSun", serif;
+  font-size: 15px;
+  line-height: 2.2;
+  color: #3a2f1f;
+  text-align: justify;
+}
+.epic-modal__body::-webkit-scrollbar {
+  width: 5px;
+}
+.epic-modal__body::-webkit-scrollbar-thumb {
+  background: #c9b98c;
+  border-radius: 3px;
 }
 
 /* 开场动画后的主界面淡入 */
