@@ -291,51 +291,161 @@
               </p>
             </div>
 
-            <!-- 经典对战页（占位，正文待补充） -->
+            <!-- 经典对战页 -->
             <div v-else-if="activeRulesTab === 'normal'" class="rules-modal__content">
-              <!-- 在此粘贴「经典对战」规则正文 -->
-              <p class="rules-mode-page__placeholder">
-                ⏳ 经典对战规则内容待补充 —— 用正文替换整个提示块即可。
+              <p class="rules-modal__summary">
+                经典对战：2~8 名玩家各选一位神明角色，抽牌互攻、结盟背刺，活到最后者胜。
               </p>
+              <h3 class="rules-modal__section-title">开局设置：</h3>
+              <ul>
+                <li>人数 2~8，每席可设人类或 AI（简单/熟练/地狱三档难度）</li>
+                <li>角色池每位神明全场不重复，各带专属技能与速度</li>
+                <li>可选开关：天气系统、圣遗物系统</li>
+              </ul>
+              <h3 class="rules-modal__section-title">每回合行动：</h3>
+              <ul>
+                <li><strong>攻击</strong>——抽 1 张明牌打人，点数即伤害</li>
+                <li><strong>防御</strong>——抽 1 张盖牌当护盾抵挡伤害</li>
+                <li><strong>赌命</strong>——抽 2 张：1 张暗设陷阱、1 张明放诱饵，迷惑并反伤对手</li>
+                <li><strong>技能</strong>——每位神明有自己的专属能力（多数有限次）</li>
+                <li>满足条件还可<strong>结盟</strong>（4 人以上局，互助分摊伤害）、<strong>背刺</strong>（背叛盟友重创对方但有代价）、发动<strong>圣言自明</strong></li>
+              </ul>
+              <h3 class="rules-modal__section-title">节奏与机制：</h3>
+              <ul>
+                <li>按角色速度决定出招先后，高速先行</li>
+                <li>开局前 4 回合为和平期禁攻，适合发育布防，随后全面开战</li>
+                <li>攻击先比陷阱、再破护盾，残余伤害才扣血；多人场景伤害会先减 2 再按联盟分摊（向下取整）</li>
+                <li>天气每回合轮转：烈日增攻、黑市增防、狂风多抽牌、暴雨冲防御、军备禁技能等</li>
+                <li>圣遗物随击破累计蓄能，满后可发动圣言自明，激活强力效果</li>
+              </ul>
+              <h3 class="rules-modal__section-title">胜负判定：</h3>
+              <p>其余玩家全部出局后，唯一的幸存者获胜。</p>
             </div>
 
-            <!-- 单机页（占位，正文待补充） -->
+            <!-- 单机页 -->
             <div v-else-if="activeRulesTab === 'solo'" class="rules-modal__content">
-              <!-- 在此粘贴「单机」规则正文 -->
-              <p class="rules-mode-page__placeholder">
-                ⏳ 单机模式规则内容待补充 —— 用正文替换整个提示块即可。
+              <p class="rules-modal__summary">
+                单机模式：一人一队，用技能卡牌肉鸽爬塔。每章按地图推进，战强敌、逛商店、过事件，打败首领通关。
               </p>
+              <h3 class="rules-modal__section-title">章节地图：</h3>
+              <ul>
+                <li>每章是一条固定节点链：战斗 → 事件 → 商店 → 战斗 → 营地 → 精英 → 首领</li>
+                <li>节点类型：⚔️战斗（普通/精英/首领）、❓事件（检定奖惩）、🛒商店（购卡）、🏕️营地（休整）</li>
+                <li>击败首领即可通关进入下一章，敌人随之变强（首领自带斗志等机制）</li>
+              </ul>
+              <h3 class="rules-modal__section-title">战斗规则：</h3>
+              <ul>
+                <li>回合行动力制：从手牌中选择技能卡出牌，卡牌分力量/魔法/防御/功能四类，各有行动力消耗</li>
+                <li>每回合抽 3 张选 2 张加入手牌，弃牌入坟场</li>
+                <li>护盾抵挡伤害；斗志积攒后能强化进攻节奏</li>
+                <li>敌方同样持牌进攻，精英与首领更具威胁</li>
+              </ul>
+              <h3 class="rules-modal__section-title">成长与资源：</h3>
+              <ul>
+                <li>战斗胜利得金币与经验，经验升级获得属性点，牌池逐步扩充、稀有卡登场</li>
+                <li>金币在商店买卡，营地恢复状态，事件检定成败带来收益或代价</li>
+                <li>战败即本次爬塔结束，重开再来</li>
+              </ul>
             </div>
 
-            <!-- 世界杯页（占位，正文待补充） -->
+            <!-- 世界杯页 -->
             <div v-else-if="activeRulesTab === 'worldcup'" class="rules-modal__content">
-              <!-- 在此粘贴「世界杯」规则正文 -->
-              <p class="rules-mode-page__placeholder">
-                ⏳ 世界杯模式规则内容待补充 —— 用正文替换整个提示块即可。
+              <p class="rules-modal__summary">
+                世界杯：自建一支国家队，从小组赛一路踢到决赛，捧起大力神杯的 1v1 扑克锦标赛。
               </p>
+              <h3 class="rules-modal__section-title">赛制流程：</h3>
+              <ul>
+                <li><strong>小组赛</strong>——A~H 八个小组、每组 4 队单循环，赢 3 分平 1 分；同组其他场次自动模拟</li>
+                <li><strong>淘汰赛</strong>——16 强 → 四分之一决赛 → 半决赛 → 决赛，单场淘汰</li>
+                <li>每场对手为国家队（巴西、德国、法国…），可选手动或 AI 对战</li>
+              </ul>
+              <h3 class="rules-modal__section-title">单场比赛：</h3>
+              <ul>
+                <li>两位玩家 1v1 抽牌对攻，击倒对方即"进球"；进球后重新开局再战（可换人调整）</li>
+                <li>常规时间 90 回合，结束时比进球数定胜负</li>
+                <li><strong>平局处理</strong>——小组赛平局各取 1 分即可；淘汰赛平局进入加时（再战 30 回合）</li>
+                <li>加时仍平则进入<strong>点球大战</strong>：先得 5 分者胜（每方抽 2 张比点）</li>
+              </ul>
+              <h3 class="rules-modal__section-title">目标：</h3>
+              <p>一路取胜登顶决赛；输掉淘汰赛即遭淘汰，小组赛积分不足也无法出线。</p>
             </div>
 
-            <!-- 联赛页（占位，正文待补充） -->
+            <!-- 联赛页 -->
             <div v-else-if="activeRulesTab === 'league'" class="rules-modal__content">
-              <!-- 在此粘贴「联赛」规则正文 -->
-              <p class="rules-mode-page__placeholder">
-                ⏳ 联赛模式规则内容待补充 —— 用正文替换整个提示块即可。
+              <p class="rules-modal__summary">
+                联赛：10 支英超球队双循环 18 轮，每轮以 3 名角色组成球队出战 3v3，最终按积分榜冲击冠军。
               </p>
+              <h3 class="rules-modal__section-title">球队分档：</h3>
+              <ul>
+                <li><strong>争冠级</strong>——曼城、利物浦、阿森纳、曼联</li>
+                <li><strong>欧战级</strong>——切尔西、热刺、纽卡斯尔联</li>
+                <li><strong>保级级</strong>——埃弗顿、西汉姆联、狼队</li>
+                <li>强队打弱队享受卡牌加成，选保级队逆袭更有挑战</li>
+              </ul>
+              <h3 class="rules-modal__section-title">卡牌加成（双方通用）：</h3>
+              <ul>
+                <li>跨 2 档（一流 vs 保级）：攻击 +2、防御 +2</li>
+                <li>跨 1 档（一流 vs 欧战、欧战 vs 保级）：攻击 +1</li>
+                <li>同档无加成；主队攻击额外 +1——谁强谁加成、谁是主队谁 +1，对玩家与对手一视同仁</li>
+              </ul>
+              <h3 class="rules-modal__section-title">每轮流程：</h3>
+              <ul>
+                <li>每轮先 3v3 布阵：为你的球队和对手球队各挑 3 名角色上阵</li>
+                <li>场上 6 人按阵亡顺序获得名次分（越晚死分越高），按两队总积分判胜负</li>
+                <li>30 回合未分胜负则按已得名次结算；每轮其余场次由系统自动模拟</li>
+              </ul>
+              <h3 class="rules-modal__section-title">目标：</h3>
+              <p>18 轮后积分最高夺冠；若与对手同分，将与同分队打附加赛一决高下。</p>
             </div>
 
-            <!-- 模拟宇宙页（占位，正文待补充） -->
+            <!-- 模拟宇宙页 -->
             <div v-else-if="activeRulesTab === 'simuniverse'" class="rules-modal__content">
-              <!-- 在此粘贴「模拟宇宙」规则正文 -->
-              <p class="rules-mode-page__placeholder">
-                ⏳ 模拟宇宙模式规则内容待补充 —— 用正文替换整个提示块即可。
+              <p class="rules-modal__summary">
+                模拟宇宙：4 人小队闯入无尽深渊，层层闯关、逐步强化，看你能走多远。
               </p>
+              <h3 class="rules-modal__section-title">闯关结构：</h3>
+              <ul>
+                <li>开局自选 4 名角色组队，携血量与技能迎战</li>
+                <li>每层是一个区域节点：⚔️战斗、💀精英、👑首领、❓事件、🛒商店、🏕️休整等</li>
+                <li>约每 10 层遇首领；越往高层敌人越强、难度逐位面攀升，深渊没有尽头</li>
+              </ul>
+              <h3 class="rules-modal__section-title">战斗机制：</h3>
+              <ul>
+                <li>回合制三选一：从牌组出普攻 / 防御 / 角色大招，护盾抵挡伤害</li>
+                <li>角色 PVE 技能可随通关升级（等级越高效果越强）并带冷却</li>
+                <li>普通战斗常为多波次敌人，精英与首领各有特殊招数（锁定、眩晕等）</li>
+              </ul>
+              <h3 class="rules-modal__section-title">局外成长：</h3>
+              <ul>
+                <li>战斗掉落祝福（分星级）、碎片货币；精英与首领奖励更丰厚</li>
+                <li><strong>祝福 / 奇物 / 方程</strong>是核心构筑：各类增益叠加，部分奇物与方程可改变战局走向</li>
+                <li>商店购买祝福与补给，休整回血，造物调试台可强化奇物与构筑</li>
+                <li>个别角色自带特殊机制（如菜月昴的读档回溯），善加利用可扭转败局</li>
+                <li>全队阵亡即本次深渊结束，按推进进度结算</li>
+              </ul>
             </div>
 
-            <!-- 骰子战争页（占位，正文待补充） -->
+            <!-- 骰子战争页 -->
             <div v-else-if="activeRulesTab === 'dicewar'" class="rules-modal__content">
-              <!-- 在此粘贴「骰子战争」规则正文 -->
-              <p class="rules-mode-page__placeholder">
-                ⏳ 骰子战争规则内容待补充 —— 用正文替换整个提示块即可。
+              <p class="rules-modal__summary">
+                骰子战争：16 位明星（原神 8 + 崩铁 8）随机配对、掷骰对轰的自动淘汰赛，适合观战图一乐。
+              </p>
+              <h3 class="rules-modal__section-title">赛制：</h3>
+              <ul>
+                <li>首轮随机抽签，16 人打 8 场（八分之一决赛）；此后胜者重新抽签</li>
+                <li>八分之一 → 四分之一 → 半决赛，最后是<strong>决赛（七局四胜）</strong>决出冠军</li>
+                <li>允许"内战"：同阵营选手也可能抽到一起</li>
+              </ul>
+              <h3 class="rules-modal__section-title">单局规则：</h3>
+              <ul>
+                <li>每局 30 轮常规时间：每轮先手、后手各掷一次骰子（两枚六面骰，2~12 点，按概率加权）</li>
+                <li>总分高者赢下单局，直接淘汰对手（决赛则先赢 4 局者夺冠）</li>
+                <li>每 10 轮为一段（前段/中段/末段），段间亮出数据对比，解说员逐段点评战况</li>
+                <li>30 轮战平进入加赛：逐轮掷骰，直到分出胜负</li>
+              </ul>
+              <h3 class="rules-modal__section-title">观战体验：</h3>
+              <p>
+                全程自动进行，你只需围观比分与 AI 解说；解说含选手背景与历史纪录彩蛋，配置 LLM 密钥可获得完整播报。
               </p>
             </div>
 
@@ -1070,17 +1180,6 @@ body {
   border-color: #ff8f00;
   color: #1a1a2e;
   font-weight: bold;
-}
-
-/* 模式规则页占位（正文待补充时显示） */
-.rules-mode-page__placeholder {
-  border: 1px dashed rgba(255, 143, 0, 0.45);
-  border-radius: 8px;
-  padding: 28px 16px;
-  text-align: center;
-  color: #b9a97e;
-  font-size: 13px;
-  line-height: 1.8;
 }
 
 /* 总览页提示小字 */
