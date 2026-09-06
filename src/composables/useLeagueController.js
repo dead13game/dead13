@@ -4,7 +4,7 @@ import {
   getPlayerMatchForRound,
   getPlayerOpponent,
   isPlayerHome,
-  getCardBonus,
+  getTeamCardBonuses,
   simulateNonPlayerMatches,
   recordMatchResult,
   calculateStandings,
@@ -108,7 +108,13 @@ export function useLeagueController() {
 
     const opponentId = getPlayerOpponent(leagueState, round);
     const home = isPlayerHome(leagueState, round);
-    const cardBonus = getCardBonus(leagueState.playerTeamId, opponentId, home);
+    // 双方各自卡牌加成（teamId 0=玩家队伍，1=对手队伍）：
+    // 等级差与主场加成对双方通用，各按本方 vs 对方视角计算
+    const cardBonus = getTeamCardBonuses(
+      leagueState.playerTeamId,
+      opponentId,
+      home,
+    );
 
     // 获取队伍名称
     const playerTeam = LEAGUE_TEAMS[leagueState.playerTeamId];
@@ -380,7 +386,8 @@ export function useLeagueController() {
       playerTeamId: 0,
       opponentTeamId: 1,
       isHome: true, // 加赛无主客场区别
-      cardBonus: { attackBonus: 0, defenseBonus: 0 },
+      // 加赛不涉及等级差/主场，两队均无加成
+      cardBonus: buildNoBonusCardBonus(),
       deathOrder: [],
       matchOver: false,
       winner: null,
@@ -423,7 +430,7 @@ export function useLeagueController() {
     applyLeagueArtifact();
 
     gameState.leagueContext = {
-      cardBonus: { attackBonus: 0, defenseBonus: 0 },
+      cardBonus: buildNoBonusCardBonus(),
       maxRounds: Infinity,
       onPlayerDeath: (deadIdx) => {
         handlePlayerDeath(deadIdx);
@@ -527,12 +534,40 @@ export function useLeagueController() {
     }
   }
 
+  // ---- 卡牌加成辅助 ----
+
+  /** 两队均无加成的 cardBonus 结构（加赛用） */
+  function buildNoBonusCardBonus() {
+    return {
+      0: { attackBonus: 0, defenseBonus: 0 },
+      1: { attackBonus: 0, defenseBonus: 0 },
+    };
+  }
+
+  /**
+   * 读档时按球队与主客场重算两队卡牌加成（兼容旧存档的平铺格式，
+   * 旧值本身按旧规则可能错误，故一律重算而非沿用存档值）
+   * @returns {{0: object, 1: object}}
+   */
+  function buildCardBonusFromMatch(ms) {
+    if (!ms || ms.isTiebreaker || ms.round > TOTAL_ROUNDS) {
+      return buildNoBonusCardBonus();
+    }
+    const pm = getPlayerMatchForRound(leagueState, ms.round);
+    if (!pm) return buildNoBonusCardBonus();
+    return getTeamCardBonuses(
+      leagueState.playerTeamId,
+      pm.isHome ? pm.match.away : pm.match.home,
+      pm.isHome,
+    );
+  }
+
   function rebuildLeagueContext() {
     const ms = matchState.value;
     if (!ms) return;
 
     gameState.leagueContext = {
-      cardBonus: ms.cardBonus || { attackBonus: 0, defenseBonus: 0 },
+      cardBonus: buildCardBonusFromMatch(ms),
       maxRounds: ms.maxRounds || LEAGUE_MATCH_CONFIG.maxRounds,
       onPlayerDeath: (deadIdx) => {
         handlePlayerDeath(deadIdx);

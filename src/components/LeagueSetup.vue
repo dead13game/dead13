@@ -45,11 +45,11 @@
       <div class="league-setup__bonus-info" v-if="selectedTeamId">
         <h4>📋 卡牌加成规则</h4>
         <ul>
-          <li>一流 vs 二流：一流攻击牌+2</li>
-          <li>一流 vs 末流：一流攻击牌+2 防御牌+2</li>
-          <li>二流 vs 末流：二流攻击牌+2</li>
+          <li>一流 vs 三流：一流攻击牌+2 防御牌+2</li>
+          <li>一流 vs 二流：一流攻击牌+1</li>
+          <li>二流 vs 三流：二流攻击牌+1</li>
           <li>同等级：无加成</li>
-          <li>主场：攻击牌额外+1</li>
+          <li>主场：攻击牌额外+1（双方主客通用）</li>
         </ul>
       </div>
 

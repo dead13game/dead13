@@ -39,6 +39,23 @@ function endAction(state) {
   _endAction(state);
 }
 
+// ===== 联赛卡牌加成读取 =====
+
+/**
+ * 读取某比赛队伍的联赛卡牌加成
+ * 新格式 leagueContext.cardBonus = { 0: {...}, 1: {...} }（按比赛 teamId 索引）
+ * 兼容旧存档的平铺格式 { attackBonus, defenseBonus }（仅 teamId=0 有一份）
+ * @returns {{ attackBonus: number, defenseBonus: number } | null}
+ */
+function getTeamLeagueBonus(state, teamId) {
+  const cb = state.leagueContext?.cardBonus;
+  if (!cb) return null;
+  if (cb[teamId] && typeof cb[teamId] === "object") return cb[teamId];
+  // 旧平铺格式：等价于 teamId=0（玩家队伍）的加成
+  if (teamId === 0 && typeof cb.attackBonus === "number") return cb;
+  return null;
+}
+
 // ===== 攻击 =====
 
 export function startAttack(state) {
@@ -194,9 +211,10 @@ export function executeAttack(state, targetIdx) {
     },
   );
 
-  // 联赛模式卡牌加成：根据等级差+主客场（仅玩家队伍攻击享受，对手队不享受）
-  if (state.leagueContext?.cardBonus && attacker.teamId === 0) {
-    const bonus = state.leagueContext.cardBonus.attackBonus || 0;
+  // 联赛模式卡牌加成：等级差+主客场（双方通用，按攻击方球队视角）
+  const teamBonus = getTeamLeagueBonus(state, attacker.teamId);
+  if (teamBonus) {
+    const bonus = teamBonus.attackBonus || 0;
     if (bonus > 0) {
       attackValue += bonus;
       addLog(state, `联赛攻击加成+${bonus}`);
@@ -581,9 +599,10 @@ export function executeDefense(state) {
     state.devLog.debug(CAT.WEATHER, `黑市交易 +2 → ${cardValue}`);
   }
 
-  // 联赛模式防御加成（仅玩家队伍防御享受，对手队不享受）
-  if (state.leagueContext?.cardBonus && player.teamId === 0) {
-    const defBonus = state.leagueContext.cardBonus.defenseBonus || 0;
+  // 联赛模式防御加成（双方通用，按防守方球队视角）
+  const teamBonus = getTeamLeagueBonus(state, player.teamId);
+  if (teamBonus) {
+    const defBonus = teamBonus.defenseBonus || 0;
     if (defBonus > 0) {
       cardValue += defBonus;
       state.devLog.debug(

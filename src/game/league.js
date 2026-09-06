@@ -29,29 +29,32 @@ export function getTeamTier(teamId) {
 }
 
 /**
- * 计算卡牌加成
- * @param {number} playerTeamId - 玩家球队ID
- * @param {number} opponentTeamId - 对手球队ID
- * @param {boolean} isHome - 玩家是否是主队
+ * 计算某方球队的卡牌加成（双方通用，按本方 vs 对方视角计算）
+ * 等级差攻击加成：高一档（一流vs二流、二流vs三流）攻击+1；
+ *                 高两档（一流vs三流）攻击+2、防御+2；同级/等级更低无加成。
+ * 主场加成：本方是主场时攻击牌额外+1。
+ * @param {number} teamId - 本方球队ID
+ * @param {number} opponentTeamId - 对方球队ID
+ * @param {boolean} isHome - 本方是否是主队
  * @returns {{ attackBonus: number, defenseBonus: number }}
  */
-export function getCardBonus(playerTeamId, opponentTeamId, isHome) {
-  const playerTier = getTeamTier(playerTeamId);
+export function getCardBonus(teamId, opponentTeamId, isHome) {
+  const teamTier = getTeamTier(teamId);
   const opponentTier = getTeamTier(opponentTeamId);
   let attackBonus = 0;
   let defenseBonus = 0;
 
-  const tierDiff = opponentTier - playerTier; // 正数=玩家等级更高
+  const tierDiff = opponentTier - teamTier; // 正数=本方等级更高（tier 数值越小越强）
 
   if (tierDiff >= 1) {
-    // 玩家等级高于对手
+    // 本方等级高于对手
     if (tierDiff >= 2) {
-      // 一流 vs 末流：攻击+2，防御+2
+      // 一流 vs 三流：攻击+2，防御+2
       attackBonus = 2;
       defenseBonus = 2;
     } else {
-      // 一流 vs 二流 或 二流 vs 末流：攻击+2
-      attackBonus = 2;
+      // 一流 vs 二流 或 二流 vs 三流：攻击+1
+      attackBonus = 1;
     }
   }
 
@@ -61,6 +64,20 @@ export function getCardBonus(playerTeamId, opponentTeamId, isHome) {
   }
 
   return { attackBonus, defenseBonus };
+}
+
+/**
+ * 计算一场比赛两支球队（teamId 0/1）各自的卡牌加成
+ * @param {number} playerTeamId - 玩家在赛程中的球队ID
+ * @param {number} opponentTeamId - 对手球队ID
+ * @param {boolean} playerIsHome - 玩家（teamId=0）是否是主队
+ * @returns {{ 0: { attackBonus: number, defenseBonus: number }, 1: { attackBonus: number, defenseBonus: number } }}
+ */
+export function getTeamCardBonuses(playerTeamId, opponentTeamId, playerIsHome) {
+  return {
+    0: getCardBonus(playerTeamId, opponentTeamId, playerIsHome),
+    1: getCardBonus(opponentTeamId, playerTeamId, !playerIsHome),
+  };
 }
 
 // ---- 创建联赛状态 ----

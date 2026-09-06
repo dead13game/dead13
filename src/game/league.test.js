@@ -115,32 +115,44 @@ _injectCombatDeps(currentPlayer, addLog, ensureDeck, endAction);
 
 describe("league 联赛加成", () => {
   describe("getCardBonus 加成计算", () => {
-    it("玩家等级高于对手 2 级：攻击+2 防御+2", () => {
+    it("本方等级高于对手 2 级：攻击+2 防御+2", () => {
       // tier1 曼城(1) vs tier3 狼队(10)
       const b = getCardBonus(1, 10, false);
       expect(b).toEqual({ attackBonus: 2, defenseBonus: 2 });
     });
 
-    it("玩家等级高于对手 1 级：仅攻击+2", () => {
+    it("本方等级高于对手 1 级：仅攻击+1", () => {
       // tier1 曼城(1) vs tier2 切尔西(5)
       const b = getCardBonus(1, 5, false);
-      expect(b).toEqual({ attackBonus: 2, defenseBonus: 0 });
+      expect(b).toEqual({ attackBonus: 1, defenseBonus: 0 });
     });
 
-    it("玩家等级低于对手：无加成", () => {
+    it("二流 vs 三流：二流攻击+1", () => {
+      // tier2 切尔西(5) vs tier3 狼队(10)
+      const b = getCardBonus(5, 10, false);
+      expect(b).toEqual({ attackBonus: 1, defenseBonus: 0 });
+    });
+
+    it("本方等级低于对手：无加成", () => {
       // tier3 狼队(10) vs tier1 曼城(1)
       const b = getCardBonus(10, 1, false);
       expect(b).toEqual({ attackBonus: 0, defenseBonus: 0 });
     });
 
     it("主场：攻击额外+1", () => {
+      // 一流 vs 三流（+2）+ 主场（+1）= +3
       const b = getCardBonus(1, 10, true);
       expect(b).toEqual({ attackBonus: 3, defenseBonus: 2 });
+    });
+
+    it("一流 vs 二流 + 主场：攻击+2", () => {
+      const b = getCardBonus(1, 5, true);
+      expect(b).toEqual({ attackBonus: 2, defenseBonus: 0 });
     });
   });
 
   describe("攻击加成归属队伍", () => {
-    it("对手队（teamId=1）攻击玩家队：不享受联赛攻击加成", () => {
+    it("旧平铺格式（读档兼容）：仅 teamId=0 享受加成，对手队（teamId=1）不享受", () => {
       const attacker = mockPlayer({
         index: 0,
         name: "对手",
@@ -165,7 +177,7 @@ describe("league 联赛加成", () => {
       expect(state.messageLog).not.toContain("联赛攻击加成+3");
     });
 
-    it("玩家队（teamId=0）攻击对手队：享受联赛攻击加成", () => {
+    it("旧平铺格式：teamId=0 享受联赛攻击加成", () => {
       const attacker = mockPlayer({
         index: 0,
         name: "玩家",
@@ -189,10 +201,72 @@ describe("league 联赛加成", () => {
       executeAttack(state, 1);
       expect(state.messageLog).toContain("联赛攻击加成+3");
     });
+
+    it("双键格式：玩家队（teamId=0）攻击享受己队加成", () => {
+      const attacker = mockPlayer({
+        index: 0,
+        name: "玩家",
+        teamId: 0,
+        characterId: 1,
+      });
+      const target = mockPlayer({
+        index: 1,
+        name: "对手",
+        teamId: 1,
+        hp: 20,
+        maxHp: 20,
+      });
+      const state = mockState([attacker, target], {
+        currentPlayerIndex: 0,
+        step: STEP.ATTACK_SHOW_CARD,
+        pendingAttackCard: mockCard({ value: 5 }),
+        leagueContext: {
+          cardBonus: {
+            0: { attackBonus: 2, defenseBonus: 0 },
+            1: { attackBonus: 1, defenseBonus: 0 },
+          },
+        },
+      });
+
+      executeAttack(state, 1);
+      expect(state.messageLog).toContain("联赛攻击加成+2");
+      expect(state.messageLog).not.toContain("联赛攻击加成+1");
+    });
+
+    it("双键格式：对手队（teamId=1）攻击也按己队加成享受（双方通用）", () => {
+      const attacker = mockPlayer({
+        index: 0,
+        name: "对手",
+        teamId: 1,
+        characterId: 1,
+      });
+      const target = mockPlayer({
+        index: 1,
+        name: "玩家",
+        teamId: 0,
+        hp: 20,
+        maxHp: 20,
+      });
+      const state = mockState([attacker, target], {
+        currentPlayerIndex: 0,
+        step: STEP.ATTACK_SHOW_CARD,
+        pendingAttackCard: mockCard({ value: 5 }),
+        leagueContext: {
+          cardBonus: {
+            0: { attackBonus: 2, defenseBonus: 0 },
+            1: { attackBonus: 1, defenseBonus: 0 },
+          },
+        },
+      });
+
+      executeAttack(state, 1);
+      expect(state.messageLog).toContain("联赛攻击加成+1");
+      expect(state.messageLog).not.toContain("联赛攻击加成+2");
+    });
   });
 
   describe("防御加成归属队伍", () => {
-    it("对手队（teamId=1）防御：不享受联赛防御加成", () => {
+    it("旧平铺格式（读档兼容）：仅 teamId=0 享受防御加成，对手队（teamId=1）不享受", () => {
       const defender = mockPlayer({
         index: 0,
         name: "对手",
@@ -211,7 +285,7 @@ describe("league 联赛加成", () => {
       expect(defender.defensePile[0].defenseValue).toBe(5);
     });
 
-    it("玩家队（teamId=0）防御：享受联赛防御加成", () => {
+    it("旧平铺格式：teamId=0 享受联赛防御加成", () => {
       const defender = mockPlayer({
         index: 0,
         name: "玩家",
@@ -228,6 +302,30 @@ describe("league 联赛加成", () => {
       executeDefense(state);
       expect(defender.defensePile).toHaveLength(1);
       expect(defender.defensePile[0].defenseValue).toBe(7);
+    });
+
+    it("双键格式：对手队（teamId=1）防御也享受己队防御加成（双方通用）", () => {
+      const defender = mockPlayer({
+        index: 0,
+        name: "对手",
+        teamId: 1,
+        defensePile: [],
+      });
+      const state = mockState([defender], {
+        currentPlayerIndex: 0,
+        step: STEP.PICK_ACTION,
+        deck: [mockCard({ value: 5 })],
+        leagueContext: {
+          cardBonus: {
+            0: { attackBonus: 2, defenseBonus: 2 },
+            1: { attackBonus: 1, defenseBonus: 3 },
+          },
+        },
+      });
+
+      executeDefense(state);
+      expect(defender.defensePile).toHaveLength(1);
+      expect(defender.defensePile[0].defenseValue).toBe(8);
     });
   });
 });
