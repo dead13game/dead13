@@ -3,17 +3,55 @@
 // 规则来源：update_log/骰子战争(1).txt
 // - 固定 16 人名单（原神 8 + 崩铁 8），与经典对战角色仅名称重合、无任何机制关联
 // - 首轮随机配对 → 每轮胜者重新随机抽签（完全随机，不做赛区规避，允许内战）
-// - 八分之一决赛(8场) → 四分之一决赛(4场) → 半决赛(2场) → 决赛(七局四胜)
+// - 八分之一决赛(8场) → 四分之一决赛(4场) → 半决赛(2场) → 决赛
 // - 每局 30 轮常规时间：每轮先手、后手各掷一次骰子（2~12）
 // - 骰子点数和权重：src/game/骰子概率.csv（见 diceProbabilities.js，两枚六面骰分布）
 // - 每 10 轮一段（前段/中段/末段）输出数据对比；30 轮平局进入加赛，逐轮掷到分胜负
 // - 对阵表写在前面的为先手，写在后面的为后手
+// - 两种赛制（仅改局制，单局玩法不变）：
+//   · 经典世锦赛：各阶段一局定胜负，决赛七局四胜
+//   · 登神长阶：16进8 一局定胜负 / 8进4 五局三胜 / 4进2 十一局六胜 / 决赛十九局十胜
 
 import { rollWeightedDice } from "./diceProbabilities.js";
 
 export const TOTAL_ROUNDS = 30; // 常规时间轮数
 export const SEGMENT_LEN = 10; // 每段轮数
-export const FINAL_WINS = 4; // 决赛七局四胜
+export const FINAL_WINS = 4; // 经典世锦赛决赛七局四胜（= FORMATS.classic.wins.final）
+
+/**
+ * 赛制表：各阶段需赢下多少「局」才算拿下该对阵（晋级 / 夺冠）。
+ * - classic：各阶段一局定胜负，决赛七局四胜。
+ * - ladder（登神长阶）：16进8 一局定胜负；8进4 五局三胜；4进2 十一局六胜；决赛十九局十胜。
+ */
+export const FORMATS = {
+  classic: {
+    id: "classic",
+    name: "经典世锦赛",
+    wins: { r16: 1, qf: 1, sf: 1, final: FINAL_WINS },
+  },
+  ladder: {
+    id: "ladder",
+    name: "登神长阶",
+    wins: { r16: 1, qf: 3, sf: 6, final: 10 },
+  },
+};
+export const DEFAULT_FORMAT = "classic";
+
+/** 当前赛制配置（未知赛制回退经典） */
+export function getFormat(state) {
+  return FORMATS[state?.format] || FORMATS[DEFAULT_FORMAT];
+}
+
+/** 当前（或指定）阶段需赢下的局数；一局定胜负为 1 */
+export function getWinTarget(state, phase = state.phase) {
+  return getFormat(state).wins[phase] ?? 1;
+}
+
+/** 局制文案：1 → "一局定胜负"；3 → "5局3胜"；6 → "11局6胜"；10 → "19局10胜" */
+export function describeSeries(winTarget) {
+  if (!winTarget || winTarget <= 1) return "一局定胜负";
+  return `${winTarget * 2 - 1}局${winTarget}胜`;
+}
 
 export const CAMPS = { GENSHIN: "原神", HSR: "崩铁" };
 
@@ -105,32 +143,39 @@ function shuffle(arr, rng = Math.random) {
   return a;
 }
 
-/** 相邻两两配对 */
+/** 一组对阵（系列赛）：aWins/bWins 为该对阵内的局分 */
+function makeSeries(a, b) {
+  return { a, b, aWins: 0, bWins: 0 };
+}
+
+/** 相邻两两配对（每对包装成系列赛对象） */
 function pairPlayers(indices) {
   const pairs = [];
   for (let i = 0; i < indices.length; i += 2) {
-    pairs.push({ a: indices[i], b: indices[i + 1] });
+    pairs.push(makeSeries(indices[i], indices[i + 1]));
   }
   return pairs;
 }
 
 /** 创建世锦赛状态 */
-export function createDiceWar() {
+export function createDiceWar(format = DEFAULT_FORMAT) {
   return {
+    format: FORMATS[format] ? format : DEFAULT_FORMAT, // classic | ladder
     phase: null, // null | r16 | qf | sf | final
-    matchups: [], // 当前阶段对阵 [{ a, b }]（roster 索引）
+    matchups: [], // 当前阶段对阵 [{ a, b, aWins, bWins }]（roster 索引 + 局分）
     matchIndex: -1,
     advancers: [], // 已晋级者（roster 索引）
     finishedMatches: [], // 已结束单局记录
     champion: null, // 冠军（roster 索引）
-    series: null, // 决赛 series { a, b, aWins, bWins }
+    series: null, // 当前正在进行的对阵系列赛（matchups[matchIndex]）
     currentMatch: null,
-    matchCounter: 0, // 全局对局计数（含决赛每一局）
+    matchCounter: 0, // 全局对局计数（含系列赛每一局）
   };
 }
 
 /** 开赛：洗牌 → 16 人两两配对 → 八分之一决赛 */
-export function startTournament(state, rng = Math.random) {
+export function startTournament(state, rng = Math.random, format = state.format || DEFAULT_FORMAT) {
+  state.format = FORMATS[format] ? format : DEFAULT_FORMAT;
   state.phase = "r16";
   state.matchups = pairPlayers(
     shuffle(ROSTER.map((_, i) => i), rng),
@@ -167,10 +212,12 @@ function createMatch(state, aIdx, bIdx) {
     tieEntered: false, // 本轮进入加赛（UI 提示"双方战平"）
     winner: null, // 'a' | 'b'
     result: null, // 结束摘要
+    seriesScore: null, // 本局结束后当前对阵的局分 { aWins, bWins, winTarget }
+    seriesDone: false, // 本局是否终结了当前对阵（达 winTarget）
   };
 }
 
-/** 结束当前单局：记录 + 晋级 / 决赛局分 */
+/** 一局结束：记局分；达 winTarget 则对阵落定（非决赛晋级 / 决赛夺冠） */
 function finishMatch(state) {
   const m = state.currentMatch;
   m.winner = m.a.score >= m.b.score ? "a" : "b";
@@ -185,6 +232,17 @@ function finishMatch(state) {
     overtime: m.overtime,
   };
 
+  const winTarget = getWinTarget(state);
+  const series = state.series || state.matchups[state.matchIndex];
+  if (series) {
+    if (winKey === "a") series.aWins++;
+    else series.bWins++;
+  }
+  const aWins = series ? series.aWins : 0;
+  const bWins = series ? series.bWins : 0;
+  m.seriesScore = { aWins, bWins, winTarget };
+  m.seriesDone = aWins >= winTarget || bWins >= winTarget;
+
   const record = {
     matchNo: m.matchNo,
     phase: state.phase,
@@ -192,79 +250,79 @@ function finishMatch(state) {
     b: { name: m.b.name, camp: m.b.camp, icon: m.b.icon, score: m.b.score },
     winner: m[winKey].name,
     overtime: m.overtime,
-    sets: null,
+    sets: winTarget > 1 ? { aWins, bWins } : null, // 多局阶段记录局分
   };
   state.finishedMatches.push(record);
 
-  if (state.phase === "final") {
-    if (winKey === "a") state.series.aWins++;
-    else state.series.bWins++;
-    record.sets = { aWins: state.series.aWins, bWins: state.series.bWins };
-    if (state.series.aWins >= FINAL_WINS || state.series.bWins >= FINAL_WINS) {
-      state.champion =
-        state.series.aWins >= FINAL_WINS ? state.series.a : state.series.b;
+  if (m.seriesDone) {
+    if (state.phase === "final") {
+      state.champion = m[winKey].idx;
+    } else {
+      state.advancers.push(m[winKey].idx);
     }
-  } else {
-    state.advancers.push(m[winKey].idx);
   }
 }
 
-/** 阶段推进：胜者重新随机抽签；进入决赛时建立七局四胜 series */
+/** 阶段推进：胜者重新随机抽签（保留 series 供大比分展示） */
 function advancePhase(state, rng = Math.random) {
   if (state.phase === "final") {
-    state.champion =
-      state.series.aWins >= FINAL_WINS ? state.series.a : state.series.b;
+    // 决赛阶段已打完：冠军已在 finishMatch 判定（保留 series 供冠军页展示）
+    if (state.champion == null && state.series) {
+      state.champion =
+        state.series.aWins >= state.series.bWins ? state.series.a : state.series.b;
+    }
     state.currentMatch = null;
     return false; // 锦标赛结束
   }
   const nextIdx = PHASE_ORDER.indexOf(state.phase) + 1;
   state.phase = PHASE_ORDER[nextIdx];
   if (state.phase === "final") {
-    state.series = {
-      a: state.advancers[0],
-      b: state.advancers[1],
-      aWins: 0,
-      bWins: 0,
-    };
-    state.matchups = [{ a: state.series.a, b: state.series.b }];
+    state.matchups = [makeSeries(state.advancers[0], state.advancers[1])];
   } else {
     state.matchups = pairPlayers(shuffle(state.advancers, rng));
   }
   state.advancers = [];
   state.matchIndex = -1;
+  state.series = null;
   return true;
 }
 
 /**
- * 开始下一场（或决赛的下一局）。
- * - 返回新建的 match：本阶段还有下一场，或决赛还有下一局。
+ * 开始下一场（同一对阵未定胜负则继续下一局）。
+ * - 返回新建的 match：本阶段还有对阵，或当前对阵还有下一局。
  * - 返回 null：两种情况——
  *   ① 阶段已打完并推进到下一阶段（matchups 已生成，尚未开赛，由 UI 展示晋级名单后再次调用本函数开第一场）；
  *   ② 锦标赛已结束（冠军已产生）。
  *   调用方通过 state.champion 是否非空区分。
  */
 export function startNextMatch(state, rng = Math.random) {
-  // 决赛：同一对选手继续下一局，直到一方 4 胜
-  if (state.phase === "final" && state.series) {
-    if (state.series.aWins < FINAL_WINS && state.series.bWins < FINAL_WINS) {
-      state.matchIndex = 0;
-      state.currentMatch = createMatch(state, state.series.a, state.series.b);
-      return state.currentMatch;
+  const winTarget = getWinTarget(state);
+
+  if (state.matchIndex < 0) {
+    // 阶段第一个对阵：开赛
+    if (!state.matchups.length) return null;
+    state.matchIndex = 0;
+  } else {
+    // 当前对阵已分出胜负（达 winTarget）→ 进入下一个对阵
+    const cur = state.matchups[state.matchIndex];
+    const done = !!cur && (cur.aWins >= winTarget || cur.bWins >= winTarget);
+    if (done) {
+      state.matchIndex++;
+      if (state.matchIndex >= state.matchups.length) {
+        // 本阶段打完 → 推进阶段（本调用不开赛）
+        if (!advancePhase(state, rng)) {
+          state.currentMatch = null;
+          return null; // 锦标赛结束（冠军已产生）
+        }
+        state.currentMatch = null;
+        return null; // 阶段已推进，等 UI 展示晋级名单后再开第一场
+      }
     }
-    state.currentMatch = null;
-    return null; // 决赛结束（冠军已产生）
   }
 
-  // 当前阶段打完 → 只推进阶段（胜者重新抽签生成下一轮对阵），本调用不开赛
-  if (state.matchIndex + 1 >= state.matchups.length) {
-    if (!advancePhase(state, rng)) return null; // 锦标赛结束
-    state.currentMatch = null;
-    return null; // 阶段已推进，等 UI 展示晋级名单后再开第一场
-  }
-
-  state.matchIndex++;
-  const { a, b } = state.matchups[state.matchIndex];
-  state.currentMatch = createMatch(state, a, b);
+  const series = state.matchups[state.matchIndex];
+  state.series = series;
+  state.currentMatch = createMatch(state, series.a, series.b);
   return state.currentMatch;
 }
 
@@ -358,11 +416,11 @@ export function getSegmentSummary(match, seg) {
   return { seg, from, to, a, b, totalA, totalB };
 }
 
-/** 当前对局标签：非决赛 "第N场"，决赛 "第N局" */
+/** 当前对局标签：多局阶段 "第N局"，单局阶段 "第N场" */
 export function getMatchupLabel(state) {
-  if (state.phase === "final") {
-    const s = state.series;
-    const n = s ? s.aWins + s.bWins + 1 : 1;
+  const winTarget = getWinTarget(state);
+  if (winTarget > 1 && state.series) {
+    const n = state.series.aWins + state.series.bWins + 1;
     return `第${n}局`;
   }
   return `第${state.matchIndex + 1}场`;
@@ -375,7 +433,14 @@ export function describeGap(aName, aScore, bName, bScore) {
   return `${lead}领先 ${Math.abs(aScore - bScore)} 分`;
 }
 
-/** 决赛大比分 { aWins, bWins }，非决赛返回 null */
+/**
+ * 当前对阵的系列赛局分 { aWins, bWins, winTarget, a, b }。
+ * 单局阶段（一局定胜负）或未开赛返回 null。
+ */
 export function getSeriesScore(state) {
-  return state.series ? { aWins: state.series.aWins, bWins: state.series.bWins } : null;
+  const winTarget = getWinTarget(state);
+  if (winTarget <= 1) return null;
+  const s = state.series;
+  if (!s) return null;
+  return { aWins: s.aWins, bWins: s.bWins, winTarget, a: s.a, b: s.b };
 }

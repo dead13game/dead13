@@ -5,11 +5,11 @@
       <div class="dw-header__title">
         <span class="dw-logo">🎲</span>
         <div>
-          <h2>娱乐模式 · 骰子战争世锦赛</h2>
+          <h2>娱乐模式 · {{ formatName }}</h2>
           <p v-if="phaseMeta">
             {{ phaseMeta.name }}
             <template v-if="match"> · {{ matchupLabel }}</template>
-            <template v-if="isFinal && seriesScore">
+            <template v-if="seriesScore">
               · 大比分 {{ seriesScore.aWins }} - {{ seriesScore.bWins }}
             </template>
           </p>
@@ -33,15 +33,24 @@
       <div class="dw-rules">
         <h4>规则速览</h4>
         <ul>
-          <li>16 人随机配对，每轮胜者重新抽签：16强 → 8强 → 半决赛 → 决赛（七局四胜）</li>
+          <li>16 人随机配对，每轮胜者重新抽签：16强 → 8强 → 半决赛 → 决赛</li>
           <li>每局 30 轮：每轮先手、后手各掷一次骰子（2~12，模拟两个六面骰），自动累加总分</li>
           <li>每 10 轮一段输出数据对比（前段/中段/末段）；30 轮平局进入加赛，逐轮掷到分胜负</li>
           <li>每 10 轮 AI 解说员解说一次（需在「解说设置」填写密钥）</li>
+          <li>局制：经典世锦赛（决赛七局四胜）／登神长阶（8进4 五局三胜 · 4进2 十一局六胜 · 决赛十九局十胜）</li>
         </ul>
       </div>
-      <button class="dw-primary dw-primary--big" @click="onStartTournament">
-        🎲 开始世锦赛
-      </button>
+      <div class="dw-start-btns">
+        <button class="dw-primary dw-primary--big" @click="onStartTournament('classic')">
+          🎲 开始世锦赛
+        </button>
+        <button
+          class="dw-primary dw-primary--big dw-primary--ladder"
+          @click="onStartTournament('ladder')"
+        >
+          🏔 登神长阶
+        </button>
+      </div>
     </section>
 
     <!-- 对阵表 -->
@@ -60,9 +69,9 @@
           <img :src="ROSTER[mu.b].icon" :alt="ROSTER[mu.b].name" />
         </span>
       </div>
-      <p v-if="isFinal" class="dw-hint">决赛采用七局四胜制，每局 30 轮。</p>
+      <p v-if="isSeriesPhase" class="dw-hint">本阶段局制：{{ seriesRuleText }}，每局 30 轮。</p>
       <button class="dw-primary dw-primary--big" @click="onStartFirstMatch">
-        🎲 开始第一场
+        🎲 开始{{ isSeriesPhase ? '第1局' : '第一场' }}
       </button>
     </section>
 
@@ -90,6 +99,9 @@
           <div class="dw-round">第 {{ currentRound }} 轮</div>
           <div v-if="match.overtime" class="dw-overtime">⚡ 加赛</div>
           <div v-else class="dw-remain">剩 {{ Math.max(0, TOTAL_ROUNDS - match.round) }} 轮</div>
+          <div v-if="seriesScore" class="dw-series-mini">
+            {{ matchupLabel }} · 局分 {{ seriesScore.aWins }} - {{ seriesScore.bWins }}
+          </div>
         </div>
 
         <div class="dw-player" :class="{ 'is-current': match.phase === 'rollB' }">
@@ -159,7 +171,7 @@
       <!-- 单局结束 -->
       <div v-if="match.phase === 'over'" class="dw-panel dw-panel--result">
         <h3>{{ resultTitle }}</h3>
-        <template v-if="champion && isFinal">
+        <template v-if="champion">
           <div class="dw-panel__line big">
             {{ match.a.name }} {{ seriesScore.aWins }} - {{ seriesScore.bWins }}
             {{ match.b.name }}
@@ -181,10 +193,10 @@
             </div>
           </template>
           <div class="dw-panel__line result">结果：{{ resultText }}</div>
-          <template v-if="isFinal && seriesScore">
+          <template v-if="seriesScore">
             <div class="dw-panel__line sets">
-              大比分：{{ match.a.name }} {{ seriesScore.aWins }} - {{ seriesScore.bWins }}
-              {{ match.b.name }}
+              系列赛大比分：{{ match.a.name }} {{ seriesScore.aWins }} - {{ seriesScore.bWins }}
+              {{ match.b.name }}（{{ seriesRuleText }}）
             </div>
           </template>
         </template>
@@ -241,7 +253,7 @@
           <img :src="ROSTER[mu.b].icon" :alt="ROSTER[mu.b].name" />
         </span>
       </div>
-      <p v-if="isFinal" class="dw-hint">决赛采用七局四胜制。</p>
+      <p v-if="isSeriesPhase" class="dw-hint">{{ phaseMeta?.name }}局制：{{ seriesRuleText }}。</p>
       <button class="dw-primary dw-primary--big" @click="onStartFirstMatch">
         🎲 开始{{ isFinal ? '决赛' : '新一轮' }}
       </button>
@@ -257,7 +269,7 @@
           {{ champion.camp }}
         </div>
         <div v-if="seriesScore" class="dw-champion__score">
-          决赛大比分 {{ seriesScore.aWins }} - {{ seriesScore.bWins }}
+          决赛大比分（{{ seriesRuleText }}） {{ seriesScore.aWins }} - {{ seriesScore.bWins }}
         </div>
       </div>
       <div class="dw-history">
@@ -315,6 +327,7 @@ import {
   TOTAL_ROUNDS,
   SEGMENT_LEN,
   CHAMPIONS_HISTORY,
+  FORMATS,
   createDiceWar,
   startTournament,
   startNextMatch,
@@ -324,6 +337,8 @@ import {
   getSegmentSummary,
   getMatchupLabel,
   getSeriesScore,
+  getWinTarget,
+  describeSeries,
   describeGap,
 } from "../game/diceWar.js";
 import { KIND, buildCommentaryRequest } from "../game/diceWarCommentator.js";
@@ -379,9 +394,20 @@ function loadPersisted() {
   try {
     const data = JSON.parse(raw);
     if (data && data.dw) {
-      // 重建整棵状态，直接展开回 reactive dw
-      const fresh = createDiceWar();
+      // 重建整棵状态，直接展开回 reactive dw（未知/旧档回退经典赛制）
+      const fresh = createDiceWar(data.dw.format || "classic");
       Object.assign(fresh, data.dw);
+      // 归一化旧存档：系列赛对象补齐局分字段，series 重新指向当前对阵
+      fresh.matchups = (fresh.matchups || []).map((s) => ({
+        a: s.a,
+        b: s.b,
+        aWins: s.aWins || 0,
+        bWins: s.bWins || 0,
+      }));
+      fresh.series =
+        fresh.matchIndex >= 0 && fresh.matchups[fresh.matchIndex]
+          ? fresh.matchups[fresh.matchIndex]
+          : null;
       isRestoring.value = true;
       Object.assign(dw, fresh);
       uiMode.value = data.uiMode || "setup";
@@ -530,6 +556,9 @@ const match = computed(() => dw.currentMatch);
 const seriesScore = computed(() => getSeriesScore(dw));
 const matchupLabel = computed(() => getMatchupLabel(dw));
 const isFinal = computed(() => dw.phase === "final");
+const formatName = computed(() => (FORMATS[dw.format] || FORMATS.classic).name);
+const seriesRuleText = computed(() => describeSeries(getWinTarget(dw)));
+const isSeriesPhase = computed(() => getWinTarget(dw) > 1);
 const champion = computed(() =>
   dw.champion != null ? ROSTER[dw.champion] : null,
 );
@@ -555,18 +584,19 @@ const resultTitle = computed(() => {
   const m = match.value;
   if (!m) return "";
   if (isFinal.value && champion.value) return "【决赛结束】";
-  if (isFinal.value) return `【${matchupLabel.value}结束】`;
+  if (isSeriesPhase.value) return `【${matchupLabel.value}结束】`;
   return m.overtime ? "【加赛结束】" : "【比赛结束】";
 });
 const resultText = computed(() => {
   const m = match.value;
   if (!m?.result) return "";
   const w = m.result.winnerName;
-  if (isFinal.value) return `${w}胜出`;
+  if (isSeriesPhase.value) return `${w}拿下本局`;
   return m.overtime ? `${w}加赛胜出，晋级` : `${w}胜出，晋级`;
 });
 const nextButtonText = computed(() => {
-  if (isFinal.value) return champion.value ? "查看冠军 🏆" : "下一局 →";
+  if (champion.value) return "查看冠军 🏆";
+  if (isSeriesPhase.value) return "下一局 →";
   return "下一场 →";
 });
 const gapText = (m) => describeGap(m.a.name, m.a.score, m.b.name, m.b.score);
@@ -581,8 +611,8 @@ const KIND_LABELS = {
 const commentaryKindLabel = computed(() => KIND_LABELS[commentary.value.kind] || "");
 
 // ---- 动作 ----
-function onStartTournament() {
-  startTournament(dw);
+function onStartTournament(format = "classic") {
+  startTournament(dw, Math.random, format);
   commentary.value = { status: "idle", kind: "", text: "", error: "" };
   uiMode.value = "matchups";
   clearSave(); // 新一届取代旧档
@@ -763,6 +793,27 @@ onMounted(() => {
 .dw-primary--big {
   font-size: 17px;
   padding: 14px 30px;
+}
+.dw-start-btns {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.dw-primary--ladder {
+  background: linear-gradient(135deg, #1565c0, #6a1b9a);
+  box-shadow: 0 4px 16px rgba(21, 101, 192, 0.4);
+}
+.dw-primary--ladder:hover {
+  background: linear-gradient(135deg, #1e88e5, #8e24aa);
+}
+.dw-series-mini {
+  font-size: 11px;
+  color: #ffd54f;
+  background: rgba(255, 213, 79, 0.14);
+  border-radius: 20px;
+  padding: 2px 8px;
+  white-space: nowrap;
 }
 .dw-rollbar {
   display: flex;

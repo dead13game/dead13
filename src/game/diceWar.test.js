@@ -8,6 +8,7 @@ import {
   SEGMENT_LEN,
   FINAL_WINS,
   CAMPS,
+  FORMATS,
   createDiceWar,
   startTournament,
   startNextMatch,
@@ -17,8 +18,10 @@ import {
   continueAfterSegment,
   getSegmentSummary,
   getMatchupLabel,
-  describeGap,
   getSeriesScore,
+  getWinTarget,
+  describeSeries,
+  describeGap,
 } from "./diceWar.js";
 import { KIND, buildCommentaryRequest } from "./diceWarCommentator.js";
 import {
@@ -65,17 +68,22 @@ function simulateMatch(state) {
   }
 }
 
-/** 构造一个"决赛阶段"状态（A=roster[0]，B=roster[1]） */
-function craftFinal() {
-  const s = createDiceWar();
-  startTournament(s);
-  s.phase = "final";
+/** 构造一个指定阶段的对阵（默认双方 roster[0] vs roster[1]） */
+function craftPhase(phase, format = "classic", a = 0, b = 1) {
+  const s = createDiceWar(format);
+  startTournament(s, () => 0.5, format);
+  s.phase = phase;
   s.advancers = [];
-  s.series = { a: 0, b: 1, aWins: 0, bWins: 0 };
-  s.matchups = [{ a: 0, b: 1 }];
+  s.matchups = [{ a, b, aWins: 0, bWins: 0 }];
+  s.series = s.matchups[0];
   s.matchIndex = -1;
   s.currentMatch = null;
   return s;
+}
+
+/** 构造一个"决赛阶段"状态（A=roster[0]，B=roster[1]） */
+function craftFinal(format = "classic") {
+  return craftPhase("final", format, 0, 1);
 }
 
 describe("固定16人名单", () => {
@@ -413,17 +421,18 @@ describe("解说员请求构造", () => {
     expect(system).toContain("胜率");
   });
 
-  it("末段：宣布结果；决赛附带大比分", () => {
+  it("末段：宣布结果；一局定胜负阶段不带系列赛大比分", () => {
     const s = setupAtSegment();
     const { system, user } = buildCommentaryRequest(s, s.currentMatch, KIND.FINAL);
     expect(system).toContain("宣布比赛结果");
     const snap = JSON.parse(user);
     expect(snap.特殊事件).toEqual(expect.any(Array));
-    // 非决赛无大比分
-    expect(snap.决赛大比分).toBeUndefined();
+    expect(snap.局制).toBe("一局定胜负");
+    // 经典赛制非决赛为一局定胜负 → 无系列赛大比分
+    expect(snap.系列赛大比分).toBeUndefined();
   });
 
-  it("决赛：大比分与局分进入快照", () => {
+  it("决赛：系列赛大比分与局制进入快照", () => {
     const s = craftFinal();
     let lastMatch = null;
     while (startNextMatch(s)) {
@@ -436,10 +445,132 @@ describe("解说员请求构造", () => {
     expect(system).toContain("冠军");
     const snap = JSON.parse(user);
     expect(snap.冠军).toBe(ROSTER[0].name);
-    expect(snap.决赛大比分).toEqual({
+    expect(snap.局制).toBe("7局4胜");
+    expect(snap.系列赛大比分).toEqual({
       [ROSTER[0].name]: 4,
       [ROSTER[1].name]: 0,
     });
+  });
+});
+
+describe("登神长阶赛制", () => {
+  it("各阶段局制：16进8 一局定胜负 / 8进4 5局3胜 / 4进2 11局6胜 / 决赛 19局10胜", () => {
+    const s = createDiceWar("ladder");
+    startTournament(s, () => 0.5, "ladder");
+    expect(FORMATS.ladder.wins).toEqual({ r16: 1, qf: 3, sf: 6, final: 10 });
+    expect(getWinTarget(s, "r16")).toBe(1);
+    expect(getWinTarget(s, "qf")).toBe(3);
+    expect(getWinTarget(s, "sf")).toBe(6);
+    expect(getWinTarget(s, "final")).toBe(10);
+    expect(describeSeries(1)).toBe("一局定胜负");
+    expect(describeSeries(3)).toBe("5局3胜");
+    expect(describeSeries(6)).toBe("11局6胜");
+    expect(describeSeries(10)).toBe("19局10胜");
+  });
+
+  it("16进8 一局定胜负：一局即定胜负晋级", () => {
+    const s = craftPhase("r16", "ladder");
+    startNextMatch(s);
+    const m = s.currentMatch;
+    playRounds(s, 30, 12, 2); // A 胜
+    expect(m.phase).toBe("over");
+    expect(m.seriesDone).toBe(true);
+    expect(m.seriesScore).toEqual({ aWins: 1, bWins: 0, winTarget: 1 });
+    expect(s.advancers).toEqual([0]);
+  });
+
+  it("8进4 五局三胜：同一对选手打到 3 胜才晋级", () => {
+    const s = craftPhase("qf", "ladder");
+    const pairs = [];
+    let games = 0;
+    while (startNextMatch(s)) {
+      pairs.push(`${s.currentMatch.a.name}-${s.currentMatch.b.name}`);
+      expect(getMatchupLabel(s)).toContain("局");
+      playRounds(s, 30, 12, 2); // A 每局必胜
+      games++;
+      if (s.advancers.length) break;
+    }
+    expect(games).toBe(3); // 3:0 直接拿下
+    expect(new Set(pairs).size).toBe(1); // 全程同一对选手
+    expect(s.series.aWins).toBe(3);
+    expect(s.series.bWins).toBe(0);
+    expect(s.advancers).toEqual([0]);
+  });
+
+  it("8进4 打满：A 2:0 领先后被追到 2:2，第 5 局定胜负", () => {
+    const s = craftPhase("qf", "ladder");
+    const seq = [true, true, false, false, true]; // A A B B A
+    let games = 0;
+    while (startNextMatch(s)) {
+      const aWin = seq[games];
+      playRounds(s, 30, aWin ? 12 : 2, aWin ? 2 : 12);
+      expect(getSeriesScore(s).winTarget).toBe(3);
+      games++;
+      if (s.advancers.length) break;
+    }
+    expect(games).toBe(5);
+    expect(s.series.aWins).toBe(3);
+    expect(s.series.bWins).toBe(2);
+    expect(s.advancers).toEqual([0]);
+  });
+
+  it("4进2 十一局六胜：先赢 6 局晋级", () => {
+    const s = craftPhase("sf", "ladder");
+    let games = 0;
+    while (startNextMatch(s)) {
+      playRounds(s, 30, 12, 2);
+      games++;
+      if (s.advancers.length) break;
+    }
+    expect(games).toBe(6); // 6:0
+    expect(s.series.aWins).toBe(6);
+    expect(s.advancers).toEqual([0]);
+  });
+
+  it("决赛十九局十胜：先赢 10 局夺冠", () => {
+    const s = craftPhase("final", "ladder");
+    let games = 0;
+    while (startNextMatch(s)) {
+      playRounds(s, 30, 12, 2);
+      games++;
+      if (s.champion != null) break;
+    }
+    expect(games).toBe(10); // 10:0
+    expect(s.champion).toBe(0);
+    expect(s.series.aWins).toBe(10);
+    expect(getSeriesScore(s).winTarget).toBe(10);
+  });
+
+  it("完整登神长阶：冠军产生，各阶段局数落在规则范围内", () => {
+    const s = createDiceWar("ladder");
+    startTournament(s, () => 0.5, "ladder");
+    let guard = 0;
+    while (guard < 600) {
+      const next = startNextMatch(s);
+      if (!next) {
+        if (s.champion != null) break;
+        continue; // 阶段推进
+      }
+      simulateMatch(s);
+      guard++;
+    }
+    expect(s.champion).not.toBeNull();
+    const byPhase = (ph) => s.finishedMatches.filter((m) => m.phase === ph);
+    expect(byPhase("r16").length).toBe(8); // 8 组 × 1 局
+    const qf = byPhase("qf").length;
+    expect(qf).toBeGreaterThanOrEqual(4 * 3); // ≥ 4 组 × 3 局
+    expect(qf).toBeLessThanOrEqual(4 * 5); // ≤ 4 组 × 5 局
+    const sf = byPhase("sf").length;
+    expect(sf).toBeGreaterThanOrEqual(2 * 6);
+    expect(sf).toBeLessThanOrEqual(2 * 11);
+    const fin = byPhase("final").length;
+    expect(fin).toBeGreaterThanOrEqual(10);
+    expect(fin).toBeLessThanOrEqual(19);
+    for (const rec of s.finishedMatches) {
+      expect([rec.a.name, rec.b.name]).toContain(rec.winner);
+    }
+    const finalPair = new Set(byPhase("final").flatMap((m) => [m.a.name, m.b.name]));
+    expect(finalPair.size).toBe(2);
   });
 });
 

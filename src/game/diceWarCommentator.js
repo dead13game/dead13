@@ -16,6 +16,8 @@ import {
   describeGap,
   getSegmentSummary,
   getMatchupLabel,
+  getWinTarget,
+  describeSeries,
 } from "./diceWar.js";
 
 /** roster 索引 → 名字 */
@@ -45,9 +47,9 @@ const SEGMENT_RULES = {
   [KIND.MID]:
     "现在是【中段】解说（第11-20轮刚结束）：给数据 + 粗略胜率估算 + 口语化解说，别太早下结论。",
   [KIND.FINAL]:
-    "现在是【末段】解说（第21-30轮刚结束/比赛结束）：宣布比赛结果；若比分打平则说明进入加赛。若这是决赛的一局，同时播报大比分（七局四胜制，先赢4局者夺冠）。",
+    "现在是【末段】解说（第21-30轮刚结束/比赛结束）：宣布比赛结果；若比分打平则说明进入加赛。若这是多局系列赛的一局，同时播报系列赛大比分（局制见数据）。",
   [KIND.OVERTIME]:
-    "比赛进入【加赛】并已结束：宣布加赛结果（谁加赛胜出），突出戏剧性和宿命感。若这是决赛的一局，同时播报大比分。",
+    "比赛进入【加赛】并已结束：宣布加赛结果（谁加赛胜出），突出戏剧性和宿命感。若这是多局系列赛的一局，同时播报系列赛大比分。",
   [KIND.CHAMPION]:
     "【决赛结束】新的冠军诞生：盛大庆祝冠军，结合角色标签与历届冠军回顾其历史地位（三冠王、首冠、复仇、苦尽甘来等）。",
 };
@@ -78,13 +80,15 @@ function detectEvents(state, match, kind) {
   }
   if (kind === KIND.OVERTIME) events.push("常规时间战平，加赛分出胜负");
   if (kind === KIND.CHAMPION && state.series) {
+    const winTarget = getWinTarget(state);
+    const totalGames = winTarget * 2 - 1;
     const { aWins, bWins } = state.series;
     const winnerKey = aWins >= bWins ? "a" : "b";
     const winner = state.series[winnerKey];
-    if (aWins === 4 && bWins === 3) {
-      events.push(`决赛打满七局，${rosterName(winner)}以4:3绝杀取胜`);
+    if (Math.min(aWins, bWins) === winTarget - 1) {
+      events.push(`系列赛打满 ${totalGames} 局，${rosterName(winner)}以 ${aWins}:${bWins} 绝杀取胜`);
     }
-    if (Math.min(aWins, bWins) === 0) events.push("决赛横扫，未失一局");
+    if (Math.min(aWins, bWins) === 0) events.push("一路横扫，未失一局");
     const hist = CHAMPIONS_HISTORY.filter((h) => h.champion === rosterName(winner));
     if (hist.length >= 3) events.push(`历史第 ${hist.length} 冠，冲击GOAT地位`);
     else if (hist.length === 1) events.push("再次登顶，第二冠");
@@ -102,6 +106,7 @@ function detectEvents(state, match, kind) {
 export function buildCommentaryRequest(state, match, kind) {
   const seg = kind === KIND.PRE ? 1 : kind === KIND.MID ? 2 : kind === KIND.FINAL ? 3 : null;
   const segSummary = seg ? getSegmentSummary(match, seg) : null;
+  const winTarget = getWinTarget(state);
 
   const snapshot = {
     赛事: "骰子战争世锦赛",
@@ -125,8 +130,9 @@ export function buildCommentaryRequest(state, match, kind) {
     },
     历史纪录: RECORDS,
     特殊事件: detectEvents(state, match, kind),
-    决赛大比分:
-      state.phase === "final" && state.series
+    局制: describeSeries(winTarget),
+    系列赛大比分:
+      winTarget > 1 && state.series
         ? {
             [rosterName(state.series.a)]: state.series.aWins,
             [rosterName(state.series.b)]: state.series.bWins,
