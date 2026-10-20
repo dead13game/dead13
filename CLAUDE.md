@@ -82,6 +82,14 @@ graph TD
 | 音频     | `src/audio/`       | SoundManager 音效播放（由`src/game/soundEvents.js` 触发）                                                                                                                       |
 | UI       | `src/components/`  | Vue 3 组件（ActionBar、League*/WorldCup* 系列等）                                                                                                                                 |
 
+**参考文档(改 `src/game/` 前先读)**
+
+| 文档 | 内容 |
+| --- | --- |
+| [docs/classic-refactor-plan.md](docs/classic-refactor-plan.md) | 内核架构速查:分层、状态模型、加成顺序、加角色/改规则的步骤、常见坑、验证方式 |
+| [docs/KNOWN_BUGS.md](docs/KNOWN_BUGS.md) | 已知 bug 与修复记录(含回归测试索引) |
+| [docs/simuniverse-design.md](docs/simuniverse-design.md) / [docs/solo-roguelike-design.md](docs/solo-roguelike-design.md) | 模拟宇宙 / 单机模式设计 |
+
 ## 游戏模式
 
 | 模式     | 入口                               | 逻辑文件                                             | 说明                                                                                                                                                                                                  |
@@ -113,7 +121,7 @@ STEP:     由 pending 派生 = pickAction / attackShowCard / skillPickTarget / g
 
 | 工具                    | 用途                                                                                                                        |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `npm run test`        | 380 条 vitest 测试（16 文件：core/flow/rules/modes/persistence/api + 差分回放 + TableLayout + solo/uni×3 + diceWar），< 2s |
+| `npm run test`        | 390 条 vitest 测试（17 文件：core/flow/rules/modes/persistence/api + 差分回放 + TableLayout + solo/uni×3 + diceWar），< 2s |
 | 手动跑 test             | 改`src/game/*` 后必须跑 `npm run test`（项目无自动 hook，靠自觉）                                                       |
 | `window.__PIXI_APP__` | 浏览器控制台访问 PIXI Application 内部状态                                                                                  |
 | `[game]` 日志         | `console.debug` 输出结构化 JSON，`window.__GAME_LOG_LEVEL__` 动态控制等级                                               |
