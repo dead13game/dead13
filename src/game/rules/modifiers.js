@@ -22,9 +22,9 @@ export const PRIORITY = {
   BESIEGE: 90,
 };
 
-/** 联赛卡牌加成(兼容旧存档的平铺格式) */
-export function teamCardBonus(state, teamId) {
-  const cb = state.leagueContext?.cardBonus;
+/** 联赛卡牌加成(优先取模式配置,兼容旧的 state.leagueContext) */
+export function teamCardBonus(ctx, teamId) {
+  const cb = ctx.mode?.cardBonus ?? ctx.state.leagueContext?.cardBonus;
   if (!cb) return null;
   if (cb[teamId] && typeof cb[teamId] === "object") return cb[teamId];
   if (teamId === 0 && typeof cb.attackBonus === "number") return cb;
@@ -47,7 +47,7 @@ export const ATTACK_MODIFIERS = [
     id: "league.attack",
     priority: PRIORITY.LEAGUE,
     apply(ctx, env, value) {
-      const bonus = teamCardBonus(ctx.state, env.source.teamId)?.attackBonus || 0;
+      const bonus = teamCardBonus(ctx, env.source.teamId)?.attackBonus || 0;
       if (bonus <= 0) return value;
       ctx.log(`联赛攻击加成+${bonus}`);
       ctx.devDebug(CAT.ATTACK, `联赛攻击加成 +${bonus} → ${value + bonus}`);
@@ -166,7 +166,7 @@ export const DEFENSE_MODIFIERS = [
     id: "league.defense",
     priority: PRIORITY.LEAGUE,
     apply(ctx, env, value) {
-      const bonus = teamCardBonus(ctx.state, env.source.teamId)?.defenseBonus || 0;
+      const bonus = teamCardBonus(ctx, env.source.teamId)?.defenseBonus || 0;
       if (bonus <= 0) return value;
       ctx.devDebug(CAT.ATTACK, `联赛防御加成 +${bonus} → ${value + bonus}`);
       return value + bonus;

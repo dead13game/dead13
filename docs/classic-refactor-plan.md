@@ -234,6 +234,25 @@ state.turn = { extraAction: false, suspend: null, resync: false }
 
 基线 fixture 必须在 **P1 动手前**从当前实现录制完成(`src/game/testing/fixtures/`)。
 
+## 6.5 实施进度
+
+| 阶段 | 状态 | 证据 |
+| --- | --- | --- |
+| P0 差分基建 | ✅ | 30 局基线(19 AI + 11 脚本)/ 1961 命令 / 176KB gz;`replay.test.js` 30 绿 |
+| P1 core + flow | ✅ | 26 条单测;`step` 成为 pending 派生量 |
+| P2 rules | ✅ | 19 条单测(加成顺序/取整/防御消耗/陷阱三态/平摊) |
+| P3 角色 + 引擎 | ✅ | 11 个角色插件;`next-replay.test.js` **30/30**,1961 条命令逐步一致 |
+| P4 modes | ⬜ | — |
+| P5 persistence | ⬜ | snapshot 已就位,存档 schema 待做 |
+| P6 UI 收敛 | ⬜ | — |
+| P7 删旧 + 文档 | ⬜ | — |
+
+回放对拍的工作方式(重要):
+
+1. 基线录制时同时记录**每条命令执行前后的随机数游标**(`rngBefore` / `rngAfter`)与整局随机序列。
+2. 新内核回放时不再跑 AI 决策,只按记录的命令执行,并把随机游标拨到 `rngBefore`。
+3. 于是洗牌、暴击等内部随机结果与旧实现逐位一致 —— 任何多调用/少调用一次随机数都会立刻暴露。
+
 ## 7. 已知 bug(冻结,重构后再修)
 
 | ID | 现象 | 位置 |

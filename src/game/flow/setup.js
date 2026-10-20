@@ -61,6 +61,9 @@ export function createGameState() {
  * @param {number[]} [options.teamIds] 与 chars 对齐的队伍 id
  * @param {object} options.mode        模式 adapter(提供 rules 与生命周期)
  * @param {object} [options.rng]
+ * @param {boolean} [options.keepLog]      保留 messageLog(1v1 每条命重开用)
+ * @param {boolean} [options.forcePeace]   强制从和平期开始(即使 startRound 很大)
+ * @param {number} [options.peaceStartRound] 和平期起点(默认 0)
  */
 export function initGame(state, options) {
   const {
@@ -71,9 +74,13 @@ export function initGame(state, options) {
     teamIds = null,
     mode,
     rng = createRng(),
+    keepLog = false,
+    forcePeace = false,
+    peaceStartRound = 0,
   } = options;
 
   const ctxRng = rng;
+  const keptLog = keepLog ? state.messageLog : null;
 
   state.players = [];
   state.currentPlayerIndex = 0;
@@ -86,7 +93,7 @@ export function initGame(state, options) {
   state.currentWeather = null;
   state.nextWeather = null;
   state.round = 0;
-  state.messageLog = [];
+  state.messageLog = keptLog ?? [];
   state.soundQueue = [];
   state.gameOver = false;
   state.winnerIndex = -1;
@@ -97,7 +104,7 @@ export function initGame(state, options) {
   state.pendingVentiCards = null;
   state.scryCards = null;
   state.pendingGamble = null;
-  state.peaceStartRound = 0;
+  state.peaceStartRound = peaceStartRound;
 
   state.deck = shuffle(createFullDeck(deckCount), ctxRng);
 
@@ -139,17 +146,21 @@ export function initGame(state, options) {
   state.round = startRound;
   state.step = STEP.PICK_ACTION;
 
-  if (startRound > peaceRounds) {
+  if (!forcePeace && startRound > peaceRounds) {
     state.phase = PHASE.NORMAL;
   }
 
-  state.messageLog.push("亡命十三街开始");
-  state.messageLog.push(
-    `角色：${state.players.map((p) => CHARACTERS[p.characterId].name).join(" · ")}`,
-  );
-  state.messageLog.push(`行动顺序：${state.players.map((p) => p.name).join(" → ")}`);
-  if (state.phase === PHASE.PEACE) {
-    state.messageLog.push(`和平发育（第1-${peaceRounds}回合禁止攻击）`);
+  if (!keepLog) {
+    state.messageLog.push("亡命十三街开始");
+    state.messageLog.push(
+      `角色：${state.players.map((p) => CHARACTERS[p.characterId].name).join(" · ")}`,
+    );
+    state.messageLog.push(
+      `行动顺序：${state.players.map((p) => p.name).join(" → ")}`,
+    );
+    if (state.phase === PHASE.PEACE) {
+      state.messageLog.push(`和平发育（第1-${peaceRounds}回合禁止攻击）`);
+    }
   }
 
   state.devLog?.info?.(
