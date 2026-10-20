@@ -40,13 +40,26 @@ import { otherAliveUids } from "../characters/helpers.js";
 //  查询
 // ════════════════════════════════════════
 
-/** 主动技能可用性(对齐旧 canUseSkill) */
+/** 主动技能可用性(对齐旧 canUseSkill —— 引擎口径,不要往里加回合门槛) */
 export function canUseSkill(ctx, player) {
   const meta = getCharData(player);
   if (!meta || meta.skillType !== "active") return false;
   const def = getCharacter(player.characterId);
   if (!def?.canUse) return false;
   return def.canUse(ctx, player);
+}
+
+/**
+ * UI/AI 口径:在引擎口径之上叠加回合/阶段门槛(KB-3)。
+ * 引擎命令层仍用 canUseSkill,保证差分回放与旧实现一致。
+ */
+export function canUseSkillNow(ctx, player) {
+  const meta = getCharData(player);
+  if (!meta || meta.skillType !== "active") return false;
+  const def = getCharacter(player.characterId);
+  if (!def?.canUse) return false;
+  const fn = def.canUseNow ?? def.canUse;
+  return fn(ctx, player);
 }
 
 /** 是否处于行动步(旧 state.step === "pickAction") */
@@ -81,6 +94,11 @@ export function attack(ctx) {
 
   ctx.deck.ensure(1);
   const card = ctx.deck.draw(1)[0];
+  if (!card) {
+    // 理论上 ensure 已补牌;保底避免 undefined 崩溃
+    ctx.devError(CAT.ANOMALY, "牌库耗尽,无法攻击");
+    return false;
+  }
   card.faceUp = false;
 
   ctx.sound("attack");
@@ -264,7 +282,14 @@ export function attackTarget(ctx, targetUid) {
     }
   }
 
-  if (baseCardValue >= 10 && actualHpLost <= 3 && !trapTriggered && target.alive) {
+  // 只在「目标完全没有防御牌」时才可能是异常;防御吸收导致的低伤害是合法的(KB-4)
+  if (
+    baseCardValue >= 10 &&
+    actualHpLost <= 3 &&
+    !trapTriggered &&
+    target.alive &&
+    beforeDefense === 0
+  ) {
     ctx.devWarn(
       CAT.ANOMALY,
       `高值卡低伤害: 基础${baseCardValue} 仅造成${actualHpLost}点伤害`,
@@ -421,6 +446,14 @@ export function gamble(ctx) {
   if (state.currentWeather === "wind") drawCount += 1;
 
   const drawn = ctx.deck.draw(drawCount).map((c) => ({ ...c, faceUp: true }));
+  if (drawn.length < 2) {
+    // 抽不满 2 张就无法设陷阱/诱饵;记录后放弃本次行动(不崩)
+    ctx.devError(CAT.ANOMALY, "牌库耗尽,无法执行赌命", {
+      deck: state.deck.length,
+      grave: state.grave.length,
+    });
+    return false;
+  }
 
   ctx.sound("gamble");
   ctx.log(`${player.name} 执行赌命`);

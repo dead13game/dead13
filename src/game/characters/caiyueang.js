@@ -6,6 +6,13 @@ import { snapshotState, restoreState } from "../persistence/snapshot.js";
 // 注意(与旧实现一致的边界):读档会清空该玩家自己的存档点 ——
 // 旧 deepCloneState 把 savepoint 置 null,恢复时 Object.assign 覆盖回去。
 // 这条行为已记录为 KB-10,不在本次重构中修改。
+
+/** 引擎口径:只看是否轮到自己(与旧 canUseSkill 对 id=11 的特判一致) */
+function defCanUse(ctx, player) {
+  if (!player || !player.alive) return false;
+  return ctx.state.pending == null && !ctx.state.gameOver;
+}
+
 export default {
   id: 11,
   meta: {
@@ -28,8 +35,17 @@ export default {
    * 这是「存档不限次」的实现方式,保留。
    */
   canUse(ctx, player) {
-    if (!player || !player.alive) return false;
-    return ctx.state.pending == null && !ctx.state.gameOver;
+    // 引擎口径:与旧实现一致(不限制同一回合重复存档),保证差分回放不失配
+    return defCanUse(ctx, player);
+  },
+
+  /**
+   * UI/AI 口径:同一回合只允许存一次档(KB-9)。
+   * 重复存档没有收益,却是熟练度 AI 死循环的入口。
+   */
+  canUseNow(ctx, player) {
+    if (!defCanUse(ctx, player)) return false;
+    return ctx.state.turn?.savedBy !== player.uid;
   },
 
   use(ctx, player) {
@@ -50,6 +66,8 @@ export default {
 
     if (answer.choice === "save") {
       player.effects.savepoint = snapshotState(state);
+      // 标记本回合已存档(下一回合清除,见 flow/turn.js)
+      state.turn.savedBy = player.uid;
       ctx.log(`${player.name} 存档完成`);
       ctx.turn.extra();
       return;
@@ -67,9 +85,14 @@ export default {
     }
 
     const subaruIndex = player.index;
-    restoreState(ctx, player.effects.savepoint);
+    const savepoint = player.effects.savepoint;
+    // 读档会恢复存档瞬间的 loadUses(3),必须先记下当前剩余次数再扣(KB-10 附带修复)
+    const remainingUses = player.resources.loadUses;
+    restoreState(ctx, savepoint);
     const subaru = state.players[subaruIndex];
-    subaru.resources.loadUses--;
+    // 读档不应清空存档点:还能继续读(角色描述:读档 3 次)—— KB-10
+    subaru.effects.savepoint = savepoint;
+    subaru.resources.loadUses = remainingUses - 1;
     ctx.log(
       `${subaru.name} 死亡回归！回溯到存档点（剩余读档${subaru.resources.loadUses}次）`,
     );

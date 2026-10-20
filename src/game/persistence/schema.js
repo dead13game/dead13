@@ -25,6 +25,7 @@ export const STATE_FIELDS = [
   "winnerIndex",
   "turn",
   "idSeq",
+  "deckCount",
   // 兼容字段:UI/动画直接读,P6 收敛
   "pendingAttackCard",
   "pendingVentiCards",

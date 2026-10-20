@@ -12,7 +12,7 @@ import { CHARACTERS, getCharData as kernelGetCharData } from "./characters/index
 import { getArtifactData } from "./rules/artifacts.js";
 import { canUseHolyWord as kernelCanHolyWord } from "./rules/artifacts.js";
 import { allianceTargets as kernelAllianceTargets } from "./rules/alliance.js";
-import { canUseSkill as kernelCanUseSkill } from "./flow/commands.js";
+import { canUseSkillNow as kernelCanUseSkill } from "./flow/commands.js";
 import { getCurrentWeather, getNextWeather } from "./rules/weather.js";
 
 function indexOfUid(raw, uid) {

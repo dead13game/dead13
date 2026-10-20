@@ -228,4 +228,42 @@ describe("modes/match — 换人", () => {
     expect(mode.match.playerCharId).toBe(9);
     expect(state.messageLog.at(-1)).toContain("🔄 换人");
   });
+
+  it("换人清空角色私有状态(KB-11)", () => {
+    const { ctx, mode, state } = makeMatch({
+      playerCharId: 7, // 哥伦比娅有 moonPhase
+      opponentCharId: 2,
+    });
+    const me = state.players.find((p) => p.uid === mode.match.playerUid);
+    me.char.moonPhase = 2;
+    killOpponent(ctx, mode, 3);
+
+    expect(mode.executeSubstitution(ctx, 6)).toBe(true); // 换成玛薇卡
+    expect(me.characterId).toBe(6);
+    expect(me.char.moonPhase).toBeUndefined();
+    expect(me.char.fightingSpirit).toBe(0);
+  });
+});
+
+describe("modes/match — 进球归属(KB-7)", () => {
+  it("双方同角色时按 uid 判定,不会把对手进球算成玩家的", () => {
+    const { ctx, mode, state } = makeMatch({
+      playerCharId: 1,
+      opponentCharId: 1,
+    });
+    // 玩家(uid=1)阵亡,对手(uid=2)存活
+    state.players.find((p) => p.uid === mode.match.playerUid).alive = false;
+    mode.checkGameOver(ctx);
+    expect(mode.match.score).toEqual([0, 1]);
+  });
+
+  it("玩家击杀对手记玩家进球", () => {
+    const { ctx, mode, state } = makeMatch({
+      playerCharId: 1,
+      opponentCharId: 1,
+    });
+    state.players.find((p) => p.uid === mode.match.opponentUid).alive = false;
+    mode.checkGameOver(ctx);
+    expect(mode.match.score).toEqual([1, 0]);
+  });
 });

@@ -54,15 +54,22 @@ export function deserializeGameState(state, data, options = {}) {
 
   // 嵌套结构兜底:旧档可能缺 turn / pending
   if (!state.turn || typeof state.turn !== "object") {
-    state.turn = { extraAction: false, suspend: null, resync: false };
+    state.turn = {
+      extraAction: false,
+      suspend: null,
+      resync: false,
+      savedBy: null,
+    };
   } else {
     state.turn = {
       extraAction: !!state.turn.extraAction,
       suspend: state.turn.suspend ?? null,
       resync: !!state.turn.resync,
+      savedBy: state.turn.savedBy ?? null,
     };
   }
   if (state.pending === undefined) state.pending = null;
+  if (state.deckCount === undefined) state.deckCount = 2;
 
   state.deck = (s.deck || []).map((c) => ({ ...c }));
   state.grave = (s.grave || []).map((c) => ({ ...c }));

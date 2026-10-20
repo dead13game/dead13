@@ -1,7 +1,7 @@
 import { PHASE } from "../core/constants.js";
 import { display } from "../core/cards.js";
 import { PENDING } from "../flow/pending.js";
-import { baseCanUse, otherAliveUids } from "./helpers.js";
+import { baseCanUse, withTurnGate, otherAliveUids } from "./helpers.js";
 
 // 温迪 · 千风之诗:攻击时抽 2 张,点数相加作为本次攻击总伤害(第 10 回合解锁)
 export default {
@@ -22,6 +22,7 @@ export default {
   stateSchema: {},
 
   canUse: baseCanUse,
+  canUseNow: withTurnGate(baseCanUse, { minRound: 10, requireNormal: true }),
 
   use(ctx, player) {
     const { state } = ctx;

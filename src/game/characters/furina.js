@@ -1,6 +1,6 @@
 import { PHASE } from "../core/constants.js";
 import { PENDING } from "../flow/pending.js";
-import { baseCanUse, otherAliveUids } from "./helpers.js";
+import { baseCanUse, withTurnGate, otherAliveUids } from "./helpers.js";
 
 // 芙宁娜 · 审判:指定目标交换陷阱明暗,本回合攻击无视陷阱,获得额外行动
 export default {
@@ -21,6 +21,7 @@ export default {
   stateSchema: {},
 
   canUse: baseCanUse,
+  canUseNow: withTurnGate(baseCanUse, { minRound: 4, requireNormal: true }),
 
   use(ctx, player) {
     const { state } = ctx;

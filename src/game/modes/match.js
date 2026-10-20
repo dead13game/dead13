@@ -11,7 +11,7 @@
 import { MATCH_CONFIG } from "./constants.js";
 import { RANK_VALUES } from "../core/constants.js";
 import { createFullDeck, draw, reshuffleFromGrave, shuffle } from "../core/cards.js";
-import { CHARACTERS } from "../characters/index.js";
+import { CHARACTERS, characterStateFor } from "../characters/index.js";
 import { initGame } from "../flow/setup.js";
 
 export function createMatchMode({
@@ -37,6 +37,9 @@ export function createMatchMode({
     substitutionsLeft: MATCH_CONFIG.maxSubstitutions,
     playerCharId,
     opponentCharId,
+    // 稳定身份:initGame 按传入顺序分配 uid(i+1),换人不会改变它(KB-7)
+    playerUid: 1,
+    opponentUid: 2,
     playerArtifactId,
     penalty: null,
     penaltyDeck: [],
@@ -88,12 +91,15 @@ export function createMatchMode({
 
       match.matchRound = state.round;
       const killer = alive[0];
-      // 记录阵亡者角色(世界杯换人重置后要让被击杀方先手,需要这个信息)
+      // 记录阵亡者(世界杯换人重置后要让被击杀方先手)
       const dead = state.players.find((p) => !p.alive);
-      if (dead) match._killedCharId = dead.characterId;
+      if (dead) {
+        match._killedCharId = dead.characterId;
+        match._killedUid = dead.uid;
+      }
 
-      // 旧实现用 characterId 判进球(索引会随 speed 重排,不可靠)
-      const isPlayerGoal = !!killer && killer.characterId === match.playerCharId;
+      // 用 uid 判进球:换人/双方同角色时 characterId 会歧义(KB-7)
+      const isPlayerGoal = !!killer && killer.uid === match.playerUid;
       if (isPlayerGoal) match.score[0]++;
       else match.score[1]++;
 
@@ -122,17 +128,20 @@ export function createMatchMode({
       const charData = CHARACTERS[newCharId];
       if (!charData) return false;
 
-      const oldCharId = match.playerCharId;
       match.playerCharId = newCharId;
       match.substitutionsLeft--;
 
-      const player = ctx.state.players.find((p) => p.characterId === oldCharId);
+      // 用 uid 找玩家:换人后 characterId 已不可靠(KB-7)
+      const player = ctx.state.players.find(
+        (p) => p.uid === match.playerUid,
+      );
       if (player) {
-        // 旧实现只重置这几项:角色私有状态(fightingSpirit 等)会残留 —— KB-11
         player.characterId = charData.id;
         player.hp = charData.hp;
         player.maxHp = charData.hp;
         player.resources.skillUses = charData.maxUses;
+        // 角色私有状态必须清零,否则新角色会继承上一个角色的斗志/月相(KB-11)
+        player.char = structuredClone(characterStateFor(charData.id));
       }
 
       ctx.state.messageLog.push(
@@ -265,11 +274,9 @@ function startNextLife(ctx) {
   const match = ctx.mode.match;
 
   const playerName =
-    state.players.find((p) => p.characterId === match.playerCharId)?.name ??
-    "玩家";
+    state.players.find((p) => p.uid === match.playerUid)?.name ?? "玩家";
   const opponentName =
-    state.players.find((p) => p.characterId === match.opponentCharId)?.name ??
-    "对手";
+    state.players.find((p) => p.uid === match.opponentUid)?.name ?? "对手";
 
   match.matchRound++;
   match.substitutionPending = false;
@@ -296,15 +303,15 @@ function startNextLife(ctx) {
   state.currentWeather = savedCurrentWeather;
   state.nextWeather = savedNextWeather;
 
-  // 按 characterId 恢复名字(speed 重排后索引不可靠)
+  // 按 uid 恢复名字(双方同角色时 characterId 会歧义,KB-7)
   state.players.forEach((p) => {
-    if (p.characterId === match.playerCharId) p.name = playerName;
-    else if (p.characterId === match.opponentCharId) p.name = opponentName;
+    if (p.uid === match.playerUid) p.name = playerName;
+    else if (p.uid === match.opponentUid) p.name = opponentName;
   });
 
   // 控制器在每条命开始时重刷圣遗物
   if (match.playerArtifactId) {
-    const p = state.players.find((x) => x.characterId === match.playerCharId);
+    const p = state.players.find((x) => x.uid === match.playerUid);
     if (p) p.artifact.id = match.playerArtifactId;
   }
 

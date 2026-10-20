@@ -328,10 +328,11 @@ export function useWorldCupController() {
 
   /** 击杀→重置后，让被击杀方先手，避免 killer 连续行动两次。 */
   function fixTurnAfterReset() {
-    const killedCharId = matchState.value?._killedCharId;
-    if (!killedCharId) return;
+    const killedUid = matchState.value?._killedUid;
+    if (!killedUid) return;
+    matchState.value._killedUid = null;
     matchState.value._killedCharId = null;
-    const p = gameState.players.find((pl) => pl.characterId === killedCharId);
+    const p = gameState.players.find((pl) => pl.uid === killedUid);
     if (p) {
       gameState.currentPlayerIndex = p.index;
     }
@@ -354,15 +355,15 @@ export function useWorldCupController() {
     uiMode.value = "match";
   }
 
-  /** 在游戏初始化/重置后给双方应用圣遗物ID */
+  /** 在游戏初始化/重置后给双方应用圣遗物ID(按 uid 区分双方,KB-7) */
   function applyPlayerArtifact() {
     if (!matchState.value) return;
-    const { playerCharId, opponentCharId } = matchState.value;
+    const ms = matchState.value;
     gameState.players.forEach((p) => {
       const artId =
-        p.characterId === playerCharId
+        p.uid === ms.playerUid
           ? playerArtifactId
-          : p.characterId === opponentCharId
+          : p.uid === ms.opponentUid
             ? opponentArtifactId
             : null;
       p.artifact.id = artId;
@@ -376,9 +377,9 @@ export function useWorldCupController() {
   /** 标记 AI 玩家（重置游戏后需重新标记） */
   function markAIPlayer() {
     if (!matchState.value) return;
-    const opponentCharId = matchState.value.opponentCharId;
+    const opponentUid = matchState.value.opponentUid;
     gameState.players.forEach((p) => {
-      if (p.characterId === opponentCharId) {
+      if (p.uid === opponentUid) {
         p.ai.enabled = true;
         p.ai.difficulty = aiDifficulty;
       }

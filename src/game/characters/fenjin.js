@@ -2,7 +2,7 @@ import { PHASE } from "../core/constants.js";
 import { PENDING } from "../flow/pending.js";
 import { CAT } from "../core/log.js";
 import { applyDamage } from "../rules/damage.js";
-import { baseCanUse, otherAliveUids } from "./helpers.js";
+import { baseCanUse, withTurnGate, otherAliveUids } from "./helpers.js";
 
 // 风堇 · 重见澄澈晴空:生命上限 +3 并回满,对一名玩家造成回复量×2 的伤害
 // 被动:消耗陷阱/防御牌时回复 1 点生命
@@ -25,6 +25,7 @@ export default {
   stateSchema: {},
 
   canUse: baseCanUse,
+  canUseNow: withTurnGate(baseCanUse, { requireNormal: true }),
 
   use(ctx, player) {
     if (ctx.state.phase === PHASE.PEACE) {

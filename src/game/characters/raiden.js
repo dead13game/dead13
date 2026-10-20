@@ -1,7 +1,7 @@
 import { PHASE } from "../core/constants.js";
 import { PENDING } from "../flow/pending.js";
 import { applyDamage } from "../rules/damage.js";
-import { baseCanUse, otherAliveUids } from "./helpers.js";
+import { baseCanUse, withTurnGate, otherAliveUids } from "./helpers.js";
 
 // 雷电将军 · 无想的一刀:造成 27 点伤害(第 10 回合解锁)
 export default {
@@ -22,6 +22,7 @@ export default {
   stateSchema: {},
 
   canUse: baseCanUse,
+  canUseNow: withTurnGate(baseCanUse, { minRound: 10, requireNormal: true }),
 
   use(ctx, player) {
     const { state } = ctx;

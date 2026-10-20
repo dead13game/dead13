@@ -2,7 +2,7 @@ import { PHASE } from "../core/constants.js";
 import { PENDING } from "../flow/pending.js";
 import { CAT } from "../core/log.js";
 import { applyDamage } from "../rules/damage.js";
-import { baseCanUse, otherAliveUids } from "./helpers.js";
+import { baseCanUse, withTurnGate, otherAliveUids } from "./helpers.js";
 
 // 莉奈娅 · 青春之力的馈赠
 //   子技能 1:偷取目标防御牌 3 回合,对其伤害永久 +2
@@ -26,6 +26,7 @@ export default {
   stateSchema: {},
 
   canUse: baseCanUse,
+  canUseNow: withTurnGate(baseCanUse, { requireNormal: true }),
 
   use(ctx, player) {
     if (ctx.state.phase === PHASE.PEACE) {

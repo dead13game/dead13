@@ -103,6 +103,7 @@ function nextPlayer(ctx, depth) {
     state.pending = null;
     state.step = STEP.PICK_ACTION;
     p.effects.ignoreTrapThisTurn = false;
+    state.turn.savedBy = null; // 新回合:菜月昴可以再次存档(KB-9)
 
     ctx.log(`当前 ${p.name} 行动`);
     ctx.devDebug(CAT.STATE, `轮到 ${p.name} 行动`, {

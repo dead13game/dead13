@@ -38,7 +38,7 @@ export function createGameState() {
     gameOver: false,
     winnerIndex: -1,
 
-    turn: { extraAction: false, suspend: null, resync: false },
+    turn: { extraAction: false, suspend: null, resync: false, savedBy: null },
 
     mode: null,
 
@@ -98,7 +98,12 @@ export function initGame(state, options) {
   state.gameOver = false;
   state.winnerIndex = -1;
   state.useWeather = !!weather;
-  state.turn = { extraAction: false, suspend: null, resync: false };
+  state.turn = {
+    extraAction: false,
+    suspend: null,
+    resync: false,
+    savedBy: null,
+  };
   state.mode = mode ?? state.mode;
   state.pendingAttackCard = null;
   state.pendingVentiCards = null;
@@ -106,6 +111,7 @@ export function initGame(state, options) {
   state.pendingGamble = null;
   state.peaceStartRound = peaceStartRound;
 
+  state.deckCount = deckCount;
   state.deck = shuffle(createFullDeck(deckCount), ctxRng);
 
   chars.forEach((charId, i) => {

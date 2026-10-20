@@ -38,6 +38,22 @@ export function neverUsable() {
   return false;
 }
 
+/**
+ * 「现在能不能点」的附加门槛(回合数 / 阶段)。
+ *
+ * 为什么要和 canUse 分开:
+ *   - canUse 是引擎口径(命令层用它做兜底校验),必须与旧实现一致,否则差分回放会失配;
+ *   - canUseNow 是 UI/AI 口径,应该把「点了也会被拒」的技能提前置灰,避免 AI 空转(KB-3)。
+ */
+export function withTurnGate(canUseFn, { minRound = 0, requireNormal = false }) {
+  return function canUseNow(ctx, player) {
+    if (!canUseFn(ctx, player)) return false;
+    if (requireNormal && ctx.state.phase === "peace") return false;
+    if (ctx.state.round < minRound) return false;
+    return true;
+  };
+}
+
 /** 技能专用: 不能对自己以外无目标时返回空,由命令层判定 */
 export function defaultPurpose(characterId, tag) {
   return tag ? `skill:${tag}` : `skill:${characterId}`;

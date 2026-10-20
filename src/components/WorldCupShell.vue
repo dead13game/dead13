@@ -567,6 +567,11 @@ function executeTopAction(decision) {
       break;
     }
     case "skill": {
+      // 技能被内核拒绝(回合门槛/次数)时不要空转,直接转防御(KB-3)
+      if (!view.players[view.currentPlayerIndex]?.canUseSkill) {
+        cast({ type: "defense" });
+        break;
+      }
       cast({ type: "skill" });
       aiTimer = setTimeout(() => executeMiddleStep(), 400);
       break;

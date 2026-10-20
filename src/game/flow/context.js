@@ -9,7 +9,7 @@
 //   - ctx.turn 由 flow/turn.js 通过 attachEngine 注入,避免 context ↔ turn 循环
 
 import { createRng } from "../core/rng.js";
-import { draw, reshuffleFromGrave } from "../core/cards.js";
+import { createFullDeck, draw, reshuffleFromGrave, shuffle } from "../core/cards.js";
 import { CAT } from "../core/log.js";
 import {
   alivePlayers,
@@ -79,17 +79,35 @@ export function createContext(state, deps = {}) {
         state.deck = r.remaining;
         return r.drawn;
       },
-      /** 保证牌库至少有 n 张,不足则重构墓地(与旧 ensureDeck 等价) */
+      /**
+       * 保证牌库至少有 n 张。
+       * 优先用墓地重构;墓地也空时(牌全在防御区/陷阱里)按开局副数重新生成一副新牌库(KB-8)。
+       */
       ensure(n = 1) {
         if (state.deck.length >= n) return;
-        const graveCount = state.grave.length;
-        state.deck = reshuffleFromGrave(state.grave, rng);
-        state.grave = [];
-        ctx.log("牌库重构");
-        ctx.dev(
-          CAT.DECK,
-          `牌库重构: 墓地${graveCount}张 → 牌库${state.deck.length}张`,
-          { graveCount, deckCount: state.deck.length, round: state.round },
+
+        if (state.grave.length > 0) {
+          const graveCount = state.grave.length;
+          state.deck = reshuffleFromGrave(state.grave, rng);
+          state.grave = [];
+          ctx.log("牌库重构");
+          ctx.dev(
+            CAT.DECK,
+            `牌库重构: 墓地${graveCount}张 → 牌库${state.deck.length}张`,
+            { graveCount, deckCount: state.deck.length, round: state.round },
+          );
+          return;
+        }
+
+        if (state.deck.length > 0) return; // 牌不够但有牌,不做处理
+
+        const decks = state.deckCount ?? 2;
+        state.deck = shuffle(createFullDeck(decks), rng);
+        ctx.log(`牌库耗尽，重新洗牌（${state.deck.length}张）`);
+        ctx.devWarn(
+          CAT.ANOMALY,
+          `牌库与墓地同时为空，重新生成 ${decks} 副牌（KB-8 边界）`,
+          { deckCount: state.deck.length, round: state.round },
         );
       },
       /** 入墓(跳过空值) */
@@ -128,11 +146,11 @@ export function createContext(state, deps = {}) {
         return requireEngine(ctx).next(ctx);
       },
       suspend(reason = true) {
-        if (!state.turn) state.turn = { extraAction: false, suspend: null, resync: false };
+        if (!state.turn) state.turn = { extraAction: false, suspend: null, resync: false, savedBy: null };
         state.turn.suspend = reason;
       },
       resync() {
-        if (!state.turn) state.turn = { extraAction: false, suspend: null, resync: false };
+        if (!state.turn) state.turn = { extraAction: false, suspend: null, resync: false, savedBy: null };
         state.turn.resync = true;
       },
     },
