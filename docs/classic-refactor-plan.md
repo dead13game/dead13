@@ -244,8 +244,20 @@ state.turn = { extraAction: false, suspend: null, resync: false }
 | P3 角色 + 引擎 | ✅ | 11 个角色插件;`next-replay.test.js` **30/30**,1961 条命令逐步一致 |
 | P4 modes | ✅ | 三种适配器;模式单测 25 条;1v1 完整一命集成测试通过 |
 | P5 persistence | ✅ | 存档 v4 + schema 驱动;6 条单测(pending 还原/Infinity 编码/比赛进度) |
-| P6 UI 收敛 | ⬜ | — |
+| P6 UI 收敛 | 🟡 经典+联赛已切 | `api.js` 门面 + `view.js` 只读视图;GameShell/ActionBar/AI/经典控制器/联赛控制器已接新内核;`vite build` 通过 |
 | P7 删旧 + 文档 | ⬜ | — |
+
+P6 进度明细:
+
+- ✅ `api.js`:`createSession` / `dispatch` / `save` / `load`,UI 只从这里进
+- ✅ `view.js`:只读 view-model(不是第二真相,getter 直接映射内核字段)
+- ✅ GameShell:动作全部 `dispatch`;删掉 `state.step = "pickAction"` 与 4 个私有 flag 的手工清理
+- ✅ ActionBar:只读 view;`gambleSubmit` / `nahidaOrder` 改为 emit,由 Shell dispatch
+- ✅ AI:吃 view(`player.canUseSkill` 预算),数据源指向 `characters/` 与 `core/`
+- ✅ useGameController + App.vue:createSession / api.load(顺带修掉按 characterId 配对 AI 槽位的隐患)
+- ✅ useLeagueController + LeagueShell:`leagueContext` 四回调 → `mode.hooks`;`_elimPaused` 手工清除全部删除;
+  圣遗物/AI 标记改新字段;读档按 `matchState` 重建 mode(含加赛分支)
+- ⬜ useWorldCupController + WorldCupShell:仍走旧 `matchState.js`(换人/加时/点球/进球回调)
 
 P4 补充说明:
 

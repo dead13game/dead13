@@ -12,18 +12,11 @@ import {
   getRandomGroupOpponentChar,
   getKnockoutRoundName,
 } from "../game/worldCup.js";
-import {
-  createMatchState,
-  onPlayerEliminated,
-  checkMatchEnd,
-  resetGameForNextLife,
-  executeSubstitution,
-  skipSubstitution,
-  executePenaltyRound,
-} from "../game/matchState.js";
-import { createGameState, initGame } from "../game/gameState.js";
-import { MATCH_CONFIG } from "../game/worldCupConstants.js";
-import { CHARACTERS } from "../game/constants.js";
+import { createSession, load, getCtx } from "../game/api.js";
+import { createGameState } from "../game/flow/setup.js";
+import { createWorldCupMatchMode } from "../game/modes/worldcup.js";
+import { MATCH_CONFIG } from "../game/modes/constants.js";
+import { CHARACTERS } from "../game/characters/index.js";
 import { recordSound } from "../game/soundEvents.js";
 
 /**
@@ -33,7 +26,8 @@ export function useWorldCupController() {
   // ---- 三层状态 ----
   const wcState = reactive(createWorldCupState(""));
   const matchState = ref(null);
-  const gameState = createGameState();
+  const gameState = reactive(createGameState());
+  let gameCtx = null;
 
   // ---- UI 模式 ----
   const uiMode = ref("setup");
@@ -84,94 +78,65 @@ export function useWorldCupController() {
     }
 
     const match = wcState.groupMatches[matchIdx];
-    const opponentTeam =
-      wcState.groupTeams[match.home === 0 ? match.away : match.home];
     const opponentCharId = wcState._groupOpponentChars[matchIdx];
+    const playerCharId = startingCharId || wcState._lastPlayerChar;
 
-    // ms 从创建起就是 reactive，确保 game 层对 matchRound/score 的修改能被 Vue 检测到
-    const ms = reactive(
-      createMatchState(
-        true,
-        startingCharId || wcState._lastPlayerChar,
-        opponentCharId,
-      ),
-    );
-    matchState.value = ms;
-
-    initGameForMatch(
-      startingCharId || wcState._lastPlayerChar,
+    const mode = buildMatchMode({
+      isGroupStage: true,
+      playerCharId,
       opponentCharId,
-      1,
-      ms,
-    );
-    wcState.currentMatch = ms;
+    });
+    startMatchState(mode, 1);
     uiMode.value = "match";
   }
 
-  // ---- 初始化一场比赛的1v1游戏 ----
-  function initGameForMatch(playerCharId, opponentCharId, startingRound, ms) {
+  /** 建立「模式 + 局面」,并把 matchState 指向模式里的比赛对象 */
+  function startMatchState(mode, startingRound = 1) {
+    matchState.value = mode.match;
+    wcState.currentMatch = mode.match;
+
+    const { ctx } = createSession({
+      state: gameState,
+      chars: [mode.match.playerCharId, mode.match.opponentCharId],
+      weather: useWeather,
+      startRound: startingRound,
+      mode,
+    });
+    gameCtx = ctx;
+
+    labelPlayers(mode.match);
+    applyPlayerArtifact();
+    markAIPlayer();
+    wcState._lastPlayerChar = mode.match.playerCharId;
+    return mode;
+  }
+
+  function labelPlayers(ms) {
     const playerName = wcState.playerTeamName || "玩家";
     const opponentName = getCurrentOpponentName();
-
-    initGame(
-      gameState,
-      [playerCharId, opponentCharId],
-      useWeather,
-      startingRound,
-    );
-
     gameState.players.forEach((p) => {
-      if (p.characterId === playerCharId) {
-        p.name = playerName;
-      } else {
-        p.name = opponentName;
-      }
+      p.name = p.characterId === ms.opponentCharId ? opponentName : playerName;
     });
+  }
 
-    // 标记 AI 玩家
-    gameState.players.forEach((p) => {
-      if (p.characterId === opponentCharId) {
-        p.isAI = true;
-        p.aiDifficulty = aiDifficulty;
-      }
+  function buildMatchMode({ isGroupStage, playerCharId, opponentCharId }) {
+    return createWorldCupMatchMode({
+      isGroupStage,
+      playerCharId,
+      opponentCharId,
+      playerArtifactId,
+      wrap: reactive, // 比分/回合要驱动 UI,由控制器传入响应式包装
+      onAfterCheck: () => routeAfterCheck(),
     });
+  }
 
-    // 应用圣遗物
-    applyPlayerArtifact();
-
-    gameState.matchContext = {
-      onPlayerEliminated: (deadIdx, killerIdx, actualRound) => {
-        // 保存被击杀者 characterId，供重置后矫正先手顺序
-        const killedCharId = gameState.players[deadIdx]?.characterId;
-        if (killedCharId) ms._killedCharId = killedCharId;
-
-        onPlayerEliminated(ms, gameState, deadIdx, killerIdx, actualRound);
-
-        if (ms.isPenaltyShootout) {
-          uiMode.value = "penalty";
-        } else if (ms.matchOver) {
-          handleMatchEnd(ms);
-        } else if (ms.substitutionPending) {
-          uiMode.value = "substitution";
-        }
-      },
-      onNewRound: (round) => {
-        if (ms.matchOver) return;
-        ms.matchRound = round;
-        if (round > ms.maxRounds) {
-          checkMatchEnd(ms, gameState);
-          if (ms.isPenaltyShootout) {
-            uiMode.value = "penalty";
-          } else if (ms.matchOver) {
-            handleMatchEnd(ms);
-          } else if (ms.substitutionPending) {
-            uiMode.value = "substitution";
-          }
-        }
-      },
-    };
-
-    wcState._lastPlayerChar = playerCharId;
+  /** 内核完成进球/到点结算后,决定 UI 该进哪个阶段 */
+  function routeAfterCheck() {
+    const ms = matchState.value;
+    if (!ms) return;
+    if (ms.isPenaltyShootout) uiMode.value = "penalty";
+    else if (ms.matchOver) handleMatchEnd(ms);
+    else if (ms.substitutionPending) uiMode.value = "substitution";
   }
 
   function getCurrentOpponentName() {
@@ -290,57 +255,75 @@ export function useWorldCupController() {
   function startKnockoutMatch() {
     const playerCharId = wcState._lastPlayerChar;
     const opponent = wcState.knockoutOpponent;
-
-    const ms = reactive(createMatchState(false, playerCharId, opponent.charId));
-    matchState.value = ms;
-    wcState.currentMatch = ms;
-    ms.matchRound = 1;
     opponentSubPending.value = false;
 
-    initGameForMatch(playerCharId, opponent.charId, 1, ms);
+    const mode = buildMatchMode({
+      isGroupStage: false,
+      playerCharId,
+      opponentCharId: opponent.charId,
+    });
+    startMatchState(mode, 1);
     uiMode.value = "match";
   }
 
   // ---- 继续下一场淘汰赛 ----
   function continueKnockoutMatch() {
     if (!matchState.value) return;
-    const ms = matchState.value;
-    resetGameForNextLife(ms, gameState);
-    applyPlayerArtifact();
-    rebuildMatchContext(ms);
+    startNextLife();
     uiMode.value = "match";
   }
 
-  function rebuildMatchContext(ms) {
-    gameState.matchContext = {
-      onPlayerEliminated: (deadIdx, killerIdx, actualRound) => {
-        const killedCharId = gameState.players[deadIdx]?.characterId;
-        if (killedCharId) ms._killedCharId = killedCharId;
+  /** 下一命:内核重建局面,控制器补圣遗物/AI/先手 */
+  function startNextLife() {
+    const mode = gameState.mode;
+    if (!mode?.startNextLife || !gameCtx) return;
+    mode.startNextLife(gameCtx);
+    applyPlayerArtifact();
+    fixTurnAfterReset();
+    markAIPlayer();
+  }
 
-        onPlayerEliminated(ms, gameState, deadIdx, killerIdx, actualRound);
-        if (ms.isPenaltyShootout) {
-          uiMode.value = "penalty";
-        } else if (ms.matchOver) {
-          handleMatchEnd(ms);
-        } else if (ms.substitutionPending) {
-          uiMode.value = "substitution";
-        }
-      },
-      onNewRound: (round) => {
-        if (ms.matchOver) return;
-        ms.matchRound = round;
-        if (round > ms.maxRounds) {
-          checkMatchEnd(ms, gameState);
-          if (ms.isPenaltyShootout) {
-            uiMode.value = "penalty";
-          } else if (ms.matchOver) {
-            handleMatchEnd(ms);
-          } else if (ms.substitutionPending) {
-            uiMode.value = "substitution";
-          }
-        }
-      },
-    };
+  /** 读档/热重载后重新接线(新内核里 mode 已存在时是空操作) */
+  function rebuildMatchContext(ms) {
+    if (!ms) return;
+    if (gameState.mode !== ms.__mode && gameCtx) {
+      // 仅供调试:正常情况下 mode 由 startMatchState 一并创建
+      gameState.mode = ms.__mode ?? gameState.mode;
+    }
+  }
+
+  /**
+   * 从存档恢复世界杯比赛(比赛进度 + 局面 + 模式)。
+   * 旧实现靠 deserializeGameState + 手工重建 matchContext;现在模式对象本身
+   * 就是数据(mode.match),读档直接还原它。
+   */
+  function restoreWorldCup(saveData) {
+    if (!saveData?.wcState || !saveData?.matchState) return false;
+
+    setArtifacts(
+      saveData.wcSetup?.artifactId ?? null,
+      saveData.wcSetup?.opponentArtifactId ?? null,
+    );
+    Object.assign(wcState, saveData.wcState);
+
+    const saved = saveData.matchState;
+    const mode = buildMatchMode({
+      isGroupStage: !!saved.isGroupStage,
+      playerCharId: saved.playerCharId,
+      opponentCharId: saved.opponentCharId,
+    });
+    Object.assign(mode.match, saved);
+    matchState.value = mode.match;
+    wcState.currentMatch = mode.match;
+
+    const ok = load(gameState, saveData.gameState, { modeFactory: () => mode });
+    if (!ok) return false;
+
+    gameCtx = getCtx(gameState);
+    markAIPlayer();
+    applyPlayerArtifact();
+    uiMode.value = "match";
+    return true;
   }
 
   /** 击杀→重置后，让被击杀方先手，避免 killer 连续行动两次。 */
@@ -356,22 +339,17 @@ export function useWorldCupController() {
 
   // ---- 换人 ----
   function handleSubstitution(newCharId) {
-    if (!matchState.value) return;
-    executeSubstitution(matchState.value, gameState, newCharId);
-    resetGameForNextLife(matchState.value, gameState);
-    applyPlayerArtifact();
-    fixTurnAfterReset();
-    rebuildMatchContext(matchState.value);
-    markAIPlayer();
+    if (!matchState.value || !gameCtx) return;
+    gameState.mode.executeSubstitution(gameCtx, newCharId);
+    startNextLife();
     uiMode.value = "match";
   }
 
   function handleSkipSubstitution() {
-    if (!matchState.value) return;
-    skipSubstitution(matchState.value, gameState);
+    if (!matchState.value || !gameCtx) return;
+    gameState.mode.skipSubstitution(gameCtx);
     applyPlayerArtifact();
     fixTurnAfterReset();
-    rebuildMatchContext(matchState.value);
     markAIPlayer();
     uiMode.value = "match";
   }
@@ -387,16 +365,11 @@ export function useWorldCupController() {
           : p.characterId === opponentCharId
             ? opponentArtifactId
             : null;
-      if (artId != null) {
-        p.artifactId = artId;
-        p.breakCount = 0;
-        p.holyWordUses = 2;
-        p.artifactActive = false;
-        p.artifactRoundsLeft = 0;
-      } else {
-        // 未配置圣遗物的角色清除（换人后旧角色可能残留）
-        p.artifactId = null;
-      }
+      p.artifact.id = artId;
+      p.artifact.active = false;
+      p.artifact.roundsLeft = 0;
+      p.resources.breakCount = 0;
+      p.resources.holyWordUses = 2;
     });
   }
 
@@ -406,8 +379,8 @@ export function useWorldCupController() {
     const opponentCharId = matchState.value.opponentCharId;
     gameState.players.forEach((p) => {
       if (p.characterId === opponentCharId) {
-        p.isAI = true;
-        p.aiDifficulty = aiDifficulty;
+        p.ai.enabled = true;
+        p.ai.difficulty = aiDifficulty;
       }
     });
   }
@@ -416,8 +389,8 @@ export function useWorldCupController() {
 
   /** 玩家换人（第一步：执行换人但不重置游戏，等待对手也换人） */
   function handlePlayerSubstitution(newCharId) {
-    if (!matchState.value) return;
-    executeSubstitution(matchState.value, gameState, newCharId);
+    if (!matchState.value || !gameCtx) return;
+    gameState.mode.executeSubstitution(gameCtx, newCharId);
     opponentSubPending.value = true;
     // uiMode 保持 "substitution"，等待对手换人
   }
@@ -438,8 +411,8 @@ export function useWorldCupController() {
         characterId: charData.id,
         hp: charData.hp,
         maxHp: charData.hp,
-        skillUses: charData.maxUses,
       });
+      opponent.resources.skillUses = charData.maxUses;
 
       gameState.messageLog.push(
         `🔄 对手换人：${charData.name} 上场！（剩余换人 ${ms.substitutionsLeft - 1} 次）`,
@@ -450,25 +423,15 @@ export function useWorldCupController() {
     ms.substitutionsLeft--;
     opponentSubPending.value = false;
 
-    resetGameForNextLife(ms, gameState);
-    applyPlayerArtifact();
-    fixTurnAfterReset();
-    rebuildMatchContext(ms);
-    markAIPlayer();
+    startNextLife();
     uiMode.value = "match";
   }
 
   /** 对手跳过换人（第二步skip：不换角色但统一重置游戏） */
   function handleOpponentSkipSubstitution() {
     if (!matchState.value) return;
-    const ms = matchState.value;
     opponentSubPending.value = false;
-
-    resetGameForNextLife(ms, gameState);
-    applyPlayerArtifact();
-    fixTurnAfterReset();
-    rebuildMatchContext(ms);
-    markAIPlayer();
+    startNextLife();
     uiMode.value = "match";
   }
 
@@ -510,13 +473,9 @@ export function useWorldCupController() {
 
   // ---- 点球大战 ----
   function doPenaltyRound() {
-    if (!matchState.value) return null;
-    // 修复：startPenaltyShootout 设置 matchOver=true 会阻止 executePenaltyRound 执行
-    // 临时允许执行，执行完后恢复 matchOver=true（点球阶段保持比赛终止）
-    const savedMatchOver = matchState.value.matchOver;
-    matchState.value.matchOver = false;
-    const result = executePenaltyRound(matchState.value);
-    matchState.value.matchOver = true;
+    if (!matchState.value || !gameCtx) return null;
+    // 新内核不再需要「临时把 matchOver 改回 false」的 hack(KB-12)
+    const result = gameState.mode.executePenaltyRound(gameCtx);
     if (result?.winner !== null && result?.winner !== undefined) {
       matchState.value.winner = result.winner;
       // 不立即调用 handleMatchEnd — 让 UI 先展示最终轮结果再手动跳转
@@ -596,6 +555,7 @@ export function useWorldCupController() {
     finishPenalty,
     resetWorldCup,
     rebuildMatchContext,
+    restoreWorldCup,
     markAIPlayer,
     setArtifacts,
     applyPlayerArtifact,

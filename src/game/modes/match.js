@@ -21,8 +21,10 @@ export function createMatchMode({
   playerArtifactId = null,
   rng,
   onMatchEnd = null,
+  onAfterCheck = null,
+  wrap = null,
 } = {}) {
-  const match = {
+  const base = {
     isGroupStage,
     matchRound: 1,
     maxRounds: MATCH_CONFIG.knockoutRounds,
@@ -41,6 +43,9 @@ export function createMatchMode({
     penaltyGrave: [],
     elimGuard: false,
   };
+  // 控制器需要 Vue 响应式(比分/回合要驱动 UI),纯逻辑层不 import vue,
+  // 所以由调用方把 reactive 传进来包一层。
+  const match = wrap ? wrap(base) : base;
 
   const mode = {
     id: "match",
@@ -63,6 +68,7 @@ export function createMatchMode({
       match.matchRound = round;
       if (round > match.maxRounds) {
         checkMatchEnd(ctx);
+        mode.onAfterCheck?.(ctx);
         return "halt";
       }
       return undefined;
@@ -82,6 +88,10 @@ export function createMatchMode({
 
       match.matchRound = state.round;
       const killer = alive[0];
+      // 记录阵亡者角色(世界杯换人重置后要让被击杀方先手,需要这个信息)
+      const dead = state.players.find((p) => !p.alive);
+      if (dead) match._killedCharId = dead.characterId;
+
       // 旧实现用 characterId 判进球(索引会随 speed 重排,不可靠)
       const isPlayerGoal = !!killer && killer.characterId === match.playerCharId;
       if (isPlayerGoal) match.score[0]++;
@@ -90,6 +100,7 @@ export function createMatchMode({
       const result = checkMatchEnd(ctx);
       // 旧实现:回调后立刻暂停,防止幽灵回合
       state.turn.suspend = true;
+      mode.onAfterCheck?.(ctx);
       return result;
     },
 

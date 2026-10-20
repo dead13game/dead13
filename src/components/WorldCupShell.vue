@@ -243,25 +243,8 @@ import { MATCH_CONFIG } from "../game/worldCupConstants.js";
 import { CHARACTERS } from "../game/constants.js";
 import { getKnockoutRoundName } from "../game/worldCup.js";
 import { CAT } from "../game/gameLogger.js";
-import {
-  startAttack,
-  executeAttack,
-  executeDefense,
-  executeGamble,
-  executeSkill,
-  submitGamble,
-  executeRaidenSkill,
-  executeFurinaSwap,
-  executeAimiliyaSkill,
-  executeCaiyueangSave,
-  executeCaiyueangLoad,
-  executeLiniyaSkill,
-  submitNahidaScry,
-  executeAlly,
-  executeFenjinSkill,
-  serializeGameState,
-  deserializeGameState,
-} from "../game/gameState.js";
+import { dispatch, save as saveGame } from "../game/api.js";
+import { buildView } from "../game/view.js";
 import {
   isAiPlayer,
   decideTopAction,
@@ -305,14 +288,28 @@ const {
   finishPenalty,
   resetWorldCup,
   rebuildMatchContext,
+  restoreWorldCup,
   markAIPlayer,
   setArtifacts,
   applyPlayerArtifact,
 } = useWorldCupController();
 
+/** 只读视图:AI 与子组件都读它 */
+const view = reactive(buildView(gameState));
+watch(
+  () => gameState,
+  () => Object.assign(view, buildView(gameState)),
+  { deep: true },
+);
+
+/** view 的 index → 内核 uid */
+const uidAt = (index) =>
+  gameState.players.find((p) => p.index === index)?.uid ?? null;
+const cast = (cmd) => dispatch(gameState, cmd);
+
 // 世界杯模式下点击"保存并退出"按钮
 function onWCSaveAndQuit() {
-  const gameData = serializeGameState(gameState);
+  const gameData = saveGame(gameState);
   const saveData = {
     gameState: gameData,
     gameMode: "worldcup",
@@ -334,11 +331,11 @@ function handleWCSave(saveData) {
     artifactId:
       gameState.players.find(
         (p) => p.characterId === matchState?.value?.playerCharId,
-      )?.artifactId ?? null,
+      )?.artifact.id ?? null,
     opponentArtifactId:
       gameState.players.find(
         (p) => p.characterId === matchState?.value?.opponentCharId,
-      )?.artifactId ?? null,
+      )?.artifact.id ?? null,
   };
 
   // 序列化锦标赛状态（仅可序列化字段，去除回调引用）
@@ -372,35 +369,7 @@ function handleWCSave(saveData) {
 // 世界杯存档：从存档恢复
 function restoreFromSave(saveData) {
   if (!saveData.wcState || !saveData.matchState) return;
-
-  // 0. 恢复圣遗物配置
-  setArtifacts(
-    saveData.wcSetup?.artifactId ?? null,
-    saveData.wcSetup?.opponentArtifactId ?? null,
-  );
-
-  // 1. 恢复锦标赛状态
-  Object.assign(wcState, saveData.wcState);
-
-  // 2. 恢复比赛状态
-  const ms = reactive({ ...saveData.matchState });
-  matchState.value = ms;
-  wcState.currentMatch = ms;
-
-  // 3. 恢复游戏状态（使用已有的 gameState 对象）
-  deserializeGameState(gameState, saveData.gameState);
-
-  // 4. 重建 matchContext 回调
-  rebuildMatchContext(ms);
-
-  // 5. 重新标记 AI 玩家
-  markAIPlayer();
-
-  // 6. 应用圣遗物（deserializeGameState 已恢复字段，此处确保配置同步）
-  applyPlayerArtifact();
-
-  // 7. 设置 UI 为比赛进行中
-  uiMode.value = "match";
+  restoreWorldCup(saveData);
 }
 
 // 暴露给父组件
@@ -517,8 +486,8 @@ let aiTimer = null;
 
 function isAITurn() {
   if (!matchState.value) return false;
-  const p = gameState.players[gameState.currentPlayerIndex];
-  return p?.alive && isAiPlayer(p);
+  const p = view.players[view.currentPlayerIndex];
+  return !!p?.alive && !!p.isAI;
 }
 
 // ── 调度入口 ──
@@ -527,27 +496,27 @@ function scheduleAI() {
   if (aiTimer) clearTimeout(aiTimer);
   if (!props.useAI) return;
   // 不在比赛模式、游戏已结束、有人阵亡等待处理 → 都不触发
-  if (uiMode.value !== "match" || gameState.gameOver) return;
-  if (gameState.players.filter((p) => !p.alive).length > 0) return;
-  if (gameState.step !== "pickAction" || !isAITurn()) return;
+  if (uiMode.value !== "match" || view.gameOver) return;
+  if (view.players.filter((p) => !p.alive).length > 0) return;
+  if (view.step !== "pickAction" || !isAITurn()) return;
   aiTimer = setTimeout(aiAct, 600 + Math.random() * 600);
 }
 
-watch(() => gameState.currentPlayerIndex, scheduleAI, { immediate: true });
-watch(() => gameState.step, scheduleAI, { immediate: true });
+watch(() => view.currentPlayerIndex, scheduleAI, { immediate: true });
+watch(() => view.step, scheduleAI, { immediate: true });
 
 // ── 主决策 ──
 
 function aiAct() {
   // 双保险：手动模式下已调度的 timer 也直接退出（防止读档时序问题）
   if (!props.useAI) return;
-  if (gameState.step === "pickAction") {
-    const decision = decideTopAction(gameState);
-    gameState.devLog.debug(
+  if (view.step === "pickAction") {
+    const decision = decideTopAction(view);
+    gameState.devLog?.debug(
       CAT.AI,
       `AI决策: ${decision.action} (${decision.reason})`,
       {
-        player: gameState.players[gameState.currentPlayerIndex]?.name,
+        player: view.players[view.currentPlayerIndex]?.name,
         decision,
       },
     );
@@ -558,10 +527,10 @@ function aiAct() {
 
   // 300ms 保底回退定时器
   aiTimer = setTimeout(() => {
-    if (gameState.step !== "pickAction") return;
-    if (!isAITurn() || gameState.gameOver) return;
-    if (gameState.players.some((p) => !p.alive)) return;
-    executeDefense(gameState);
+    if (view.step !== "pickAction") return;
+    if (!isAITurn() || view.gameOver) return;
+    if (view.players.some((p) => !p.alive)) return;
+    cast({ type: "defense" });
   }, 300);
 }
 
@@ -571,95 +540,86 @@ function executeTopAction(decision) {
   if (!props.useAI) return; // 手动模式中止链式调度
   switch (decision.action) {
     case "attack": {
-      startAttack(gameState);
+      cast({ type: "attack" });
       aiTimer = setTimeout(() => {
-        if (gameState.step === "attackShowCard") {
-          const t = decideTarget(gameState, { action: "attack" });
-          executeAttack(gameState, t.targetIndex);
+        if (view.step === "attackShowCard") {
+          const t = decideTarget(view, { action: "attack" });
+          cast({ type: "attackTarget", targetUid: uidAt(t.targetIndex) });
         }
       }, 500);
       break;
     }
     case "defense":
-      executeDefense(gameState);
+      cast({ type: "defense" });
       break;
     case "gamble": {
-      gameState._skipAnim = true;
       const lb = gameState.messageLog.length;
-      executeGamble(gameState);
+      cast({ type: "gamble" });
       aiSuppressLog(lb, "对手 执行赌命");
       aiTimer = setTimeout(() => {
-        if (gameState.step === "gamblePick" && gameState.pendingGamble) {
-          const g = decideGamblePick(
-            gameState,
-            gameState.pendingGamble.drawnCards,
-          );
+        if (view.step === "gamblePick" && view.pendingGamble) {
+          const g = decideGamblePick(view, view.pendingGamble.drawnCards);
           const lb2 = gameState.messageLog.length;
-          submitGamble(gameState, g.trapIdx, g.baitIdx);
+          cast({ type: "gambleSubmit", trapIdx: g.trapIdx, baitIdx: g.baitIdx });
           aiSuppressLog(lb2);
         }
-        gameState._skipAnim = false;
       }, 400);
       break;
     }
     case "skill": {
-      executeSkill(gameState);
+      cast({ type: "skill" });
       aiTimer = setTimeout(() => executeMiddleStep(), 400);
       break;
     }
   }
 }
 
+/** pending.purpose → 旧 AI 认识的技能标签 */
+function skillTagOf(purpose) {
+  if (purpose === "skill:furina") return "furina";
+  if (purpose === "skill:aimiliya.freeze") return "aimiliya";
+  if (purpose === "skill:fenjin") return "fenjin";
+  return "raiden";
+}
+
 // ── 中间步骤自动完成 ──
 
 function executeMiddleStep() {
   if (!props.useAI) return; // 手动模式中止链式调度
-  const s = gameState.step;
+  const s = view.step;
   if (s === "pickAction") return;
 
   if (s === "attackShowCard") {
-    const t = decideTarget(gameState, { action: "attack" });
-    executeAttack(gameState, t.targetIndex);
+    const t = decideTarget(view, { action: "attack" });
+    cast({ type: "attackTarget", targetUid: uidAt(t.targetIndex) });
   } else if (s === "gamblePick") {
-    if (gameState.pendingGamble) {
-      const g = decideGamblePick(gameState, gameState.pendingGamble.drawnCards);
-      submitGamble(gameState, g.trapIdx, g.baitIdx);
+    if (view.pendingGamble) {
+      const g = decideGamblePick(view, view.pendingGamble.drawnCards);
+      cast({ type: "gambleSubmit", trapIdx: g.trapIdx, baitIdx: g.baitIdx });
     }
-    gameState._skipAnim = false;
   } else if (s === "skillPickTarget") {
-    let ctx = { action: "skill" };
-    if (gameState.pendingFurinaTarget) ctx.characterId = "furina";
-    else if (gameState._aimiliyaFreeze) ctx.characterId = "aimiliya";
-    else if (gameState._fenjinHeal !== undefined) ctx.characterId = "fenjin";
-    else ctx.characterId = "raiden";
-
-    const t = decideTarget(gameState, ctx);
-    if (gameState.pendingFurinaTarget) {
-      executeFurinaSwap(gameState, t.targetIndex);
-    } else if (gameState._aimiliyaFreeze) {
-      executeAimiliyaSkill(gameState, t.targetIndex);
-    } else if (gameState._fenjinHeal !== undefined) {
-      executeFenjinSkill(gameState, t.targetIndex);
-    } else {
-      executeRaidenSkill(gameState, t.targetIndex);
-    }
+    const kind = skillTagOf(view.pending?.purpose ?? "");
+    const t = decideTarget(view, { action: "skill", characterId: kind });
+    cast({ type: "skillAnswer", answer: uidAt(t.targetIndex) });
   } else if (s === "skillNahida") {
-    const order = decideNahidaOrder(gameState, gameState.scryCards);
-    submitNahidaScry(gameState, order);
+    const order = decideNahidaOrder(view, view.scryCards);
+    cast({ type: "skillAnswer", answer: order });
   } else if (s === "liniyaPick") {
-    const d = decideLiniyaChoice(gameState);
-    executeLiniyaSkill(gameState, d.targetIndex, d.subSkill);
+    const d = decideLiniyaChoice(view);
+    cast({
+      type: "skillAnswer",
+      answer: { targetUid: uidAt(d.targetIndex), subSkill: d.subSkill },
+    });
   } else if (s === "caiyueangPick") {
-    const d = decideCaiyueangChoice(gameState);
-    if (d.choice === "save") executeCaiyueangSave(gameState);
-    else executeCaiyueangLoad(gameState);
+    const d = decideCaiyueangChoice(view);
+    cast({ type: "skillAnswer", answer: { choice: d.choice } });
   } else if (s === "allyPick") {
-    const t = decideTarget(gameState, { action: "ally" });
-    executeAlly(gameState, t.targetIndex);
+    const t = decideTarget(view, { action: "ally" });
+    cast({ type: "allyTarget", targetUid: uidAt(t.targetIndex) });
   } else {
     // 未知步骤保底
-    gameState.step = "pickAction";
-    executeDefense(gameState);
+    cast({ type: "cancel" });
+    cast({ type: "defense" });
   }
 }
 
