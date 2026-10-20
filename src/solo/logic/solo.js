@@ -11,7 +11,7 @@ import {
   SHOP_PRICE,
   calcMaxHp,
 } from "./soloConstants.js";
-import { createFullDeck, shuffleDeck, drawCards } from "../../game/deck.js";
+import { createFullDeck, shuffleDeck, drawCards } from "../../game/core/cards.js";
 import { createGameLogger, LOG_TYPE } from "../../game/gameLogger.js";
 
 /** 玛薇卡默认初始卡组（12.2）：猛击 ×2 / 重击 ×1 / 格挡 ×1 */

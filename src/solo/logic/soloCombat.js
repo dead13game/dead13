@@ -2,7 +2,7 @@
 // 纯逻辑层，零依赖（设计文档 docs/solo-roguelike-design.md v0.8）
 
 import { SOLO_CONST, SOLO_CARDS, SOLO_ENEMIES } from "./soloConstants.js";
-import { createFullDeck, shuffleDeck, drawCards } from "../../game/deck.js";
+import { createFullDeck, shuffleDeck, drawCards } from "../../game/core/cards.js";
 import { LOG_TYPE } from "../../game/gameLogger.js";
 import { recordSound } from "../../game/soundEvents.js";
 import { getCardStats, awardBattleReward } from "./solo.js";

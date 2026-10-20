@@ -1,141 +1,53 @@
 /**
- * src/game/ — 纯逻辑层统一入口
+ * src/game — 纯逻辑层唯一对外入口
  *
- * 外部层（PIXI / Vue / Bridge）只从这个文件导入游戏逻辑，
- * 不直接引用子模块，确保合约边界清晰。
+ * 分层:
+ *   core/         零依赖基础(牌、随机、玩家数据、常量、日志分类)
+ *   rules/        纯规则(加成管道、伤害、陷阱、联盟、天气、圣遗物)
+ *   characters/   角色插件(每角色一个模块 + registry)
+ *   flow/         ctx / pending / turn / commands / setup(唯一写状态的地方)
+ *   modes/        classic / match / league / worldcup 适配器
+ *   persistence/  存档 schema 与快照
  *
- * 子模块索引：
- *   constants.js  — 角色数据、阶段/步骤常量、工具函数
- *   deck.js       — 扑克牌创建/洗牌/抽牌/墓地重构
- *   gameState.js  — 状态创建 + 初始化 + 回合推进 + 统一导出
- *   player.js     — Player 工厂函数
- *   serialize.js  — 存档/读档
- *   combat.js     — 攻击/防御
- *   gamble.js     — 赌命
- *   damage.js     — 伤害结算/死亡/游戏结束
- *   skills.js     — 技能路由 + 各角色实现
- *   alliance.js   — 结盟/背刺
- *   caiyueang.js  — 菜月昴死亡回归
- *   artifacts.js  — 圣遗物系统（圣言自明+伤害加成+击破计数）
- *   ai/index.js   — AI 决策（easy/skilled/hell）
- *   weather.js    — 天气牌堆
- *   matchState.js — 比赛状态机（世界杯）
- *   worldCup.js   — 世界杯赛程
- *   league.js     — 联赛状态机
- *   leagueConstants.js — 联赛常量（球队/赛程）
+ * UI 只允许:
+ *   createSession → dispatch(命令) → buildView(只读视图) → save/load
+ *
+ * 赛程/积分等数据编排仍由 league.js / worldCup.js 提供,按需直接 import。
  */
 
-// ── constants.js ──
 export {
-  SUITS,
-  RANKS,
-  RANK_VALUES,
+  createSession,
+  dispatch,
+  save,
+  load,
+  rewireContext,
+  createGameState,
+  initGame,
+} from "./api.js";
+
+export { buildView, attachCtx, getCtx } from "./view.js";
+
+export {
+  CHARACTERS,
+  CHARACTER_DEFS,
+  getCharacter,
+  getCharData,
+  characterStateFor,
+  selectableIds,
+} from "./characters/index.js";
+
+export {
   PHASE,
   STEP,
   MOON_NAMES,
-  CHARACTERS,
-  getCharData,
-} from "./constants.js";
+  SUITS,
+  RANKS,
+  RANK_VALUES,
+} from "./core/constants.js";
 
-// ── deck.js ──
-export {
-  createFullDeck,
-  shuffleDeck,
-  drawCards,
-  reshuffleFromGrave,
-  cardDisplay,
-} from "./deck.js";
+export { ARTIFACTS, getArtifactData } from "./rules/artifacts.js";
 
-// ── gameState.js ──
-export {
-  // 核心 API
-  createGameState,
-  initGame,
-  currentPlayer,
-  addLog,
-  ensureDeck,
-  endAction,
-  // 存档
-  serializeGameState,
-  deserializeGameState,
-  // 子模块 re-export（向后兼容）
-  applyDamage,
-  dissolveAlliance,
-  checkGameOver,
-  alivePlayers,
-  getCurrentWeather,
-  getNextWeather,
-  startAttack,
-  executeAttack,
-  executeDefense,
-  executeGamble,
-  submitGamble,
-  canUseSkill,
-  executeSkill,
-  executeRaidenSkill,
-  executeFurinaSwap,
-  executeFenjinSkill,
-  executeLiniyaSkill,
-  executeAimiliyaSkill,
-  submitNahidaScry,
-  executeSkillCaiyueang,
-  startAlly,
-  executeAlly,
-  executeBetray,
-  getAllianceTargets,
-  executeCaiyueangSave,
-  executeCaiyueangLoad,
-  // artifacts
-  executeHolyWord,
-  canUseHolyWord,
-  getArtifactData,
-  ARTIFACTS,
-} from "./gameState.js";
-
-// ── ai ──
-export {
-  isAiPlayer,
-  decideTopAction,
-  decideTarget,
-  decideGamblePick,
-  decideNahidaOrder,
-  decideLiniyaChoice,
-  decideCaiyueangChoice,
-} from "./ai/index.js";
-
-// ── league ──
-export {
-  createLeagueState,
-  getTeamTier,
-  getCardBonus,
-  getRoundMatches,
-  getPlayerMatchForRound,
-  isPlayerHome,
-  getPlayerOpponent,
-  simulateNonPlayerMatches,
-  simulateMatch,
-  recordMatchResult,
-  getMatchResult,
-  getPlayerResult,
-  calculateStandings,
-  isLeagueFinished,
-  checkTiebreakerNeeded,
-  calculateMatchScore,
-  computeDefenseReinforcement,
-} from "./league.js";
-
-// ── leagueConstants ──
-export {
-  LEAGUE_TEAMS,
-  TIER_LABELS,
-  TIER_1,
-  TIER_2,
-  TIER_3,
-  LEAGUE_MATCH_CONFIG,
-  RANK_POINTS,
-  LEAGUE_POINTS,
-  TOTAL_ROUNDS,
-  LEAGUE_SCHEDULE,
-  TEAM_BADGE_DIR,
-  getTeamBadge,
-} from "./leagueConstants.js";
+export { createClassicMode } from "./modes/classic.js";
+export { createMatchMode } from "./modes/match.js";
+export { createLeagueMatchMode } from "./modes/league.js";
+export { createWorldCupMatchMode } from "./modes/worldcup.js";

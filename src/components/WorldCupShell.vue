@@ -240,7 +240,7 @@ import WorldCupSubstitution from "./WorldCupSubstitution.vue";
 import WorldCupStandings from "./WorldCupStandings.vue";
 import { useWorldCupController } from "../composables/useWorldCupController.js";
 import { MATCH_CONFIG } from "../game/worldCupConstants.js";
-import { CHARACTERS } from "../game/constants.js";
+import { CHARACTERS } from "../game/characters/index.js";
 import { getKnockoutRoundName } from "../game/worldCup.js";
 import { CAT } from "../game/gameLogger.js";
 import { dispatch, save as saveGame } from "../game/api.js";

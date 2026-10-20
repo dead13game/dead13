@@ -87,7 +87,7 @@
 <script setup>
 import { ref, computed } from "vue";
 import SoundManager from "../audio/SoundManager.js";
-import { CHARACTERS } from "../game/constants.js";
+import { CHARACTERS } from "../game/characters/index.js";
 
 const props = defineProps({
   playerTeamName: { type: String, default: "你的队伍" },

@@ -56,7 +56,7 @@
 
 <script setup>
 import { ref } from "vue";
-import { CHARACTERS } from "../game/constants.js";
+import { CHARACTERS } from "../game/characters/index.js";
 
 const props = defineProps({
   currentCharId: { type: String, required: true },

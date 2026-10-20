@@ -64,6 +64,21 @@ export function display(card) {
   return `${card.rank}${card.suit}`;
 }
 
+// ── 兼容别名 ──
+// 单机模式(solo/)与模拟宇宙(simuniverse/)仍用旧名字调用;它们不在本次重构范围内,
+// 这里提供薄别名,避免为了两个 import 去动那两套逻辑。新代码请直接用上面的名字。
+const defaultRng = { next: () => Math.random() };
+
+export function shuffleDeck(deck) {
+  return shuffle(deck, defaultRng);
+}
+
+export function drawCards(deck, n = 1) {
+  return draw(deck, n);
+}
+
+export const cardDisplay = display;
+
 /** 复制一张牌(避免共享引用穿越存档/快照) */
 export function cloneCard(card) {
   return card ? { ...card } : null;

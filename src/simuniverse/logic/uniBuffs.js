@@ -4,7 +4,7 @@
 
 import { LOG_TYPE } from "../../game/gameLogger.js";
 import { EQUATION_DUPE_SHARDS } from "./uniConstants.js";
-import { CHARACTERS } from "../../game/constants.js";
+import { SIM_CHARACTERS as CHARACTERS } from "../../game/characters/index.js";
 // 延迟引用：drawPokerUnified 仅在函数体内调用（uniCombat ↔ uniBuffs 循环依赖，运行时解析）
 import { drawPokerUnified } from "./uniCombat.js";
 

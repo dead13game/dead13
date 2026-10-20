@@ -16,6 +16,7 @@ import fenjin from "./fenjin.js";
 import liniya from "./liniya.js";
 import aimiliya from "./aimiliya.js";
 import caiyueang from "./caiyueang.js";
+import dev from "./dev.js";
 
 /** 回合开始钩子的执行优先级(数值小先执行) */
 export const ROUND_START_PRIORITY = {
@@ -48,6 +49,11 @@ export function getCharacter(id) {
 export const CHARACTERS = Object.fromEntries(
   CHARACTER_DEFS.map((d) => [d.id, d.meta]),
 );
+
+/** 含开发者角色(12)的全量字典 — 仅模拟宇宙使用 */
+export const SIM_CHARACTERS = { ...CHARACTERS, [dev.id]: dev.meta };
+
+export const DEV_CHARACTER = dev;
 
 /** 旧 API:根据 player 取静态数据 */
 export function getCharData(player) {

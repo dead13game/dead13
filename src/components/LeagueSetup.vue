@@ -148,7 +148,7 @@
 <script setup>
 import { LEAGUE_TEAMS, TIER_LABELS } from "../game/leagueConstants.js";
 import SoundManager from "../audio/SoundManager.js";
-import { ARTIFACTS } from "../game/gameState.js";
+import { ARTIFACTS } from "../game/rules/artifacts.js";
 import TeamBadge from "./TeamBadge.vue";
 
 defineProps({

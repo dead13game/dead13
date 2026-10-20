@@ -1,7 +1,7 @@
 // 单机事件 — 文本 / 选项 / 扑克检定
 // 纯逻辑层，零依赖（设计文档 §6.2）
 
-import { createFullDeck, shuffleDeck, drawCards } from "../../game/deck.js";
+import { createFullDeck, shuffleDeck, drawCards } from "../../game/core/cards.js";
 import { LOG_TYPE } from "../../game/gameLogger.js";
 import { addGold, healPlayer, removeRandomCard, addCards } from "./solo.js";
 import { SOLO_CARDS } from "./soloConstants.js";

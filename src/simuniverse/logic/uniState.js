@@ -1,7 +1,7 @@
 // 模拟宇宙状态机 — 位面/层推进 / 区域生成 / 货币 / 队伍 / 存档
 // 纯逻辑层，零依赖（设计文档 docs/simuniverse-design.md v0.1）
 
-import { CHARACTERS } from "../../game/constants.js";
+import { SIM_CHARACTERS as CHARACTERS } from "../../game/characters/index.js";
 import { createGameLogger, LOG_TYPE } from "../../game/gameLogger.js";
 import {
   UNI_CONST,

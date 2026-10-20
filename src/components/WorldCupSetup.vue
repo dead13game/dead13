@@ -217,8 +217,8 @@
 <script setup>
 import { computed, ref } from "vue";
 import SoundManager from "../audio/SoundManager.js";
-import { CHARACTERS } from "../game/constants.js";
-import { ARTIFACTS } from "../game/gameState.js";
+import { CHARACTERS } from "../game/characters/index.js";
+import { ARTIFACTS } from "../game/rules/artifacts.js";
 import { AI_TEAM_NAMES, TEAM_EMOJIS } from "../game/worldCupConstants.js";
 
 const props = defineProps({

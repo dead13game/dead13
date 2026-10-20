@@ -239,8 +239,8 @@
 <script setup>
 import { computed, ref } from "vue";
 import SoundManager from "../audio/SoundManager.js";
-import { CHARACTERS } from "../game/constants.js";
-import { ARTIFACTS, getArtifactData } from "../game/gameState.js";
+import { CHARACTERS } from "../game/characters/index.js";
+import { ARTIFACTS, getArtifactData } from "../game/rules/artifacts.js";
 
 const props = defineProps({
   playerCount: { type: Number, required: true },

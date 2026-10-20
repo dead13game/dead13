@@ -70,7 +70,7 @@ import {
   EQUATIONS,
 } from "./uniBuffs.js";
 import { enterRegion, generateRegion } from "./uniState.js";
-import { CHARACTERS } from "../../game/constants.js";
+import { SIM_CHARACTERS as CHARACTERS } from "../../game/characters/index.js";
 
 /** 同步跑完敌人阶段（控制器会异步慢放，测试里直接跑完） */
 function runEnemyPhase(s) {

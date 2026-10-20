@@ -1,7 +1,7 @@
 import { Container, Graphics, Text, Sprite, Texture, Rectangle } from "pixi.js";
 import gsap from "gsap";
 import { CARD_WIDTH, CARD_HEIGHT, COLORS } from "../core/constants.js";
-import { getCharData } from "../../game/constants.js";
+import { getCharData } from "../../game/characters/index.js";
 import { CardSprite } from "./CardSprite.js";
 
 /**

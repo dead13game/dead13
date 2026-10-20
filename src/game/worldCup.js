@@ -2,7 +2,7 @@
 // 纯逻辑层，零依赖
 
 import { AI_TEAM_NAMES, TEAM_EMOJIS, POINTS } from "./worldCupConstants.js";
-import { CHARACTERS } from "./constants.js";
+import { CHARACTERS } from "./characters/index.js";
 
 // ---- 工具函数 ----
 

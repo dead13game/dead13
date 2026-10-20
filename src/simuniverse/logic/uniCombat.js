@@ -1,8 +1,8 @@
 // 模拟宇宙战斗结算 — 扑克牌行动 / 敌人模板 / 波次 / 转化及格线
 // 纯逻辑层，零依赖（设计文档 docs/simuniverse-design.md §6）
 
-import { createFullDeck, shuffleDeck, drawCards } from "../../game/deck.js";
-import { CHARACTERS } from "../../game/constants.js";
+import { createFullDeck, shuffleDeck, drawCards } from "../../game/core/cards.js";
+import { SIM_CHARACTERS as CHARACTERS } from "../../game/characters/index.js";
 import { LOG_TYPE } from "../../game/gameLogger.js";
 import { recordSound } from "../../game/soundEvents.js";
 import { addShards, tryCaiyueangRevive } from "./uniState.js";
