@@ -242,10 +242,19 @@ state.turn = { extraAction: false, suspend: null, resync: false }
 | P1 core + flow | ✅ | 26 条单测;`step` 成为 pending 派生量 |
 | P2 rules | ✅ | 19 条单测(加成顺序/取整/防御消耗/陷阱三态/平摊) |
 | P3 角色 + 引擎 | ✅ | 11 个角色插件;`next-replay.test.js` **30/30**,1961 条命令逐步一致 |
-| P4 modes | ⬜ | — |
+| P4 modes | ✅ | 三种适配器;模式单测 25 条;1v1 完整一命集成测试通过 |
 | P5 persistence | ⬜ | snapshot 已就位,存档 schema 待做 |
 | P6 UI 收敛 | ⬜ | — |
 | P7 删旧 + 文档 | ⬜ | — |
+
+P4 补充说明:
+
+- `league.js` / `worldCup.js`(赛程、积分、抽签)**暂不迁移**——它们是纯数据编排,不依赖内核;
+  P6 重写控制器时再决定搬到 `modes/`,避免无谓 churn。
+- 联赛/世界杯的「进入下一命/下一场」不再由 UI 手动 `reset1v1Game`,而是
+  `mode.startNextLife(ctx)` / `mode.skipSubstitution(ctx)`,内部复用 `initGame`。
+- 模式级规则全部进 `rules` 字段(`peaceRounds / attackGate / attackMinRound / alliance / besiege / blockAllyAttack`),
+  不再用「context 是否存在」隐式切换。
 
 回放对拍的工作方式(重要):
 
@@ -266,6 +275,9 @@ state.turn = { extraAction: false, suspend: null, resync: false }
 | KB-7 | 用 `characterId` 当身份判定进球,换人/同角色对手时歧义 | `matchState.js:61`、`worldCup.js:262` |
 | KB-8 | 牌库与墓地同时为空时 `executeDefense`/`startAttack` 读到 `undefined` 崩溃(4 人局即可复现:104 张牌全压进防御区) | `combat.js:591-593` |
 | KB-9 | 菜月昴 AI 死循环:存档不限次且不结束回合,`canUseSkill` 对 id=11 不看 `skillUses` → 无限「存档」 | `skills.js:39`、`caiyueang.js:142` |
+| KB-10 | 菜月昴读档会清空自己的存档点(`deepCloneState` 把 savepoint 置 null 后又整体覆盖回去) | `caiyueang.js:40/60` |
+| KB-11 | 换人只重置 characterId/hp/skillUses,角色私有状态(斗志/月相)残留在新角色上 | `matchState.js:348-353` |
+| KB-12 | `startPenaltyShootout` 置 `matchOver=true`,而 `executePenaltyRound` 又要求 `!matchOver`,控制器只能每轮手动改回 false | `matchState.js:133/373`、`useWorldCupController.js:517` |
 
 ## 7.5 本次重构中执行的规则修正(非等价,用户已确认)
 

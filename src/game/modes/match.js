@@ -145,6 +145,11 @@ export function createMatchMode({
       return match.winner !== null;
     },
 
+    /** 存档:比赛进度是纯数据,可整体序列化 */
+    serialize() {
+      return { match: structuredClone(match) };
+    },
+
     getGroupMatchResult() {
       if (!match.matchOver) return null;
       const [p, o] = match.score;
@@ -152,6 +157,25 @@ export function createMatchMode({
     },
   };
 
+  return mode;
+}
+
+// ────────────────────────────────────────
+//  读档恢复
+// ────────────────────────────────────────
+
+/** 从存档里的 mode.match 还原一个比赛模式 */
+export function restoreMatchMode(modeData, opts = {}) {
+  const saved = modeData?.match;
+  if (!saved) throw new Error("restoreMatchMode: 缺少 match 数据");
+  const mode = createMatchMode({
+    isGroupStage: saved.isGroupStage,
+    playerCharId: saved.playerCharId,
+    opponentCharId: saved.opponentCharId,
+    playerArtifactId: saved.playerArtifactId,
+    rng: opts.rng,
+  });
+  Object.assign(mode.match, structuredClone(saved));
   return mode;
 }
 
