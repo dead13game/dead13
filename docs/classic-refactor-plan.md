@@ -244,8 +244,8 @@ state.turn = { extraAction: false, suspend: null, resync: false }
 | P3 角色 + 引擎 | ✅ | 11 个角色插件;`next-replay.test.js` **30/30**,1961 条命令逐步一致 |
 | P4 modes | ✅ | 三种适配器;模式单测 25 条;1v1 完整一命集成测试通过 |
 | P5 persistence | ✅ | 存档 v4 + schema 驱动;6 条单测(pending 还原/Infinity 编码/比赛进度) |
-| P6 UI 收敛 | 🟡 经典+联赛已切 | `api.js` 门面 + `view.js` 只读视图;GameShell/ActionBar/AI/经典控制器/联赛控制器已接新内核;`vite build` 通过 |
-| P7 删旧 + 文档 | ⬜ | — |
+| P6 UI 收敛 | ✅ | 三种模式全部切到新内核;UI 只读 view + dispatch;`vite build` 通过 |
+| P7 删旧 + 文档 | ✅ | 旧内核 21 个文件已删;新门面 + CLAUDE.md + `docs/KNOWN_BUGS.md` |
 
 P6 进度明细:
 
@@ -257,7 +257,16 @@ P6 进度明细:
 - ✅ useGameController + App.vue:createSession / api.load(顺带修掉按 characterId 配对 AI 槽位的隐患)
 - ✅ useLeagueController + LeagueShell:`leagueContext` 四回调 → `mode.hooks`;`_elimPaused` 手工清除全部删除;
   圣遗物/AI 标记改新字段;读档按 `matchState` 重建 mode(含加赛分支)
-- ⬜ useWorldCupController + WorldCupShell:仍走旧 `matchState.js`(换人/加时/点球/进球回调)
+- ✅ useWorldCupController + WorldCupShell:`matchContext` → `mode.hooks` + `onAfterCheck`;
+  `resetGameForNextLife` → `mode.startNextLife`;点球 hack(KB-12)删除
+
+P7 说明:
+
+- 旧内核 21 个文件删除:`gameState/combat/skills/damage/alliance/gamble/artifacts/caiyueang/player/deck/weather/serialize/matchState/constants` 及旧测试
+- 保留 `league.js` / `worldCup.js` 作为纯数据编排(球队/赛程/积分/抽签),不依赖内核
+- 保留 `gameLogger.js` / `soundEvents.js`(零依赖基础设施)
+- 差分基线(`testing/fixtures/classic-v1.json.gz` + `next-replay.test.js`)保留为永久回归:
+  它不依赖旧代码,只按「命令 + 随机游标」驱动新内核并比对投影
 
 P4 补充说明:
 

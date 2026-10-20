@@ -33,14 +33,14 @@ PR以及gh CLI会导致用户GitHub账户封禁，禁止使用。
 
 ## 核心设计原则（最重要，每次变更必须遵守）
 
-1. **`src/game/` 是纯逻辑层 — 零依赖。** 不引用 Vue、PIXI、GSAP 或浏览器 API。所有游戏规则在这里（含 league.js / worldCup.js / matchState.js）。
-2. **单向数据流：** `gameState` (Vue reactive) → `usePixiSync` (watch) → `PIXIManager` (渲染)。不反向操作。
-3. **新机制用通用标记。** 如 `endTurn` 控制回合推进（true=下一玩家，false=当前玩家额外行动），不搞角色特殊路径。
+1. **`src/game/` 分层且零依赖。** `core/ rules/ characters/ flow/ modes/ persistence/` 不引用 Vue、PIXI、GSAP 或浏览器 API(控制器传进来的 `reactive` 除外)。规则全在 `rules/`,角色全在 `characters/`,状态写入全在 `flow/`。
+2. **单向数据流：** `state`(Vue reactive)→ `buildView(state)` 只读视图 → `usePixiSync` / 组件 → 渲染。**UI 不直接写 state**,所有动作走 `dispatch(state, command)`。
+3. **新机制用 `pending` 决策对象,不用 step 字符串 + flag。** `state.step` 是 `pending` 的派生量(仅为兼容 UI 模板保留),`setPending` 是唯一写入口。
 4. **PixiJS 对象用 `shallowRef`，不用 `ref()`。** Vue 深度响应式代理会破坏纹理引用。GSAP 动画用 `sprite.scale.x` 不是 `scaleX`。
-5. **伤害计算：先 -2 再 2:1 联盟分配，向下取整（`Math.floor`）。**
-6. **角色数据用 `getCharData(player)` 查表。** 不要直接访问 `player.characterName`/`skillName`/`skillDesc` 等——这些字段已移入 CHARACTERS 字典，player 上只保留 `characterId`（数字）。
-7. **Player 嵌套字段写完整路径。** 状态效果 → `player.statusEffects.xxx`，关系 → `player.relations.xxx`。
-8. **行动顺序按 `CHARACTERS[id].speed` 每回合重排。** speed 降序（大=先动），dead 排末尾，同速按 index 升序。
+5. **伤害计算：先 -2 再 2:1 联盟分配，向下取整（`Math.floor`）。** 加成顺序写在 `rules/modifiers.js` 的 priority 常量里,顺序即规则。
+6. **角色数据用 `getCharData(player)` / `CHARACTERS` 查表。** 角色专属状态放 `player.char`(由插件 `stateSchema` 声明),通用状态放 `resources/effects/relations`。
+7. **Player 字段分区写完整路径。** 资源 → `player.resources.xxx`,效果 → `player.effects.xxx`,关系 → `player.relations.xxx`,圣遗物 → `player.artifact.xxx`。
+8. **行动顺序按 `CHARACTERS[id].speed` 在开局排序一次。** speed 降序（大=先动）,同速按创建顺序;`player.uid` 是稳定身份,`index` 只是渲染序。
 
 ## 行为准则 — 信息不足时必须追问（最重要）
 
@@ -77,10 +77,10 @@ graph TD
 
 | 层     | 目录                 | 职责                                                            |
 | ------ | -------------------- | --------------------------------------------------------------- |
-| 纯逻辑 | `src/game/`        | 状态机 + 角色技能 + AI + 天气 + 联赛/世界杯/比赛（零依赖）      |
-| 桥接   | `src/bridge/`      | 监听 gameState → 驱动 PIXI + GSAP + 音效                       |
+| 纯逻辑 | `src/game/`        | `core`(牌/随机/玩家)+`rules`(加成/伤害/陷阱/联盟/天气)+`characters`(11 角色插件)+`flow`(ctx/pending/turn/commands)+`modes`(经典/1v1/联赛/世界杯)+`persistence`;零依赖 |
+| 桥接   | `src/bridge/`      | 监听只读 view → 驱动 PIXI + GSAP + 音效                        |
 | 渲染   | `src/pixi/`        | PixiJS v8 Application + 精灵 + 布局 + 粒子                      |
-| 控制器 | `src/composables/` | useGameController / useLeagueController / useWorldCupController |
+| 控制器 | `src/composables/` | useGameController / useLeagueController / useWorldCupController(建房、存档、模式编排) |
 | 爬塔   | `src/solo/`        | 单机模式（logic/ 纯逻辑 + useSoloController + SoloShell）       |
 | 模拟宇宙 | `src/simuniverse/` | PVE 无尽深渊（logic/ 纯逻辑 + useUniController + UniShell，DOM 渲染，不依赖 PIXI） |
 | 音频   | `src/audio/`       | SoundManager 音效播放（由`src/game/soundEvents.js` 触发）     |
@@ -90,74 +90,81 @@ graph TD
 
 | 模式     | 入口                      | 逻辑文件                                     | 说明                                                                                         |
 | -------- | ------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| 经典对战 | `App.vue` gameMode      | `src/game/gameState.js`                    | 2-8 人扑克对战，选角色 + 天气                                                                |
-| 世界杯   | `App.vue` wcStarted     | `src/game/worldCup.js` + `matchState.js` | 小组赛 A-H → 淘汰赛 R16/QF/SF/Final；常规 90 回合 + 加时 30；点球先得 5 分、每方抽 2 张     |
-| 联赛     | `App.vue` leagueStarted | `src/game/league.js`                       | 10 支英超球队，tier 1-3（🏆争冠/⚔️欧战/🛡️保级）；队标`public/team-badges/{teamId}.png` |
+| 经典对战 | `App.vue` gameMode      | `src/game/flow/commands.js` + `modes/classic.js` | 2-8 人扑克对战，选角色 + 天气                                                                |
+| 世界杯   | `App.vue` wcStarted     | `src/game/worldCup.js` + `modes/match.js` | 小组赛 A-H → 淘汰赛 R16/QF/SF/Final；常规 90 回合 + 加时 30；点球先得 5 分、每方抽 2 张     |
+| 联赛     | `App.vue` leagueStarted | `src/game/league.js` + `modes/league.js`   | 10 支英超球队，tier 1-3（🏆争冠/⚔️欧战/🛡️保级）；每场 4 回合和平期；3V3 围攻/补给/名次积分；队标`public/team-badges/{teamId}.png` |
 | 单机     | `App.vue` gameMode='solo' | `src/solo/logic/solo.js`               | 技能卡肉鸽：章节爬塔/抽3选2/事件检定/商店营地（DOM 渲染） |
 | 模拟宇宙 | `App.vue` gameMode='simuniverse' | `src/simuniverse/logic/uniState.js` | PVE 无尽深渊：位面 1-10/11-30/31-60/61+ 循环；扑克牌普攻/防御/开大三选一；敌人模板行动；祝福/奇物/方程；商店/休整/造物调试台；存档 `dead13_uni_save`；设计文档 `docs/simuniverse-design.md` |
 | 娱乐模式 | `App.vue` gameMode='dicewar' | `src/game/diceWar.js` + `diceWarCommentator.js` | 骰子战争世锦赛：16 人（原神8+崩铁8）随机配对淘汰；每局 30 轮先/后手各掷 2~12，每 10 轮段间对比，平局加赛；决赛七局四胜；每 10 轮 AI 解说（密钥存 `dead13_ai_settings`，浏览器直连 LLM，无本地兜底） |
 
-比赛状态机 `matchState.js` 在 1v1 游戏之上叠加进球、重置、换人、加时、点球逻辑。
+1v1 比赛由 `modes/match.js` 在经典内核之上叠加:进球、每命重置、换人、加时、点球。
+模式差异全部写在各自 adapter 的 `rules` 字段里(`peaceRounds / attackGate / alliance / besiege` 等),不再靠 context 是否存在隐式切换。
 
 ## 游戏状态机
 
 ```
 PHASE: SETUP → PEACE(前N回合禁攻) → NORMAL(战斗) → GAME_OVER
-STEP:  pickAction → attackShowCard → pickTarget → ... → pickAction（循环）
+PENDING:  action | target(purpose) | gambleSetup | scryOrder | liniya | saveOrLoad
+STEP:     由 pending 派生 = pickAction / attackShowCard / skillPickTarget / gamblePick /
+          skillNahida / liniyaPick / caiyueangPick / allyPick
 ```
 
-`STEP` 驱动 UI（ActionBar 中 `v-if` 判断 `state.step`）。实际 STEP 值：
-`pickAction` / `pickTarget` / `attackShowCard` / `gamblePick` / `skillPickTarget` / `skillNahida` / `liniyaPick` / `caiyueangPick` / `allyPick` / `animating`。
+- **唯一的「等待玩家作答」载体是 `state.pending`**;`state.step` 只是它的派生字符串,供 ActionBar 的 `v-if` 与动画桥接使用。
+- `pending.asker` 是 uid,`pending.options` 是可选目标 uid 列表,`pending.purpose` 是语义标签(`attack` / `ally` / `skill:aimiliya.freeze` …),UI/AI 都读它,不再判 `_fenjinHeal` 之类私有 flag。
+- 取消待决 = `dispatch({ type: "cancel" })`。
 
 ## 调试工具
 
 | 工具                    | 用途                                                                                      |
 | ----------------------- | ----------------------------------------------------------------------------------------- |
-| `npm run test`        | 247 条 vitest 测试（10 文件：damage/alliance/deck/league/TableLayout/solo/uni×3/diceWar），< 1s |
+| `npm run test`        | 380 条 vitest 测试（16 文件：core/flow/rules/modes/persistence/api + 差分回放 + TableLayout + solo/uni×3 + diceWar），< 2s |
 | 手动跑 test             | 改`src/game/*` 后必须跑 `npm run test`（项目无自动 hook，靠自觉）                     |
 | `window.__PIXI_APP__` | 浏览器控制台访问 PIXI Application 内部状态                                                |
 | `[game]` 日志         | `console.debug` 输出结构化 JSON，`window.__GAME_LOG_LEVEL__` 动态控制等级             |
 
-## gameState.js 导出函数签名
+## 内核入口与命令(取代旧的 gameState.js 导出)
 
-| 函数                                                 | 参数          | 调用方            |
-| ---------------------------------------------------- | ------------- | ----------------- |
-| `createGameState()`                                | —            | App.vue           |
-| `initGame(state, chars, useWeather?, startRound?)` | —            | useGameController |
-| `currentPlayer(state)`                             | state         | 全部              |
-| `startAttack(state)`                               | state         | GameShell         |
-| `executeAttack(state, targetIdx)`                  | state, number | GameShell         |
-| `executeDefense(state)`                            | state         | GameShell         |
-| `executeGamble(state)`                             | state         | GameShell         |
-| `executeSkill(state)`                              | state         | GameShell         |
-| `canUseSkill(state, player)`                       | state, player | UI                |
-| `executeHolyWord(state)`                           | state         | GameShell         |
-| `canUseHolyWord(state, player)`                    | state, player | UI                |
-| `startAlly(state)`                                 | state         | GameShell         |
-| `executeAlly(state, targetIdx)`                    | state, number | GameShell         |
-| `executeBetray(state)`                             | state         | GameShell         |
-| `getAllianceTargets(state)`                        | state         | UI                |
-| `serializeGameState(state)`                        | state         | Vue（存档）       |
-| `deserializeGameState(state, saveData)`            | state, object | Vue（读档）       |
+| 入口 | 说明 |
+| --- | --- |
+| `createSession({ state, chars, weather, startRound, teamIds, mode })` | 建房:initGame + ctx + turn engine + mode |
+| `dispatch(state, command)` | **唯一写入口** |
+| `buildView(state)` | 只读 view-model(UI/PIXI/AI 都读它) |
+| `save(state)` / `load(state, data, { modeFactory })` | 存档 v4 |
+| `createClassicMode()` / `createMatchMode()` / `createLeagueMatchMode()` / `createWorldCupMatchMode()` | 模式适配器 |
+
+命令一览(`dispatch` 的 `type`):
+
+| type | 参数 | 说明 |
+| --- | --- | --- |
+| `attack` / `attackTarget` | `targetUid` | 摸牌进入待决 → 选目标结算 |
+| `defense` | — | 抽防御牌 |
+| `gamble` / `gambleSubmit` | `trapIdx, baitIdx` | 赌命 |
+| `skill` / `skillAnswer` | `answer`(目标 uid 或 `{targetUid, subSkill}` / 排序数组 / `{choice}`) | 技能与作答 |
+| `ally` / `allyTarget` | `targetUid` | 结盟 |
+| `betray` | — | 背刺 |
+| `holyWord` | — | 圣言自明 |
+| `cancel` | — | 取消待决 |
 
 ## PIXI ↔ Vue 桥接
 
 | 接口                                                   | 方向        |
 | ------------------------------------------------------ | ----------- |
-| `usePixiSync(state, getManager)`                     | Vue → PIXI |
-| `useAnimationFlow(state, getManager)`                | Vue → PIXI |
+| `usePixiSync(view, getManager)`                      | view → PIXI |
+| `useAnimationFlow(view, getManager)`                 | view → PIXI |
 | `PIXIManager.buildScene(players, deckCount)`         | PIXI        |
 | `PIXIManager.updatePlayer(index, player, isCurrent)` | PIXI        |
 | `GameShell.onRelayout()`                             | Vue → PIXI |
 
-## player 对象渲染字段
+`view` 由 `buildView(state)` 产出:它是**只读派生**,不是第二份状态;写操作一律 `dispatch`。
 
-PlayerTableSprite `_updateStatus()` 依赖（注意嵌套路径）:
+## player 对象渲染字段(经 view 映射)
+
+`view.js` 的 `renderPlayer()` 把内核字段映射成 UI 读的形状,`PlayerTableSprite._updateStatus()` 依赖:
 `statusEffects.frozenBy`, `relations.allyIndex`, `relations.allianceTurns`, `relations.betrayalPenalty`,
 `statusEffects.stealTarget`, `statusEffects.dotTarget`, `fightingSpirit`, `statusEffects.savepoint`,
 `statusEffects.extraAction`, `statusEffects.ignoreTrapThisTurn`, `relations.gamblePenalty`, `relations.consecutiveGambles`
 
-→ 新增状态标签时同步改 `_updateStatus()` 或 `_updateGambleWarn()`。
+→ 新增状态标签时:先在内核加字段(`effects.xxx` / `char.xxx`),再在 `view.js` 映射,最后改 `_updateStatus()`。
 
 ## 构建关键点
 
@@ -168,45 +175,50 @@ PlayerTableSprite `_updateStatus()` 依赖（注意嵌套路径）:
 
 ## 关键文件
 
-| 文件                                | 行数 | 说明                                                |
-| ----------------------------------- | ---- | --------------------------------------------------- |
-| `src/game/index.js`               | 140  | **桶导出，外部统一入口**                      |
-| `src/game/constants.js`           | 213  | CHARACTERS 字典（11 角色）+ getCharData + 阶段/天气 |
-| `src/game/gameState.js`           | 541  | 状态创建 + 初始化 + 回合推进 + 统一导出             |
-| `src/game/player.js`              | 59   | Player 工厂函数                                     |
-| `src/game/serialize.js`           | 193  | 游戏存档/读档                                       |
-| `src/game/combat.js`              | 602  | 攻击/防御                                           |
-| `src/game/gamble.js`              | 131  | 赌命（抽牌+设陷阱）                                 |
-| `src/game/skills.js`              | 411  | 11 个角色技能（路由 + 各角色实现）                  |
-| `src/game/damage.js`              | 205  | 伤害结算 + 死亡 + 游戏结束判定                      |
-| `src/game/alliance.js`            | 166  | 结盟/背刺/目标筛选                                  |
-| `src/game/artifacts.js`           | 207  | 圣遗物系统（圣言自明+伤害加成+击破计数）            |
-| `src/game/caiyueang.js`           | 175  | 菜月昴死亡回归（存档/读档/深拷贝）                  |
-| `src/game/league.js`              | 415  | 联赛模式（10 支球队 + 赛程）                        |
-| `src/game/worldCup.js`            | 266  | 世界杯锦标赛状态机（小组赛→淘汰赛）                |
-| `src/game/matchState.js`          | 467  | 1v1 比赛状态机（进球/重置/换人/加时/点球）          |
-| `src/game/ai/index.js`            | 171  | AI 公共 API + 共享工具                              |
-| `src/game/ai/skilled.js`          | 305  | AI 熟练难度                                         |
-| `src/game/ai/hell.js`             | 305  | AI 地狱难度（偷看牌库）                             |
-| `src/game/ai/easy.js`             | 53   | AI 简单难度                                         |
-| `src/game/weather.js`             | 44   | 天气牌堆 + getter                                   |
-| `src/game/deck.js`                | 59   | 扑克牌创建/洗牌/抽牌/墓地重构                       |
-| `src/game/gameLogger.js`          | 371  | 开发日志（零依赖，`[game]` JSON 到 console）      |
-| `src/audio/SoundManager.js`       | 120  | 音效播放                                            |
-| `src/pixi/core/PIXIManager.js`    | 271  | Application 管理 + 场景树 + 粒子                    |
-| `src/pixi/layout/TableLayout.js`  | 203  | 自适应布局（横屏单/双行，竖屏2列）                  |
-| `src/bridge/useAnimationFlow.js`  | 410  | GSAP 动画触发 + 粒子调度                            |
-| `src/solo/logic/solo.js`          | —   | 单机模式状态机（地图/成长/卡组/金币/存档）          |
-| `src/solo/logic/soloCombat.js`    | —   | 单机战斗（抽3选2/牌堆坟场/护盾/斗志/AI）            |
-| `src/solo/logic/soloConstants.js` | —   | 技能卡池 13 张 / 敌人 / 节点链 / 数值常量           |
-| `src/solo/SoloShell.vue`          | —   | 单机 UI 主壳（地图/战斗/商店/事件/营地/结算）       |
-| `src/simuniverse/logic/uniState.js` | — | 模拟宇宙状态机（位面/层推进/区域生成/货币/存档/菜月昴读档） |
-| `src/simuniverse/logic/uniCombat.js` | — | 模拟宇宙战斗（扑克牌三选一/敌人模板/波次/转化及格线/首领穿插） |
-| `src/simuniverse/logic/uniSkills.js` | — | 11 角色 PVE 技能（等级 1-10 查表/冷却）             |
-| `src/simuniverse/logic/uniEvents.js` | — | 分支事件/奖励/冒险（9+8+3 个）                      |
-| `src/simuniverse/logic/uniBuffs.js` | —  | 祝福 59 / 奇物 79 / 方程 13 全量数据+效果 + modifier 聚合 |
-| `src/simuniverse/logic/uniShop.js` | —   | 商店/休整/造物调试台（热量强化/覆写）               |
-| `src/simuniverse/UniShell.vue`    | —   | 模拟宇宙 UI 主壳（2选1/战斗/事件/商店/工作台）      |
+| 文件                                | 说明                                                |
+| ----------------------------------- | --------------------------------------------------- |
+| `src/game/index.js` | 门面:只导出 api / view / characters / modes |
+| `src/game/api.js` | `createSession` / `dispatch` / `save` / `load` |
+| `src/game/view.js` | 只读 view-model(`renderPlayer` 映射 + 选择器) |
+| `src/game/core/cards.js` | 牌/洗牌/抽牌(随机源显式传入) |
+| `src/game/core/rng.js` | 唯一随机入口(种子版用于回放) |
+| `src/game/core/player.js` | Player 工厂 + 字段分区默认值 |
+| `src/game/rules/modifiers.js` | 有序加成管道(priority 即规则) |
+| `src/game/rules/damage.js` | 伤害结算唯一入口(返回报告) |
+| `src/game/rules/trap.js` | 陷阱三态(反弹/平局/击破) |
+| `src/game/rules/alliance.js` | 结盟/平摊/解散 |
+| `src/game/rules/artifacts.js` | 圣遗物 + 圣言自明 |
+| `src/game/characters/*.js` | 11 个角色插件(meta/stateSchema/canUse/use/onAnswer/hooks) |
+| `src/game/flow/context.js` | 显式 ctx(日志/音效/牌堆/玩家/turn 接线) |
+| `src/game/flow/pending.js` | 决策模型 + step 派生 |
+| `src/game/flow/turn.js` | 回合引擎(pass/extra/suspend/resync) |
+| `src/game/flow/commands.js` | 全部命令(攻击/防御/赌命/技能/结盟/圣言/取消) |
+| `src/game/flow/setup.js` | 局面创建与初始化 |
+| `src/game/modes/*.js` | classic / match / league / worldcup 适配器 |
+| `src/game/persistence/*.js` | 存档 schema / 读写 / 菜月昴快照 |
+| `src/game/league.js` | 联赛数据(球队/赛程/积分/加成) |
+| `src/game/worldCup.js` | 世界杯赛程编排 |
+| `src/game/ai/index.js` | AI 公共 API(读 view) |
+| `src/game/ai/skilled.js` | AI 熟练难度 |
+| `src/game/ai/hell.js` | AI 地狱难度(偷看牌库) |
+| `src/game/ai/easy.js` | AI 简单难度 |
+| `src/game/testing/next-replay.test.js` | 旧基线命令回放对拍(30 局) |
+| `src/game/gameLogger.js` | 开发日志(`[game]` JSON) |
+| `src/audio/SoundManager.js`       | 音效播放                                            |
+| `src/pixi/core/PIXIManager.js`    | Application 管理 + 场景树 + 粒子                    |
+| `src/pixi/layout/TableLayout.js`  | 自适应布局（横屏单/双行，竖屏2列）                  |
+| `src/bridge/useAnimationFlow.js`  | GSAP 动画触发 + 粒子调度                            |
+| `src/solo/logic/solo.js`          | 单机模式状态机（地图/成长/卡组/金币/存档）          |
+| `src/solo/logic/soloCombat.js`    | 单机战斗（抽3选2/牌堆坟场/护盾/斗志/AI）            |
+| `src/solo/logic/soloConstants.js` | 技能卡池 13 张 / 敌人 / 节点链 / 数值常量           |
+| `src/solo/SoloShell.vue`          | 单机 UI 主壳（地图/战斗/商店/事件/营地/结算）       |
+| `src/simuniverse/logic/uniState.js` | 模拟宇宙状态机（位面/层推进/区域生成/货币/存档/菜月昴读档） |
+| `src/simuniverse/logic/uniCombat.js` | 模拟宇宙战斗（扑克牌三选一/敌人模板/波次/转化及格线/首领穿插） |
+| `src/simuniverse/logic/uniSkills.js` | 11 角色 PVE 技能（等级 1-10 查表/冷却）             |
+| `src/simuniverse/logic/uniEvents.js` | 分支事件/奖励/冒险（9+8+3 个）                      |
+| `src/simuniverse/logic/uniBuffs.js` | 祝福 59 / 奇物 79 / 方程 13 全量数据+效果 + modifier 聚合 |
+| `src/simuniverse/logic/uniShop.js` | 商店/休整/造物调试台（热量强化/覆写）               |
+| `src/simuniverse/UniShell.vue`    | 模拟宇宙 UI 主壳（2选1/战斗/事件/商店/工作台）      |
 
 ## 已修复的关键 Bug（禁止重复犯错）
 
@@ -216,8 +228,12 @@ PlayerTableSprite `_updateStatus()` 依赖（注意嵌套路径）:
 - 花色 `SUITS` 为空字符串（必须保持 `♠♥♦♣`）
 - `buildScene()` 传 TableLayout 尺寸**不能除以 resolution**
 - 竖屏 canvas 用 `position: absolute` → 不占文档流无法滚动
-- `_fenjinHeal = null` 永不清除 → 后续所有角色技能触发都被路由到风堇。**必须用 `= undefined` 或 `delete` 清除标记**
-- `reset1v1Game` 硬编码 `useWeather: false` → 世界杯击杀后天气消失。**重置比赛前必须保存天气状态**
+- `_fenjinHeal = null` 永不清除 → 后续所有角色技能触发都被路由到风堇。**必须用 `= undefined` 或 `delete` 清除标记**(新内核已由 `pending.purpose` 取代,取消走 `dispatch({type:"cancel"})`)
+- `reset1v1Game` 硬编码 `useWeather: false` → 世界杯击杀后天气消失。**重置比赛前必须保存天气状态**(新内核在 `modes/match.startNextLife` 里保存/还原)
+- 联赛 `attackedThisRound` 未在回合开始清零 → **整场都被判「围攻减半」**(已修:`modes/league.onNewRound` 清零)
+- 联赛和平期依赖 context 安装时机 → 首场 4 回合、后续 0 回合(已修:每场固定 `peaceRounds: 4`)
+- `maxUses: Infinity` 经 JSON 存档变 `null`(已修:persistence/schema 把非有限数编码成字符串)
+- 世界杯点球前必须手动把 `matchOver` 改回 false 才能推进(已修:新内核 `executePenaltyRound` 不再依赖它)
 
 ## 开发日志系统
 
