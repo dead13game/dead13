@@ -90,6 +90,17 @@ describe("modes/league — 回合补给与结算", () => {
     expect(state.messageLog.some((m) => m.includes("劣势方补给"))).toBe(true);
   });
 
+  it("新回合清零围攻计数(漏掉会导致整场都被判围攻减半)", () => {
+    const { ctx, mode, state } = makeLeague();
+    state.players.forEach((p) => {
+      p.relations.attackedThisRound = 3;
+    });
+    mode.onNewRound(ctx, state.round + 1);
+    expect(
+      state.players.every((p) => p.relations.attackedThisRound === 0),
+    ).toBe(true);
+  });
+
   it("回合超过上限 → 回调 onRoundLimit + 暂停 + halt", () => {
     const { ctx, mode, hooks } = makeLeague({ maxRounds: 20 });
     expect(mode.onNewRound(ctx, 21)).toBe("halt");

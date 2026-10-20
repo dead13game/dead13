@@ -68,6 +68,13 @@ export function createLeagueMatchMode({
         return "halt";
       }
 
+      // 围攻计数清零(本回合受击次数)。
+      // 旧实现在 gameState.nextPlayer 的 leagueContext 分支里做,迁移时漏掉会导致
+      // 从第 2 次攻击起整场都被判"围攻减半"。
+      for (const p of ctx.state.players) {
+        if (p.alive) p.relations.attackedThisRound = 0;
+      }
+
       const reinforcement = computeDefenseReinforcement(ctx.state.players);
       if (reinforcement) {
         const { weakerTeamId, diff } = reinforcement;
