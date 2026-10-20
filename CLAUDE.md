@@ -230,6 +230,13 @@ STEP:     由 pending 派生 = pickAction / attackShowCard / skillPickTarget / g
 - 联赛和平期依赖 context 安装时机 → 首场 4 回合、后续 0 回合(已修:每场固定 `peaceRounds: 4`)
 - `maxUses: Infinity` 经 JSON 存档变 `null`(已修:persistence/schema 把非有限数编码成字符串)
 - 世界杯点球前必须手动把 `matchOver` 改回 false 才能推进(已修:新内核 `executePenaltyRound` 不再依赖它)
+- `canUseSkill` 只看次数不看回合门槛 → AI 选中后被拒、空转(已修:拆成引擎口径 `canUseSkill` 与 UI/AI 口径 `canUseSkillNow`)
+- 「高值卡低伤害」在防御吸收时误报(已修:只在目标没有防御牌时判定)
+- 用 `characterId` 当身份判进球/恢复名字 → 换人或同角色对局算错(已修:比赛模式改用 `uid`)
+- 牌库+墓地同时为空导致抽牌崩溃(已修:`ctx.deck.ensure` 按开局副数重生成牌库)
+- 菜月昴 AI 无限存档(已修:同一回合只允许存一次档)
+- 读档清空存档点 / 读档次数永不消耗(已修:读档后挂回存档点,计数按读档前值 -1)
+- 换人后新角色继承上一个角色的斗志/月相(已修:换人时重置 `player.char`)
 
 ## 开发日志系统
 
