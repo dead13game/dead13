@@ -195,8 +195,10 @@ describe("solo 单机模式", () => {
       startCombat(s, "normal");
       const c = s.combat;
       pickPoker(s, 0, 1, 2);
-      // 直接打空敌方 HP
+      // 直接打空敌方 HP:护盾与行动力都要先抹平,否则会因随机抽到的行动力不足而偶发失败
       c.enemyHp = 3;
+      c.enemyShield = 0;
+      c.actionPoints = 50;
       c.playerHand.mengji = 5;
       playCard(s, "mengji", 1);
       expect(c.phase).toBe("won");
