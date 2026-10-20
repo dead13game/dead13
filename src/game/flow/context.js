@@ -110,6 +110,12 @@ export function createContext(state, deps = {}) {
       clearPending(state);
     },
 
+    /** 生成可复现的唯一 id(替代 Date.now 造 id) */
+    uniqueId(prefix = "id") {
+      state.idSeq = (state.idSeq ?? 1e12) + 1;
+      return `${prefix}-${state.idSeq}`;
+    },
+
     // ── 回合(由 flow/turn.js 注入实现) ──
     turn: {
       pass() {
@@ -136,6 +142,9 @@ export function createContext(state, deps = {}) {
       ctx.engine = api;
       return ctx;
     },
+
+    /** 模式适配器(P4 由 modes/* 挂载):提供 rules 配置与生命周期回调 */
+    mode: deps.mode ?? state.mode ?? null,
   };
 
   return ctx;

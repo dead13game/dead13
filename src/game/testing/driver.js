@@ -18,7 +18,8 @@ const STUCK_LIMIT = 2;
 
 export function runTrace(adapter, config) {
   const limit = config.limit ?? MAX_STEPS;
-  const restore = installSeededRandom(config.seed);
+  const rngSink = [];
+  const restore = installSeededRandom(config.seed, rngSink);
   try {
     const state = adapter.create(config);
     const trace = {
@@ -48,7 +49,9 @@ export function runTrace(adapter, config) {
         trace.notes.push(`decide=null @step=${state.step}`);
         break;
       }
+      const rngBefore = rngSink.length;
       adapter.apply(state, cmd);
+      const rngAfter = rngSink.length;
       const snap = adapter.projection(state);
       const snapKey = JSON.stringify(snap);
       const unchanged = snapKey === JSON.stringify(prevSnap);
@@ -60,7 +63,16 @@ export function runTrace(adapter, config) {
 
       const ev = adapter.drain(state, cursor);
       cursor = ev.cursor;
-      trace.steps.push({ cmd: cmdKey(cmd), snap, logs: ev.logs, sounds: ev.sounds });
+      trace.steps.push({
+        cmd: cmdKey(cmd),
+        type: cmd.type,
+        args: cmd.args ?? {},
+        snap,
+        logs: ev.logs,
+        sounds: ev.sounds,
+        rngBefore,
+        rngAfter,
+      });
       prevSnap = snap;
 
       if (loopCount > 3) {
@@ -77,15 +89,21 @@ export function runTrace(adapter, config) {
           );
         }
         // 复刻 GameShell 的「300ms 保底回退:强制防御」
+        const fbBefore = rngSink.length;
         adapter.apply(state, { type: "defense", args: { fallback: true } });
+        const fbAfter = rngSink.length;
         const s2 = adapter.projection(state);
         const ev2 = adapter.drain(state, cursor);
         cursor = ev2.cursor;
         trace.steps.push({
           cmd: "defense(fallback)",
+          type: "defense",
+          args: { fallback: true },
           snap: s2,
           logs: ev2.logs,
           sounds: ev2.sounds,
+          rngBefore: fbBefore,
+          rngAfter: fbAfter,
         });
         trace.notes.push(`fallback defense @step=${trace.steps.length}`);
         prevSnap = s2;
@@ -98,6 +116,7 @@ export function runTrace(adapter, config) {
     trace.truncated = trace.steps.length >= limit;
     trace.stepCount = trace.steps.length;
     trace.logCount = trace.steps.reduce((n, s) => n + s.logs.length, 0);
+    trace.rng = rngSink;
     return trace;
   } finally {
     restore();

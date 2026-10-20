@@ -1,9 +1,13 @@
-// 差分对拍用:可复现随机源
+// 差分对拍用:可复现随机源 + 随机值录制
 //
 // 为什么要全局替换 Math.random:
 // 旧实现把随机散落在 deck/artifacts/ai/league/worldCup 里直接调用 Math.random,
 // 要在不改生产代码的前提下得到确定性轨迹,只能替换全局函数。
-// 重构完成后新增代码一律走 ctx.rng,但这条替换仍然保留,用于跑旧基线。
+//
+// 为什么要录制:
+// AI 决策也消耗随机数(简单 AI 用 Math.random 选行动)。新内核回放时不再跑 AI,
+// 随机序列会错位。基线记录「每条命令执行前后各消耗到第几个随机数」,
+// 回放时把游标拨到同一位置,这样洗牌、暴击等内部随机结果与旧实现逐位一致。
 
 /** xorshift32,返回 [0,1) */
 export function createSeededRandom(seed) {
@@ -18,13 +22,50 @@ export function createSeededRandom(seed) {
   };
 }
 
-/** 安装种子随机源,返回恢复函数 */
-export function installSeededRandom(seed) {
+/**
+ * 安装种子随机源。
+ * @param {number} seed
+ * @param {number[]} [sink] 传入数组则记录每次返回值(用于回放)
+ */
+export function installSeededRandom(seed, sink) {
   const original = Math.random;
   const rng = createSeededRandom(seed);
-  Math.random = rng;
+  Math.random = () => {
+    const v = rng();
+    if (sink) sink.push(v);
+    return v;
+  };
   return function restore() {
     Math.random = original;
+  };
+}
+
+/**
+ * 回放用随机源:按录制序列逐位返回;可以随时拨动游标。
+ * @param {number[]} recorded
+ */
+export function installReplayRandom(recorded) {
+  const original = Math.random;
+  let pos = 0;
+  Math.random = () => {
+    const v = recorded[pos];
+    pos++;
+    if (v === undefined) {
+      // 录制长度不足 = 新实现多调用了随机数(本身就是要抓的行为差异)
+      throw new Error(`随机序列越界: 需要第 ${pos} 个值, 录制只有 ${recorded.length} 个`);
+    }
+    return v;
+  };
+  return {
+    restore() {
+      Math.random = original;
+    },
+    seek(n) {
+      pos = n;
+    },
+    position() {
+      return pos;
+    },
   };
 }
 

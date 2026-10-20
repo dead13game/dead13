@@ -33,6 +33,7 @@ import {
   decideCaiyueangChoice,
 } from "../../index.js";
 import { projectLegacy } from "../projection.js";
+import { legacyScenarioApi } from "../scenarios.js";
 
 /** 技能目标步的消歧:复刻 GameShell.onSkillTarget / executeMiddleStep */
 function skillTargetKind(state) {
@@ -56,7 +57,7 @@ export function createLegacyAdapter() {
         p.isAI = true;
         p.aiDifficulty = config.difficulty ?? "easy";
       });
-      if (config.preState) config.preState(state);
+      if (config.applyPlan) config.applyPlan(legacyScenarioApi(state));
       if (config.script) scripts.set(state, { list: config.script, i: 0 });
       return state;
     },

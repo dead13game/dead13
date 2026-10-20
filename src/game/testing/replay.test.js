@@ -99,14 +99,14 @@ if (process.env.RECORD_BASELINE === "1") {
       zlib.gunzipSync(fs.readFileSync(FIXTURE)).toString("utf8"),
     );
     const adapter = createLegacyAdapter();
-    // 函数无法写进 JSON:脚本场景的 preState 在回放时按 id 从定义处回填
+    // 函数无法写进 JSON:脚本场景的 applyPlan 在回放时按 id 从定义处回填
     const scenarioById = new Map(buildScriptedCases().map((c) => [c.id, c]));
 
     for (const entry of fixture.cases) {
       it(entry.id, () => {
         const origin = scenarioById.get(entry.id);
         const config = origin
-          ? { ...entry.config, preState: origin.preState }
+          ? { ...entry.config, applyPlan: origin.applyPlan }
           : entry.config;
         const trace = runTrace(adapter, config);
         const diff = compareTraces(entry.trace, trace);

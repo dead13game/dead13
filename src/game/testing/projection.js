@@ -27,8 +27,7 @@ function normId(id) {
  * Infinity / NaN 不能存活于 JSON(会变成 null),
  * 而 6/7 号角色 maxUses: Infinity 是合法数据 → 统一转成字符串标记。
  */
-function normalizeNumbers(v) {
-  if (Array.isArray(v)) return v.map(normalizeNumbers);
+function normalizeNumbers(v) {  if (Array.isArray(v)) return v.map(normalizeNumbers);
   if (v && typeof v === "object") {
     const out = {};
     for (const k of Object.keys(v)) out[k] = normalizeNumbers(v[k]);
@@ -144,4 +143,4 @@ export function projectLegacy(state) {
   });
 }
 
-export { projCard, projDeck, normId, fnv1a };
+export { projCard, projDeck, normId, fnv1a, normalizeNumbers };

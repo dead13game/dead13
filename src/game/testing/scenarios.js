@@ -1,27 +1,18 @@
 // 脚本化场景:覆盖 AI 永远不会触发(或极难触发)的分支
 //
-// 为什么需要:AI 只会在 attack/defense/gamble/skill 里选,结盟、背刺、圣言自明
-// 三个指令在 19 局 AI 对局里出现 0 次。这恰好是重写最容易静默改坏的部分。
+// 设计要点:场景只描述「意图」(摆一张陷阱 / 给所有人装圣遗物 / 牌堆顶放什么),
+// 不直接操作具体字段 —— 旧适配器与新内核各自实现 api,同一份场景两边都能跑。
 //
-// 手法:
-//   - 队伍用同一角色,消除「按 speed 重排后 index 漂移」的心智负担
-//   - preState(state) 直接摆状态(陷阱、护盾、击破计数、牌堆顶)
-//   - 牌堆顶用 push 控制:drawCards 用 pop,所以最后一个元素最先被抽到
-//   - script 是逐条原子命令,顺序必须与当前 step 匹配
+// 牌堆顶控制:drawCards 用 pop,所以 forceDraw(a, b) 先抽 a 再抽 b。
 
-const CARD = (value, id) => ({
-  id: id ?? `X-${value}`,
-  suit: "♠",
-  rank: String(value),
-  value,
-  faceUp: false,
-});
-
-/** 依次抽取 values[0], values[1] ...(drawCards 从尾部 pop) */
-function forceDraw(state, ...values) {
-  for (let i = values.length - 1; i >= 0; i--) {
-    state.deck.push(CARD(values[i], `F-${values[i]}-${state.deck.length}`));
-  }
+export function makeCard(value, id) {
+  return {
+    id: id ?? `X-${value}`,
+    suit: "♠",
+    rank: String(value),
+    value,
+    faceUp: false,
+  };
 }
 
 export function buildScriptedCases() {
@@ -31,7 +22,7 @@ export function buildScriptedCases() {
       seed: 101,
       chars: [1, 1, 1, 1], // 全员温迪:同速,index 即行动顺序
       weather: false,
-      startRound: 4,
+      startRound: 5,
       limit: 24,
       // P0 与 P2 结盟 → 三人行动 → P0 背刺 P2 → P1 攻击带背刺惩罚的 P0
       script: [
@@ -47,14 +38,14 @@ export function buildScriptedCases() {
         { type: "defense" },
         { type: "defense" },
       ],
-      preState(state) {
-        forceDraw(state, 3, 13);
+      applyPlan(api) {
+        api.forceDraw(3, 13);
       },
     },
     {
       id: "script-holyword-artifact",
       seed: 102,
-      chars: [6, 6, 6, 6], // 全员玛薇卡(被动技,主动技能不可用,只能靠圣言自明增伤)
+      chars: [6, 6, 6, 6], // 全员玛薇卡(被动技,只能靠圣言自明增伤)
       weather: false,
       startRound: 4,
       limit: 16,
@@ -66,13 +57,11 @@ export function buildScriptedCases() {
         { type: "defense" },
         { type: "defense" },
       ],
-      preState(state) {
-        for (const p of state.players) {
-          p.artifactId = 1; // 角斗士的终幕礼
-          p.breakCount = 8;
-          p.holyWordUses = 2;
-        }
-        forceDraw(state, 13);
+      applyPlan(api) {
+        api.setArtifactAll(1);
+        api.setBreakAll(8);
+        api.setHolyWordAll(2);
+        api.forceDraw(13);
       },
     },
     {
@@ -82,7 +71,6 @@ export function buildScriptedCases() {
       weather: false,
       startRound: 4,
       limit: 12,
-      // 攻击 5 点 vs 陷阱 13 → 反弹
       script: [
         { type: "attack" },
         { type: "attackTarget", args: { targetIndex: 1 } },
@@ -90,9 +78,9 @@ export function buildScriptedCases() {
         { type: "defense" },
         { type: "defense" },
       ],
-      preState(state) {
-        state.players[1].trap = { ...CARD(13, "T-13"), faceUp: false };
-        forceDraw(state, 5);
+      applyPlan(api) {
+        api.setTrap(1, 13, "T-13");
+        api.forceDraw(5);
       },
     },
     {
@@ -102,7 +90,6 @@ export function buildScriptedCases() {
       weather: false,
       startRound: 4,
       limit: 12,
-      // 攻击 7 点 vs 陷阱 7 → 平局双方受伤
       script: [
         { type: "attack" },
         { type: "attackTarget", args: { targetIndex: 1 } },
@@ -110,9 +97,9 @@ export function buildScriptedCases() {
         { type: "defense" },
         { type: "defense" },
       ],
-      preState(state) {
-        state.players[1].trap = { ...CARD(7, "T-7"), faceUp: false };
-        forceDraw(state, 7);
+      applyPlan(api) {
+        api.setTrap(1, 7, "T-7");
+        api.forceDraw(7);
       },
     },
     {
@@ -122,7 +109,6 @@ export function buildScriptedCases() {
       weather: false,
       startRound: 4,
       limit: 12,
-      // 攻击 13 点 vs 陷阱 5 → 击破(击破计数 + 斗志)
       script: [
         { type: "attack" },
         { type: "attackTarget", args: { targetIndex: 1 } },
@@ -130,10 +116,10 @@ export function buildScriptedCases() {
         { type: "defense" },
         { type: "defense" },
       ],
-      preState(state) {
-        state.players[1].trap = { ...CARD(5, "T-5"), faceUp: false };
-        state.players[1].defensePile.push({ ...CARD(4, "D-4"), faceUp: false });
-        forceDraw(state, 13);
+      applyPlan(api) {
+        api.setTrap(1, 5, "T-5");
+        api.addDefense(1, 4, "D-4");
+        api.forceDraw(13);
       },
     },
     {
@@ -141,9 +127,8 @@ export function buildScriptedCases() {
       seed: 106,
       chars: [1, 1, 1, 1],
       weather: false,
-      startRound: 4,
+      startRound: 5,
       limit: 14,
-      // P0 与 P2 结盟,P1 攻击 P0 → 伤害 (13-2)/3 平摊
       script: [
         { type: "ally" },
         { type: "allyTarget", args: { targetIndex: 2 } },
@@ -152,8 +137,8 @@ export function buildScriptedCases() {
         { type: "defense" },
         { type: "defense" },
       ],
-      preState(state) {
-        forceDraw(state, 13);
+      applyPlan(api) {
+        api.forceDraw(13);
       },
     },
     {
@@ -163,7 +148,6 @@ export function buildScriptedCases() {
       weather: false,
       startRound: 4,
       limit: 14,
-      // 冻结 P1 → P1 的回合被 nextPlayer 跳过
       script: [
         { type: "skill" },
         { type: "skillTarget", args: { targetIndex: 1, kind: "aimiliya" } },
@@ -171,6 +155,7 @@ export function buildScriptedCases() {
         { type: "defense" }, // 跳过 P1 后轮到 P2
         { type: "defense" },
       ],
+      applyPlan() {},
     },
     {
       id: "script-venti-double",
@@ -180,14 +165,14 @@ export function buildScriptedCases() {
       startRound: 10, // 千风之诗需第 10 回合
       limit: 12,
       script: [
-        { type: "skill" }, // 抽 2 张(3+9=12)进入 attackShowCard
+        { type: "skill" },
         { type: "attackTarget", args: { targetIndex: 1 } },
         { type: "defense" },
         { type: "defense" },
         { type: "defense" },
       ],
-      preState(state) {
-        forceDraw(state, 9, 3);
+      applyPlan(api) {
+        api.forceDraw(9, 3); // 先抽 3 再抽 9 → 合计 12
       },
     },
     {
@@ -211,8 +196,8 @@ export function buildScriptedCases() {
         { type: "defense" },
         { type: "defense" },
       ],
-      preState(state) {
-        forceDraw(state, 11);
+      applyPlan(api) {
+        api.forceDraw(11);
       },
     },
     {
@@ -220,7 +205,7 @@ export function buildScriptedCases() {
       seed: 110,
       chars: [8, 8, 8, 8], // 全员风堇
       weather: false,
-      startRound: 4,
+      startRound: 5,
       limit: 16,
       script: [
         { type: "skill" }, // 生命上限 +3 并回满,对目标造成回复量×2
@@ -229,8 +214,8 @@ export function buildScriptedCases() {
         { type: "defense" },
         { type: "defense" },
       ],
-      preState(state) {
-        state.players[0].hp = 4; // 制造回复量
+      applyPlan(api) {
+        api.setHp(0, 4); // 制造回复量
       },
     },
     {
@@ -240,7 +225,6 @@ export function buildScriptedCases() {
       weather: false,
       startRound: 4,
       limit: 16,
-      // P0 开盾 → P1 攻击 P0,伤害先进护盾牌
       script: [
         { type: "skill" },
         { type: "attack" },
@@ -248,9 +232,73 @@ export function buildScriptedCases() {
         { type: "defense" },
         { type: "defense" },
       ],
-      preState(state) {
-        forceDraw(state, 13);
+      applyPlan(api) {
+        api.forceDraw(13);
       },
     },
   ];
+}
+
+/** 旧实现的场景 api(给 adapters/legacy.js 用) */
+export function legacyScenarioApi(state) {
+  return {
+    forceDraw(...values) {
+      for (let i = values.length - 1; i >= 0; i--) {
+        state.deck.push(makeCard(values[i], `F-${values[i]}-${state.deck.length}`));
+      }
+    },
+    setTrap(playerIndex, value, id) {
+      state.players[playerIndex].trap = { ...makeCard(value, id), faceUp: false };
+    },
+    addDefense(playerIndex, value, id) {
+      state.players[playerIndex].defensePile.push({
+        ...makeCard(value, id),
+        faceUp: false,
+      });
+    },
+    setHp(playerIndex, hp) {
+      state.players[playerIndex].hp = hp;
+    },
+    setArtifactAll(id) {
+      for (const p of state.players) p.artifactId = id;
+    },
+    setBreakAll(n) {
+      for (const p of state.players) p.breakCount = n;
+    },
+    setHolyWordAll(n) {
+      for (const p of state.players) p.holyWordUses = n;
+    },
+  };
+}
+
+/** 新内核的场景 api(给 next-replay 测试用) */
+export function nextScenarioApi(state) {
+  return {
+    forceDraw(...values) {
+      for (let i = values.length - 1; i >= 0; i--) {
+        state.deck.push(makeCard(values[i], `F-${values[i]}-${state.deck.length}`));
+      }
+    },
+    setTrap(playerIndex, value, id) {
+      state.players[playerIndex].trap = { ...makeCard(value, id), faceUp: false };
+    },
+    addDefense(playerIndex, value, id) {
+      state.players[playerIndex].defensePile.push({
+        ...makeCard(value, id),
+        faceUp: false,
+      });
+    },
+    setHp(playerIndex, hp) {
+      state.players[playerIndex].hp = hp;
+    },
+    setArtifactAll(id) {
+      for (const p of state.players) p.artifact.id = id;
+    },
+    setBreakAll(n) {
+      for (const p of state.players) p.resources.breakCount = n;
+    },
+    setHolyWordAll(n) {
+      for (const p of state.players) p.resources.holyWordUses = n;
+    },
+  };
 }
