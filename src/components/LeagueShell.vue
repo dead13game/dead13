@@ -111,7 +111,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick, onBeforeUnmount } from "vue";
+import { ref, computed, reactive, watch, nextTick, onBeforeUnmount } from "vue";
 import GameShell from "./GameShell.vue";
 import TeamBadge from "./TeamBadge.vue";
 import LeagueSetup from "./LeagueSetup.vue";
@@ -122,16 +122,10 @@ import { useLeagueController } from "../composables/useLeagueController.js";
 import { calculateMatchScore } from "../game/league.js";
 import { CAT } from "../game/gameLogger.js";
 import {
-  startAttack,
-  executeAttack,
-  executeDefense,
-  executeGamble,
-  submitGamble,
-  executeSkill,
-  executeFenjinSkill,
-  executeAimiliyaSkill,
-  serializeGameState,
-} from "../game/gameState.js";
+  dispatch,
+  save as saveGame,
+} from "../game/api.js";
+import { buildView } from "../game/view.js";
 import {
   isAiPlayer,
   decideTopAction,
@@ -176,6 +170,19 @@ const _difficulty = ref("skilled");
 const _useAI = ref(props.useAI ?? true);
 const _artifactId = ref(null);
 const _opponentArtifactId = ref(null);
+
+/** 只读视图:AI 与子组件都读它 */
+const view = reactive(buildView(gameState));
+watch(
+  () => gameState,
+  () => Object.assign(view, buildView(gameState)),
+  { deep: true },
+);
+
+/** view 的 index → 内核 uid */
+const uidAt = (index) =>
+  gameState.players.find((p) => p.index === index)?.uid ?? null;
+const cast = (cmd) => dispatch(gameState, cmd);
 
 // ---- 设置事件 ----
 function onSelectTeam(teamId) {
@@ -271,33 +278,32 @@ function onSaveAndQuit() {
 let aiTimer = null;
 
 function isAITurn() {
-  const p = gameState.players[gameState.currentPlayerIndex];
-  return p?.alive && isAiPlayer(p);
+  const p = view.players[view.currentPlayerIndex];
+  return !!p?.alive && !!p.isAI;
 }
 
 function scheduleAI() {
   if (aiTimer) clearTimeout(aiTimer);
   if (!_useAI.value) return;
-  if (uiMode.value !== "match" || gameState.gameOver) return;
-  if (gameState._elimPaused) return;
+  if (uiMode.value !== "match" || view.gameOver) return;
   if (matchState.value?.matchOver) return;
-  if (gameState.step !== "pickAction" || !isAITurn()) return;
+  if (view.step !== "pickAction" || !isAITurn()) return;
   aiTimer = setTimeout(aiAct, 600 + Math.random() * 600);
 }
 
-watch(() => gameState.currentPlayerIndex, scheduleAI, { immediate: true });
-watch(() => gameState.step, scheduleAI, { immediate: true });
+watch(() => view.currentPlayerIndex, scheduleAI, { immediate: true });
+watch(() => view.step, scheduleAI, { immediate: true });
 
 function aiAct() {
   // 双保险：即使已调度的 timer 触发，手动模式下直接退出（防止读档时序问题）
   if (!_useAI.value) return;
-  if (gameState.step === "pickAction") {
-    const decision = decideTopAction(gameState);
+  if (view.step === "pickAction") {
+    const decision = decideTopAction(view);
     gameState.devLog?.debug(
       CAT.AI,
       `联赛AI决策: ${decision.action} (${decision.reason})`,
       {
-        player: gameState.players[gameState.currentPlayerIndex]?.name,
+        player: view.players[view.currentPlayerIndex]?.name,
         decision,
       },
     );
@@ -308,62 +314,62 @@ function aiAct() {
 
   // 保底回退
   aiTimer = setTimeout(() => {
-    if (gameState.step !== "pickAction") return;
-    if (!isAITurn() || gameState.gameOver) return;
+    if (view.step !== "pickAction") return;
+    if (!isAITurn() || view.gameOver) return;
     if (matchState.value?.matchOver) return;
     gameState.devLog?.warn(CAT.AI, "联赛AI触发保底回退，自动执行防御", {
-      player: gameState.players[gameState.currentPlayerIndex]?.name,
+      player: view.players[view.currentPlayerIndex]?.name,
     });
-    executeDefense(gameState);
+    cast({ type: "defense" });
   }, 300);
+}
+
+/** 敌对目标(经典模式排除队友) */
+function enemyTargets() {
+  const attacker = view.players[view.currentPlayerIndex];
+  return view.players.filter(
+    (p) =>
+      p.alive && p.index !== attacker.index && p.teamId !== attacker.teamId,
+  );
 }
 
 function executeTopAction(decision) {
   if (!_useAI.value) return; // 手动模式中止链式调度
   switch (decision.action) {
     case "attack": {
-      startAttack(gameState);
+      cast({ type: "attack" });
       aiTimer = setTimeout(() => {
-        if (gameState.step === "attackShowCard") {
-          const attacker = gameState.players[gameState.currentPlayerIndex];
-          const targets = gameState.players.filter(
-            (p) =>
-              p.alive &&
-              p.index !== attacker.index &&
-              p.teamId !== attacker.teamId,
-          );
+        if (view.step === "attackShowCard") {
+          const targets = enemyTargets();
           if (targets.length > 0) {
-            const t = decideTarget(gameState, targets);
-            if (t?.targetIndex != null) executeAttack(gameState, t.targetIndex);
+            const t = decideTarget(view, targets);
+            if (t?.targetIndex != null) {
+              cast({ type: "attackTarget", targetUid: uidAt(t.targetIndex) });
+            }
           }
         }
       }, 500);
       break;
     }
     case "defense":
-      executeDefense(gameState);
+      cast({ type: "defense" });
       break;
     case "gamble": {
-      gameState._skipAnim = true;
       const lb = gameState.messageLog.length;
-      executeGamble(gameState);
+      cast({ type: "gamble" });
       aiSuppressLog(lb, "对手 执行赌命");
       aiTimer = setTimeout(() => {
-        if (gameState.step === "gamblePick" && gameState.pendingGamble) {
-          const g = decideGamblePick(
-            gameState,
-            gameState.pendingGamble.drawnCards,
-          );
+        if (view.step === "gamblePick" && view.pendingGamble) {
+          const g = decideGamblePick(view, view.pendingGamble.drawnCards);
           const lb2 = gameState.messageLog.length;
-          submitGamble(gameState, g.trapIdx, g.baitIdx);
+          cast({ type: "gambleSubmit", trapIdx: g.trapIdx, baitIdx: g.baitIdx });
           aiSuppressLog(lb2);
         }
-        gameState._skipAnim = false;
       }, 400);
       break;
     }
     case "skill": {
-      executeSkill(gameState);
+      cast({ type: "skill" });
       aiTimer = setTimeout(() => executeMiddleStep(), 400);
       break;
     }
@@ -372,40 +378,31 @@ function executeTopAction(decision) {
 
 function executeMiddleStep() {
   if (!_useAI.value) return; // 手动模式中止链式调度
-  const s = gameState.step;
+  const s = view.step;
   if (s === "pickAction") return;
 
   if (s === "attackShowCard") {
-    const attacker = gameState.players[gameState.currentPlayerIndex];
-    const targets = gameState.players.filter(
-      (p) =>
-        p.alive && p.index !== attacker.index && p.teamId !== attacker.teamId,
-    );
+    const targets = enemyTargets();
     if (targets.length > 0) {
-      const t = decideTarget(gameState, targets);
-      if (t?.targetIndex != null) executeAttack(gameState, t.targetIndex);
+      const t = decideTarget(view, targets);
+      if (t?.targetIndex != null) {
+        cast({ type: "attackTarget", targetUid: uidAt(t.targetIndex) });
+      }
     }
   } else if (s === "gamblePick") {
-    if (gameState.pendingGamble) {
-      const g = decideGamblePick(gameState, gameState.pendingGamble.drawnCards);
-      submitGamble(gameState, g.trapIdx, g.baitIdx);
+    if (view.pendingGamble) {
+      const g = decideGamblePick(view, view.pendingGamble.drawnCards);
+      cast({ type: "gambleSubmit", trapIdx: g.trapIdx, baitIdx: g.baitIdx });
     }
-    gameState._skipAnim = false;
   } else if (s === "skillPickTarget") {
-    const attacker = gameState.players[gameState.currentPlayerIndex];
-    const targets = gameState.players.filter(
+    const attacker = view.players[view.currentPlayerIndex];
+    const targets = view.players.filter(
       (p) => p.alive && p.index !== attacker.index,
     );
     if (targets.length > 0) {
-      const t = decideTarget(gameState, targets);
+      const t = decideTarget(view, targets);
       if (t?.targetIndex != null) {
-        if (gameState._aimiliyaFreeze) {
-          executeAimiliyaSkill(gameState, t.targetIndex);
-        } else if (gameState._fenjinHeal !== undefined) {
-          executeFenjinSkill(gameState, t.targetIndex);
-        } else {
-          executeSkill(gameState, t.targetIndex);
-        }
+        cast({ type: "skillAnswer", answer: uidAt(t.targetIndex) });
       }
     }
   }

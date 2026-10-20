@@ -21,11 +21,10 @@ import {
 } from "../game/leagueConstants.js";
 import {
   createGameState,
-  initGame,
-  serializeGameState,
-  deserializeGameState,
-} from "../game/gameState.js";
-import { CHARACTERS } from "../game/constants.js";
+} from "../game/flow/setup.js";
+import { createSession, save, load, rewireContext } from "../game/api.js";
+import { createLeagueMatchMode } from "../game/modes/league.js";
+import { CHARACTERS } from "../game/characters/index.js";
 import { recordSound } from "../game/soundEvents.js";
 
 /**
@@ -34,7 +33,7 @@ import { recordSound } from "../game/soundEvents.js";
 export function useLeagueController() {
   // ---- 三层状态 ----
   const leagueState = reactive(createLeagueState(0));
-  const gameState = createGameState();
+  const gameState = reactive(createGameState());
   const matchState = ref(null); // 当前比赛元信息
 
   // ---- UI 模式 ----
@@ -69,23 +68,17 @@ export function useLeagueController() {
     uiMode.value = "draft";
   }
 
-  /** 将圣遗物应用到所有人类玩家（根据AI开关分配） */
+  /** 将圣遗物应用到所有玩家（根据AI开关分配） */
   function applyLeagueArtifact() {
     gameState.players.forEach((p) => {
-      if (p.teamId === 0 && leagueArtifactId != null) {
-        p.artifactId = leagueArtifactId;
-        p.breakCount = 0;
-        p.holyWordUses = 2;
-        p.artifactActive = false;
-        p.artifactRoundsLeft = 0;
-      } else if (p.teamId === 1 && opponentArtifactId != null) {
-        // 手动模式下对手也选圣遗物
-        p.artifactId = opponentArtifactId;
-        p.breakCount = 0;
-        p.holyWordUses = 2;
-        p.artifactActive = false;
-        p.artifactRoundsLeft = 0;
-      }
+      const artId =
+        p.teamId === 0 ? leagueArtifactId : opponentArtifactId;
+      if (artId == null) return;
+      p.artifact.id = artId;
+      p.artifact.active = false;
+      p.artifact.roundsLeft = 0;
+      p.resources.breakCount = 0;
+      p.resources.holyWordUses = 2;
     });
   }
 
@@ -135,73 +128,35 @@ export function useLeagueController() {
       maxRounds: LEAGUE_MATCH_CONFIG.maxRounds,
     });
 
-    // 初始化6人游戏
-    // teamId: 0=玩家队伍, 1=对手队伍
+    // 初始化 6 人比赛(新内核:mode 提供规则,不再挂 leagueContext)
     const allChars = [
       ...draftResult.value.playerChars,
       ...draftResult.value.opponentChars,
     ];
-    const teamIds = [
-      0,
-      0,
-      0, // 玩家队伍3人
-      1,
-      1,
-      1, // 对手队伍3人
-    ];
+    const teamIds = [0, 0, 0, 1, 1, 1];
 
-    initGame(
-      gameState,
-      allChars,
-      false, // 无天气
-      1, // startingRound
-      LEAGUE_MATCH_CONFIG.deckCount,
+    const mode = buildLeagueMode(cardBonus, LEAGUE_MATCH_CONFIG.maxRounds);
+    createSession({
+      state: gameState,
+      chars: allChars,
+      weather: false,
+      startRound: 1,
+      deckCount: LEAGUE_MATCH_CONFIG.deckCount,
       teamIds,
-    );
+      mode,
+    });
 
-    // 设置玩家名称
+    // 队伍名 + AI 标记（新内核: player.ai.enabled）
     gameState.players.forEach((p) => {
-      if (p.teamId === 0) {
-        p.name = `${playerTeam.emoji} ${playerTeam.name}·${CHARACTERS[p.characterId]?.name || "?"}`;
-      } else {
-        p.name = `${opponentTeam.emoji} ${opponentTeam.name}·${CHARACTERS[p.characterId]?.name || "?"}`;
+      const team = p.teamId === 0 ? playerTeam : opponentTeam;
+      p.name = `${team.emoji} ${team.name}·${CHARACTERS[p.characterId]?.name || "?"}`;
+      if (useAI && p.teamId === 1) {
+        p.ai.enabled = true;
+        p.ai.difficulty = aiDifficulty;
       }
     });
 
-    // 标记AI玩家（仅AI模式）
-    if (useAI) {
-      gameState.players.forEach((p) => {
-        if (p.teamId === 1) {
-          p.isAI = true;
-          p.aiDifficulty = aiDifficulty;
-        }
-      });
-    }
-
-    // 应用圣遗物
     applyLeagueArtifact();
-
-    // 设置联赛上下文
-    gameState.leagueContext = {
-      cardBonus,
-      maxRounds: LEAGUE_MATCH_CONFIG.maxRounds,
-      onPlayerDeath: (deadIdx) => {
-        handlePlayerDeath(deadIdx);
-      },
-      onTeamWipe: () => {
-        handleTeamWipe();
-      },
-      onNewRound: (round) => {
-        if (matchState.value && !matchState.value.matchOver) {
-          // clamp 到上限：第31回合触发平局判定时记分牌不应显示 R31/30
-          const ms = matchState.value;
-          ms._currentRound = Math.min(round, ms.maxRounds);
-        }
-      },
-      onRoundLimit: () => {
-        handleRoundLimit();
-      },
-    };
 
     uiMode.value = "match";
   }
@@ -251,7 +206,6 @@ export function useLeagueController() {
 
     // 延迟跳转到比赛结果（短暂暂停让玩家看到最后一击）
     setTimeout(() => {
-      gameState._elimPaused = false;
       finishMatch();
     }, 800);
   }
@@ -275,7 +229,6 @@ export function useLeagueController() {
     ms.winner = winner;
 
     setTimeout(() => {
-      gameState._elimPaused = false;
       finishMatch();
     }, 800);
   }
@@ -401,66 +354,51 @@ export function useLeagueController() {
     const allChars = [...draft.playerChars, ...draft.opponentChars];
     const teamIds = [0, 0, 0, 1, 1, 1];
 
-    initGame(
-      gameState,
-      allChars,
-      false,
-      1,
-      LEAGUE_MATCH_CONFIG.deckCount,
+    const mode = buildLeagueMode(buildNoBonusCardBonus(), Infinity, {
+      onTeamWipe: (survivingTeam) => handleTiebreakerWipe(survivingTeam),
+      onRoundLimit: () => {},
+    });
+    createSession({
+      state: gameState,
+      chars: allChars,
+      weather: false,
+      startRound: 1,
+      deckCount: LEAGUE_MATCH_CONFIG.deckCount,
       teamIds,
-    );
+      mode,
+    });
 
     gameState.players.forEach((p) => {
-      if (p.teamId === 0) {
-        p.name = `${playerTeam.emoji} ${playerTeam.name}·${CHARACTERS[p.characterId]?.name || "?"}`;
-      } else {
-        p.name = `${opponentTeam.emoji} ${opponentTeam.name}·${CHARACTERS[p.characterId]?.name || "?"}`;
+      const team = p.teamId === 0 ? playerTeam : opponentTeam;
+      p.name = `${team.emoji} ${team.name}·${CHARACTERS[p.characterId]?.name || "?"}`;
+      if (useAI && p.teamId === 1) {
+        p.ai.enabled = true;
+        p.ai.difficulty = aiDifficulty;
       }
     });
 
-    // 标记AI玩家（仅AI模式）
-    if (useAI) {
-      gameState.players.forEach((p) => {
-        if (p.teamId === 1) {
-          p.isAI = true;
-          p.aiDifficulty = aiDifficulty;
-        }
-      });
-    }
-
     applyLeagueArtifact();
 
-    gameState.leagueContext = {
-      cardBonus: buildNoBonusCardBonus(),
-      maxRounds: Infinity,
-      onPlayerDeath: (deadIdx) => {
-        handlePlayerDeath(deadIdx);
-      },
-      onTeamWipe: (survivingTeamId) => {
-        // 加赛：结束并结算，胜负按积分；积分未定（双方均有人存活）时用最后存活方兜底
-        const ms = matchState.value;
-        if (!ms || ms.matchOver) return;
-        ms.matchOver = true;
-        recordSound(gameState, "match_end");
-        const { playerScore, opponentScore, winner } = calculateMatchScore(
-          ms.deathOrder,
-          0,
-          1,
-        );
-        ms.playerScore = playerScore;
-        ms.opponentScore = opponentScore;
-        // 按积分判胜；winner 为 null（名次未定的异常数据）时用最后存活方兜底
-        ms.winner = winner === null ? survivingTeamId : winner;
-        setTimeout(() => {
-          gameState._elimPaused = false;
-          finishTiebreaker();
-        }, 800);
-      },
-      onNewRound: () => {},
-      onRoundLimit: () => {},
-    };
-
     uiMode.value = "match";
+  }
+
+  /** 加赛:胜负按积分,winner 为 null 时用最后存活方兜底 */
+  function handleTiebreakerWipe(survivingTeam) {
+    const ms = matchState.value;
+    if (!ms || ms.matchOver) return;
+    ms.matchOver = true;
+    recordSound(gameState, "match_end");
+
+    const { playerScore, opponentScore, winner } = calculateMatchScore(
+      ms.deathOrder,
+      0,
+      1,
+    );
+    ms.playerScore = playerScore;
+    ms.opponentScore = opponentScore;
+    ms.winner = winner === null ? survivingTeam : winner;
+
+    setTimeout(() => finishTiebreaker(), 800);
   }
 
   function finishTiebreaker() {
@@ -493,7 +431,7 @@ export function useLeagueController() {
       },
       matchState: matchState.value ? { ...matchState.value } : null,
       draftResult: draftResult.value ? { ...draftResult.value } : null,
-      gameState: serializeGameState(gameState),
+      gameState: save(gameState),
       uiMode: uiMode.value,
     };
   }
@@ -525,10 +463,18 @@ export function useLeagueController() {
       // 恢复比赛中状态
       matchState.value = reactive(sd.matchState);
 
-      deserializeGameState(gameState, sd.gameState);
+      const ms = matchState.value;
+      const mode = ms.isTiebreaker
+        ? buildLeagueMode(buildNoBonusCardBonus(), Infinity, {
+            onTeamWipe: (survivingTeam) => handleTiebreakerWipe(survivingTeam),
+            onRoundLimit: () => {},
+          })
+        : buildLeagueMode(
+            buildCardBonusFromMatch(ms),
+            ms.maxRounds || LEAGUE_MATCH_CONFIG.maxRounds,
+          );
 
-      // 重建leagueContext
-      rebuildLeagueContext();
+      load(gameState, sd.gameState, { modeFactory: () => mode });
 
       uiMode.value = "match";
     } else {
@@ -564,30 +510,46 @@ export function useLeagueController() {
     );
   }
 
+  /**
+   * 构建联赛模式适配器。
+   * 规则(每场 4 回合和平期 / 禁结盟 / 围攻 / 回合上限 / 劣势补给)全在 modes/league.js,
+   * 这里只负责把生命周期回调接到控制器。
+   */
+  function buildLeagueMode(cardBonus, maxRounds, overrides = {}) {
+    return createLeagueMatchMode({
+      maxRounds,
+      cardBonus,
+      hooks: {
+        onPlayerDeath: (deadIdx) => handlePlayerDeath(deadIdx),
+        onTeamWipe: () => handleTeamWipe(),
+        onRoundLimit: () => handleRoundLimit(),
+        onNewRound: (round) => {
+          const ms = matchState.value;
+          if (ms && !ms.matchOver) {
+            // clamp 到上限:第31回合触发平局判定时记分牌不应显示 R31/30
+            ms._currentRound = Math.min(round, ms.maxRounds);
+          }
+        },
+        ...overrides,
+      },
+    });
+  }
+
+  /** 读档/热重载后重建模式并重新接线 ctx */
   function rebuildLeagueContext() {
     const ms = matchState.value;
     if (!ms) return;
-
-    gameState.leagueContext = {
-      cardBonus: buildCardBonusFromMatch(ms),
-      maxRounds: ms.maxRounds || LEAGUE_MATCH_CONFIG.maxRounds,
-      onPlayerDeath: (deadIdx) => {
-        handlePlayerDeath(deadIdx);
-      },
-      onTeamWipe: () => {
-        handleTeamWipe();
-      },
-      onNewRound: (round) => {
-        if (matchState.value && !matchState.value.matchOver) {
-          // clamp 到上限：第31回合触发平局判定时记分牌不应显示 R31/30
-          const ms = matchState.value;
-          ms._currentRound = Math.min(round, ms.maxRounds);
-        }
-      },
-      onRoundLimit: () => {
-        handleRoundLimit();
-      },
-    };
+    const mode = ms.isTiebreaker
+      ? buildLeagueMode(buildNoBonusCardBonus(), Infinity, {
+          onTeamWipe: (survivingTeam) => handleTiebreakerWipe(survivingTeam),
+          onRoundLimit: () => {},
+        })
+      : buildLeagueMode(
+          buildCardBonusFromMatch(ms),
+          ms.maxRounds || LEAGUE_MATCH_CONFIG.maxRounds,
+        );
+    gameState.mode = mode;
+    rewireContext(gameState, mode);
   }
 
   // ---- 重置 ----

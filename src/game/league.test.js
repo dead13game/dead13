@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { reactive } from "vue";
 import { useLeagueController } from "../composables/useLeagueController.js";
+import { getCtx } from "./view.js";
 import { createGameLogger } from "./gameLogger.js";
 import { PHASE, STEP } from "./constants.js";
 import {
@@ -604,7 +605,10 @@ describe("league 比赛胜负：只看积分（团灭对方不等于获胜）", 
         { playerIndex: 4, teamId: 1 },
         { playerIndex: 5, teamId: 1 },
       ];
-      lc.gameState.leagueContext.onTeamWipe(); // 对手团灭、玩家方存活
+      lc.gameState.players
+        .filter((p) => p.teamId === 1)
+        .forEach((p) => (p.alive = false));
+      lc.gameState.mode.checkGameOver(getCtx(lc.gameState)); // 对手团灭、玩家方存活
       expect(ms.playerScore).toBe(9);
       expect(ms.opponentScore).toBe(12);
       expect(ms.winner).toBe(1);
@@ -627,7 +631,10 @@ describe("league 比赛胜负：只看积分（团灭对方不等于获胜）", 
         { playerIndex: 1, teamId: 0 },
         { playerIndex: 2, teamId: 0 },
       ];
-      lc.gameState.leagueContext.onTeamWipe(); // 玩家团灭、对手存活
+      lc.gameState.players
+        .filter((p) => p.teamId === 0)
+        .forEach((p) => (p.alive = false));
+      lc.gameState.mode.checkGameOver(getCtx(lc.gameState)); // 玩家团灭、对手存活
       expect(ms.playerScore).toBe(12);
       expect(ms.opponentScore).toBe(9);
       expect(ms.winner).toBe(0);
@@ -656,7 +663,10 @@ describe("league 比赛胜负：只看积分（团灭对方不等于获胜）", 
         { playerIndex: 4, teamId: 1 },
         { playerIndex: 5, teamId: 1 },
       ];
-      lc.gameState.leagueContext.onTeamWipe();
+      lc.gameState.players
+        .filter((p) => p.teamId === 1)
+        .forEach((p) => (p.alive = false));
+      lc.gameState.mode.checkGameOver(getCtx(lc.gameState));
       expect(ms.playerScore).toBe(12);
       expect(ms.opponentScore).toBe(9);
       expect(ms.winner).toBe(0);
