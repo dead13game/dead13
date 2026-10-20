@@ -34,6 +34,7 @@ import {
 } from "../../index.js";
 import { projectLegacy } from "../projection.js";
 import { legacyScenarioApi } from "../scenarios.js";
+import { canUseSkill as legacyCanUseSkill } from "../../skills.js";
 
 /** 技能目标步的消歧:复刻 GameShell.onSkillTarget / executeMiddleStep */
 function skillTargetKind(state) {
@@ -102,6 +103,9 @@ export function createLegacyAdapter() {
       const step = state.step;
 
       if (step === "pickAction") {
+        // AI 已改成读 view 上预算好的 canUseSkill;旧状态没有这个字段,这里补上
+        const cur = state.players[state.currentPlayerIndex];
+        if (cur) cur.canUseSkill = legacyCanUseSkill(state, cur);
         const d = decideTopAction(state);
         switch (d.action) {
           case "attack":

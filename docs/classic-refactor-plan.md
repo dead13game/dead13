@@ -243,7 +243,7 @@ state.turn = { extraAction: false, suspend: null, resync: false }
 | P2 rules | ✅ | 19 条单测(加成顺序/取整/防御消耗/陷阱三态/平摊) |
 | P3 角色 + 引擎 | ✅ | 11 个角色插件;`next-replay.test.js` **30/30**,1961 条命令逐步一致 |
 | P4 modes | ✅ | 三种适配器;模式单测 25 条;1v1 完整一命集成测试通过 |
-| P5 persistence | ⬜ | snapshot 已就位,存档 schema 待做 |
+| P5 persistence | ✅ | 存档 v4 + schema 驱动;6 条单测(pending 还原/Infinity 编码/比赛进度) |
 | P6 UI 收敛 | ⬜ | — |
 | P7 删旧 + 文档 | ⬜ | — |
 

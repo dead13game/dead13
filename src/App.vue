@@ -492,7 +492,8 @@ import OpeningVideo from "./components/OpeningVideo.vue";
 import { useGameController } from "./composables/useGameController.js";
 import { useSoloController } from "./solo/useSoloController.js";
 import { useUniController } from "./simuniverse/useUniController.js";
-import { deserializeGameState } from "./game/gameState.js";
+import { load } from "./game/api.js";
+import { createClassicMode } from "./game/modes/classic.js";
 import { AI_TEAM_NAMES } from "./game/worldCupConstants.js";
 import { EPIC_PROLOGUE } from "./data/epic.js";
 import SoundManager from "./audio/SoundManager.js";
@@ -691,7 +692,9 @@ function continueGame() {
   hasSave.value = false;
 
   if (saveData.gameMode === "normal") {
-    const ok = deserializeGameState(gameState, saveData.gameState);
+    const ok = load(gameState, saveData.gameState, {
+      modeFactory: () => createClassicMode(),
+    });
     if (ok) {
       gameMode.value = "normal";
       gameStarted.value = true;

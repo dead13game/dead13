@@ -1,6 +1,6 @@
-import { PHASE, getCharData } from "../constants.js";
-import { canUseSkill } from "../skills.js";
-import { alivePlayers } from "../damage.js";
+import { PHASE } from "../core/constants.js";
+import { getCharData } from "../characters/index.js";
+import { alivePlayers } from "../core/player.js";
 import {
   decideEasyTop,
   decideEasyTarget,

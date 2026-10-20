@@ -1,13 +1,15 @@
 import { reactive, ref, computed } from "vue";
-import { createGameState, initGame } from "../game/gameState.js";
-import { CHARACTERS } from "../game/constants.js";
+import { createGameState } from "../game/flow/setup.js";
+import { createSession } from "../game/api.js";
+import { createClassicMode } from "../game/modes/classic.js";
+import { CHARACTERS } from "../game/characters/index.js";
 
 /**
  * 游戏控制器 — 管理选角、开始、重置等顶层游戏流程
  * 从 App.vue 提取，供 GameSetup + GameShell 共用
  */
 export function useGameController() {
-  const gameState = createGameState();
+  const gameState = reactive(createGameState());
   const gameStarted = ref(false);
   const playerCount = ref(2);
   const playerNames = reactive(["", "", "", "", "", "", "", ""]);
@@ -71,22 +73,27 @@ export function useGameController() {
       .slice(0, playerCount.value)
       .map((n, i) => n.trim() || `玩家 ${i + 1}`);
     const chars = playerChars.slice(0, playerCount.value);
-    initGame(gameState, chars, useWeather.value);
-    chars.forEach((charId, i) => {
-      gameState.players[i].name = names[i];
+
+    createSession({
+      state: gameState,
+      chars,
+      weather: useWeather.value,
+      mode: createClassicMode(),
     });
-    // 标记 AI 玩家（用 characterId 配对，因为 initGame 会按HP重排players）
+
+    // 按「创建槽位」标注 AI 与圣遗物。uid 在 initGame 里就是 slot+1,
+    // 训练过按 characterId 反查(同角色重复时会串位)。
     gameState.players.forEach((p) => {
-      const slotIdx = playerChars.indexOf(p.characterId);
-      if (slotIdx >= 0) {
-        p.isAI = aiSlots[slotIdx] || false;
-        p.aiDifficulty = aiSlots[slotIdx] ? aiDifficulties[slotIdx] : "easy";
-        // 圣遗物选择（非AI玩家必须已选）
-        if (!aiSlots[slotIdx]) {
-          p.artifactId = playerArtifacts[slotIdx] || null;
-        }
+      const slotIdx = p.uid - 1;
+      if (slotIdx < 0 || slotIdx >= playerCount.value) return;
+      p.name = names[slotIdx] ?? p.name;
+      p.ai.enabled = !!aiSlots[slotIdx];
+      p.ai.difficulty = aiSlots[slotIdx] ? aiDifficulties[slotIdx] : "easy";
+      if (!aiSlots[slotIdx]) {
+        p.artifact.id = playerArtifacts[slotIdx] ?? null;
       }
     });
+
     gameStarted.value = true;
   }
 

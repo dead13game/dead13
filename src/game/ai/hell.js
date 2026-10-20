@@ -1,6 +1,6 @@
-import { getCharData, PHASE } from "../constants.js";
-import { canUseSkill } from "../skills.js";
-import { alivePlayers } from "../damage.js";
+import { PHASE } from "../core/constants.js";
+import { getCharData } from "../characters/index.js";
+import { alivePlayers } from "../core/player.js";
 import {
   avgDeckValue,
   extraAttackBonus,
@@ -64,7 +64,7 @@ export function decideHellTop(state, player) {
     score: scoreGambleHell(state, player),
   });
 
-  if (canUseSkill(state, player)) {
+  if (player.canUseSkill) {
     candidates.push({
       action: "skill",
       score: scoreSkillSkilled(state, player),

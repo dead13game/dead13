@@ -1,22 +1,22 @@
 <template>
   <div class="game-shell">
-    <GameCanvas ref="gameCanvasRef" :state="state" />
+    <GameCanvas ref="gameCanvasRef" :state="view" />
 
     <!-- 顶部信息栏（正常模式） -->
     <div v-if="!worldCupMode && !leagueMode" class="game-shell__top-bar">
-      <span class="phase-badge" :class="'phase-badge--' + state.phase">{{
+      <span class="phase-badge" :class="'phase-badge--' + view.phase">{{
         phaseLabel
       }}</span>
-      <span class="top-info">第{{ state.round }}回合</span>
-      <span v-if="state.phase === 'peace'" class="peace-hint">和平</span>
-      <span class="top-info">牌库 {{ state.deck.length }}</span>
+      <span class="top-info">第{{ view.round }}回合</span>
+      <span v-if="view.phase === 'peace'" class="peace-hint">和平</span>
+      <span class="top-info">牌库 {{ view.deck.length }}</span>
       <span class="top-info top-info--grave"
-        >墓地 {{ state.grave.length }}</span
+        >墓地 {{ view.grave.length }}</span
       >
-      <span v-if="state.useWeather && weather" class="weather-tag">{{
+      <span v-if="view.useWeather && weather" class="weather-tag">{{
         weather.name
       }}</span>
-      <span v-if="state.useWeather && nextWeather" class="weather-next"
+      <span v-if="view.useWeather && nextWeather" class="weather-next"
         >下回合: {{ nextWeather.name }}</span
       >
       <button class="relayout-btn" @click="onRelayout" title="重新排版">
@@ -30,8 +30,8 @@
     <!-- 底部 UI 栏 -->
     <div class="game-shell__bottom-bar">
       <ActionBar
-        v-if="!state.gameOver || worldCupMode || leagueMode"
-        :state="state"
+        v-if="!view.gameOver || worldCupMode || leagueMode"
+        :state="view"
         :disabled="animating"
         :league-mode="leagueMode"
         @attack="onAttack"
@@ -47,25 +47,27 @@
         @ally="onAlly"
         @betray="onBetray"
         @allyInvite="onAllyInvite"
+        @gambleSubmit="onGambleSubmit"
+        @nahidaOrder="onNahidaOrder"
         @cancel="cancelPick"
       />
 
       <GameOverPanel
-        v-if="state.gameOver && !worldCupMode && !leagueMode"
+        v-if="view.gameOver && !worldCupMode && !leagueMode"
         :winner="winner"
         @restart="$emit('restart')"
       />
 
-      <LogPanel :messages="state.messageLog" />
+      <LogPanel :messages="view.messageLog" />
     </div>
 
     <!-- 开发日志面板（Ctrl+Shift+D 切换） -->
-    <DevLogPanel ref="devLogRef" :entries="state.devLog.entries" />
+    <DevLogPanel ref="devLogRef" :entries="view.devLog.entries" />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from "vue";
+import { ref, computed, reactive, watch, onMounted, onUnmounted } from "vue";
 import GameCanvas from "../pixi/GameCanvas.vue";
 import ActionBar from "./ActionBar.vue";
 import LogPanel from "./LogPanel.vue";
@@ -83,29 +85,8 @@ import {
   decideLiniyaChoice,
   decideCaiyueangChoice,
 } from "../game/ai/index.js";
-import {
-  startAttack,
-  executeAttack,
-  executeDefense,
-  executeGamble,
-  submitGamble,
-  executeSkill,
-  getCurrentWeather,
-  executeRaidenSkill,
-  executeFurinaSwap,
-  executeFenjinSkill,
-  executeLiniyaSkill,
-  executeAimiliyaSkill,
-  submitNahidaScry,
-  executeCaiyueangSave,
-  executeCaiyueangLoad,
-  executeHolyWord,
-  startAlly,
-  executeAlly,
-  executeBetray,
-  getNextWeather,
-  serializeGameState,
-} from "../game/gameState.js";
+import { dispatch, save } from "../game/api.js";
+import { buildView } from "../game/view.js";
 
 const props = defineProps({
   state: { type: Object, required: true },
@@ -116,6 +97,17 @@ const emit = defineEmits(["restart", "saveAndQuit"]);
 
 const gameCanvasRef = ref(null);
 const devLogRef = ref(null);
+
+/**
+ * 只读 view-model:UI/子组件/PIXI 都读它,写操作统一走 dispatch。
+ * 用 reactive 而不是 computed,是为了保持对象身份稳定(桥接层的 watcher 依赖它)。
+ */
+const view = reactive(buildView(props.state));
+watch(
+  () => props.state,
+  () => Object.assign(view, buildView(props.state)),
+  { deep: true },
+);
 
 function getManager() {
   return gameCanvasRef.value?.manager ?? null;
@@ -128,23 +120,23 @@ const phaseLabel = computed(
       peace: "和平",
       normal: "战斗中",
       gameOver: "结束",
-    })[props.state.phase] || props.state.phase,
+    })[view.phase] || view.phase,
 );
 
 const winner = computed(() =>
-  props.state.winnerIndex >= 0
-    ? props.state.players.find((p) => p.index === props.state.winnerIndex)
+  view.winnerIndex >= 0
+    ? view.players.find((p) => p.index === view.winnerIndex)
     : null,
 );
 
-const weather = computed(() => getCurrentWeather(props.state));
-const nextWeather = computed(() => getNextWeather(props.state));
+const weather = computed(() => view.getCurrentWeather());
+const nextWeather = computed(() => view.getNextWeather());
 
-// 同步 PixiJS
-usePixiSync(props.state, getManager);
+// 同步 PixiJS(视图是唯一数据源)
+usePixiSync(view, getManager);
 
-// 音效：监听 gameState.soundQueue → SoundManager 播放
-useSoundSync(props.state);
+// 音效：监听 soundQueue → SoundManager 播放
+useSoundSync(view);
 
 // 动画流
 const { animating, flyToTarget, defenseDraw, gambleDraw } = useAnimationFlow(
@@ -152,100 +144,107 @@ const { animating, flyToTarget, defenseDraw, gambleDraw } = useAnimationFlow(
   getManager,
 );
 
-// ── 事件处理（动画→游戏逻辑）──
+// ── 事件处理（动画 → 命令）──
+
+/** 视图里的 index → 内核身份 uid(命令一律用 uid) */
+const uidAt = (index) =>
+  props.state.players.find((p) => p.index === index)?.uid ?? null;
+const cast = (cmd) => dispatch(props.state, cmd);
 
 function onAttack() {
   if (animating.value) return;
-  startAttack(props.state);
+  cast({ type: "attack" });
 }
 
 async function onDefense() {
   if (animating.value) return;
   const pIdx = props.state.currentPlayerIndex;
   await defenseDraw(pIdx);
-  executeDefense(props.state);
+  cast({ type: "defense" });
 }
 
 async function onGamble() {
   if (animating.value) return;
   await gambleDraw();
-  executeGamble(props.state);
+  cast({ type: "gamble" });
 }
 
 function onSkill() {
   if (animating.value) return;
-  executeSkill(props.state);
+  cast({ type: "skill" });
 }
 
 function onHolyWord() {
   if (animating.value) return;
-  executeHolyWord(props.state);
+  cast({ type: "holyWord" });
 }
 
 async function onTarget(idx) {
   if (animating.value) return;
   await flyToTarget(idx);
-  executeAttack(props.state, idx);
+  cast({ type: "attackTarget", targetUid: uidAt(idx) });
 }
 
 async function onSkillTarget(idx) {
   if (animating.value) return;
-  if (props.state.pendingFurinaTarget) {
-    executeFurinaSwap(props.state, idx);
-  } else if (props.state._aimiliyaFreeze) {
-    executeAimiliyaSkill(props.state, idx);
-  } else if (props.state._fenjinHeal !== undefined) {
-    // 风堇技能
+  const purpose = view.pending?.purpose ?? "";
+  // 与旧行为一致:只有风堇/雷神的技能目标会飞牌
+  if (purpose === "skill:fenjin" || purpose === "skill:raiden") {
     await flyToTarget(idx);
-    executeFenjinSkill(props.state, idx);
-  } else {
-    // 雷电技能
-    await flyToTarget(idx);
-    executeRaidenSkill(props.state, idx);
   }
+  cast({ type: "skillAnswer", answer: uidAt(idx) });
 }
 
 function onLiniyaSkill(idx, sub) {
   if (animating.value) return;
-  executeLiniyaSkill(props.state, idx, sub);
+  cast({
+    type: "skillAnswer",
+    answer: { targetUid: uidAt(idx), subSkill: sub },
+  });
 }
 
 function onCaiyueangSave() {
   if (animating.value) return;
-  executeCaiyueangSave(props.state);
+  cast({ type: "skillAnswer", answer: { choice: "save" } });
 }
 
 function onCaiyueangLoad() {
   if (animating.value) return;
-  executeCaiyueangLoad(props.state);
+  cast({ type: "skillAnswer", answer: { choice: "load" } });
 }
 
 function onAlly() {
   if (animating.value) return;
-  startAlly(props.state);
+  cast({ type: "ally" });
 }
 
 function onBetray() {
   if (animating.value) return;
-  executeBetray(props.state);
+  cast({ type: "betray" });
 }
 
 function onAllyInvite(idx) {
   if (animating.value) return;
-  executeAlly(props.state, idx);
+  cast({ type: "allyTarget", targetUid: uidAt(idx) });
 }
 
+function onGambleSubmit(trapIdx, baitIdx) {
+  if (animating.value) return;
+  cast({ type: "gambleSubmit", trapIdx, baitIdx });
+}
+
+function onNahidaOrder(order) {
+  if (animating.value) return;
+  cast({ type: "skillAnswer", answer: order });
+}
+
+/** 取消待决:走内核命令,不再手改 step 与私有 flag(顺带修掉 KB-2) */
 function cancelPick() {
-  props.state.step = "pickAction";
-  props.state.pendingFurinaTarget = false;
-  props.state._aimiliyaFreeze = null;
-  props.state._fenjinHeal = null;
-  props.state._liniyaSubSkill = null;
-  props.state._caiyueangMode = null;
+  cast({ type: "cancel" });
 }
 
 function onSaveAndQuit() {
-  const gameData = serializeGameState(props.state);
+  const gameData = save(props.state);
   const saveData = {
     gameState: gameData,
     gameMode: props.worldCupMode ? "worldcup" : "normal",
@@ -285,8 +284,8 @@ let aiTimer = null;
 
 function isAITurn() {
   if (!props.state || props.state.gameOver) return false;
-  const p = props.state.players[props.state.currentPlayerIndex];
-  return p?.alive && isAiPlayer(p);
+  const p = view.players[props.state.currentPlayerIndex];
+  return !!p?.alive && !!p.isAI;
 }
 
 function scheduleAI() {
@@ -295,26 +294,26 @@ function scheduleAI() {
   const state = props.state;
   if (!state || state.gameOver || state.phase === "setup") return;
   if (state.players.filter((p) => !p.alive).length > 0) return;
-  if (state.step !== "pickAction" || !isAITurn()) return;
+  if (view.step !== "pickAction" || !isAITurn()) return;
   aiTimer = setTimeout(aiAct, 600 + Math.random() * 600);
 }
 
 function aiAct() {
   const state = props.state;
-  if (state.step === "pickAction") {
+  if (view.step === "pickAction") {
     if (!isAITurn()) return;
-    const decision = decideTopAction(state);
+    const decision = decideTopAction(view);
     executeTopAction(decision);
   } else {
     executeMiddleStep();
   }
 
-  // 300ms 保底回退：如果卡住了强制防御
+  // 300ms 保底回退:如果卡住了强制防御
   aiTimer = setTimeout(() => {
-    if (state.step !== "pickAction") return;
+    if (view.step !== "pickAction") return;
     if (!isAITurn() || state.gameOver) return;
     if (state.players.some((p) => !p.alive)) return;
-    executeDefense(state);
+    cast({ type: "defense" });
   }, 300);
 }
 
@@ -322,95 +321,95 @@ function executeTopAction(decision) {
   const state = props.state;
   switch (decision.action) {
     case "attack": {
-      startAttack(state);
+      cast({ type: "attack" });
       aiTimer = setTimeout(() => {
-        if (state.step === "attackShowCard") {
-          const t = decideTarget(state, { action: "attack" });
-          executeAttack(state, t.targetIndex);
+        if (view.step === "attackShowCard") {
+          const t = decideTarget(view, { action: "attack" });
+          cast({ type: "attackTarget", targetUid: uidAt(t.targetIndex) });
         }
       }, 500);
       break;
     }
     case "defense":
-      executeDefense(state);
+      cast({ type: "defense" });
       break;
     case "gamble": {
-      state._skipAnim = true;
-      executeGamble(state);
+      cast({ type: "gamble" });
       aiTimer = setTimeout(() => {
-        if (state.step === "gamblePick" && state.pendingGamble) {
-          const g = decideGamblePick(state, state.pendingGamble.drawnCards);
-          submitGamble(state, g.trapIdx, g.baitIdx);
+        if (view.step === "gamblePick" && view.pendingGamble) {
+          const g = decideGamblePick(view, view.pendingGamble.drawnCards);
+          cast({
+            type: "gambleSubmit",
+            trapIdx: g.trapIdx,
+            baitIdx: g.baitIdx,
+          });
         }
-        state._skipAnim = false;
       }, 400);
       break;
     }
     case "skill": {
-      executeSkill(state);
+      cast({ type: "skill" });
       aiTimer = setTimeout(() => executeMiddleStep(), 400);
       break;
     }
+    default:
+      cast({ type: "defense" });
   }
+  void state;
+}
+
+/** pending.purpose → 旧 AI 认识的技能标签 */
+function skillTagOf(purpose) {
+  if (purpose === "skill:furina") return "furina";
+  if (purpose === "skill:aimiliya.freeze") return "aimiliya";
+  if (purpose === "skill:fenjin") return "fenjin";
+  return "raiden";
 }
 
 function executeMiddleStep() {
-  const state = props.state;
-  const s = state.step;
+  const s = view.step;
   if (s === "pickAction") return;
 
   if (s === "attackShowCard") {
-    const t = decideTarget(state, { action: "attack" });
-    executeAttack(state, t.targetIndex);
+    const t = decideTarget(view, { action: "attack" });
+    cast({ type: "attackTarget", targetUid: uidAt(t.targetIndex) });
   } else if (s === "gamblePick") {
-    if (state.pendingGamble) {
-      const g = decideGamblePick(state, state.pendingGamble.drawnCards);
-      submitGamble(state, g.trapIdx, g.baitIdx);
+    if (view.pendingGamble) {
+      const g = decideGamblePick(view, view.pendingGamble.drawnCards);
+      cast({ type: "gambleSubmit", trapIdx: g.trapIdx, baitIdx: g.baitIdx });
     }
-    state._skipAnim = false;
   } else if (s === "skillPickTarget") {
-    let ctx = { action: "skill" };
-    if (state.pendingFurinaTarget) ctx.characterId = "furina";
-    else if (state._aimiliyaFreeze) ctx.characterId = "aimiliya";
-    else if (state._fenjinHeal !== undefined) ctx.characterId = "fenjin";
-    else ctx.characterId = "raiden";
-
-    const t = decideTarget(state, ctx);
-    if (state.pendingFurinaTarget) {
-      executeFurinaSwap(state, t.targetIndex);
-    } else if (state._aimiliyaFreeze) {
-      executeAimiliyaSkill(state, t.targetIndex);
-    } else if (state._fenjinHeal !== undefined) {
-      executeFenjinSkill(state, t.targetIndex);
-    } else {
-      executeRaidenSkill(state, t.targetIndex);
-    }
+    const kind = skillTagOf(view.pending?.purpose ?? "");
+    const t = decideTarget(view, { action: "skill", characterId: kind });
+    cast({ type: "skillAnswer", answer: uidAt(t.targetIndex) });
   } else if (s === "skillNahida") {
-    const order = decideNahidaOrder(state, state.scryCards);
-    submitNahidaScry(state, order);
+    const order = decideNahidaOrder(view, view.scryCards);
+    cast({ type: "skillAnswer", answer: order });
   } else if (s === "liniyaPick") {
-    const d = decideLiniyaChoice(state);
-    executeLiniyaSkill(state, d.targetIndex, d.subSkill);
+    const d = decideLiniyaChoice(view);
+    cast({
+      type: "skillAnswer",
+      answer: { targetUid: uidAt(d.targetIndex), subSkill: d.subSkill },
+    });
   } else if (s === "caiyueangPick") {
-    const d = decideCaiyueangChoice(state);
-    if (d.choice === "save") executeCaiyueangSave(state);
-    else executeCaiyueangLoad(state);
+    const d = decideCaiyueangChoice(view);
+    cast({ type: "skillAnswer", answer: { choice: d.choice } });
   } else if (s === "allyPick") {
-    const t = decideTarget(state, { action: "ally" });
-    executeAlly(state, t.targetIndex);
+    const t = decideTarget(view, { action: "ally" });
+    cast({ type: "allyTarget", targetUid: uidAt(t.targetIndex) });
   } else {
-    state.step = "pickAction";
-    executeDefense(state);
+    cast({ type: "cancel" });
+    cast({ type: "defense" });
   }
 }
 
 // AI 回合调度 watch
 watch(
-  () => props.state?.currentPlayerIndex,
+  () => view.currentPlayerIndex,
   () => scheduleAI(),
 );
 watch(
-  () => props.state?.step,
+  () => view.step,
   (newStep) => {
     if (
       newStep !== "pickAction" &&

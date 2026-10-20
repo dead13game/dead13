@@ -1,6 +1,6 @@
-import { PHASE, getCharData } from "../constants.js";
-import { canUseSkill } from "../skills.js";
-import { alivePlayers } from "../damage.js";
+import { PHASE } from "../core/constants.js";
+import { getCharData } from "../characters/index.js";
+import { alivePlayers } from "../core/player.js";
 import {
   avgDeckValue,
   extraAttackBonus,
@@ -32,7 +32,7 @@ export function decideSkilledTop(state, player) {
     score: scoreGambleSkilled(state, player),
   });
 
-  if (canUseSkill(state, player)) {
+  if (player.canUseSkill) {
     candidates.push({
       action: "skill",
       score: scoreSkillSkilled(state, player),
@@ -106,7 +106,7 @@ function scoreGambleSkilled(state, player) {
 }
 
 export function scoreSkillSkilled(state, player) {
-  if (!canUseSkill(state, player)) return -Infinity;
+  if (!player.canUseSkill) return -Infinity;
 
   let score = 40;
 

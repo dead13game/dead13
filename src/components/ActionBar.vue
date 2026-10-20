@@ -338,16 +338,14 @@
 <script setup>
 import { ref, computed, watch } from "vue";
 import Card from "./Card.vue";
-import { getCharData } from "../game/constants.js";
 import {
+  getCharData,
+  getArtifactData,
   currentPlayer,
   canUseSkill,
-  submitGamble,
-  submitNahidaScry,
-  getAllianceTargets,
   canUseHolyWord,
-  getArtifactData,
-} from "../game/gameState.js";
+  getAllianceTargets,
+} from "../game/view.js";
 
 const props = defineProps({
   state: { type: Object, required: true },
@@ -370,6 +368,8 @@ const emit = defineEmits([
   "ally",
   "betray",
   "allyInvite",
+  "gambleSubmit",
+  "nahidaOrder",
 ]);
 
 // 赌命选牌
@@ -484,7 +484,7 @@ function onGambleConfirm() {
     gambleBaitIdx.value >= 0 &&
     gambleTrapIdx.value !== gambleBaitIdx.value
   ) {
-    submitGamble(props.state, gambleTrapIdx.value, gambleBaitIdx.value);
+    emit("gambleSubmit", gambleTrapIdx.value, gambleBaitIdx.value);
   }
 }
 
@@ -496,7 +496,7 @@ function onNahidaClick(idx) {
 function onNahidaConfirm() {
   const total = nahidaTotalCards.value;
   if (nahidaOrder.value.length === total) {
-    submitNahidaScry(props.state, nahidaOrder.value);
+    emit("nahidaOrder", [...nahidaOrder.value]);
   }
 }
 
