@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { reactive } from "vue";
+import { useLeagueController } from "../composables/useLeagueController.js";
 import { createGameLogger } from "./gameLogger.js";
 import { PHASE, STEP } from "./constants.js";
 import {
@@ -575,5 +576,92 @@ describe("league 规则v3.0：围攻惩罚", () => {
     executeAttack(state, 1);
     expect(target.hp).toBe(15);
     expect(target.attackedThisRound).toBeUndefined();
+  });
+});
+
+describe("league 比赛胜负：只看积分（团灭对方不等于获胜）", () => {
+  /** 开一场联赛比赛：玩家=曼城(tier1, 第1轮主场) vs 狼队(10) */
+  function startLeagueMatch(lc) {
+    lc.initLeague(1, "easy", null, null, true);
+    lc.startMatchWithDraft({
+      playerChars: [1, 2, 3],
+      opponentChars: [4, 5, 6],
+    });
+    return lc.matchState.value;
+  }
+
+  it("团灭对方但积分更低 → 判负", () => {
+    vi.useFakeTimers();
+    try {
+      const lc = useLeagueController();
+      const ms = startLeagueMatch(lc);
+      // 玩家2人先死（第6/5名=1+2分），对手3人全灭（第4/3/2名=3+4+5分），
+      // 玩家剩1人拿第1名6分 → 玩家 9 : 对手 12，虽团灭对方仍判负
+      ms.deathOrder = [
+        { playerIndex: 0, teamId: 0 },
+        { playerIndex: 1, teamId: 0 },
+        { playerIndex: 3, teamId: 1 },
+        { playerIndex: 4, teamId: 1 },
+        { playerIndex: 5, teamId: 1 },
+      ];
+      lc.gameState.leagueContext.onTeamWipe(); // 对手团灭、玩家方存活
+      expect(ms.playerScore).toBe(9);
+      expect(ms.opponentScore).toBe(12);
+      expect(ms.winner).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("团灭对方且积分更高 → 判胜", () => {
+    vi.useFakeTimers();
+    try {
+      const lc = useLeagueController();
+      const ms = startLeagueMatch(lc);
+      // 对手先死2人（第6/5名=1+2分），玩家3人全灭（第4/3/2名=3+4+5分），
+      // 对手剩1人拿第1名6分 → 玩家 12 : 对手 9
+      ms.deathOrder = [
+        { playerIndex: 3, teamId: 1 },
+        { playerIndex: 4, teamId: 1 },
+        { playerIndex: 0, teamId: 0 },
+        { playerIndex: 1, teamId: 0 },
+        { playerIndex: 2, teamId: 0 },
+      ];
+      lc.gameState.leagueContext.onTeamWipe(); // 玩家团灭、对手存活
+      expect(ms.playerScore).toBe(12);
+      expect(ms.opponentScore).toBe(9);
+      expect(ms.winner).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("加赛：团灭时同样按积分判胜负", () => {
+    vi.useFakeTimers();
+    try {
+      const lc = useLeagueController();
+      lc.initLeague(5, "easy", null, null, true);
+      lc.leagueState._tiebreakerOpponent = 1;
+      lc.startTiebreaker();
+      lc.startTiebreakerMatch({
+        playerChars: [1, 2, 3],
+        opponentChars: [4, 5, 6],
+      });
+      const ms = lc.matchState.value;
+      // 玩家先死1人（第6名=1分），对手3人全灭（第5/4/3名=2+3+4分），
+      // 玩家剩2人拿第2/第1名（5+6）→ 玩家 12 : 对手 9
+      ms.deathOrder = [
+        { playerIndex: 0, teamId: 0 },
+        { playerIndex: 3, teamId: 1 },
+        { playerIndex: 4, teamId: 1 },
+        { playerIndex: 5, teamId: 1 },
+      ];
+      lc.gameState.leagueContext.onTeamWipe();
+      expect(ms.playerScore).toBe(12);
+      expect(ms.opponentScore).toBe(9);
+      expect(ms.winner).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

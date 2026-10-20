@@ -188,8 +188,8 @@ export function useLeagueController() {
       onPlayerDeath: (deadIdx) => {
         handlePlayerDeath(deadIdx);
       },
-      onTeamWipe: (survivingTeamId) => {
-        handleTeamWipe(survivingTeamId);
+      onTeamWipe: () => {
+        handleTeamWipe();
       },
       onNewRound: (round) => {
         if (matchState.value && !matchState.value.matchOver) {
@@ -227,27 +227,27 @@ export function useLeagueController() {
     const opponentAlive = alive.filter((p) => p.teamId === 1);
 
     if (playerAlive.length === 0 || opponentAlive.length === 0) {
-      const survivingTeam = playerAlive.length > 0 ? 0 : 1;
-      handleTeamWipe(survivingTeam);
+      handleTeamWipe();
     }
   }
 
   // ---- 团灭处理 ----
-  function handleTeamWipe(survivingTeamId) {
+  // 胜负只看积分：团灭对方不等于获胜，名次分高者胜、积分相等则平局
+  function handleTeamWipe() {
     const ms = matchState.value;
     if (!ms || ms.matchOver) return;
 
     ms.matchOver = true;
-    ms.winner = survivingTeamId;
     recordSound(gameState, "match_end");
 
-    const { playerScore, opponentScore } = calculateMatchScore(
+    const { playerScore, opponentScore, winner } = calculateMatchScore(
       ms.deathOrder,
       0,
       1,
     );
     ms.playerScore = playerScore;
     ms.opponentScore = opponentScore;
+    ms.winner = winner;
 
     // 延迟跳转到比赛结果（短暂暂停让玩家看到最后一击）
     setTimeout(() => {
@@ -262,16 +262,17 @@ export function useLeagueController() {
     if (!ms || ms.matchOver) return;
 
     ms.matchOver = true;
-    ms.winner = null; // 平局
     recordSound(gameState, "match_end");
 
-    const { playerScore, opponentScore } = calculateMatchScore(
+    const { playerScore, opponentScore, winner } = calculateMatchScore(
       ms.deathOrder,
       0,
       1,
     );
     ms.playerScore = playerScore;
     ms.opponentScore = opponentScore;
+    // 30 回合到点：双方均有人存活时名次未定 → winner 为 null（平局）
+    ms.winner = winner;
 
     setTimeout(() => {
       gameState._elimPaused = false;
@@ -436,19 +437,20 @@ export function useLeagueController() {
         handlePlayerDeath(deadIdx);
       },
       onTeamWipe: (survivingTeamId) => {
-        // 加赛：团灭即结束
+        // 加赛：结束并结算，胜负按积分；积分未定（双方均有人存活）时用最后存活方兜底
         const ms = matchState.value;
         if (!ms || ms.matchOver) return;
         ms.matchOver = true;
-        ms.winner = survivingTeamId;
         recordSound(gameState, "match_end");
-        const { playerScore, opponentScore } = calculateMatchScore(
+        const { playerScore, opponentScore, winner } = calculateMatchScore(
           ms.deathOrder,
           0,
           1,
         );
         ms.playerScore = playerScore;
         ms.opponentScore = opponentScore;
+        // 按积分判胜；winner 为 null（名次未定的异常数据）时用最后存活方兜底
+        ms.winner = winner === null ? survivingTeamId : winner;
         setTimeout(() => {
           gameState._elimPaused = false;
           finishTiebreaker();
@@ -572,8 +574,8 @@ export function useLeagueController() {
       onPlayerDeath: (deadIdx) => {
         handlePlayerDeath(deadIdx);
       },
-      onTeamWipe: (survivingTeamId) => {
-        handleTeamWipe(survivingTeamId);
+      onTeamWipe: () => {
+        handleTeamWipe();
       },
       onNewRound: (round) => {
         if (matchState.value && !matchState.value.matchOver) {
