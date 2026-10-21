@@ -6,15 +6,19 @@
 //   - 恢复用 Object.assign 原地覆盖,保持 player 对象引用稳定(Vue 响应式前提)
 
 import { STEP } from "../core/constants.js";
+import { clonePlain } from "./schema.js";
 
 /** 深拷贝一份牌局快照 */
 export function snapshotState(state) {
   return {
     players: state.players.map((p) => {
-      const copy = structuredClone(p);
+      const copy = clonePlain(p);
       if (copy.effects) copy.effects.savepoint = null;
       return copy;
     }),
+    towers: (state.towers ?? []).map((t) => clonePlain(t)),
+    summons: (state.summons ?? []).map((s) => clonePlain(s)),
+    unitSeq: state.unitSeq ?? 0,
     deck: state.deck.map((c) => ({ ...c })),
     grave: state.grave.map((c) => ({ ...c })),
     currentPlayerIndex: state.currentPlayerIndex,
@@ -33,6 +37,15 @@ export function restoreState(ctx, snap) {
     if (!saved) return;
     Object.assign(p, structuredClone(saved));
   });
+
+  // 塔 / 召唤物按 uid 恢复（数量可能变化，直接替换数组）
+  if (Array.isArray(snap.towers)) {
+    state.towers = snap.towers.map((t) => structuredClone(t));
+  }
+  if (Array.isArray(snap.summons)) {
+    state.summons = snap.summons.map((s) => structuredClone(s));
+  }
+  if (snap.unitSeq !== undefined) state.unitSeq = snap.unitSeq;
 
   state.deck = snap.deck.map((c) => ({ ...c }));
   state.grave = snap.grave.map((c) => ({ ...c }));

@@ -50,6 +50,7 @@ export function stepOf(pending) {
       return STEP.CAIYUEANG_PICK;
     case PENDING.TARGET:
       if (pending.purpose === "attack") return STEP.ATTACK_SHOW_CARD;
+      if (pending.purpose === "attack:investigate") return STEP.ATTACK_SHOW_CARD;
       if (pending.purpose === "ally") return STEP.ALLY_PICK;
       return STEP.SKILL_PICK_TARGET;
     case PENDING.ACTION:

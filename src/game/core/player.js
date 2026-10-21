@@ -21,6 +21,10 @@ export function createPlayerDefaults() {
     characterId: 0,
     name: "",
     teamId: -1,
+    // v3.5 单位类型：hero = 角色；tower = 防御塔；drone = 无人机召唤物
+    kind: "hero",
+    towerIndex: null, // 塔的序号 1-5
+    ownerUid: null, // 召唤物归属者
 
     hp: 0,
     maxHp: 0,

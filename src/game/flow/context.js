@@ -17,6 +17,11 @@ import {
   playerByIndex,
   playerByUid,
 } from "../core/player.js";
+import {
+  aliveUnits,
+  allUnits,
+  unitByUid,
+} from "../core/units.js";
 import { clearPending, setPending } from "./pending.js";
 
 const SOUND_QUEUE_LIMIT = 32;
@@ -71,6 +76,13 @@ export function createContext(state, deps = {}) {
       byIndex: (i) => playerByIndex(state, i),
     },
 
+    // ── 单位查询（英雄 + 塔 + 召唤物）──
+    units: {
+      all: () => allUnits(state),
+      alive: () => aliveUnits(state),
+      byUid: (uid) => unitByUid(state, uid),
+    },
+
     // ── 牌堆 ──
     deck: {
       /** 抽 n 张(牌堆顶 = 数组尾部) */
@@ -122,6 +134,12 @@ export function createContext(state, deps = {}) {
 
     // ── 决策 ──
     ask(pending) {
+      // 模式可以改写可选目标（团战：按技能类型过滤敌我、把塔/召唤物加进目标）
+      const mode = state.mode;
+      if (mode?.filterPending) {
+        const next = mode.filterPending(ctx, pending);
+        if (next) pending = next;
+      }
       return setPending(state, pending);
     },
     clearPending() {

@@ -1,5 +1,6 @@
 import { PENDING } from "../flow/pending.js";
-import { baseCanUse, otherAliveUids } from "./helpers.js";
+import { unitByUid } from "../core/units.js";
+import { baseCanUse, enemyHeroUids } from "./helpers.js";
 
 // 爱蜜莉雅 · 冻结:冻结一名对象,使其跳过下一次行动,一局 2 次
 export default {
@@ -27,16 +28,18 @@ export default {
       type: PENDING.TARGET,
       purpose: "skill:aimiliya.freeze",
       asker: player.uid,
-      options: otherAliveUids(ctx, player),
+      options: enemyHeroUids(ctx, player),
     });
     ctx.log(`${player.name} 释放冻结`);
   },
 
   onAnswer(ctx, player, pending, answer) {
-    const target = ctx.players.byUid(answer);
+    const target = unitByUid(ctx.state, answer);
     if (!target?.alive) return;
 
     target.effects.frozenBy = player.uid;
+    // 冻结可以打断薇斯纳的连击
+    if (target.characterId === 16) target.char.attackStreak = 0;
     ctx.log(`${target.name} 被冻结，将跳过下一次行动`);
     ctx.turn.extra();
   },

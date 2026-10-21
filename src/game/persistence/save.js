@@ -52,6 +52,11 @@ export function deserializeGameState(state, data, options = {}) {
     state[key] = structuredClone(s[key]);
   }
 
+  // v3.5：塔 / 召唤物 / uid 计数（旧档没有，补空数组）
+  if (!Array.isArray(state.towers)) state.towers = [];
+  if (!Array.isArray(state.summons)) state.summons = [];
+  if (state.unitSeq === undefined) state.unitSeq = 0;
+
   // 嵌套结构兜底:旧档可能缺 turn / pending
   if (!state.turn || typeof state.turn !== "object") {
     state.turn = {

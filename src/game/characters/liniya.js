@@ -2,7 +2,8 @@ import { PHASE } from "../core/constants.js";
 import { PENDING } from "../flow/pending.js";
 import { CAT } from "../core/log.js";
 import { applyDamage } from "../rules/damage.js";
-import { baseCanUse, withTurnGate, otherAliveUids } from "./helpers.js";
+import { unitByUid } from "../core/units.js";
+import { baseCanUse, withTurnGate, otherUnitUids } from "./helpers.js";
 
 // 莉奈娅 · 青春之力的馈赠
 //   子技能 1:偷取目标防御牌 3 回合,对其伤害永久 +2
@@ -38,14 +39,14 @@ export default {
       type: PENDING.LINIYA,
       purpose: "skill:liniya",
       asker: player.uid,
-      options: otherAliveUids(ctx, player),
+      options: otherUnitUids(ctx, player),
       data: { subSkills: [1, 2] },
     });
     ctx.log(`${player.name} 释放青春之力的馈赠，选择子技能和目标`);
   },
 
   onAnswer(ctx, player, pending, answer) {
-    const target = ctx.players.byUid(answer.targetUid);
+    const target = unitByUid(ctx.state, answer.targetUid);
     if (!target?.alive) return;
 
     if (answer.subSkill === 1) {
@@ -72,7 +73,7 @@ export default {
       const { effects } = player;
 
       if (effects.dotTarget && effects.dotTarget.turns > 0) {
-        const target = ctx.players.byUid(effects.dotTarget.uid);
+        const target = unitByUid(ctx.state, effects.dotTarget.uid);
         if (target?.alive) {
           ctx.log(`${target.name} 受到莉奈娅DoT 5点伤害（无视陷阱）`);
           ctx.dev(CAT.DAMAGE, `莉奈娅DoT: ${player.name} → ${target.name} 5点伤害`, {
@@ -87,7 +88,7 @@ export default {
       }
 
       if (effects.stealTarget && effects.stealTarget.turns > 0) {
-        const target = ctx.players.byUid(effects.stealTarget.uid);
+        const target = unitByUid(ctx.state, effects.stealTarget.uid);
         if (target?.alive && target.defensePile.length > 0) {
           const stolen = target.defensePile.pop();
           stolen.faceUp = true;

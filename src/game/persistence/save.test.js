@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { reactive } from "vue";
 
 import { createGameState, initGame } from "../flow/setup.js";
 import { createContext } from "../flow/context.js";
@@ -50,6 +51,65 @@ describe("persistence/save — 存档往返", () => {
     save.version = 3;
     const restored = createGameState();
     expect(deserializeGameState(restored, save)).toBe(false);
+  });
+
+  it("Vue reactive state 也能存档：保留 Infinity，并带上塔/召唤物", () => {
+    const state = reactive(createGameState());
+    const mode = createClassicMode();
+    initGame(state, { chars: [6, 1], weather: false, startRound: 1, mode });
+    state.towers = [
+      {
+        uid: 101,
+        index: 100,
+        kind: "tower",
+        name: "蓝方1号塔",
+        hp: 10,
+        maxHp: 10,
+        teamId: 0,
+        alive: true,
+        towerIndex: 1,
+        defensePile: [],
+        trap: null,
+        bait: null,
+        relations: { attackedThisRound: 0 },
+      },
+    ];
+    state.summons = [
+      {
+        uid: 500001,
+        index: 200,
+        kind: "drone",
+        name: "无人机",
+        hp: 5,
+        maxHp: 5,
+        teamId: 0,
+        ownerUid: 1,
+        alive: true,
+        char: { targetUid: 2 },
+        defensePile: [],
+        trap: null,
+        bait: null,
+      },
+    ];
+
+    const save = serializeGameState(state);
+    const savedPlayer = save.state.players.find(
+      (p) => p.resources.skillUses === "Infinity",
+    );
+    expect(savedPlayer).toBeTruthy();
+    expect(save.state.towers).toHaveLength(1);
+    expect(save.state.summons).toHaveLength(1);
+
+    const restored = createGameState();
+    const ok = deserializeGameState(restored, JSON.parse(JSON.stringify(save)), {
+      modeFactory: () => createClassicMode(),
+    });
+    expect(ok).toBe(true);
+    expect(
+      restored.players.find((p) => p.characterId === 6).resources.skillUses,
+    ).toBe(Infinity);
+    expect(restored.towers).toHaveLength(1);
+    expect(restored.summons).toHaveLength(1);
   });
 
   it("缺字段的旧 payload 会被补齐默认值", () => {

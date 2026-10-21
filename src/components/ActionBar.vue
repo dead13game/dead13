@@ -85,30 +85,35 @@
     <!-- 攻击：展示抽到的牌 + 选目标 -->
     <template v-else-if="state.step === 'attackShowCard'">
       <div class="attack-show">
-        <div class="action-hint">摸到的攻击牌：</div>
-        <div class="attack-show__cards">
-          <template v-if="ventiCards">
+        <template v-if="isInvestigate">
+          <div class="action-hint">🔍 调查：猜测目标陷阱点数</div>
+        </template>
+        <template v-else>
+          <div class="action-hint">摸到的攻击牌：</div>
+          <div class="attack-show__cards">
+            <template v-if="ventiCards">
+              <Card
+                v-for="(c, i) in ventiCards"
+                :key="'v' + i"
+                :card="c"
+                :alwaysFaceUp="true"
+                class="card-deck-fly"
+              />
+            </template>
             <Card
-              v-for="(c, i) in ventiCards"
-              :key="'v' + i"
-              :card="c"
-              :alwaysFaceUp="true"
+              v-else-if="pendingAttackCard"
+              :key="'atk-' + pendingAttackCard.id"
+              :card="pendingAttackCard"
               class="card-deck-fly"
             />
-          </template>
-          <Card
-            v-else-if="pendingAttackCard"
-            :key="'atk-' + pendingAttackCard.id"
-            :card="pendingAttackCard"
-            class="card-deck-fly"
-          />
-        </div>
-        <div class="attack-show__total" v-if="ventiCards">
-          <span class="action-hint"
-            >千风之诗 合计点数：{{ pendingAttackCard?.value || 0 }}</span
-          >
-        </div>
-        <div class="action-hint">选择攻击目标：</div>
+          </div>
+          <div class="attack-show__total" v-if="ventiCards">
+            <span class="action-hint"
+              >千风之诗 合计点数：{{ pendingAttackCard?.value || 0 }}</span
+            >
+          </div>
+        </template>
+        <div class="action-hint">选择{{ isInvestigate ? "调查" : "攻击" }}目标：</div>
         <div class="action-row">
           <button
             v-for="p in attackTargets"
@@ -123,6 +128,53 @@
       </div>
     </template>
 
+    <!-- 调查：猜陷阱点数（不显示对方陷阱牌面） -->
+    <template
+      v-else-if="
+        state.step === 'skillPickTarget' &&
+        state.pending?.purpose === 'investigate:guess'
+      "
+    >
+      <span class="action-hint">猜测目标陷阱点数（A=1 … K=13）：</span>
+      <div class="action-row">
+        <button
+          v-for="n in 13"
+          :key="'guess-' + n"
+          class="ab ab--skill-target"
+          :disabled="disabled"
+          @click="$emit('skillTarget', n)"
+        >
+          {{ guessLabel(n) }}
+        </button>
+      </div>
+    </template>
+
+    <!-- 防御 / 陷阱支援：选择己方单位或塔 -->
+    <template
+      v-else-if="
+        state.step === 'skillPickTarget' &&
+        (state.pending?.purpose === 'defense.support' ||
+          state.pending?.purpose === 'gamble:trap')
+      "
+    >
+      <span class="action-hint">{{
+        state.pending?.purpose === "defense.support"
+          ? "选择防御目标（自己 / 队友 / 己方塔）："
+          : "选择陷阱放置目标（自己 / 队友 / 己方塔）："
+      }}</span>
+      <div class="action-row">
+        <button
+          v-for="p in pendingUnitTargets"
+          :key="'sup-' + p.uid"
+          class="ab ab--skill-target"
+          :disabled="disabled"
+          @click="$emit('skillTarget', p.index)"
+        >
+          {{ p.name }}
+        </button>
+      </div>
+    </template>
+
     <!-- 技能选目标（雷电/芙宁娜/风堇/爱蜜莉雅） -->
     <template v-else-if="state.step === 'skillPickTarget'">
       <span class="action-hint">{{
@@ -134,8 +186,8 @@
       }}</span>
       <div class="action-row">
         <button
-          v-for="p in aliveTargets"
-          :key="p.index"
+          v-for="p in skillTargets"
+          :key="'sk-' + p.uid"
           class="ab ab--skill-target"
           :disabled="disabled"
           @click="$emit('skillTarget', p.index)"
@@ -157,8 +209,8 @@
       <span class="action-hint">莉奈娅 — 选择子技能和目标：</span>
       <div class="action-row">
         <button
-          v-for="p in aliveTargets"
-          :key="'s1-' + p.index"
+          v-for="p in skillTargets"
+          :key="'s1-' + p.uid"
           class="ab ab--gamble"
           :disabled="disabled"
           @click="$emit('liniyaSkill', p.index, 1)"
@@ -166,8 +218,8 @@
           偷取 {{ p.name }} (3回合)
         </button>
         <button
-          v-for="p in aliveTargets"
-          :key="'s2-' + p.index"
+          v-for="p in skillTargets"
+          :key="'s2-' + p.uid"
           class="ab ab--skill-target"
           :disabled="disabled"
           @click="$emit('liniyaSkill', p.index, 2)"
@@ -410,6 +462,7 @@ const skillLabel = computed(() => {
   const p = currentPlayerVal.value;
   if (!p) return "";
   if (p.characterId === 11) return `(读档${p.loadUses})`;
+  if (p.characterId === 15) return `(领唱${p.chorus ?? 0})`;
   if (p.skillUses === Infinity) return "被动";
   return `(${p.skillUses})`;
 });
@@ -438,11 +491,41 @@ const aliveTargets = computed(() =>
   props.state.players.filter((p) => p.alive && p !== currentPlayerVal.value),
 );
 
-// 攻击目标：经典模式下排除盟友，联赛模式下排除队友
+/** pending.options → 单位（英雄/塔/召唤物），团战支援与打塔都靠它 */
+const pendingUnitTargets = computed(() => {
+  const opts = props.state.pending?.options;
+  if (!Array.isArray(opts) || opts.length === 0) return [];
+  const pool = props.state.units ?? props.state.players;
+  return opts
+    .map((uid) => pool.find((u) => u.uid === uid))
+    .filter(Boolean);
+});
+
+/** 技能/莉奈娅目标：优先用内核给的可选目标（已按敌我/塔过滤） */
+const skillTargets = computed(() => {
+  const purpose = props.state.pending?.purpose ?? "";
+  if (purpose.startsWith("skill:") || purpose.startsWith("liniya")) {
+    if (pendingUnitTargets.value.length > 0) return pendingUnitTargets.value;
+  }
+  return aliveTargets.value;
+});
+
+const isInvestigate = computed(
+  () => currentPlayerVal.value?.characterId === 14,
+);
+
+const guessLabel = (n) =>
+  ({ 1: "A", 11: "J", 12: "Q", 13: "K" })[n] ?? String(n);
+
+// 攻击目标：优先读内核给的目标（可能包含召唤物/塔），并排除盟友/队友
 const attackTargets = computed(() => {
   const attacker = currentPlayerVal.value;
   if (!attacker) return [];
-  return aliveTargets.value.filter((p) => {
+  const base =
+    pendingUnitTargets.value.length > 0
+      ? pendingUnitTargets.value
+      : aliveTargets.value;
+  return base.filter((p) => {
     // 经典模式：不能攻击盟友
     if (
       !props.state.matchContext &&
@@ -450,9 +533,9 @@ const attackTargets = computed(() => {
       attacker.relations.allyIndex === p.index
     )
       return false;
-    // 联赛模式：不能攻击队友
+    // 联赛/团战：不能攻击队友
     if (
-      props.leagueMode &&
+      (props.leagueMode || props.state.modeId === "brawl") &&
       attacker.teamId >= 0 &&
       attacker.teamId === p.teamId
     )

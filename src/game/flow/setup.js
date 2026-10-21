@@ -12,6 +12,10 @@ import { characterStateFor, CHARACTERS } from "../characters/index.js";
 export function createGameState() {
   return {
     players: [],
+    // v3.5：团战防御塔与召唤物与角色分开放，经典模式的 PIXI/AI 只看到英雄
+    towers: [],
+    summons: [],
+    unitSeq: 0,
     currentPlayerIndex: 0,
 
     phase: PHASE.SETUP,
@@ -83,6 +87,9 @@ export function initGame(state, options) {
   const keptLog = keepLog ? state.messageLog : null;
 
   state.players = [];
+  state.towers = [];
+  state.summons = [];
+  state.unitSeq = 0;
   state.currentPlayerIndex = 0;
   state.phase = PHASE.SETUP;
   state.step = STEP.PICK_ACTION;

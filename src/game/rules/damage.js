@@ -80,6 +80,7 @@ export function applyDamage(ctx, { target, amount, cause = "damage" }) {
       });
       target.defensePile.pop();
       if (!top.isShield) state.grave.push(top);
+      notifyDefenseBroken(ctx, target, top);
     }
   }
 
@@ -133,16 +134,31 @@ export function applyDamage(ctx, { target, amount, cause = "damage" }) {
   };
 }
 
+/** 防御牌被击穿 → 通知牌的归属者（沃雅妮莎「领唱」） */
+function notifyDefenseBroken(ctx, target, card) {
+  if (card.isShield) return; // 护盾牌不是「防御牌」，不计入领唱
+  const ownerUid = card.ownerUid ?? target.uid;
+  const owner = ctx.units?.byUid(ownerUid) ?? ctx.players.byUid(ownerUid);
+  if (!owner?.alive) return;
+  if (owner.characterId !== 15) return;
+  owner.char.chorus = (owner.char.chorus ?? 0) + 1;
+  ctx.log(`${owner.name} 领唱 ${owner.char.chorus}层`);
+  ctx.devDebug(CAT.SKILL, `沃雅妮莎领唱 +1 → ${owner.char.chorus}（自己的防御牌被击破）`);
+}
+
 /** 死亡处理:标记、入墓、解散联盟、通知模式 */
 function kill(ctx, player, { hpBefore }) {
   const state = ctx.state;
   player.alive = false;
   player.hp = 0;
   ctx.sound("kill");
-  ctx.log(`${player.name} 阵亡`);
-  ctx.dev(CAT.STATE, `${player.name} 阵亡`, {
+  ctx.log(
+    `${player.name} ${player.kind === "tower" ? "被摧毁" : player.kind === "drone" ? "被击落" : "阵亡"}`,
+  );
+  ctx.dev(CAT.STATE, `${player.name} 死亡/摧毁`, {
     round: state.round,
     hpBeforeDeath: hpBefore,
+    kind: player.kind,
   });
 
   // 丢弃所有牌入墓地(护盾牌除外)
@@ -154,6 +170,18 @@ function kill(ctx, player, { hpBefore }) {
   player.trap = null;
   player.bait = null;
   dissolveAlliance(ctx, player);
+
+  // 英雄阵亡 → 其召唤物一同消失（团战/经典都适用）
+  if (player.kind === "hero") {
+    for (const s of state.summons ?? []) {
+      if (s.ownerUid === player.uid && s.alive) {
+        s.alive = false;
+        s.hp = 0;
+        s.defensePile = [];
+        ctx.log(`${s.name} 随主人消失`);
+      }
+    }
+  }
 
   ctx.mode?.onPlayerDeath?.(ctx, player);
   ctx.mode?.checkGameOver?.(ctx);

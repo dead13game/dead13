@@ -100,7 +100,7 @@ describe("rules/modifiers — 顺序即规则", () => {
     ]);
   });
 
-  it("圣遗物在陷阱之后、围攻之前:13 → 20 → 10", () => {
+  it("v3.5：圣遗物在陷阱判定前、围攻在陷阱后:13 → 20 → 10", () => {
     const ctx = makeCtx();
     const a = addPlayer(ctx, { uid: 1, hp: 12 });
     const t = addPlayer(ctx, { uid: 2 });
@@ -108,20 +108,27 @@ describe("rules/modifiers — 顺序即规则", () => {
     a.artifact.active = true;
 
     const env = { source: a, target: t, trapTriggered: false, besieged: true };
-    const { total } = reduceModifiers(
+    const pre = reduceModifiers(
       ctx,
       13,
+      collectModifiers(ATTACK_MODIFIERS),
+      env,
+    );
+    expect(pre.total).toBe(20); // 13 × 1.5 = 19.5 → ceil 20
+    const post = reduceModifiers(
+      ctx,
+      pre.total,
       collectModifiers(POST_TRAP_MODIFIERS),
       env,
     );
-    expect(total).toBe(10);
+    expect(post.total).toBe(10);
     expect(ctx.state.messageLog).toEqual([
       "角斗士的终幕礼 +7",
       "围攻减半：20 → 10 点",
     ]);
   });
 
-  it("陷阱被触发时不加成圣遗物,但围攻减半仍生效", () => {
+  it("围攻减半独立于圣遗物（陷阱后只跑 POST_TRAP）", () => {
     const ctx = makeCtx();
     const a = addPlayer(ctx, { uid: 1, hp: 12 });
     const t = addPlayer(ctx, { uid: 2 });
@@ -332,16 +339,32 @@ describe("rules/alliance — 平摊与解散", () => {
 });
 
 describe("rules/weather — 牌堆轮转", () => {
-  it("初始 9 张,抽取后轮转到牌底", () => {
+  it("v3.5 固定顺序：6 张循环，抽取后轮转到牌底", () => {
     const ctx = makeCtx({ useWeather: true });
     setupWeatherDeck(ctx);
-    expect(ctx.state.weatherDeck).toHaveLength(9);
+    expect(ctx.state.weatherDeck).toHaveLength(6);
+    expect(ctx.state.weatherDeck.map((w) => w.id)).toEqual([
+      "sun",
+      "rain",
+      "wind",
+      "trade",
+      "arms",
+      "calm",
+    ]);
 
     const first = drawWeather(ctx);
-    expect(first).toBe(ctx.state.currentWeather);
-    expect(ctx.state.weatherDeck).toHaveLength(9);
+    expect(first).toBe("sun");
+    expect(ctx.state.currentWeather).toBe("sun");
+    expect(ctx.state.weatherDeck).toHaveLength(6);
     expect(ctx.state.weatherDeck.at(-1).id).toBe(first);
-    expect(ctx.state.nextWeather).toBe(ctx.state.weatherDeck[0].id);
+    expect(ctx.state.nextWeather).toBe("rain");
+
+    expect(drawWeather(ctx)).toBe("rain");
+    expect(drawWeather(ctx)).toBe("wind");
+    expect(drawWeather(ctx)).toBe("trade");
+    expect(drawWeather(ctx)).toBe("arms");
+    expect(drawWeather(ctx)).toBe("calm");
+    expect(drawWeather(ctx)).toBe("sun");
   });
 
   it("未启用天气时不抽牌", () => {

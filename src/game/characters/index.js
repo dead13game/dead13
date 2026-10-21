@@ -16,6 +16,10 @@ import fenjin from "./fenjin.js";
 import liniya from "./liniya.js";
 import aimiliya from "./aimiliya.js";
 import caiyueang from "./caiyueang.js";
+import shalangbaizi from "./shalangbaizi.js";
+import juxueli from "./juxueli.js";
+import woyanisha from "./woyanisha.js";
+import weisina from "./weisina.js";
 import dev from "./dev.js";
 
 /** 回合开始钩子的执行优先级(数值小先执行) */
@@ -36,6 +40,10 @@ export const CHARACTER_DEFS = [
   liniya,
   aimiliya,
   caiyueang,
+  shalangbaizi,
+  juxueli,
+  woyanisha,
+  weisina,
 ];
 
 const REGISTRY = new Map(CHARACTER_DEFS.map((d) => [d.id, d]));
@@ -114,3 +122,28 @@ export function attackModifiersOf(characterId) {
 export function defenseModifiersOf(characterId) {
   return getCharacter(characterId)?.defenseModifiers ?? [];
 }
+
+/** 执行防御操作后的角色钩子（沃雅妮莎领唱 / 砂狼白子无人机拿盾） */
+export function defenseHooks() {
+  const hooks = [];
+  for (const def of CHARACTER_DEFS) {
+    const fn = def.hooks?.onDefense;
+    if (!fn) continue;
+    hooks.push({ id: def.id, run: fn });
+  }
+  return hooks;
+}
+
+/** 轮到该角色行动时的钩子 — 无人机在主人行动时攻击 */
+export function turnStartHooks() {
+  const hooks = [];
+  for (const def of CHARACTER_DEFS) {
+    const fn = def.hooks?.onTurnStart;
+    if (!fn) continue;
+    hooks.push({ id: def.id, run: fn });
+  }
+  return hooks;
+}
+
+/** 全部 15 名可选角色（经典/世界杯/联赛/团战），不含开发者 */
+export const SELECTABLE_COUNT = CHARACTER_DEFS.length;

@@ -6,7 +6,7 @@
 import { CAT } from "../core/log.js";
 import { display } from "../core/cards.js";
 import { applyDamage } from "./damage.js";
-import { applyArtifactBoost, recordTrapBreak } from "./artifacts.js";
+import { recordTrapBreak } from "./artifacts.js";
 
 /** 陷阱被触发后,目标的赌命惩罚周期结束 */
 function clearGamblePenalty(ctx, target, reason) {
@@ -54,13 +54,9 @@ export function resolveTrap(ctx, { attacker, target, value }) {
     consumeTrap(ctx, target);
     recordTrapBreak(ctx, attacker);
 
-    // 平局时目标受到的伤害同样吃圣遗物加成
-    let targetDamage = trapValue;
-    if (attacker.artifact.active && attacker.artifact.id) {
-      targetDamage = applyArtifactBoost(ctx, attacker, trapValue).value;
-    }
+    // v3.5：圣遗物已计入陷阱判定前的总伤害；平局双方都只吃陷阱点数
     applyDamage(ctx, { target: attacker, amount: trapValue });
-    applyDamage(ctx, { target, amount: targetDamage });
+    applyDamage(ctx, { target, amount: trapValue });
     clearGamblePenalty(ctx, target, "陷阱平局");
 
     if (attacker.characterId === 6) {

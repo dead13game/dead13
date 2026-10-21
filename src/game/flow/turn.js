@@ -12,7 +12,7 @@ import { CAT } from "../core/log.js";
 import { drawWeather, getCurrentWeather } from "../rules/weather.js";
 import { tickArtifactRounds } from "../rules/artifacts.js";
 import { dissolveAlliance } from "../rules/damage.js";
-import { roundStartHooks } from "../characters/index.js";
+import { roundStartHooks, turnStartHooks } from "../characters/index.js";
 
 /** 钩子分带:小于此优先级 = 结算前(月相),大于等于 = 结算后(DoT/偷牌) */
 const EARLY_HOOKS = 50;
@@ -77,6 +77,10 @@ function nextPlayer(ctx, depth) {
   while (next < state.players.length && !state.players[next].alive) next++;
 
   if (next >= state.players.length || !state.players[next]?.alive) {
+    // 一回合结束（所有英雄行动完）→ 模式回合结束钩子（团战塔行动 / 60 回合判定）
+    const ended = ctx.mode?.onRoundEnd?.(ctx, state.round);
+    if (ended === "halt" || state.gameOver) return;
+
     state.round++;
     next = 0;
     while (next < state.players.length && !state.players[next].alive) next++;
@@ -113,6 +117,13 @@ function nextPlayer(ctx, depth) {
       skillUses: p.resources.skillUses,
       allyUid: p.relations.allyUid,
     });
+
+    // 角色「轮到行动」钩子（砂狼白子的无人机在此攻击；无人机没有自己的回合）
+    for (const hook of turnStartHooks()) {
+      if (p.characterId !== hook.id) continue;
+      hook.run(ctx, p);
+    }
+    if (state.gameOver) return;
   }
 }
 
@@ -149,10 +160,15 @@ function roundStart(ctx) {
     });
 
     if (state.currentWeather === "rain") {
-      for (const p of state.players) {
+      // 天气对场上所有单位生效：英雄 / 塔 / 无人机都掉一张防御牌
+      for (const p of [
+        ...state.players,
+        ...(state.towers ?? []),
+        ...(state.summons ?? []),
+      ]) {
         if (p.alive && p.defensePile.length > 0) {
           const discarded = p.defensePile.pop();
-          state.grave.push(discarded);
+          if (!discarded.isShield) state.grave.push(discarded);
           ctx.log(`${p.name} 防御牌被暴雨冲走`);
           ctx.devDebug(CAT.WEATHER, `${p.name} 防御牌被暴雨冲走`, {
             card: discarded.id,

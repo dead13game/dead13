@@ -146,9 +146,16 @@ const { animating, flyToTarget, defenseDraw, gambleDraw } = useAnimationFlow(
 
 // ── 事件处理（动画 → 命令）──
 
-/** 视图里的 index → 内核身份 uid(命令一律用 uid) */
-const uidAt = (index) =>
-  props.state.players.find((p) => p.index === index)?.uid ?? null;
+/** 视图里的 index/uid → 内核身份 uid(命令一律用 uid；塔/无人机也在内) */
+const findUnit = (x) => {
+  const units = [
+    ...props.state.players,
+    ...(props.state.towers ?? []),
+    ...(props.state.summons ?? []),
+  ];
+  return units.find((u) => u.uid === x) ?? units.find((u) => u.index === x) ?? null;
+};
+const uidAt = (x) => findUnit(x)?.uid ?? null;
 const cast = (cmd) => dispatch(props.state, cmd);
 
 function onAttack() {
@@ -181,13 +188,27 @@ function onHolyWord() {
 
 async function onTarget(idx) {
   if (animating.value) return;
-  await flyToTarget(idx);
+  if (findUnit(idx)?.kind === "hero") await flyToTarget(idx);
   cast({ type: "attackTarget", targetUid: uidAt(idx) });
 }
 
 async function onSkillTarget(idx) {
   if (animating.value) return;
   const purpose = view.pending?.purpose ?? "";
+  // 调查猜点数：idx 就是 1-13
+  if (purpose === "investigate:guess") {
+    cast({ type: "skillAnswer", answer: idx });
+    return;
+  }
+  // 团战：防御/陷阱支援目标
+  if (purpose === "defense.support") {
+    cast({ type: "defenseTarget", targetUid: uidAt(idx) });
+    return;
+  }
+  if (purpose === "gamble:trap") {
+    cast({ type: "gambleTarget", targetUid: uidAt(idx) });
+    return;
+  }
   // 与旧行为一致:只有风堇/雷神的技能目标会飞牌
   if (purpose === "skill:fenjin" || purpose === "skill:raiden") {
     await flyToTarget(idx);
@@ -384,7 +405,19 @@ function executeMiddleStep() {
       cast({ type: "gambleSubmit", trapIdx: g.trapIdx, baitIdx: g.baitIdx });
     }
   } else if (s === "skillPickTarget") {
-    const kind = skillTagOf(view.pending?.purpose ?? "");
+    // 调查猜点数：AI 随机猜（简单 AI）
+    if (view.pending?.purpose === "investigate:guess") {
+      cast({ type: "skillAnswer", answer: 1 + Math.floor(Math.random() * 13) });
+      return;
+    }
+    // 团战支援目标（AI 优先选自己）
+    const purpose = view.pending?.purpose ?? "";
+    if (purpose === "defense.support" || purpose === "gamble:trap") {
+      const me = view.players[view.currentPlayerIndex];
+      cast({ type: purpose === "defense.support" ? "defenseTarget" : "gambleTarget", targetUid: me?.uid ?? null });
+      return;
+    }
+    const kind = skillTagOf(purpose);
     const t = decideTarget(view, { action: "skill", characterId: kind });
     cast({ type: "skillAnswer", answer: uidAt(t.targetIndex) });
   } else if (s === "skillNahida") {

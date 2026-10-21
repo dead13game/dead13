@@ -29,12 +29,18 @@ function renderPlayer(raw, p) {
     const i = idx(Number(uid));
     if (i !== null) bonus[i] = v;
   }
+  const drone = (raw.summons ?? []).find(
+    (s) => s.ownerUid === p.uid && s.alive,
+  );
 
   return {
     uid: p.uid,
     index: p.index,
     name: p.name,
     teamId: p.teamId,
+    kind: p.kind ?? "hero",
+    towerIndex: p.towerIndex ?? null,
+    ownerIndex: idx(p.ownerUid),
     characterId: p.characterId,
     hp: p.hp,
     maxHp: p.maxHp,
@@ -50,6 +56,10 @@ function renderPlayer(raw, p) {
     breakCount: p.resources.breakCount,
     fightingSpirit: p.char.fightingSpirit ?? 0,
     moonPhase: p.char.moonPhase ?? 0,
+    // v3.5 新角色叠层 / 无人机索敌
+    chorus: p.char.chorus ?? 0,
+    attackStreak: p.char.attackStreak ?? 0,
+    droneTargetIndex: idx(p.char?.targetUid),
 
     // 效果
     statusEffects: {
@@ -64,6 +74,14 @@ function renderPlayer(raw, p) {
         : null,
       savepoint: p.effects.savepoint,
       damageBonus: bonus,
+      drone: drone
+        ? {
+            uid: drone.uid,
+            hp: drone.hp,
+            defCount: drone.defensePile.length,
+            targetIndex: idx(drone.char?.targetUid),
+          }
+        : null,
     },
 
     // 关系
@@ -108,6 +126,9 @@ export function attachCtx(state, ctx) {
 /** 构建只读视图 */
 export function buildView(raw) {
   const players = raw.players.map((p) => renderPlayer(raw, p));
+  const towers = (raw.towers ?? []).map((t) => renderPlayer(raw, t));
+  const summons = (raw.summons ?? []).map((s) => renderPlayer(raw, s));
+  const units = [...players, ...towers, ...summons];
   return {
     // 局面
     phase: raw.phase,
@@ -137,8 +158,11 @@ export function buildView(raw) {
     matchContext: raw.mode?.id === "match" ? raw.mode.match : null,
     modeId: raw.mode?.id ?? "classic",
 
-    // 玩家
+    // 玩家 / 塔 / 召唤物
     players,
+    towers,
+    summons,
+    units,
 
     // ── 选择器(UI 只读调用) ──
     currentPlayer: () => players[raw.currentPlayerIndex] ?? null,
@@ -153,6 +177,9 @@ export function buildView(raw) {
     },
     playerByUid: (uid) => players.find((p) => p.uid === uid) ?? null,
     playerByIndex: (i) => players.find((p) => p.index === i) ?? null,
+    unitByUid: (uid) => units.find((u) => u.uid === uid) ?? null,
+    unitByIndex: (i) => units.find((u) => u.index === i) ?? null,
+    towersOf: (teamId) => towers.filter((t) => t.teamId === teamId),
 
     getCurrentWeather: () => getCurrentWeather(raw),
     getNextWeather: () => getNextWeather(raw),

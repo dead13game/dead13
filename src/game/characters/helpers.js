@@ -4,11 +4,50 @@
 //   必须是「无状态对象」: 实例上不许存状态, 不许 instanceof 分发, 不许继承抽基类。
 //   所有状态都在 player 上(char 存角色私有, effects/relations/resources 存通用)。
 
+import {
+  attackTargets,
+  enemyHeroes,
+  friendlyTargets,
+} from "../core/units.js";
+
 /** 除自己以外的存活玩家 uid */
 export function otherAliveUids(ctx, player) {
   return ctx.state.players
     .filter((p) => p.alive && p.uid !== player.uid)
     .map((p) => p.uid);
+}
+
+/** 敌方英雄 uid（只能指定角色的技能用） */
+export function enemyHeroUids(ctx, player) {
+  return enemyHeroes(ctx.state, player).map((u) => u.uid);
+}
+
+/**
+ * 敌方可选目标：英雄 + 召唤物 + 当前可拆的塔。
+ * 攻击型技能（雷电/风堇/莉奈娅/沃雅妮莎）在团战里可以打塔。
+ */
+export function enemyTargetUids(ctx, player) {
+  return attackTargets(ctx.state, player).map((u) => u.uid);
+}
+
+/** 己方单位（含自己 / 队友 / 塔 / 召唤物），用于护盾与防御支援 */
+export function friendlyUnitUids(ctx, player, opts) {
+  return friendlyTargets(ctx.state, player, opts).map((u) => u.uid);
+}
+
+/** 除自己以外的全部存活单位（审判/偷防御等可指定任意单位的技能） */
+export function otherUnitUids(ctx, player) {
+  return ctx.units
+    .alive()
+    .filter((u) => u.uid !== player.uid)
+    .map((u) => u.uid);
+}
+
+/** 薇斯纳连击计数：任何非攻击操作都清零 */
+export function resetAttackStreak(player) {
+  if (player?.char && "attackStreak" in player.char) {
+    player.char.attackStreak = 0;
+  }
 }
 
 /**

@@ -26,15 +26,23 @@ import {
   splitAllianceDamage,
 } from "../rules/alliance.js";
 import { executeHolyWord, recordDefenseBreak } from "../rules/artifacts.js";
+import {
+  attackTargets as kernelAttackTargets,
+  friendlyTargets,
+  isEnemy,
+  isFriendly,
+  unitByUid,
+} from "../core/units.js";
 
 import {
   attackModifiersOf,
   defenseModifiersOf,
   damageDealtHooks,
+  defenseHooks,
   getCharData,
   getCharacter,
 } from "../characters/index.js";
-import { otherAliveUids } from "../characters/helpers.js";
+import { otherAliveUids, resetAttackStreak } from "../characters/helpers.js";
 
 // ════════════════════════════════════════
 //  查询
@@ -92,6 +100,19 @@ export function attack(ctx) {
     return false;
   }
 
+  // 菊雪梨「调查」：普通攻击被替换为调查，不抽攻击牌
+  if (player.characterId === 14) {
+    ctx.sound("attack");
+    ctx.log(`${player.name} 展开调查`);
+    ctx.ask({
+      type: PENDING.TARGET,
+      purpose: "attack:investigate",
+      asker: player.uid,
+      options: attackUids(ctx, player),
+    });
+    return true;
+  }
+
   ctx.deck.ensure(1);
   const card = ctx.deck.draw(1)[0];
   if (!card) {
@@ -114,19 +135,27 @@ export function attack(ctx) {
     type: PENDING.TARGET,
     purpose: "attack",
     asker: player.uid,
-    options: otherAliveUids(ctx, player),
+    options: attackUids(ctx, player),
     data: { source: "attack", cards: [card], total: card.value },
   });
   return true;
 }
 
+/** 攻击/调查可选目标：敌方英雄 + 敌方召唤物 + 当前可拆的塔 */
+function attackUids(ctx, player) {
+  return kernelAttackTargets(ctx.state, player).map((u) => u.uid);
+}
+
 export function attackTarget(ctx, targetUid) {
   const state = ctx.state;
   const pending = state.pending;
-  if (!pending || pending.purpose !== "attack") return false;
+  if (!pending) return false;
+  if (pending.purpose !== "attack" && pending.purpose !== "attack:investigate") {
+    return false;
+  }
 
   const attacker = ctx.players.current();
-  const target = ctx.players.byUid(targetUid);
+  const target = unitByUid(state, targetUid);
   if (!target?.alive) return false;
 
   const rules = state.mode?.rules ?? {};
@@ -139,42 +168,30 @@ export function attackTarget(ctx, targetUid) {
     return false;
   }
 
-  // 联赛:不能攻击队友
-  if (attacker.teamId >= 0 && attacker.teamId === target.teamId) {
+  // 队友（团战/联赛）不能攻击
+  if (isFriendly(attacker, target)) {
     ctx.log("不能攻击队友");
     ctx.devWarn(CAT.ANOMALY, `${attacker.name} 尝试攻击队友 ${target.name}`);
     resetAttackPending(ctx);
     return false;
   }
 
-  // 围攻计数(联赛规则 v3.0):本回合第 2 次起伤害减半
-  let isBesieged = false;
-  if (rules.besiege && target.teamId >= 0) {
-    target.relations.attackedThisRound =
-      (target.relations.attackedThisRound || 0) + 1;
-    isBesieged = target.relations.attackedThisRound >= 2;
-    if (isBesieged) {
-      ctx.log(
-        `${target.name} 被围攻（本回合第${target.relations.attackedThisRound}次受击，伤害减半）`,
-      );
-      ctx.dev(
-        CAT.ATTACK,
-        `围攻惩罚: ${target.name} 本回合第${target.relations.attackedThisRound}次受击，伤害减半`,
-        {
-          targetIndex: target.index,
-          attackedThisRound: target.relations.attackedThisRound,
-        },
-      );
-    } else {
-      ctx.devDebug(
-        CAT.ATTACK,
-        `围攻计数: ${target.name} 本回合第1次受击（不受影响）`,
-        {
-          targetIndex: target.index,
-          attackedThisRound: target.relations.attackedThisRound,
-        },
-      );
-    }
+  if (pending.purpose === "attack:investigate") {
+    return resolveInvestigateTarget(ctx, attacker, target);
+  }
+
+  // 围攻计数(联赛/团战)：本回合第 2 次起伤害减半。
+  // 补充说明：塔也吃围攻减半；无人机不算。
+  const isBesieged = countBesiege(ctx, target, rules);
+
+  // 薇斯纳：连续攻击计数（在结算前 +1，用于本次连击倍数）
+  if (attacker.characterId === 16) {
+    attacker.char.attackStreak = (attacker.char.attackStreak ?? 0) + 1;
+    ctx.devDebug(
+      CAT.ATTACK,
+      `薇斯纳连续攻击 ${attacker.char.attackStreak} 次`,
+      { streak: attacker.char.attackStreak },
+    );
   }
 
   const cards = pending.data?.cards ?? [];
@@ -339,6 +356,92 @@ function resetAttackPending(ctx) {
   ctx.clearPending();
 }
 
+/** 围攻计数：同一目标本回合第 2 次及以后受攻击 → 减半（塔也吃，无人机不吃） */
+function countBesiege(ctx, target, rules) {
+  if (!rules.besiege) return false;
+  const kind = target.kind ?? "hero";
+  if (kind !== "hero" && kind !== "tower") return false;
+  target.relations.attackedThisRound =
+    (target.relations.attackedThisRound || 0) + 1;
+  const count = target.relations.attackedThisRound;
+  if (count >= 2) {
+    ctx.log(`${target.name} 被围攻（本回合第${count}次受击，伤害减半）`);
+    ctx.dev(CAT.ATTACK, `围攻惩罚: ${target.name} 本回合第${count}次受击`, {
+      targetIndex: target.index,
+      attackedThisRound: count,
+    });
+    return true;
+  }
+  ctx.devDebug(CAT.ATTACK, `围攻计数: ${target.name} 本回合第1次受击`, {
+    targetIndex: target.index,
+  });
+  return false;
+}
+
+/**
+ * 菊雪梨「调查」的目标结算：
+ *   - 有陷阱 → 询问猜测点数（由角色插件 onAnswer 结算）
+ *   - 无陷阱 → 7 点普攻（吃天气/圣遗物，无视陷阱）
+ */
+function resolveInvestigateTarget(ctx, attacker, target) {
+  const state = ctx.state;
+  const rules = state.mode?.rules ?? {};
+  const isBesieged = countBesiege(ctx, target, rules);
+  state.pendingAttackCard = null;
+
+  if (target.trap) {
+    ctx.ask({
+      type: PENDING.TARGET,
+      purpose: "investigate:guess",
+      asker: attacker.uid,
+      options: Array.from({ length: 13 }, (_, i) => i + 1),
+      data: { targetUid: target.uid, besieged: isBesieged },
+    });
+    ctx.log(`${attacker.name} 调查 ${target.name}：猜测陷阱点数`);
+    return true;
+  }
+
+  ctx.log(`${attacker.name} 调查 ${target.name}（无陷阱，造成7点伤害）`);
+  const env = {
+    kind: "attack",
+    source: attacker,
+    target,
+    trapTriggered: false,
+    besieged: isBesieged,
+  };
+  let value = reduceModifiers(
+    ctx,
+    7,
+    collectModifiers(ATTACK_MODIFIERS, attackModifiersOf(attacker.characterId)),
+    env,
+  ).total;
+  value = reduceModifiers(
+    ctx,
+    value,
+    collectModifiers(POST_TRAP_MODIFIERS),
+    env,
+  ).total;
+
+  const beforeDef = target.defensePile.length;
+  const hpBefore = target.hp;
+  applyDamage(ctx, { target, amount: value });
+  const defenseConsumed = beforeDef - target.defensePile.length;
+  recordDefenseBreak(ctx, attacker, defenseConsumed);
+  runDamageDealtHooks(ctx, {
+    attacker,
+    target,
+    attackValue: value,
+    defenseConsumed,
+    trapTriggered: false,
+    hadTrap: false,
+    actualHpLost: hpBefore - target.hp,
+  });
+  ctx.log(`${attacker.name} 调查命中 ${target.name} ${value}点`);
+  state.pending = null;
+  if (!state.gameOver) ctx.turn.pass();
+  return true;
+}
+
 /** 按优先级运行「命中后」钩子;联盟击杀奖励插在斗志与风堇被动之间 */
 function runDamageDealtHooks(ctx, env) {
   const hooks = [
@@ -378,6 +481,7 @@ export function defense(ctx) {
   if (player.relations.consecutiveGambles > 0) {
     player.relations.consecutiveGambles = 0;
   }
+  resetAttackStreak(player);
 
   ctx.deck.ensure(1);
   const card = ctx.deck.draw(1)[0];
@@ -386,48 +490,101 @@ export function defense(ctx) {
     ctx.devError(CAT.ANOMALY, "牌库耗尽,无法防御");
     return false;
   }
-
-  const originalValue = card.value;
+  card.value = card.value;
+  card.faceUp = false;
   ctx.sound("defense");
 
-  const env = { kind: "defense", source: player, target: null };
+  const rules = state.mode?.rules ?? {};
+  if (rules.supportDefense) {
+    ctx.ask({
+      type: PENDING.TARGET,
+      purpose: "defense.support",
+      asker: player.uid,
+      options: friendlyTargets(state, player).map((u) => u.uid),
+      data: { card },
+    });
+    ctx.log(`${player.name} 执行防御，选择防御目标`);
+    return true;
+  }
+
+  placeDefenseCard(ctx, player, player, card);
+  runDefenseHooks(ctx, player);
+  ctx.turn.pass();
+  return true;
+}
+
+/** 把一张防御牌放进目标防御区（加成按「执行防御者」计算） */
+export function placeDefenseCard(ctx, actor, target, card) {
+  const originalValue = card.value;
+  const env = { kind: "defense", source: actor, target };
   const { total } = reduceModifiers(
     ctx,
     originalValue,
-    collectModifiers(DEFENSE_MODIFIERS, defenseModifiersOf(player.characterId)),
+    collectModifiers(DEFENSE_MODIFIERS, defenseModifiersOf(actor.characterId)),
     env,
   );
 
   card.defenseValue = total;
   card.value = originalValue;
   card.faceUp = false;
-  player.defensePile.push(card);
+  card.ownerUid = actor.uid;
+  target.defensePile.push(card);
 
-  ctx.log(`${player.name} 执行防御`);
+  const who = target.uid === actor.uid ? "自己" : target.name;
+  ctx.log(`${actor.name} 为${who}防御`);
   ctx.dev(
     CAT.DEFENSE,
-    `${player.name} 防御: ${display(card)} ${originalValue}→${total}`,
+    `${actor.name} 防御(${who}): ${display(card)} ${originalValue}→${total}`,
     {
       cardId: card.id,
       originalValue,
       finalValue: total,
-      defCount: player.defensePile.length,
+      defCount: target.defensePile.length,
+      ownerUid: actor.uid,
+      targetUid: target.uid,
       bonuses: {
-        trade: state.currentWeather === "trade" ? 2 : 0,
+        trade: ctx.state.currentWeather === "trade" ? 2 : 0,
         fullMoon:
-          player.characterId === 7 && player.char.moonPhase === 1 ? 3 : 0,
+          actor.characterId === 7 && actor.char.moonPhase === 1 ? 3 : 0,
         alliance:
-          player.relations.allyUid !== null &&
-          player.relations.allianceTurns > 0 &&
-          player.relations.betrayalPenalty <= 0
+          actor.relations.allyUid !== null &&
+          actor.relations.allianceTurns > 0 &&
+          actor.relations.betrayalPenalty <= 0
             ? 2
             : 0,
       },
     },
   );
+  return card;
+}
 
-  ctx.turn.pass();
+/** 防御支援：把已抽到的牌放进指定友方单位/塔 */
+export function defenseTarget(ctx, targetUid) {
+  const state = ctx.state;
+  const pending = state.pending;
+  if (!pending || pending.purpose !== "defense.support") return false;
+  const actor = ctx.players.current();
+  const target = unitByUid(state, targetUid);
+  if (!target?.alive) return false;
+  if (!isFriendly(actor, target)) {
+    ctx.log("只能给己方角色或己方塔防御");
+    return false;
+  }
+
+  const card = pending.data?.card;
+  if (!card) return false;
+  placeDefenseCard(ctx, actor, target, card);
+  state.pending = null;
+  runDefenseHooks(ctx, actor);
+  if (!state.gameOver) ctx.turn.pass();
   return true;
+}
+
+/** 防御后的角色钩子（沃雅妮莎领唱 / 砂狼白子无人机拿盾） */
+function runDefenseHooks(ctx, actor) {
+  for (const hook of defenseHooks()) {
+    hook.run(ctx, actor);
+  }
 }
 
 // ════════════════════════════════════════
@@ -438,6 +595,7 @@ export function gamble(ctx) {
   const state = ctx.state;
   if (!isIdle(ctx)) return false;
   const player = ctx.players.current();
+  resetAttackStreak(player);
 
   ctx.deck.ensure(1);
 
@@ -538,7 +696,57 @@ export function gambleSubmit(ctx, trapIdx, baitIdx) {
   );
 
   state.pendingGamble = null;
+
+  // 团战：陷阱可以布置给自己/队友/己方塔（诱饵仍留在自己这里）
+  const rules = state.mode?.rules ?? {};
+  if (rules.supportGamble) {
+    const options = friendlyTargets(state, player)
+      .filter((u) => u.kind !== "drone")
+      .map((u) => u.uid);
+    if (options.length > 1) {
+      ctx.ask({
+        type: PENDING.TARGET,
+        purpose: "gamble:trap",
+        asker: player.uid,
+        options,
+      });
+      ctx.log(`${player.name} 选择陷阱布置目标`);
+      return true;
+    }
+  }
+
   ctx.turn.pass();
+  return true;
+}
+
+/** 团战：把陷阱移到指定友方单位/塔 */
+export function gambleTarget(ctx, targetUid) {
+  const state = ctx.state;
+  const pending = state.pending;
+  if (!pending || pending.purpose !== "gamble:trap") return false;
+  const actor = ctx.players.current();
+  const target = unitByUid(state, targetUid);
+  if (!target?.alive) return false;
+  if (!isFriendly(actor, target)) {
+    ctx.log("只能把陷阱布置在己方单位上");
+    return false;
+  }
+
+  if (target.uid !== actor.uid) {
+    if (!actor.trap) return false;
+    if (target.trap) state.grave.push(target.trap);
+    target.trap = actor.trap;
+    target.trap.faceUp = false;
+    actor.trap = null;
+    ctx.log(`${actor.name} 把陷阱布置在 ${target.name}`);
+    ctx.dev(CAT.GAMBLE, `陷阱转移: ${actor.name} → ${target.name}`, {
+      targetUid: target.uid,
+      trapValue: target.trap.value,
+    });
+  }
+
+  state.pending = null;
+  if (!state.gameOver) ctx.turn.pass();
   return true;
 }
 
@@ -568,6 +776,7 @@ export function skill(ctx) {
   if (player.relations.consecutiveGambles > 0) {
     player.relations.consecutiveGambles = 0;
   }
+  resetAttackStreak(player);
 
   ctx.sound("skill");
   ctx.dev(CAT.SKILL, `${player.name} 释放技能: ${getCharData(player).skillName}`, {
@@ -614,6 +823,7 @@ export function ally(ctx) {
   if (player.relations.consecutiveGambles > 0) {
     player.relations.consecutiveGambles = 0;
   }
+  resetAttackStreak(player);
 
   if (player.relations.allyUid !== null) {
     ctx.log("已有盟友，不可再结盟");
@@ -661,6 +871,7 @@ export function betray(ctx) {
   if (player.relations.consecutiveGambles > 0) {
     player.relations.consecutiveGambles = 0;
   }
+  resetAttackStreak(player);
   if (player.relations.allyUid === null) {
     ctx.log("没有盟友可以背刺");
     return false;
@@ -716,12 +927,19 @@ export function betray(ctx) {
 // ════════════════════════════════════════
 
 export function holyWord(ctx) {
+  const player = ctx.players.current();
+  if (player) {
+    resetAttackStreak(player);
+    player.relations.consecutiveGambles = 0;
+  }
   return executeHolyWord(ctx);
 }
 
 /** 取消当前待决(替代 UI 直接改 step + 手清私有 flag,顺带修掉 KB-2) */
 export function cancel(ctx) {
   const state = ctx.state;
+  const player = ctx.players.current();
+  if (player) resetAttackStreak(player);
   state.pendingAttackCard = null;
   state.pendingVentiCards = null;
   state.pendingGamble = null;
@@ -738,8 +956,10 @@ const HANDLERS = {
   attack: (ctx) => attack(ctx),
   attackTarget: (ctx, cmd) => attackTarget(ctx, cmd.targetUid),
   defense: (ctx) => defense(ctx),
+  defenseTarget: (ctx, cmd) => defenseTarget(ctx, cmd.targetUid),
   gamble: (ctx) => gamble(ctx),
   gambleSubmit: (ctx, cmd) => gambleSubmit(ctx, cmd.trapIdx, cmd.baitIdx),
+  gambleTarget: (ctx, cmd) => gambleTarget(ctx, cmd.targetUid),
   skill: (ctx) => skill(ctx),
   skillAnswer: (ctx, cmd) => skillAnswer(ctx, cmd.answer),
   ally: (ctx) => ally(ctx),

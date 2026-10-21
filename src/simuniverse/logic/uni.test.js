@@ -1411,7 +1411,7 @@ describe("模拟宇宙 M4：事件系统", () => {
     expect(CHARACTERS[12]).toBeTruthy();
     const pool = Object.values(CHARACTERS).filter((c) => c.id !== 12);
     expect(pool.some((c) => c.id === 12)).toBe(false);
-    expect(pool.length).toBe(11);
+    expect(pool.length).toBe(15); // v3.5：11 名旧角色 + 4 名新角色
   });
 });
 

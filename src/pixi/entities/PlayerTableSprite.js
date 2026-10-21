@@ -402,6 +402,12 @@ export class PlayerTableSprite extends Container {
       tags.push(`DoT(${player.statusEffects.dotTarget.turns})`);
     if (player.statusEffects.savepoint) tags.push("已存档");
     if (player.fightingSpirit > 0) tags.push(`斗志${player.fightingSpirit}`);
+    if (player.chorus > 0) tags.push(`领唱${player.chorus}`);
+    if (player.attackStreak > 0) tags.push(`连击${player.attackStreak}`);
+    if (player.statusEffects.drone)
+      tags.push(
+        `无人机${player.statusEffects.drone.hp}HP/盾${player.statusEffects.drone.defCount}`,
+      );
     if (player.statusEffects.extraAction) tags.push("+1行动");
     if (player.statusEffects.ignoreTrapThisTurn) tags.push("无视陷阱");
     if (player.relations.gamblePenalty) tags.push("赌命惩罚");

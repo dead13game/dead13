@@ -1,7 +1,8 @@
 import { PHASE } from "../core/constants.js";
 import { PENDING } from "../flow/pending.js";
 import { applyDamage } from "../rules/damage.js";
-import { baseCanUse, withTurnGate, otherAliveUids } from "./helpers.js";
+import { unitByUid } from "../core/units.js";
+import { baseCanUse, withTurnGate, enemyTargetUids } from "./helpers.js";
 
 // 雷电将军 · 无想的一刀:造成 27 点伤害(第 10 回合解锁)
 export default {
@@ -39,13 +40,13 @@ export default {
       type: PENDING.TARGET,
       purpose: "skill:raiden",
       asker: player.uid,
-      options: otherAliveUids(ctx, player),
+      options: enemyTargetUids(ctx, player),
     });
     ctx.log(`${player.name} 释放无想的一刀`);
   },
 
   onAnswer(ctx, player, pending, answer) {
-    const target = ctx.players.byUid(answer);
+    const target = unitByUid(ctx.state, answer);
     if (!target?.alive) return;
 
     player.resources.skillUses--;

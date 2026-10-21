@@ -2,7 +2,8 @@ import { PHASE } from "../core/constants.js";
 import { PENDING } from "../flow/pending.js";
 import { CAT } from "../core/log.js";
 import { applyDamage } from "../rules/damage.js";
-import { baseCanUse, withTurnGate, otherAliveUids } from "./helpers.js";
+import { unitByUid } from "../core/units.js";
+import { baseCanUse, withTurnGate, enemyTargetUids } from "./helpers.js";
 
 // 风堇 · 重见澄澈晴空:生命上限 +3 并回满,对一名玩家造成回复量×2 的伤害
 // 被动:消耗陷阱/防御牌时回复 1 点生命
@@ -37,13 +38,13 @@ export default {
       type: PENDING.TARGET,
       purpose: "skill:fenjin",
       asker: player.uid,
-      options: otherAliveUids(ctx, player),
+      options: enemyTargetUids(ctx, player),
     });
     ctx.log(`${player.name} 释放重见澄澈晴空`);
   },
 
   onAnswer(ctx, player, pending, answer) {
-    const target = ctx.players.byUid(answer);
+    const target = unitByUid(ctx.state, answer);
     if (!target?.alive) return;
 
     const oldMaxHp = player.maxHp;

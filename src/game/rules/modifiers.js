@@ -118,21 +118,23 @@ export const ATTACK_MODIFIERS = [
       return value + 2;
     },
   },
-];
-
-// ── 攻击:陷阱判定之后的两段 ──
-// artifact 只在陷阱未触发时生效;besiege(围攻减半)无论陷阱是否击破都生效。
-
-export const POST_TRAP_MODIFIERS = [
   {
+    // v3.5：圣遗物倍数进入「陷阱判定前的总伤害」。
+    // 规则：总伤害 =（抽牌 + 各加法加成）× 圣遗物倍数，再与陷阱点数比较。
     id: "artifact.boost",
     priority: PRIORITY.ARTIFACT,
     apply(ctx, env, value) {
-      if (env.trapTriggered) return value;
       if (!env.source.artifact.active || !env.source.artifact.id) return value;
       return applyArtifactBoost(ctx, env.source, value).value;
     },
   },
+];
+
+// ── 攻击:陷阱判定之后 ──
+// v3.5：圣遗物已移到陷阱前（见 ATTACK_MODIFIERS）；这里只剩围攻减半。
+// 围攻减半对英雄与塔生效（补充说明：塔可以吃到围攻减半），主动技能伤害不在此列。
+
+export const POST_TRAP_MODIFIERS = [
   {
     id: "besiege.halving",
     priority: PRIORITY.BESIEGE,

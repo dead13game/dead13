@@ -26,6 +26,10 @@ export const STATE_FIELDS = [
   "turn",
   "idSeq",
   "deckCount",
+  // v3.5：团战塔 / 召唤物 / 召唤物 uid 计数
+  "towers",
+  "summons",
+  "unitSeq",
   // 兼容字段:UI/动画直接读,P6 收敛
   "pendingAttackCard",
   "pendingVentiCards",
@@ -38,6 +42,17 @@ export const STATE_FIELDS = [
  * maxUses 就是 Infinity。存档前统一编码成字符串,读档时再还原。
  */
 const NON_FINITE = new Set(["Infinity", "-Infinity", "NaN"]);
+
+/** 兼容 Vue reactive Proxy：structuredClone 不能克隆 Proxy，改用递归深拷贝（保留 Infinity） */
+export function clonePlain(v) {
+  if (Array.isArray(v)) return v.map((item) => clonePlain(item));
+  if (v && typeof v === "object") {
+    const out = {};
+    for (const key of Object.keys(v)) out[key] = clonePlain(v[key]);
+    return out;
+  }
+  return v;
+}
 
 export function encodeValue(v) {
   if (Array.isArray(v)) return v.map(encodeValue);
@@ -85,7 +100,7 @@ export function normalizePlayer(input = {}) {
 
 /** 存档里的玩家:存档点自身不入档(旧实现同样置 null) */
 export function playerToSave(p) {
-  const copy = structuredClone(p);
+  const copy = clonePlain(p);
   if (copy.effects) copy.effects.savepoint = null;
   return encodeValue(copy);
 }
@@ -95,7 +110,7 @@ export function pickState(state) {
   const out = {};
   for (const key of STATE_FIELDS) {
     const v = state[key];
-    out[key] = v === undefined ? null : structuredClone(v);
+    out[key] = v === undefined ? null : clonePlain(v);
   }
   out.players = state.players.map(playerToSave);
   out.deck = state.deck.map((c) => ({ ...c }));
