@@ -110,7 +110,7 @@ export default {
     id: 13,
     name: "砂狼白子",
     title: "无人机",
-    icon: null,
+    icon: "./images/砂狼白子.jpg",
     hp: 12,
     speed: 9,
     skillName: "无人机部署",

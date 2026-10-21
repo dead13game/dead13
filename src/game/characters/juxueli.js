@@ -15,7 +15,7 @@ export default {
     id: 14,
     name: "橘雪梨",
     title: "调查",
-    icon: null,
+    icon: "./images/橘雪梨.jpg",
     hp: 11,
     speed: 10,
     skillName: "调查",
