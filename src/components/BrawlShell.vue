@@ -341,10 +341,10 @@
           <div class="draw-toast__label">{{ drawLabel(drawToast) }}</div>
           <div class="draw-toast__cards">
             <Card
-              v-for="(c, i) in drawToast.cards"
+              v-for="(c, i) in drawToastCards"
               :key="'dc-' + i"
               :card="c"
-              :always-face-up="true"
+              :always-face-up="!drawToast.hidden"
               class="draw-toast__card"
             />
           </div>
@@ -591,13 +591,21 @@ function drawLabel(entry) {
     : "";
   const kind = {
     attack: "攻击摸牌",
-    defense: "防御摸牌",
+    defense: "防御摸牌（暗牌）",
     gamble: "赌命摸牌",
-    "drone-defense": "无人机防御摸牌",
+    "drone-defense": "无人机防御摸牌（暗牌）",
     venti: "千风之诗摸牌",
   }[entry.kind] ?? "摸牌";
   return who ? `${who} · ${kind}` : kind;
 }
+
+/** 防御摸牌保持牌背：双方都不应看到防御牌点数 */
+const drawToastCards = computed(() =>
+  (drawToast.value?.cards ?? []).map((c) => ({
+    ...c,
+    faceUp: !drawToast.value?.hidden,
+  })),
+);
 
 const charDataOf = (u) =>
   view.CHARACTERS?.[u.characterId] ?? getCharacter(u.characterId)?.meta ?? null;

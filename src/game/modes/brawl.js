@@ -83,6 +83,7 @@ function reviveHero(ctx, p) {
     c.faceUp = false;
     c.ownerUid = p.uid;
     c.defenseValue = c.value;
+    c.maxDefenseValue = c.value;
     p.defensePile.push(c);
   });
   ctx.log(`${p.name} 复活（获得 3 张防御牌，本回合第一个行动）`);
@@ -131,6 +132,7 @@ function reinforceWeakerTeam(ctx) {
         faceUp: false,
         ownerUid: p.uid,
         defenseValue: c.value,
+        maxDefenseValue: c.value,
       });
     });
   }

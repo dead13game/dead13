@@ -25,7 +25,15 @@
     </div>
 
     <div class="tower-card__meta">
-      <span class="tower-card__shield">🛡 {{ shieldTotal }}</span>
+      <span class="tower-card__shield" title="防御牌张数（不公开点数）"
+        >🛡 {{ defenseCount }}张</span
+      >
+      <span
+        v-if="residualShield !== null"
+        class="tower-card__residual"
+        title="最新一张残盾"
+        >残{{ residualShield }}</span
+      >
       <span v-if="tower.trap" class="tower-card__trap">陷阱 ?</span>
     </div>
 
@@ -45,12 +53,20 @@ const props = defineProps({
   current: { type: Boolean, default: false },
 });
 
-const shieldTotal = computed(() =>
-  (props.tower.defensePile || []).reduce(
-    (s, c) => s + (c.defenseValue ?? c.value ?? 0),
-    0,
-  ),
+const defenseCount = computed(
+  () => props.tower.defensePile?.length ?? 0,
 );
+
+/** 只公开「最新一张」残盾的剩余值；完整防御牌只显示张数 */
+const residualShield = computed(() => {
+  const pile = props.tower.defensePile || [];
+  const top = pile[pile.length - 1];
+  if (!top) return null;
+  const current = top.defenseValue;
+  if (current == null) return null;
+  const base = top.maxDefenseValue ?? top.value ?? current;
+  return current < base ? current : null;
+});
 </script>
 
 <style scoped>
@@ -138,6 +154,10 @@ const shieldTotal = computed(() =>
 }
 .tower-card__shield {
   color: #90caf9;
+}
+.tower-card__residual {
+  color: #ffb74d;
+  font-weight: 700;
 }
 .tower-card__trap {
   color: #e1a7ff;

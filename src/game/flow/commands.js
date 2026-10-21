@@ -493,7 +493,11 @@ export function defense(ctx) {
   }
   card.value = card.value;
   card.faceUp = false;
-  ctx.drawEvent([card], { kind: "defense", actorUid: player.uid });
+  ctx.drawEvent([card], {
+    kind: "defense",
+    actorUid: player.uid,
+    hidden: true,
+  });
   ctx.sound("defense");
 
   const rules = state.mode?.rules ?? {};
@@ -527,6 +531,7 @@ export function placeDefenseCard(ctx, actor, target, card) {
   );
 
   card.defenseValue = total;
+  card.maxDefenseValue = total;
   card.value = originalValue;
   card.faceUp = false;
   card.ownerUid = actor.uid;

@@ -132,6 +132,19 @@ describe("v3.5 团战 — 防御支援 / 陷阱支援", () => {
     expect(entry.kind).toBe("attack");
     expect(entry.cards[0].rank).toBe("9");
     expect(entry.cards[0].faceUp).toBe(true);
+    expect(entry.hidden).toBe(false);
+  });
+
+  it("防御摸牌是暗牌，并记录 maxDefenseValue 供残盾显示", () => {
+    const state = classic2p();
+    const actor = state.players[state.currentPlayerIndex];
+    dispatch(state, { type: "defense" });
+    const card = actor.defensePile[0];
+    expect(card).toBeTruthy();
+    expect(card.maxDefenseValue).toBe(card.defenseValue);
+    const entry = state.drawFeed[state.drawFeed.length - 1];
+    expect(entry.kind).toBe("defense");
+    expect(entry.hidden).toBe(true);
   });
 
   it("防御支援可以把牌给队友或己方塔", () => {

@@ -58,18 +58,22 @@
       </p>
 
       <div class="hero-card__stats">
-        <span class="chip chip--shield" title="防御区总护盾">
-          🛡 {{ shieldTotal }}
+        <span class="chip chip--shield" title="防御牌张数（不公开每张点数）">
+          🛡 {{ defenseCount }} 张
         </span>
-        <span v-if="unit.defensePile?.length" class="chip chip--cards">
-          {{ unit.defensePile.length }} 张
+        <span
+          v-if="residualShield !== null"
+          class="chip chip--residual"
+          title="最新一张防御牌是残盾，仅显示剩余值"
+        >
+          残盾 {{ residualShield }}
         </span>
         <span v-if="unit.trap" class="chip chip--trap" title="显示诱饵点数，真正的陷阱牌隐藏">
           陷阱 {{ unit.bait?.value ?? "?" }}
         </span>
-        <span v-if="drone" class="chip chip--drone" title="无人机">
+        <span v-if="drone" class="chip chip--drone" title="无人机（防御牌张数）">
           🛸 {{ drone.hp }}HP
-          <em v-if="drone.defCount">/🛡{{ drone.defCount }}</em>
+          <em v-if="drone.defCount">/🛡{{ drone.defCount }}张</em>
         </span>
       </div>
 
@@ -99,12 +103,20 @@ const hpPct = computed(() =>
   Math.max(0, Math.min(100, (props.unit.hp / Math.max(1, props.unit.maxHp)) * 100)),
 );
 
-const shieldTotal = computed(() =>
-  (props.unit.defensePile || []).reduce(
-    (s, c) => s + (c.defenseValue ?? c.value ?? 0),
-    0,
-  ),
+const defenseCount = computed(
+  () => props.unit.defensePile?.length ?? 0,
 );
+
+/** 只公开「最新一张」残盾的剩余值；完整防御牌只显示张数 */
+const residualShield = computed(() => {
+  const pile = props.unit.defensePile || [];
+  const top = pile[pile.length - 1];
+  if (!top) return null;
+  const current = top.defenseValue;
+  if (current == null) return null;
+  const base = top.maxDefenseValue ?? top.value ?? current;
+  return current < base ? current : null;
+});
 
 const initial = computed(
   () => (props.charData?.name || props.unit.name || "?").slice(0, 1),
@@ -409,6 +421,11 @@ const chips = computed(() => {
 .chip--cards {
   color: rgba(255, 255, 255, 0.55);
   background: rgba(255, 255, 255, 0.06);
+}
+.chip--residual {
+  color: #ffb74d;
+  background: rgba(255, 152, 0, 0.14);
+  border-color: rgba(255, 152, 0, 0.4);
 }
 .chip--trap {
   color: #e1a7ff;

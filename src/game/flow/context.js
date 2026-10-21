@@ -160,6 +160,8 @@ export function createContext(state, deps = {}) {
         kind: meta.kind ?? "draw",
         actorUid: meta.actorUid ?? null,
         source: meta.source ?? null,
+        // 防御牌/无人机防御牌是暗牌，UI 只做抽牌动画、不展示点数
+        hidden: !!meta.hidden,
         cards: list.map((c) => ({ ...c, faceUp: true })),
       };
       if (!Array.isArray(state.drawFeed)) state.drawFeed = [];
