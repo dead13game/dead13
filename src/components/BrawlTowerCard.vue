@@ -34,7 +34,9 @@
         title="最新一张残盾"
         >残{{ residualShield }}</span
       >
-      <span v-if="tower.trap" class="tower-card__trap">陷阱 ?</span>
+      <span v-if="tower.trap" class="tower-card__trap" title="显示诱饵点数，真正的陷阱牌隐藏"
+        >陷阱 {{ tower.trap.decoyValue ?? "?" }}</span
+      >
     </div>
 
     <div v-if="attackable && tower.alive" class="tower-card__target-tag">

@@ -54,7 +54,12 @@ export default {
     const temp = target.trap;
     target.trap = target.bait;
     target.bait = temp;
-    if (target.trap) target.trap.faceUp = false;
+    if (target.trap) {
+      target.trap.faceUp = false;
+      // 明暗交换后，新的诱饵成为公开点数；真正的陷阱仍隐藏
+      if (target.bait) target.trap.decoyValue = target.bait.value;
+      else delete target.trap.decoyValue;
+    }
     if (target.bait) target.bait.faceUp = true;
 
     ctx.log(`${target.name}的陷阱明暗交换`);

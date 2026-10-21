@@ -683,6 +683,8 @@ export function gambleSubmit(ctx, trapIdx, baitIdx) {
   if (player.bait) state.grave.push(player.bait);
 
   trapCard.faceUp = false;
+  // 对外展示的「陷阱点数」始终是诱饵点数；真正的陷阱牌隐藏
+  trapCard.decoyValue = baitCard.value;
   player.trap = trapCard;
   baitCard.faceUp = true;
   player.bait = baitCard;
@@ -746,6 +748,8 @@ export function gambleTarget(ctx, targetUid) {
     if (target.trap) state.grave.push(target.trap);
     target.trap = actor.trap;
     target.trap.faceUp = false;
+    // 诱饵仍留在施放者这里，但陷阱的公开点数继续沿用该诱饵
+    target.trap.decoyValue = actor.bait?.value ?? target.trap.decoyValue;
     actor.trap = null;
     ctx.log(`${actor.name} 把陷阱布置在 ${target.name}`);
     ctx.dev(CAT.GAMBLE, `陷阱转移: ${actor.name} → ${target.name}`, {

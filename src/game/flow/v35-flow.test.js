@@ -182,5 +182,26 @@ describe("v3.5 团战 — 防御支援 / 陷阱支援", () => {
     expect(tower.trap).toBeTruthy();
     expect(actor.trap).toBeNull();
     expect(actor.bait).toBeTruthy();
+    // 塔上的陷阱对外显示诱饵点数，而不是真实陷阱点数
+    expect(tower.trap.decoyValue).toBe(actor.bait.value);
+  });
+
+  it("陷阱给队友时也保留诱饵点数（诱饵实体仍在自己这里）", () => {
+    const { state } = brawl();
+    const actor = state.players[state.currentPlayerIndex];
+    const teammate = state.players.find(
+      (p) => p.teamId === actor.teamId && p.uid !== actor.uid,
+    );
+
+    expect(dispatch(state, { type: "gamble" })).toBe(true);
+    dispatch(state, { type: "gambleSubmit", trapIdx: 0, baitIdx: 1 });
+    expect(
+      dispatch(state, { type: "gambleTarget", targetUid: teammate.uid }),
+    ).toBe(true);
+
+    expect(teammate.trap).toBeTruthy();
+    expect(teammate.bait).toBeNull();
+    expect(actor.bait).toBeTruthy();
+    expect(teammate.trap.decoyValue).toBe(actor.bait.value);
   });
 });

@@ -69,7 +69,7 @@
           残盾 {{ residualShield }}
         </span>
         <span v-if="unit.trap" class="chip chip--trap" title="显示诱饵点数，真正的陷阱牌隐藏">
-          陷阱 {{ unit.bait?.value ?? "?" }}
+          陷阱 {{ unit.trap.decoyValue ?? unit.bait?.value ?? "?" }}
         </span>
         <span v-if="drone" class="chip chip--drone" title="无人机（防御牌张数）">
           🛸 {{ drone.hp }}HP
