@@ -133,7 +133,7 @@ describe("v3.5 新角色 — 砂狼白子", () => {
   });
 });
 
-describe("v3.5 新角色 — 菊雪梨", () => {
+describe("v3.5 新角色 — 橘雪梨", () => {
   it("猜中：拆除陷阱并造成 20 点伤害", () => {
     const ctx = makeCtx();
     const ju = addHero(ctx, { uid: 1, characterId: 14 });

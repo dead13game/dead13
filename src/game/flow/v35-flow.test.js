@@ -71,7 +71,7 @@ describe("v3.5 伤害乘区 — 圣遗物在陷阱判定前", () => {
   });
 });
 
-describe("v3.5 菊雪梨 — 调查流程", () => {
+describe("v3.5 橘雪梨 — 调查流程", () => {
   it("目标没有陷阱 → 7 点普攻（无视陷阱）", () => {
     const { state } = createSession({
       chars: [14, 1],

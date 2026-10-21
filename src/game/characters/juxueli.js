@@ -2,7 +2,7 @@ import { CAT } from "../core/log.js";
 import { unitByUid } from "../core/units.js";
 import { applyDamage } from "../rules/damage.js";
 
-// 菊雪梨 · 调查（被动）
+// 橘雪梨 · 调查（被动）
 // 普通攻击变为「调查」：猜测目标陷阱点数。
 //   猜中 → 拆除陷阱，造成 20 + 烈日当空（2）点伤害（可被防御牌吸收）
 //   猜错 → 无事发生，陷阱保留
@@ -13,7 +13,7 @@ export default {
   id: 14,
   meta: {
     id: 14,
-    name: "菊雪梨",
+    name: "橘雪梨",
     title: "调查",
     icon: null,
     hp: 11,

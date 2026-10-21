@@ -100,7 +100,7 @@ export function attack(ctx) {
     return false;
   }
 
-  // 菊雪梨「调查」：普通攻击被替换为调查，不抽攻击牌
+  // 橘雪梨「调查」：普通攻击被替换为调查，不抽攻击牌
   if (player.characterId === 14) {
     ctx.sound("attack");
     ctx.log(`${player.name} 展开调查`);
@@ -379,7 +379,7 @@ function countBesiege(ctx, target, rules) {
 }
 
 /**
- * 菊雪梨「调查」的目标结算：
+ * 橘雪梨「调查」的目标结算：
  *   - 有陷阱 → 询问猜测点数（由角色插件 onAnswer 结算）
  *   - 无陷阱 → 7 点普攻（吃天气/圣遗物，无视陷阱）
  */
