@@ -12,7 +12,7 @@
         >
           <span class="round-match__team round-match__team--home">
             <TeamBadge :team-id="match.homeTeamId" size="sm" />
-            {{ match.homeName }}
+            {{ match.homeName }}（主）
           </span>
           <span
             class="round-match__result"
@@ -21,7 +21,7 @@
             {{ resultLabel(match.result) }}
           </span>
           <span class="round-match__team round-match__team--away">
-            {{ match.awayName }}
+            {{ match.awayName }}（客）
             <TeamBadge :team-id="match.awayTeamId" size="sm" />
           </span>
           <span v-if="match.isPlayer" class="round-match__player-badge"
@@ -58,11 +58,12 @@ defineProps({
 defineEmits(["continue", "viewStandings"]);
 
 function resultLabel(result) {
+  // 以主队视角显示：主胜=胜 / 客胜=负 / 平
   switch (result) {
     case "home":
       return "胜";
     case "away":
-      return "胜";
+      return "负";
     case "draw":
       return "平";
     default:

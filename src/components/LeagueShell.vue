@@ -77,8 +77,7 @@
       v-else-if="uiMode === 'roundResult'"
       :round="roundResultsRound"
       :match-results="roundResults || []"
-      :is-last-round="leagueState._currentRound >= 18"
-      @continue="continueToNextRound"
+      :is-last-round="leagueState._currentRound >= 18"      @continue="continueToNextRound"
       @view-standings="viewStandings"
     />
 
@@ -86,22 +85,32 @@
     <LeagueStandings
       v-else-if="uiMode === 'standings'"
       :standings="getStandings()"
-      :current-round="leagueState._currentRound - 1"
+      :current-round="playedRounds"
       :total-rounds="18"
       :is-finished="leagueState._currentRound > 18"
+      :tiebreaker-needed="!!leagueState._tiebreakerNeeded"
       @continue="onStandingsContinue"
     />
 
     <!-- 联赛结束 -->
     <div v-else-if="uiMode === 'tournamentEnd'" class="league-end">
       <div class="league-end__card">
-        <h2>🏆 联赛结束</h2>
+        <h2>
+          {{
+            leagueState._tiebreakResult === 0
+              ? "🏆 附加赛胜利"
+              : leagueState._tiebreakResult === 1
+                ? "⚔️ 附加赛失利"
+                : "🏆 联赛结束"
+          }}
+        </h2>
         <p>最终排名已确定</p>
         <LeagueStandings
           :standings="getStandings()"
-          :current-round="18"
+          :current-round="playedRounds"
           :total-rounds="18"
           :is-finished="true"
+          :tiebreaker-needed="false"
           @continue="$emit('restart')"
         />
         <button class="league-btn" @click="$emit('restart')">返回主菜单</button>
@@ -119,7 +128,7 @@ import LeagueDraft from "./LeagueDraft.vue";
 import LeagueStandings from "./LeagueStandings.vue";
 import LeagueRoundResult from "./LeagueRoundResult.vue";
 import { useLeagueController } from "../composables/useLeagueController.js";
-import { calculateMatchScore } from "../game/league.js";
+import { calculateMatchScore, countPlayedRounds } from "../game/league.js";
 import { CAT } from "../game/gameLogger.js";
 import {
   dispatch,
@@ -232,6 +241,8 @@ function onScoreboardClick() {
 
 // ---- 本轮结果轮次 ----
 const roundResultsRound = computed(() => leagueState._currentRound || 1);
+/** 已完成的轮次数（积分榜顶部显示，避免差一轮） */
+const playedRounds = computed(() => countPlayedRounds(leagueState));
 
 // ---- 实时锁定积分（规则v3.0，类似世界杯记分牌）----
 // 按已阵亡顺序结算名次积分（6/5/4/3/2/1），团灭时剩余名次自动补全给存活队；
@@ -250,15 +261,16 @@ const liveScore = computed(() => {
 // ---- 积分榜继续 ----
 function onStandingsContinue() {
   if (leagueState._currentRound > 18) {
-    // 联赛已结束
+    // 联赛已结束：有同分队 → 附加赛；否则直接回主菜单
     if (leagueState._tiebreakerNeeded) {
       startTiebreaker();
     } else {
-      finishLeague();
+      emit("restart");
     }
   } else {
     // 联赛进行中，继续下一轮
     leagueState._currentRound++;
+    leagueState.currentRound = leagueState._currentRound;
     uiMode.value = "draft";
   }
 }
@@ -400,6 +412,10 @@ function executeMiddleStep() {
       cast({ type: "gambleSubmit", trapIdx: g.trapIdx, baitIdx: g.baitIdx });
     }
   } else if (s === "skillPickTarget") {
+    if (view.pending?.purpose === "investigate:guess") {
+      cast({ type: "skillAnswer", answer: 1 + Math.floor(Math.random() * 13) });
+      return;
+    }
     const attacker = view.players[view.currentPlayerIndex];
     const targets = view.players.filter(
       (p) => p.alive && p.index !== attacker.index,

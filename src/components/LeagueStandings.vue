@@ -3,7 +3,7 @@
     <div class="league-standings__card">
       <h2>📊 联赛积分榜</h2>
       <p class="league-standings__round">
-        第 {{ currentRound }} / {{ totalRounds }} 轮
+        已赛 {{ currentRound }} / {{ totalRounds }} 轮
       </p>
 
       <table class="standings-table">
@@ -46,7 +46,13 @@
 
       <div class="league-standings__actions">
         <button class="league-btn" @click="$emit('continue')">
-          {{ isFinished ? "查看最终排名" : "继续下一轮" }}
+          {{
+            isFinished
+              ? tiebreakerNeeded
+                ? "⚔️ 开始附加赛"
+                : "返回主菜单"
+              : "继续下一轮"
+          }}
         </button>
       </div>
     </div>
@@ -61,6 +67,7 @@ defineProps({
   currentRound: { type: Number, default: 1 },
   totalRounds: { type: Number, default: 18 },
   isFinished: { type: Boolean, default: false },
+  tiebreakerNeeded: { type: Boolean, default: false },
 });
 
 defineEmits(["continue"]);

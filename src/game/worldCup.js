@@ -1,7 +1,13 @@
 // 世界杯锦标赛状态机 — 管理小组赛→淘汰赛的完整旅程
 // 纯逻辑层，零依赖
 
-import { AI_TEAM_NAMES, TEAM_EMOJIS, POINTS } from "./worldCupConstants.js";
+import {
+  AI_TEAM_NAMES,
+  TEAM_EMOJIS,
+  POINTS,
+  KNOCKOUT_NAMES,
+  KNOCKOUT_OPPONENT_POOLS,
+} from "./worldCupConstants.js";
 import { CHARACTERS } from "./characters/index.js";
 
 // ---- 工具函数 ----
@@ -57,6 +63,10 @@ export function createWorldCupState(playerTeamName, opponentNamesOverride) {
     substitutionsLeft: 3,
     // 当前比赛引用
     currentMatch: null,
+    // v3.5：整届战绩（小组赛 + 淘汰赛，用于淘汰/夺冠总结）
+    matchHistory: [],
+    // v3.5：本届已交手球队（避免淘汰赛重复抽到同一对手）
+    _usedOpponents: [...opponentNames],
   };
 }
 
@@ -204,12 +214,21 @@ export function checkGroupAdvancement(state) {
 // ---- 淘汰赛 ----
 
 /**
- * 初始化淘汰赛对手
+ * 初始化淘汰赛对手（v3.5：按轮次从对应名单抽取，避开本届已交手球队）
+ * @param {object} [state] 锦标赛状态（提供 knockoutRound / _usedOpponents）
  * @returns {{ name, emoji, charId }}
  */
-export function initKnockoutOpponent() {
-  const name = AI_TEAM_NAMES[Math.floor(Math.random() * AI_TEAM_NAMES.length)];
+export function initKnockoutOpponent(state = null) {
+  const round = state?.knockoutRound || "R16";
+  const pool = KNOCKOUT_OPPONENT_POOLS[round] || AI_TEAM_NAMES;
+  const used = new Set(state?._usedOpponents ?? []);
+  let available = pool.filter((name) => !used.has(name));
+  // 名单被抽空时退回整份名单，保证永远能开出对手
+  if (available.length === 0) available = [...pool];
+
+  const name = available[Math.floor(Math.random() * available.length)];
   const emoji = TEAM_EMOJIS[AI_TEAM_NAMES.indexOf(name)] || "🏳️";
+  if (state) state._usedOpponents = [...used, name];
 
   // 随机选角色
   const chars = Object.values(CHARACTERS).filter((c) => c.id !== 12); // 开发者角色仅模拟宇宙可选
@@ -220,13 +239,7 @@ export function initKnockoutOpponent() {
 
 /** 获取淘汰赛轮次中文名 */
 export function getKnockoutRoundName(round) {
-  const names = {
-    R16: "16强赛",
-    QF: "四分之一决赛",
-    SF: "半决赛",
-    Final: "决赛",
-  };
-  return names[round] || round;
+  return KNOCKOUT_NAMES[round] || round;
 }
 
 /** 晋级下一轮淘汰赛 */
@@ -248,7 +261,7 @@ export function advanceKnockoutRound(state) {
   }
 
   // 生成新对手
-  state.knockoutOpponent = initKnockoutOpponent();
+  state.knockoutOpponent = initKnockoutOpponent(state);
 }
 
 /** 淘汰赛失利 */

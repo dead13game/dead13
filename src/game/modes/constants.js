@@ -8,7 +8,7 @@ export const KNOCKOUT_ROUNDS = ["R16", "QF", "SF", "Final"];
 
 /** 淘汰赛轮次中文名 */
 export const KNOCKOUT_NAMES = {
-  R16: "16强赛",
+  R16: "八分之一决赛",
   QF: "四分之一决赛",
   SF: "半决赛",
   Final: "决赛",

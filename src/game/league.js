@@ -337,33 +337,53 @@ export function calculateStandings(state) {
 
 /**
  * 检查联赛是否结束（18轮全部打完）
+ *
+ * 控制器历史上用 `_currentRound` 推进轮次、而 createLeagueState 里只有
+ * `currentRound`，两者不同步导致 isLeagueFinished 永远为 false（v3.5 修复）。
+ * 这里两个字段都认，兼容旧存档。
  */
 export function isLeagueFinished(state) {
-  return state.currentRound > TOTAL_ROUNDS;
+  const round = state._currentRound ?? state.currentRound ?? 1;
+  return round > TOTAL_ROUNDS;
+}
+
+/** 已完成的轮次数（积分榜「第 N / 18 轮」显示，避免差一轮） */
+export function countPlayedRounds(state) {
+  let count = 0;
+  for (let round = 1; round <= TOTAL_ROUNDS; round++) {
+    const pm = getPlayerMatchForRound(state, round);
+    if (!pm) continue;
+    if (state.results[`${round}_${pm.matchIdx}`]) count++;
+  }
+  return count;
 }
 
 /**
  * 检测是否需要加赛
- * 联赛结束后，玩家与某队积分并列时需要加赛
- * @returns {{ needed: boolean, opponentTeamId: number | null }}
+ * 联赛结束后，玩家与某队积分并列时需要加赛。
+ * @returns {{ needed: boolean, opponentTeamId: number | null, tiedTeamIds: number[] }}
  */
 export function checkTiebreakerNeeded(state) {
-  if (!isLeagueFinished(state)) return { needed: false, opponentTeamId: null };
+  if (!isLeagueFinished(state)) {
+    return { needed: false, opponentTeamId: null, tiedTeamIds: [] };
+  }
 
   const standings = calculateStandings(state);
   const playerStanding = standings.find((t) => t.isPlayer);
-  if (!playerStanding) return { needed: false, opponentTeamId: null };
-
-  // 找到和玩家同分的其他球队
-  const tiedTeams = standings.filter(
-    (t) => !t.isPlayer && t.points === playerStanding.points,
-  );
-
-  if (tiedTeams.length > 0) {
-    return { needed: true, opponentTeamId: tiedTeams[0].teamId };
+  if (!playerStanding) {
+    return { needed: false, opponentTeamId: null, tiedTeamIds: [] };
   }
 
-  return { needed: false, opponentTeamId: null };
+  // 找到和玩家同分的其他球队（按当前积分榜顺序，第一个即排名最高的同分队）
+  const tiedTeamIds = standings
+    .filter((t) => !t.isPlayer && t.points === playerStanding.points)
+    .map((t) => t.teamId);
+
+  return {
+    needed: tiedTeamIds.length > 0,
+    opponentTeamId: tiedTeamIds[0] ?? null,
+    tiedTeamIds,
+  };
 }
 
 // ---- 3v3 比赛结果计算 ----

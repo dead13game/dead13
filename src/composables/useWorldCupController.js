@@ -171,19 +171,29 @@ export function useWorldCupController() {
 
     if (ms.isGroupStage) {
       const matchIdx = getCurrentGroupMatchIdx();
+      const opponentName = getCurrentOpponentName();
+      const stageLabel = `小组赛第${(matchIdx >= 0 ? matchIdx : 0) + 1}场${
+        decidedByPenalty ? "（点球）" : ""
+      }`;
       if (matchIdx >= 0) {
         const result = winner === 0 ? "home" : winner === 1 ? "away" : "draw";
         recordGroupMatchResult(wcState, matchIdx, result);
       }
+      recordHistory({
+        stage: stageLabel,
+        opponent: opponentName,
+        score: [pScore, oScore],
+        winner,
+        isGroup: true,
+        decidedByPenalty,
+      });
 
       const nextMatch = getNextPlayerGroupMatch(wcState);
       if (nextMatch >= 0) {
         matchResult.value = {
           winner,
           score: [pScore, oScore],
-          stage: decidedByPenalty
-            ? `小组赛第${(matchIdx >= 0 ? matchIdx : 0) + 1}场（点球）`
-            : `小组赛第${(matchIdx >= 0 ? matchIdx : 0) + 1}场`,
+          stage: stageLabel,
           hasNext: true,
           isGroupStage: true,
           decidedByPenalty,
@@ -194,6 +204,18 @@ export function useWorldCupController() {
       }
     } else {
       const roundName = getKnockoutRoundName(wcState.knockoutRound);
+      const opponentName = wcState.knockoutOpponent?.name || "对手";
+      const opponentEmoji = wcState.knockoutOpponent?.emoji || "🏳️";
+      recordHistory({
+        stage: roundName,
+        opponent: opponentName,
+        opponentEmoji,
+        score: [pScore, oScore],
+        winner,
+        isGroup: false,
+        decidedByPenalty,
+      });
+
       if (winner === 0) {
         matchResult.value = {
           winner: 0,
@@ -203,20 +225,23 @@ export function useWorldCupController() {
           isChampion: wcState.knockoutRound === "Final",
           decidedByPenalty,
         };
+        if (wcState.knockoutRound === "Final") {
+          wcState.phase = "champion";
+        }
         uiMode.value = "matchResult";
       } else {
-        matchResult.value = {
-          winner: 1,
-          score: [pScore, oScore],
-          stage: roundName,
-          hasNext: false,
-          eliminated: true,
-          decidedByPenalty,
-        };
+        // v3.5：淘汰即出总结，不再回到可继续下一轮的结果页
         eliminatePlayer(wcState);
-        uiMode.value = "matchResult";
+        matchResult.value = null;
+        uiMode.value = "tournamentSummary";
       }
     }
+  }
+
+  /** 记录一届世界杯的单场战绩（小组赛 + 淘汰赛） */
+  function recordHistory(entry) {
+    if (!Array.isArray(wcState.matchHistory)) wcState.matchHistory = [];
+    wcState.matchHistory.push(entry);
   }
 
   function getCurrentGroupMatchIdx() {
@@ -443,32 +468,42 @@ export function useWorldCupController() {
 
     if (!result) return;
 
-    if (wcState.phase === "group") {
+    if (result.isGroupStage) {
       if (result.hasNext) {
         startNextGroupMatch();
       } else {
         finishGroupStage();
       }
-    } else if (wcState.phase === "knockout") {
-      if (result.winner === 0 && result.hasNext) {
-        advanceKnockoutRound(wcState);
-        wcState.substitutionsLeft = MATCH_CONFIG.maxSubstitutions;
-        startKnockoutMatch();
-      } else if (result.isChampion) {
-        uiMode.value = "tournamentEnd";
-      } else {
-        uiMode.value = "tournamentEnd";
-      }
-    } else {
-      uiMode.value = "standings";
+      return;
     }
+
+    if (result.winner === 0 && result.hasNext) {
+      advanceKnockoutRound(wcState);
+      wcState.substitutionsLeft = MATCH_CONFIG.maxSubstitutions;
+      startKnockoutMatch();
+      return;
+    }
+
+    if (result.isChampion) {
+      wcState.phase = "champion";
+      uiMode.value = "tournamentSummary";
+      return;
+    }
+
+    if (result.eliminated) {
+      uiMode.value = "tournamentSummary";
+      return;
+    }
+
+    uiMode.value = "tournamentSummary";
   }
 
   function continueFromStandings() {
     if (wcState._advanced) {
       enterKnockoutStage();
     } else {
-      uiMode.value = "tournamentEnd";
+      // 小组赛未出线：直接给整届总结
+      uiMode.value = "tournamentSummary";
     }
   }
 

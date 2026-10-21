@@ -65,6 +65,13 @@ export function useLeagueController() {
     const state = createLeagueState(teamId);
     Object.assign(leagueState, state);
     leagueState._currentRound = 1;
+    leagueState.currentRound = 1;
+    leagueState._tiebreakerNeeded = false;
+    leagueState._tiedTeams = [];
+    leagueState._tiebreakerOpponent = null;
+    leagueState._tiebreakResult = null;
+    leagueState._tiebreakOrder = null;
+    leagueState._isTiebreaker = false;
     uiMode.value = "draft";
   }
 
@@ -84,6 +91,11 @@ export function useLeagueController() {
 
   // ---- 选人完成后开始比赛 ----
   function startMatchWithDraft(draft) {
+    // 加赛也走同一个选人组件：这里统一路由，避免选完人后卡死
+    if (leagueState._isTiebreaker) {
+      startTiebreakerMatch(draft);
+      return;
+    }
     draftResult.value = draft;
     leagueState._playerChars = draft.playerChars;
     leagueState._opponentChars = draft.opponentChars;
@@ -94,8 +106,8 @@ export function useLeagueController() {
   function startRoundMatch(round) {
     const pm = getPlayerMatchForRound(leagueState, round);
     if (!pm) {
-      // 没有玩家比赛（不应该发生）
-      finishRound();
+      // 没有玩家比赛（正常情况下不该发生）：直接按联赛结束处理
+      finishLeague();
       return;
     }
 
@@ -139,7 +151,7 @@ export function useLeagueController() {
     createSession({
       state: gameState,
       chars: allChars,
-      weather: false,
+      weather: true, // v3.5：联赛也启用天气（固定顺序轮换）
       startRound: 1,
       deckCount: LEAGUE_MATCH_CONFIG.deckCount,
       teamIds,
@@ -286,15 +298,10 @@ export function useLeagueController() {
   // ---- 继续到下一轮 ----
   function continueToNextRound() {
     leagueState._currentRound++;
+    leagueState.currentRound = leagueState._currentRound;
 
     if (isLeagueFinished(leagueState)) {
-      // 检查是否需要加赛
-      const tb = checkTiebreakerNeeded(leagueState);
-      if (tb.needed) {
-        // 设置加赛状态
-        leagueState._tiebreakerNeeded = true;
-        leagueState._tiebreakerOpponent = tb.opponentTeamId;
-      }
+      evaluateLeagueEnd();
       uiMode.value = "standings";
     } else {
       // 新一轮需要重新选人
@@ -302,14 +309,48 @@ export function useLeagueController() {
     }
   }
 
+  /** 18 轮结束后：只处理涉及玩家的附加赛，其余同分队随机模拟 */
+  function evaluateLeagueEnd() {
+    const tb = checkTiebreakerNeeded(leagueState);
+    leagueState._tiebreakerNeeded = tb.needed;
+    leagueState._tiedTeams = tb.tiedTeamIds;
+    leagueState._tiebreakerOpponent = tb.opponentTeamId;
+    if (!tb.needed) {
+      leagueState._tiebreakOrder = null;
+      return;
+    }
+    // 玩家先与排名最高的同分队打一局；其余同分队的相对名次随机模拟
+    const others = tb.tiedTeamIds.filter((id) => id !== tb.opponentTeamId);
+    const shuffled = [...others].sort(() => Math.random() - 0.5);
+    leagueState._tiebreakOrder = [
+      leagueState.playerTeamId,
+      tb.opponentTeamId,
+      ...shuffled,
+    ];
+  }
+
   // ---- 查看积分榜 ----
   function viewStandings() {
+    // 第 18 轮结束后点「查看积分榜」时，轮次还没被 continueToNextRound 推进：
+    // 这里补一次推进，保证附加赛判定与 isFinished 都正确。
+    if (leagueState._currentRound === TOTAL_ROUNDS) {
+      leagueState._currentRound++;
+      leagueState.currentRound = leagueState._currentRound;
+    }
+    if (leagueState._currentRound > TOTAL_ROUNDS) evaluateLeagueEnd();
     uiMode.value = "standings";
   }
 
-  // ---- 获取当前积分榜 ----
+  // ---- 获取当前积分榜（附加赛结果会覆盖同分队的相对名次） ----
   function getStandings() {
-    return calculateStandings(leagueState);
+    const base = calculateStandings(leagueState);
+    const order = leagueState._tiebreakOrder;
+    if (!order?.length) return base;
+    const rank = new Map(order.map((id, i) => [id, i]));
+    return [...base].sort((a, b) => {
+      if (b.points !== a.points) return b.points - a.points;
+      return (rank.get(a.teamId) ?? 999) - (rank.get(b.teamId) ?? 999);
+    });
   }
 
   // ---- 联赛结束 ----
@@ -361,7 +402,7 @@ export function useLeagueController() {
     createSession({
       state: gameState,
       chars: allChars,
-      weather: false,
+      weather: true,
       startRound: 1,
       deckCount: LEAGUE_MATCH_CONFIG.deckCount,
       teamIds,
@@ -402,7 +443,20 @@ export function useLeagueController() {
   }
 
   function finishTiebreaker() {
-    // 加赛结束后直接显示最终排名
+    // 加赛结束后按胜负覆盖同分队的相对名次（其余同分队在 evaluateLeagueEnd 已随机）
+    const ms = matchState.value;
+    const playerId = leagueState.playerTeamId;
+    const oppId = leagueState._tiebreakerOpponent;
+    const others = (leagueState._tiebreakOrder || []).filter(
+      (id) => id !== playerId && id !== oppId,
+    );
+    if (ms?.winner === 0) {
+      leagueState._tiebreakOrder = [playerId, oppId, ...others];
+      leagueState._tiebreakResult = 0;
+    } else if (ms?.winner === 1) {
+      leagueState._tiebreakOrder = [oppId, playerId, ...others];
+      leagueState._tiebreakResult = 1;
+    }
     uiMode.value = "tournamentEnd";
   }
 
@@ -426,7 +480,10 @@ export function useLeagueController() {
         _playerChars: leagueState._playerChars,
         _opponentChars: leagueState._opponentChars,
         _tiebreakerNeeded: leagueState._tiebreakerNeeded,
+        _tiedTeams: leagueState._tiedTeams,
         _tiebreakerOpponent: leagueState._tiebreakerOpponent,
+        _tiebreakResult: leagueState._tiebreakResult,
+        _tiebreakOrder: leagueState._tiebreakOrder,
         _isTiebreaker: leagueState._isTiebreaker,
       },
       matchState: matchState.value ? { ...matchState.value } : null,
@@ -446,12 +503,16 @@ export function useLeagueController() {
     Object.assign(leagueState, {
       playerTeamId: sd.leagueState.playerTeamId,
       _currentRound: sd.leagueState.currentRound,
+      currentRound: sd.leagueState.currentRound,
       results: sd.leagueState.results || {},
       roundSimulated: sd.leagueState.roundSimulated || {},
       _playerChars: sd.leagueState._playerChars,
       _opponentChars: sd.leagueState._opponentChars,
       _tiebreakerNeeded: sd.leagueState._tiebreakerNeeded,
+      _tiedTeams: sd.leagueState._tiedTeams || [],
       _tiebreakerOpponent: sd.leagueState._tiebreakerOpponent,
+      _tiebreakResult: sd.leagueState._tiebreakResult ?? null,
+      _tiebreakOrder: sd.leagueState._tiebreakOrder ?? null,
       _isTiebreaker: sd.leagueState._isTiebreaker,
     });
 
@@ -567,6 +628,9 @@ export function useLeagueController() {
   });
 
   const currentOpponentTeam = computed(() => {
+    if (leagueState._isTiebreaker) {
+      return LEAGUE_TEAMS[leagueState._tiebreakerOpponent] || LEAGUE_TEAMS[2];
+    }
     const round = leagueState._currentRound || 1;
     const opponentId = getPlayerOpponent(leagueState, round);
     return LEAGUE_TEAMS[opponentId] || LEAGUE_TEAMS[2];

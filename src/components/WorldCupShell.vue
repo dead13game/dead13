@@ -210,22 +210,61 @@
       </div>
     </template>
 
-    <!-- 锦标赛结束 -->
-    <template v-else-if="uiMode === 'tournamentEnd'">
-      <div class="wc-end">
-        <h2>
+    <!-- 整届总结（淘汰 / 小组未出线 / 夺冠） -->
+    <template v-else-if="uiMode === 'tournamentSummary'">
+      <div class="wc-summary">
+        <h2 class="wc-summary__title">
           {{
-            wcState.phase === "champion" ? "🏆 世界杯冠军！" : "世界杯之旅结束"
+            wcState.phase === "champion"
+              ? "🏆 世界杯冠军！"
+              : "🌍 世界杯之旅结束"
           }}
         </h2>
-        <p v-if="wcState.phase === 'champion'" class="wc-end__champion">
-          恭喜 {{ currentPlayerName }} 赢得世界杯！
-        </p>
-        <p v-else>
+        <p class="wc-summary__sub">
+          {{ currentPlayerName }} ·
           {{
-            wcState.phase === "eliminated" ? "在淘汰赛中出局" : "小组赛未能出线"
+            wcState.phase === "champion"
+              ? "全部比赛结束"
+              : wcState._playerRank
+                ? `小组赛第 ${wcState._playerRank} 名`
+                : "淘汰赛出局"
           }}
         </p>
+
+        <div class="wc-summary__list">
+          <div
+            v-for="(m, idx) in wcState.matchHistory || []"
+            :key="idx"
+            class="wc-summary__row"
+            :class="{ 'wc-summary__row--knockout': !m.isGroup }"
+          >
+            <span class="wc-summary__stage">{{ m.stage }}</span>
+            <span class="wc-summary__teams">
+              {{ currentPlayerName }} {{ m.score?.[0] ?? 0 }} :
+              {{ m.score?.[1] ?? 0 }}
+              {{ m.opponentEmoji || "" }}{{ m.opponent }}
+            </span>
+            <span
+              class="wc-summary__verdict"
+              :class="{
+                'wc-summary__verdict--win': m.winner === 0,
+                'wc-summary__verdict--lose': m.winner === 1,
+                'wc-summary__verdict--draw':
+                  m.winner === null || m.winner === undefined,
+              }"
+            >
+              {{ m.winner === 0 ? "胜" : m.winner === 1 ? "负" : "平"
+              }}{{ m.decidedByPenalty ? "（点球）" : "" }}
+            </span>
+          </div>
+          <p
+            v-if="!wcState.matchHistory || wcState.matchHistory.length === 0"
+            class="wc-summary__empty"
+          >
+            暂无战绩
+          </p>
+        </div>
+
         <button class="wc-btn" @click="$emit('restart')">返回主菜单</button>
       </div>
     </template>
@@ -354,6 +393,8 @@ function handleWCSave(saveData) {
     _groupFinished: wcState._groupFinished,
     _playerRank: wcState._playerRank,
     _advanced: wcState._advanced,
+    matchHistory: wcState.matchHistory || [],
+    _usedOpponents: wcState._usedOpponents || [],
   };
 
   // 序列化比赛状态
@@ -603,6 +644,10 @@ function executeMiddleStep() {
       cast({ type: "gambleSubmit", trapIdx: g.trapIdx, baitIdx: g.baitIdx });
     }
   } else if (s === "skillPickTarget") {
+    if (view.pending?.purpose === "investigate:guess") {
+      cast({ type: "skillAnswer", answer: 1 + Math.floor(Math.random() * 13) });
+      return;
+    }
     const kind = skillTagOf(view.pending?.purpose ?? "");
     const t = decideTarget(view, { action: "skill", characterId: kind });
     cast({ type: "skillAnswer", answer: uidAt(t.targetIndex) });
@@ -850,6 +895,75 @@ function aiSuppressLog(logBefore, replacement) {
   font-size: 18px;
   margin-bottom: 20px;
   color: #ffd54f;
+}
+
+/* 整届总结 */
+.wc-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 70px 20px 40px;
+  color: #fff;
+  text-align: center;
+  min-height: 100vh;
+  background: radial-gradient(ellipse at center, #1a1a2e, #0a0a15);
+}
+.wc-summary__title {
+  font-size: 26px;
+  margin-bottom: 6px;
+}
+.wc-summary__sub {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 18px;
+}
+.wc-summary__list {
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 22px;
+}
+.wc-summary__row {
+  display: grid;
+  grid-template-columns: 1fr 2fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 13px;
+}
+.wc-summary__row--knockout {
+  background: rgba(255, 215, 0, 0.08);
+  border: 1px solid rgba(255, 215, 0, 0.18);
+}
+.wc-summary__stage {
+  color: rgba(255, 255, 255, 0.65);
+  text-align: left;
+}
+.wc-summary__teams {
+  color: #fff;
+  text-align: center;
+  font-weight: 600;
+}
+.wc-summary__verdict {
+  font-weight: 700;
+  font-size: 12px;
+}
+.wc-summary__verdict--win {
+  color: #4caf50;
+}
+.wc-summary__verdict--lose {
+  color: #ef5350;
+}
+.wc-summary__verdict--draw {
+  color: #ff9800;
+}
+.wc-summary__empty {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 13px;
 }
 
 /* 通用按钮 */

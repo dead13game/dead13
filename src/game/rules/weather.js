@@ -1,8 +1,8 @@
 // 天气 — 纯规则
 //
-// 牌堆顺序、轮转方式与旧 weather.js 一致:shift 取顶 → push 回底。
-
-import { shuffle } from "../core/cards.js";
+// v3.5：天气改为固定顺序轮换（不再随机洗牌）。
+// 顺序：烈日当空 → 暴雨倾盆 → 狂风呼啸 → 黑市交易 → 军备竞赛 → 风和日丽
+// 每 6 回合一个完整循环，牌堆顶 = 当前天气（shift 取顶 → push 回底）。
 
 export const WEATHER_DATA = {
   calm: { name: "风和日丽", desc: "无效果" },
@@ -13,23 +13,14 @@ export const WEATHER_DATA = {
   arms: { name: "军备竞赛", desc: "禁止使用角色技能" },
 };
 
-const WEATHER_POOL = [
-  "calm",
-  "calm",
-  "calm",
-  "calm",
-  "wind",
-  "trade",
-  "sun",
-  "rain",
-  "arms",
-];
+/** v3.5 固定轮换顺序（weatherDeck 按此顺序入队） */
+export const WEATHER_CYCLE = ["sun", "rain", "wind", "trade", "arms", "calm"];
 
+/** 构造天气牌堆（不洗牌） */
 export function setupWeatherDeck(ctx) {
-  ctx.state.weatherDeck = shuffle(
-    WEATHER_POOL.map((id) => ({ id })),
-    ctx.rng,
-  );
+  ctx.state.weatherDeck = WEATHER_CYCLE.map((id) => ({ id }));
+  // UI 在开局即可看到「下一位」天气
+  ctx.state.nextWeather = WEATHER_CYCLE[0];
   return ctx.state.weatherDeck;
 }
 
@@ -41,7 +32,8 @@ export function drawWeather(ctx) {
   const w = state.weatherDeck.shift();
   state.weatherDeck.push(w);
   state.currentWeather = w.id;
-  state.nextWeather = state.weatherDeck.length > 0 ? state.weatherDeck[0].id : null;
+  state.nextWeather =
+    state.weatherDeck.length > 0 ? state.weatherDeck[0].id : null;
   return w.id;
 }
 
