@@ -148,6 +148,10 @@ export function buildView(raw) {
     soundQueue: raw.soundQueue,
     devLog: raw.devLog ?? { entries: [] },
 
+    // v3.5：摸牌事件（抽牌动画）
+    drawFeed: raw.drawFeed ?? [],
+    drawSeq: raw.drawSeq ?? 0,
+
     // 兼容字段
     pendingAttackCard: raw.pendingAttackCard,
     pendingVentiCards: raw.pendingVentiCards,

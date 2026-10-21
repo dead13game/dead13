@@ -146,6 +146,30 @@ export function createContext(state, deps = {}) {
       clearPending(state);
     },
 
+    /**
+     * 记录一次摸牌（仅驱动 UI 抽牌动画，不入存档）。
+     * @param {Array} cards 实际摸到的牌
+     * @param {{kind?: string, actorUid?: number|null, source?: string}} [meta]
+     */
+    drawEvent(cards, meta = {}) {
+      const list = (cards ?? []).filter(Boolean);
+      if (list.length === 0) return null;
+      state.drawSeq = (state.drawSeq ?? 0) + 1;
+      const entry = {
+        seq: state.drawSeq,
+        kind: meta.kind ?? "draw",
+        actorUid: meta.actorUid ?? null,
+        source: meta.source ?? null,
+        cards: list.map((c) => ({ ...c, faceUp: true })),
+      };
+      if (!Array.isArray(state.drawFeed)) state.drawFeed = [];
+      state.drawFeed.push(entry);
+      if (state.drawFeed.length > 30) {
+        state.drawFeed.splice(0, state.drawFeed.length - 30);
+      }
+      return entry;
+    },
+
     /** 生成可复现的唯一 id(替代 Date.now 造 id) */
     uniqueId(prefix = "id") {
       state.idSeq = (state.idSeq ?? 1e12) + 1;

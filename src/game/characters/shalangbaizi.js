@@ -194,6 +194,7 @@ export default {
       ctx.deck.ensure(1);
       const card = ctx.deck.draw(1)[0];
       if (!card) return;
+      ctx.drawEvent([card], { kind: "drone-defense", actorUid: player.uid });
       const originalValue = card.value;
       const { total } = reduceModifiers(
         ctx,

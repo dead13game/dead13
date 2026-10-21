@@ -24,9 +24,10 @@ import {
 } from "../characters/index.js";
 
 export const BRAWL_RULES = {
-  peaceRounds: 0,
-  attackGate: "round",
-  attackMinRound: 1,
+  // v3.5：团战前 4 回合和平期（禁攻击，塔群待命）
+  peaceRounds: 4,
+  attackGate: "phase",
+  attackMinRound: 5,
   alliance: false,
   allyMinPlayers: 99,
   besiege: true,
@@ -289,6 +290,11 @@ export function createBrawlMode({
     onRoundEnd(ctx, round) {
       const state = ctx.state;
       if (state.gameOver) return "halt";
+      // 和平期：塔群待命，不造成伤害
+      if (state.phase === PHASE.PEACE) {
+        ctx.log(`和平期 · 塔群待命（${round}/${BRAWL_RULES.peaceRounds}）`);
+        return undefined;
+      }
       towersAttack(ctx);
       if (state.gameOver) return "halt";
       if (round >= info.maxRounds) {

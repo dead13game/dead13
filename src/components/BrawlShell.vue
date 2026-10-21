@@ -234,6 +234,9 @@
             >
           </span>
         </div>
+        <span v-if="view.phase === 'peace'" class="hud__peace">
+          🕊 和平期 {{ Math.min(view.round, 4) }}/4
+        </span>
         <div class="hud__turn">
           <span class="hud__turn-dot"></span>
           <span>{{ currentHero?.name || "-" }}</span>
@@ -279,7 +282,6 @@
               :key="'eh-' + h.uid"
               :unit="h"
               :char-data="charDataOf(h)"
-              :reveal-trap="revealTrap(h)"
               :current="isCurrent(h)"
             />
           </div>
@@ -291,12 +293,12 @@
             <span>VS</span>
             <em>#{{ view.round }}</em>
           </div>
-          <div class="battle-log">
+          <div ref="logRef" class="battle-log">
             <p
-              v-for="(m, i) in recentLog"
+              v-for="(m, i) in logLines"
               :key="'log-' + i"
               class="battle-log__line"
-              :class="{ 'battle-log__line--new': i === recentLog.length - 1 }"
+              :class="{ 'battle-log__line--new': i === logLines.length - 1 }"
             >
               {{ m }}
             </p>
@@ -311,7 +313,6 @@
               :key="'ph-' + h.uid"
               :unit="h"
               :char-data="charDataOf(h)"
-              :reveal-trap="revealTrap(h)"
               :current="isCurrent(h)"
             />
           </div>
@@ -331,6 +332,25 @@
         </div>
       </div>
 
+      <Transition name="draw-pop">
+        <div
+          v-if="drawToast"
+          :key="'draw-' + drawToast.seq"
+          class="draw-toast"
+        >
+          <div class="draw-toast__label">{{ drawLabel(drawToast) }}</div>
+          <div class="draw-toast__cards">
+            <Card
+              v-for="(c, i) in drawToast.cards"
+              :key="'dc-' + i"
+              :card="c"
+              :always-face-up="true"
+              class="draw-toast__card"
+            />
+          </div>
+        </div>
+      </Transition>
+
       <div class="dock">
         <div v-if="isAiTurn" class="dock__ai">
           <span class="dock__ai-dot"></span> 红方思考中…
@@ -340,6 +360,7 @@
           :state="view"
           :league-mode="true"
           :disabled="isAiTurn"
+          :reveal-draw="true"
           @attack="onAttack"
           @defense="onDefense"
           @gamble="onGamble"
@@ -418,8 +439,17 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, nextTick, onBeforeUnmount } from "vue";
+import {
+  ref,
+  reactive,
+  computed,
+  watch,
+  nextTick,
+  onMounted,
+  onBeforeUnmount,
+} from "vue";
 import ActionBar from "./ActionBar.vue";
+import Card from "./Card.vue";
 import BrawlHeroCard from "./BrawlHeroCard.vue";
 import BrawlTowerCard from "./BrawlTowerCard.vue";
 import {
@@ -519,8 +549,55 @@ const playerTowers = computed(() => view.towers.filter((t) => t.teamId === 0));
 const enemyTowers = computed(() => view.towers.filter((t) => t.teamId === 1));
 const playerHeroes = computed(() => view.players.filter((p) => p.teamId === 0));
 const enemyHeroes = computed(() => view.players.filter((p) => p.teamId === 1));
-const recentLog = computed(() => (view.messageLog || []).slice(-7));
 const currentHero = computed(() => view.currentPlayer());
+
+// ---- 战报滚动 ----
+const logRef = ref(null);
+const logLines = computed(() => (view.messageLog || []).slice(-200));
+function scrollLogToBottom() {
+  const el = logRef.value;
+  if (el) el.scrollTop = el.scrollHeight;
+}
+watch(
+  () => view.messageLog.length,
+  () => nextTick(scrollLogToBottom),
+  { flush: "post" },
+);
+onMounted(scrollLogToBottom);
+
+// ---- 抽牌动画 ----
+const drawToast = ref(null);
+let drawTimer = null;
+watch(
+  () => view.drawSeq ?? 0,
+  () => {
+    const feed = view.drawFeed || [];
+    const entry = feed[feed.length - 1];
+    if (!entry) return;
+    // AI 的摸牌不公开（防御/赌命牌应保持隐藏）
+    const actor = entry.actorUid ? view.unitByUid(entry.actorUid) : null;
+    if (setup.opponentMode === "ai" && actor?.teamId === 1) return;
+    drawToast.value = entry;
+    if (drawTimer) clearTimeout(drawTimer);
+    drawTimer = setTimeout(() => {
+      drawToast.value = null;
+    }, 1900);
+  },
+);
+
+function drawLabel(entry) {
+  const who = entry.actorUid
+    ? view.unitByUid(entry.actorUid)?.name || ""
+    : "";
+  const kind = {
+    attack: "攻击摸牌",
+    defense: "防御摸牌",
+    gamble: "赌命摸牌",
+    "drone-defense": "无人机防御摸牌",
+    venti: "千风之诗摸牌",
+  }[entry.kind] ?? "摸牌";
+  return who ? `${who} · ${kind}` : kind;
+}
 
 const charDataOf = (u) =>
   view.CHARACTERS?.[u.characterId] ?? getCharacter(u.characterId)?.meta ?? null;
@@ -529,20 +606,13 @@ function isCurrent(u) {
   return u.index === view.currentPlayerIndex && uiMode.value === "match";
 }
 
-/** 同屏双人：当前行动方可以看到自己队伍的陷阱；AI 模式只给蓝方看 */
-function revealTrap(u) {
-  if (setup.opponentMode === "hotseat") {
-    return u.teamId === currentHero.value?.teamId;
-  }
-  return u.teamId === 0;
-}
-
 const roundPct = computed(() =>
   Math.max(0, Math.min(100, (view.round / BRAWL_CONFIG.maxRounds) * 100)),
 );
 
 /** 当前行动方的敌方「可攻击塔」 */
 const attackableTowerUid = computed(() => {
+  if (view.phase === "peace") return null;
   const p = currentHero.value;
   if (!p) return null;
   const enemyTeam = p.teamId === 0 ? 1 : 0;
@@ -685,6 +755,13 @@ function aiAct() {
     const p = view.players[view.currentPlayerIndex];
     const canSkill = !!p?.canUseSkill;
     const r = Math.random();
+    // 和平期：不攻击（塔也不行动）
+    if (view.phase === "peace") {
+      if (canSkill && r < 0.25) cast({ type: "skill" });
+      else if (r < 0.75) cast({ type: "defense" });
+      else cast({ type: "gamble" });
+      return;
+    }
     if (canSkill && r < 0.15) cast({ type: "skill" });
     else if (r < 0.6) cast({ type: "attack" });
     else if (r < 0.8) cast({ type: "defense" });
@@ -782,6 +859,7 @@ defineExpose({ restoreBrawl, saveBrawl });
 onBeforeUnmount(() => {
   if (aiTimer) clearTimeout(aiTimer);
   if (draftTimer) clearTimeout(draftTimer);
+  if (drawTimer) clearTimeout(drawTimer);
 });
 </script>
 
@@ -1421,6 +1499,17 @@ onBeforeUnmount(() => {
   font-size: 9px;
   color: rgba(200, 215, 250, 0.45);
 }
+.hud__peace {
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #b9f6ca;
+  background: rgba(105, 240, 174, 0.1);
+  border: 1px solid rgba(105, 240, 174, 0.28);
+  white-space: nowrap;
+}
 .hud__turn {
   margin-left: auto;
   display: flex;
@@ -1598,17 +1687,31 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  max-height: 62px;
-  overflow: hidden;
-  padding: 6px 10px;
+  max-height: 96px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 7px 10px;
   border-radius: 10px;
-  background: rgba(0, 0, 0, 0.28);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 213, 79, 0.35) transparent;
+}
+.battle-log::-webkit-scrollbar {
+  width: 6px;
+}
+.battle-log::-webkit-scrollbar-thumb {
+  background: rgba(255, 213, 79, 0.3);
+  border-radius: 999px;
+}
+.battle-log::-webkit-scrollbar-track {
+  background: transparent;
 }
 .battle-log__line {
+  flex: 0 0 auto;
   margin: 0;
-  font-size: 10px;
-  color: rgba(210, 222, 255, 0.55);
+  font-size: 10.5px;
+  color: rgba(220, 230, 255, 0.66);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1661,6 +1764,63 @@ onBeforeUnmount(() => {
   background: #ffd54f;
   box-shadow: 0 0 12px #ffd54f;
   animation: blink 0.9s ease-in-out infinite;
+}
+
+/* 抽牌动画 */
+.draw-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 112px;
+  transform: translateX(-50%);
+  z-index: 35;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 18px 12px;
+  border-radius: 16px;
+  background:
+    linear-gradient(160deg, rgba(32, 43, 82, 0.96), rgba(9, 13, 27, 0.97));
+  border: 1px solid rgba(255, 213, 79, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(255, 213, 79, 0.1),
+    0 18px 44px rgba(0, 0, 0, 0.6),
+    0 0 34px rgba(255, 179, 0, 0.15);
+  pointer-events: none;
+}
+.draw-toast__label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: #ffe082;
+}
+.draw-toast__cards {
+  display: flex;
+  gap: 7px;
+  align-items: flex-end;
+}
+.draw-toast__card {
+  transform: scale(0.9);
+  transform-origin: bottom center;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.45);
+}
+.draw-pop-enter-active {
+  transition:
+    opacity 0.24s ease,
+    transform 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.3);
+}
+.draw-pop-leave-active {
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease;
+}
+.draw-pop-enter-from {
+  opacity: 0;
+  transform: translateX(-50%) translateY(34px) scale(0.72);
+}
+.draw-pop-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(14px) scale(0.92);
 }
 
 /* ════════════════ 结算 ════════════════ */
@@ -1837,11 +1997,11 @@ onBeforeUnmount(() => {
     margin-top: 6px;
   }
   .battle-log {
-    max-height: 46px;
-    padding: 4px 7px;
+    max-height: 76px;
+    padding: 5px 8px;
   }
   .battle-log__line {
-    font-size: 8px;
+    font-size: 9.5px;
   }
   .arena__center {
     padding: 2px 6px;
@@ -1862,6 +2022,14 @@ onBeforeUnmount(() => {
   }
   .result-title {
     letter-spacing: 0.14em;
+  }
+  .draw-toast {
+    bottom: 98px;
+    padding: 7px 12px 9px;
+    border-radius: 12px;
+  }
+  .draw-toast__card {
+    transform: scale(0.78);
   }
 }
 

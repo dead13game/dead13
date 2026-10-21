@@ -37,6 +37,7 @@ export default {
 
     ctx.deck.ensure(2);
     const cards = ctx.deck.draw(2).map((c) => ({ ...c, faceUp: false }));
+    ctx.drawEvent(cards, { kind: "venti", actorUid: player.uid });
     const total = cards[0].value + cards[1].value;
     player.resources.skillUses--;
 

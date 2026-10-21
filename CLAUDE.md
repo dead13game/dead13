@@ -97,7 +97,7 @@ graph TD
 | 经典对战 | `App.vue` gameMode               | `src/game/flow/commands.js` + `modes/classic.js` | 2-8 人扑克对战，选角色 + 天气                                                                                                                                                                         |
 | 世界杯   | `App.vue` wcStarted              | `src/game/worldCup.js` + `modes/match.js`        | 小组赛 A-H → 淘汰赛 R16/QF/SF/Final；常规 90 回合 + 加时 30；点球先得 5 分、每方抽 2 张                                                                                                              |
 | 联赛     | `App.vue` leagueStarted          | `src/game/league.js` + `modes/league.js`         | 10 支英超球队，tier 1-3（🏆争冠/⚔️欧战/🛡️保级）；每场 4 回合和平期；3V3 围攻/补给/名次积分；队标`public/team-badges/{teamId}.png`                                                               |
-| 3v3 团战 | `App.vue` gameMode='brawl'       | `src/game/modes/brawl.js` + `useBrawlController.js` | 双方各 3 英雄 + 5 塔（10 HP）；Ban/Pick 15 角色；5 回合复活；60 回合按拆塔/存活/总血量判定；AI/同屏双人；DOM 渲染；存档走 `dead13_save` |
+| 3v3 团战 | `App.vue` gameMode='brawl'       | `src/game/modes/brawl.js` + `useBrawlController.js` | 双方各 3 英雄 + 5 塔（10 HP）；前 4 回合和平期；Ban/Pick 15 角色；5 回合复活；60 回合按拆塔/存活/总血量判定；AI/同屏双人；DOM 渲染；存档走 `dead13_save` |
 | 单机     | `App.vue` gameMode='solo'        | `src/solo/logic/solo.js`                           | 技能卡肉鸽：章节爬塔/抽3选2/事件检定/商店营地（DOM 渲染）                                                                                                                                             |
 | 模拟宇宙 | `App.vue` gameMode='simuniverse' | `src/simuniverse/logic/uniState.js`                | PVE 无尽深渊：位面 1-10/11-30/31-60/61+ 循环；扑克牌普攻/防御/开大三选一；敌人模板行动；祝福/奇物/方程；商店/休整/造物调试台；存档 `dead13_uni_save`；设计文档 `docs/simuniverse-design.md`       |
 | 娱乐模式 | `App.vue` gameMode='dicewar'     | `src/game/diceWar.js` + `diceWarCommentator.js`  | 骰子战争世锦赛：16 人（原神8+崩铁8）随机配对淘汰；每局 30 轮先/后手各掷 2~12，每 10 轮段间对比，平局加赛；决赛七局四胜；每 10 轮 AI 解说（密钥存 `dead13_ai_settings`，浏览器直连 LLM，无本地兜底） |
@@ -122,7 +122,7 @@ STEP:     由 pending 派生 = pickAction / attackShowCard / skillPickTarget / g
 
 | 工具                    | 用途                                                                                                                        |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `npm run test`        | 440 条 vitest 测试（24 文件：core/flow/rules/modes/persistence/api + 差分回放 + TableLayout + 角色/团战 v3.5 + solo/uni×3 + diceWar），< 2s |
+| `npm run test`        | 443 条 vitest 测试（24 文件：core/flow/rules/modes/persistence/api + 差分回放 + TableLayout + 角色/团战 v3.5 + solo/uni×3 + diceWar），< 2s |
 | 手动跑 test             | 改`src/game/*` 后必须跑 `npm run test`（项目无自动 hook，靠自觉）                                                       |
 | `window.__PIXI_APP__` | 浏览器控制台访问 PIXI Application 内部状态                                                                                  |
 | `[game]` 日志         | `console.debug` 输出结构化 JSON，`window.__GAME_LOG_LEVEL__` 动态控制等级                                               |
@@ -260,6 +260,8 @@ v3.5 新增映射：`chorus`（沃雅妮莎领唱）、`attackStreak`（薇斯�
 - v3.5 世界杯淘汰后没有总结、还能继续下一轮 → 记录 `matchHistory`,淘汰/夺冠立即进 `tournamentSummary`,只能返回主菜单
 - v3.5 世界杯淘汰赛对手从全量池随机 → 按 R16/QF/SF/Final 名单抽取,并避开本届已交手球队
 - v3.5 新角色/单位相关:无人机、调查、领唱、风翔剑的规则实现(见 `docs/KNOWN_BUGS.md`)
+- v3.5 团战战报不可滚动 / 陷阱显示真实点数 / 摸牌不显示 → 战报可滚动并自动跟随；陷阱 UI 显示诱饵点数；`drawFeed` 抽牌动画 + 攻击牌明牌（AI 摸牌不公开）
+- v3.5 团战前 4 回合应为和平期 → `peaceRounds: 4`、`attackGate: "phase"`，塔群在和平期待命
 
 ## 开发日志系统
 

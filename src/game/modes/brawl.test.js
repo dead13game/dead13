@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { createSession } from "../api.js";
+import { createSession, dispatch } from "../api.js";
 import { createGameState } from "../flow/setup.js";
 import { createBrawlMode, initBrawlOrder } from "./brawl.js";
 import { createTowers, towersOf } from "../core/units.js";
@@ -26,13 +26,24 @@ function newBrawl(chars = [13, 14, 15, 16, 1, 2]) {
 }
 
 describe("3v3 团战 — 基础局面", () => {
-  it("6 英雄 + 每队 5 塔，开局即可攻击", () => {
+  it("6 英雄 + 每队 5 塔，开局进入 4 回合和平期", () => {
     const { state } = newBrawl();
     expect(state.players).toHaveLength(6);
     expect(towersOf(state, 0)).toHaveLength(5);
     expect(towersOf(state, 1)).toHaveLength(5);
-    expect(state.phase).toBe("normal");
+    expect(state.phase).toBe("peace");
+    expect(state.peaceRounds).toBe(4);
     expect(state.round).toBe(1);
+  });
+
+  it("前 4 回合禁止攻击，第 5 回合开战", () => {
+    const { state } = newBrawl();
+    expect(dispatch(state, { type: "attack" })).toBe(false);
+    state.round = 4;
+    expect(dispatch(state, { type: "attack" })).toBe(false);
+    state.round = 5;
+    state.phase = "normal";
+    expect(dispatch(state, { type: "attack" })).toBe(true);
   });
 
   it("行动顺序按当前 HP 升序，同血随机但 uid 稳定", () => {
@@ -48,12 +59,21 @@ describe("3v3 团战 — 基础局面", () => {
     expect(hps).toEqual([...hps].sort((a, b) => a - b));
   });
 
-  it("塔的回合伤害：5 座塔 → 敌方全体英雄 2 点", () => {
+  it("和平期塔群待命；开战后 5 座塔 → 敌方全体 2 点", () => {
     const { state, mode, ctx } = newBrawl();
-    const enemyBefore = state.players
+    const enemyBeforePeace = state.players
       .filter((p) => p.teamId === 1)
       .map((p) => p.hp);
     mode.onRoundEnd(ctx, 1);
+    expect(
+      state.players.filter((p) => p.teamId === 1).map((p) => p.hp),
+    ).toEqual(enemyBeforePeace);
+
+    state.phase = "normal";
+    const enemyBefore = state.players
+      .filter((p) => p.teamId === 1)
+      .map((p) => p.hp);
+    mode.onRoundEnd(ctx, 5);
     const enemyAfter = state.players
       .filter((p) => p.teamId === 1)
       .map((p) => p.hp);
@@ -64,13 +84,14 @@ describe("3v3 团战 — 基础局面", () => {
 
   it("塔数 <3 → 3 点伤害", () => {
     const { state, mode, ctx } = newBrawl();
+    state.phase = "normal";
     towersOf(state, 0).forEach((t, i) => {
       t.alive = i < 2;
     });
     const enemyBefore = state.players
       .filter((p) => p.teamId === 1)
       .map((p) => p.hp);
-    mode.onRoundEnd(ctx, 1);
+    mode.onRoundEnd(ctx, 5);
     const enemyAfter = state.players
       .filter((p) => p.teamId === 1)
       .map((p) => p.hp);
@@ -118,6 +139,7 @@ describe("3v3 团战 — 60 回合判定", () => {
     const { state, ctx, mode } = newBrawl();
     towersOf(state, 1)[0].alive = false;
     state.round = 60;
+    state.phase = "normal";
     mode.onRoundEnd(ctx, 60);
     expect(state.gameOver).toBe(true);
     expect(state.mode.info.result.winnerTeam).toBe(0);

@@ -32,6 +32,10 @@
 | VB-8 | 无同分时仍然进入 tournamentEnd 页面 | ✅ 已修 | 无同分：最终积分榜「返回主菜单」；有同分才开附加赛 |
 | VB-9 | 圣遗物在陷阱之后结算，与「总伤害比陷阱」规则冲突 | ✅ 已修 | `artifact.boost` 移入 `ATTACK_MODIFIERS`（陷阱前）；`POST_TRAP` 只剩围攻 |
 | VB-10 | 新角色/无人机/塔缺少统一目标与伤害入口 | ✅ 已修 | `core/units.js` + `ctx.units`；塔/无人机独立数组，不进 PIXI 经典牌桌 |
+| VB-11 | 团战战报栏不滚动，长局看不到最新日志 | ✅ 已修 | `battle-log` 固定高度 + `overflow-y:auto` + `flex:0 0 auto`；自动滚到最新一行 |
+| VB-12 | 团战没有和平期，第一回合就能攻击/塔就砸人 | ✅ 已修 | `peaceRounds: 4`、`attackGate:"phase"`；和平期塔群待命，第 5 回合开战 |
+| VB-13 | 团战陷阱显示真实陷阱点数 | ✅ 已修 | UI 改显示诱饵点数（`unit.bait.value`）；真实陷阱牌始终隐藏，塔/支援陷阱无诱饵显示「陷阱 ?」 |
+| VB-14 | 团战摸牌无动画、抽到的牌不显示 | ✅ 已修 | 新增 `drawFeed/drawSeq`；抽牌 toast 动画 + 团战攻击牌明牌；AI 摸牌不公开 |
 
 ### v3.5 新角色
 

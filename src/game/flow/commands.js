@@ -121,6 +121,7 @@ export function attack(ctx) {
     return false;
   }
   card.faceUp = false;
+  ctx.drawEvent([card], { kind: "attack", actorUid: player.uid });
 
   ctx.sound("attack");
   state.pendingAttackCard = card;
@@ -492,6 +493,7 @@ export function defense(ctx) {
   }
   card.value = card.value;
   card.faceUp = false;
+  ctx.drawEvent([card], { kind: "defense", actorUid: player.uid });
   ctx.sound("defense");
 
   const rules = state.mode?.rules ?? {};
@@ -583,6 +585,7 @@ export function defenseTarget(ctx, targetUid) {
 /** 防御后的角色钩子（沃雅妮莎领唱 / 砂狼白子无人机拿盾） */
 function runDefenseHooks(ctx, actor) {
   for (const hook of defenseHooks()) {
+    if (hook.id !== actor.characterId) continue;
     hook.run(ctx, actor);
   }
 }
@@ -614,6 +617,7 @@ export function gamble(ctx) {
   }
 
   ctx.sound("gamble");
+  ctx.drawEvent(drawn, { kind: "gamble", actorUid: player.uid });
   ctx.log(`${player.name} 执行赌命`);
   ctx.dev(
     CAT.GAMBLE,

@@ -64,8 +64,8 @@
         <span v-if="unit.defensePile?.length" class="chip chip--cards">
           {{ unit.defensePile.length }} 张
         </span>
-        <span v-if="unit.trap" class="chip chip--trap" title="陷阱">
-          {{ revealTrap ? `陷阱 ${unit.trap.value}` : "陷阱 ?" }}
+        <span v-if="unit.trap" class="chip chip--trap" title="显示诱饵点数，真正的陷阱牌隐藏">
+          陷阱 {{ unit.bait?.value ?? "?" }}
         </span>
         <span v-if="drone" class="chip chip--drone" title="无人机">
           🛸 {{ drone.hp }}HP
@@ -92,7 +92,6 @@ import { computed } from "vue";
 const props = defineProps({
   unit: { type: Object, required: true },
   charData: { type: Object, default: null },
-  revealTrap: { type: Boolean, default: false },
   current: { type: Boolean, default: false },
 });
 

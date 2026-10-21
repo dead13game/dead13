@@ -104,6 +104,7 @@
               v-else-if="pendingAttackCard"
               :key="'atk-' + pendingAttackCard.id"
               :card="pendingAttackCard"
+              :alwaysFaceUp="revealDraw"
               class="card-deck-fly"
             />
           </div>
@@ -403,6 +404,8 @@ const props = defineProps({
   state: { type: Object, required: true },
   disabled: { type: Boolean, default: false },
   leagueMode: { type: Boolean, default: false },
+  // 团战：摸到的攻击牌直接明牌展示（经典模式保留背面翻牌动画）
+  revealDraw: { type: Boolean, default: false },
 });
 
 const emit = defineEmits([

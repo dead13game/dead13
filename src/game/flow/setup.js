@@ -16,6 +16,9 @@ export function createGameState() {
     towers: [],
     summons: [],
     unitSeq: 0,
+    // v3.5：最近摸牌事件（只驱动 UI 抽牌动画，不入存档）
+    drawFeed: [],
+    drawSeq: 0,
     currentPlayerIndex: 0,
 
     phase: PHASE.SETUP,
@@ -90,6 +93,8 @@ export function initGame(state, options) {
   state.towers = [];
   state.summons = [];
   state.unitSeq = 0;
+  state.drawFeed = [];
+  state.drawSeq = 0;
   state.currentPlayerIndex = 0;
   state.phase = PHASE.SETUP;
   state.step = STEP.PICK_ACTION;

@@ -56,6 +56,9 @@ export function deserializeGameState(state, data, options = {}) {
   if (!Array.isArray(state.towers)) state.towers = [];
   if (!Array.isArray(state.summons)) state.summons = [];
   if (state.unitSeq === undefined) state.unitSeq = 0;
+  // 抽牌动画事件是运行时量，读档后清空
+  state.drawFeed = [];
+  state.drawSeq = 0;
 
   // 嵌套结构兜底:旧档可能缺 turn / pending
   if (!state.turn || typeof state.turn !== "object") {

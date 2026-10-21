@@ -114,6 +114,26 @@ describe("v3.5 橘雪梨 — 调查流程", () => {
 });
 
 describe("v3.5 团战 — 防御支援 / 陷阱支援", () => {
+  it("非沃雅妮莎防御不会误加「领唱」", () => {
+    const state = classic2p();
+    const actor = state.players[state.currentPlayerIndex];
+    dispatch(state, { type: "defense" });
+    expect(actor.char.chorus ?? 0).toBe(0);
+  });
+
+  it("摸牌会写入 drawFeed（供抽牌动画/明牌展示）", () => {
+    const state = classic2p();
+    state.deck = [
+      { id: "DRAW9", rank: "9", suit: "♦", value: 9, faceUp: false },
+    ];
+    expect(dispatch(state, { type: "attack" })).toBe(true);
+    expect(state.drawFeed.length).toBeGreaterThan(0);
+    const entry = state.drawFeed[state.drawFeed.length - 1];
+    expect(entry.kind).toBe("attack");
+    expect(entry.cards[0].rank).toBe("9");
+    expect(entry.cards[0].faceUp).toBe(true);
+  });
+
   it("防御支援可以把牌给队友或己方塔", () => {
     const { state } = brawl();
     const actor = state.players[state.currentPlayerIndex];
