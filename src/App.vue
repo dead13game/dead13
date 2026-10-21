@@ -4,7 +4,10 @@
 
   <Transition name="app-fade">
     <div class="app" v-if="!showOpening">
-      <header class="app__header">
+      <header
+        class="app__header"
+        :class="{ 'app__header--hidden': gameMode === 'brawl' }"
+      >
         <h1 class="app__title" @click="onTitleClick">亡命十三街</h1>
         <p class="app__subtitle">designed by Lynacine&made by myracler</p>
       </header>
@@ -61,6 +64,10 @@
           <button class="mode-btn mode-btn--solo" @click="selectMode('solo')">
             🧭 单机模式
             <span class="mode-btn__desc">技能卡肉鸽 · 章节爬塔</span>
+          </button>
+          <button class="mode-btn mode-btn--brawl" @click="selectMode('brawl')">
+            👥 3v3 团战
+            <span class="mode-btn__desc">推塔 · Ban/Pick · 60 回合</span>
           </button>
           <button
             v-if="uniHasSave"
@@ -213,6 +220,14 @@
         @saveAndQuit="handleLeagueSave"
       />
 
+      <!-- 3v3 团战 -->
+      <BrawlShell
+        v-else-if="gameMode === 'brawl'"
+        ref="brawlShellRef"
+        @restart="handleReset"
+        @saveAndQuit="handleBrawlSave"
+      />
+
       <!-- 规则说明弹窗 -->
       <Transition name="easter">
         <div
@@ -273,15 +288,21 @@
                 <li>前N回合为和平期（禁攻），N=人数</li>
                 <li>伤害计算：先-2再按联盟人数平分（向下取整）</li>
                 <li>联盟：2人结盟平摊伤害，可背叛</li>
-                <li>天气：每回合可能变化，影响全局</li>
+                <li>
+                  天气：按「烈日→暴雨→狂风→黑市→军备→晴朗」固定顺序轮换
+                </li>
+                <li>
+                  圣遗物：角斗士/乐团，发动后总伤害先乘倍数再与陷阱比大小
+                </li>
               </ul>
               <h3 class="rules-modal__section-title">胜负判定：</h3>
               <p>活到最后的人获胜。</p>
-              <h3 class="rules-modal__section-title">六个模式：</h3>
+              <h3 class="rules-modal__section-title">七个模式：</h3>
               <ul>
                 <li>经典对战——2-8人扑克对战，角色+天气+联盟</li>
                 <li>世界杯——小组赛+淘汰赛，1v1对战</li>
                 <li>联赛——10队双循环18轮，3v3球队对战</li>
+                <li>3v3 团战——双人各控3角色，推塔60回合</li>
                 <li>单机——技能卡肉鸽爬塔</li>
                 <li>模拟宇宙——PVE 无尽深渊</li>
                 <li>骰子战争——16人淘汰世锦赛</li>
@@ -398,6 +419,34 @@
               <p>18 轮后积分最高夺冠；若与对手同分，将与同分队打附加赛一决高下。</p>
             </div>
 
+            <!-- 3v3 团战页 -->
+            <div v-else-if="activeRulesTab === 'brawl'" class="rules-modal__content">
+              <p class="rules-modal__summary">
+                3v3 团战推塔：双方各操控 3 名角色、5 座塔，先拆光对面 5 座塔的一方获胜；60 回合内未分胜负按拆塔数、存活人数、总血量依次判定。
+              </p>
+              <h3 class="rules-modal__section-title">Ban/Pick：</h3>
+              <ul>
+                <li>15 名角色全部可选；双方各 Ban 2 人、各选 3 人，不能重复</li>
+                <li>顺序：蓝 Ban1 → 红 Ban2 → 蓝 Ban1；蓝选1 → 红选2 → 蓝选2 → 红选1</li>
+                <li>对手可选 AI（简单随机）或同屏双人</li>
+              </ul>
+              <h3 class="rules-modal__section-title">塔与回合：</h3>
+              <ul>
+                <li>每队 5 座塔，每座 10 点血，必须按 1→5 的顺序拆</li>
+                <li>塔可以被防御牌保护，也可以被放置陷阱</li>
+                <li>所有角色行动完后，己方塔群对敌方全体英雄与无人机造成伤害：≥3 座塔 2 点，<3 座塔 3 点</li>
+                <li>塔吃所有天气与围攻减半，但不吃劣势补偿</li>
+              </ul>
+              <h3 class="rules-modal__section-title">角色与支援：</h3>
+              <ul>
+                <li>每回合按当前血量从低到高行动；阵亡 5 回合后满状态复活，获得 3 张防御牌并在当回合第一个行动</li>
+                <li>防御/赌命可以支援自己、队友或己方塔（每回合一个目标）</li>
+                <li>攻击型技能可以指定敌方塔；钟离护盾可以给任意己方单位</li>
+                <li>围攻：同一目标本回合第 2 次起攻击伤害减半（塔也吃，无人机不吃）</li>
+                <li>劣势补偿：存活人数少的一方每人每回合获得人数差张防御牌（塔与无人机不算）</li>
+              </ul>
+            </div>
+
             <!-- 模拟宇宙页 -->
             <div v-else-if="activeRulesTab === 'simuniverse'" class="rules-modal__content">
               <p class="rules-modal__summary">
@@ -485,6 +534,7 @@ import GameSetup from "./components/GameSetup.vue";
 import WorldCupSetup from "./components/WorldCupSetup.vue";
 import WorldCupShell from "./components/WorldCupShell.vue";
 import LeagueShell from "./components/LeagueShell.vue";
+import BrawlShell from "./components/BrawlShell.vue";
 import SoloShell from "./solo/SoloShell.vue";
 import UniShell from "./simuniverse/UniShell.vue";
 import DiceWarShell from "./components/DiceWarShell.vue";
@@ -543,6 +593,9 @@ const wcShellRef = ref(null);
 const leagueStarted = ref(false);
 const leagueDifficulty = ref("skilled");
 const leagueShellRef = ref(null);
+
+// 3v3 团战
+const brawlShellRef = ref(null);
 
 // 存档检测
 const hasSave = ref(false);
@@ -736,6 +789,16 @@ function continueGame() {
         }
       }, 150);
     });
+  } else if (saveData.gameMode === "brawl") {
+    // 恢复 3v3 团战存档
+    gameMode.value = "brawl";
+    nextTick(() => {
+      setTimeout(() => {
+        if (brawlShellRef.value?.restoreBrawl) {
+          brawlShellRef.value.restoreBrawl(saveData);
+        }
+      }, 150);
+    });
   }
 }
 
@@ -745,6 +808,13 @@ function handleLeagueSave(saveData) {
   hasSave.value = true;
   gameMode.value = null;
   leagueStarted.value = false;
+}
+
+// 3v3 团战存档
+function handleBrawlSave(saveData) {
+  localStorage.setItem("dead13_save", JSON.stringify(saveData));
+  hasSave.value = true;
+  gameMode.value = null;
 }
 
 function startWorldCup() {
@@ -779,6 +849,9 @@ function handleReset() {
     leagueStarted.value = false;
     gameMode.value = null;
     hasSave.value = !!localStorage.getItem("dead13_save");
+  } else if (gameMode.value === "brawl") {
+    gameMode.value = null;
+    hasSave.value = !!localStorage.getItem("dead13_save");
   } else {
     originalResetGame();
   }
@@ -797,6 +870,7 @@ const rulesTabList = [
   { id: "solo", label: "单机" },
   { id: "worldcup", label: "世界杯" },
   { id: "league", label: "联赛" },
+  { id: "brawl", label: "3v3 团战" },
   { id: "simuniverse", label: "模拟宇宙" },
   { id: "dicewar", label: "骰子战争" },
 ];
@@ -884,6 +958,9 @@ body {
 .app__header {
   text-align: center;
   padding: 24px 16px 8px;
+}
+.app__header--hidden {
+  display: none;
 }
 .app__title {
   font-size: 32px;

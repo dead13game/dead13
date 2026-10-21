@@ -18,6 +18,46 @@
 | KB-11 | 换人后角色私有状态(斗志/月相)残留 | ✅ 已修 | 换人时 `player.char = structuredClone(characterStateOf(newId))` |
 | KB-12 | 点球需要手动把 `matchOver` 改回 false 才能推进 | ✅ 已修 | `executePenaltyRound` 不再依赖 `matchOver` |
 
+## v3.5 修复与新增（2026-10）
+
+| ID | 现象 | 状态 | 修复方式 |
+| --- | --- | --- | --- |
+| VB-1 | 经典/世界杯天气随机洗牌，无法预期 | ✅ 已修 | 固定 6 天气循环：烈日→暴雨→狂风→黑市→军备→晴朗；联赛同步开启 |
+| VB-2 | 世界杯淘汰赛对手从全量池随机 | ✅ 已修 | R16/QF/SF+Final 三份名单；避开本届已交手球队 |
+| VB-3 | 世界杯淘汰后没有总结，总结后还能继续下一轮 | ✅ 已修 | `matchHistory` 记录整届战绩；出局/夺冠立即进 `tournamentSummary`，仅返回主菜单 |
+| VB-4 | 联赛本轮结果全部显示「胜」，没有主客场 | ✅ 已修 | `主队（主） 胜/负/平 客队（客）` |
+| VB-5 | 联赛积分榜顶部轮次总是少一轮 | ✅ 已修 | `countPlayedRounds` 统计玩家实际已赛轮次 |
+| VB-6 | 联赛 `currentRound` / `_currentRound` 不同步，18 轮后仍进 draft | ✅ 已修 | 两字段同步；`isLeagueFinished` 兼容两个字段 |
+| VB-7 | 附加赛选完人后点不动 | ✅ 已修 | `startMatchWithDraft` 在 `_isTiebreaker` 时走 `startTiebreakerMatch` |
+| VB-8 | 无同分时仍然进入 tournamentEnd 页面 | ✅ 已修 | 无同分：最终积分榜「返回主菜单」；有同分才开附加赛 |
+| VB-9 | 圣遗物在陷阱之后结算，与「总伤害比陷阱」规则冲突 | ✅ 已修 | `artifact.boost` 移入 `ATTACK_MODIFIERS`（陷阱前）；`POST_TRAP` 只剩围攻 |
+| VB-10 | 新角色/无人机/塔缺少统一目标与伤害入口 | ✅ 已修 | `core/units.js` + `ctx.units`；塔/无人机独立数组，不进 PIXI 经典牌桌 |
+
+### v3.5 新角色
+
+| id | 角色 | 机制 |
+| --- | --- | --- |
+| 13 | 砂狼白子 | 主动 2 次部署无人机（5 HP / 3 伤害 / 无陷阱 / 吃天气圣遗物）；召唤当回合不能做别的；主人阵亡一起消失 |
+| 14 | 菊雪梨 | 普攻变「调查」：猜陷阱点数，猜中拆陷阱 + 20 伤害；猜错无事；无陷阱则 7 点普攻 |
+| 15 | 沃雅妮莎 | 防御 +1 领唱；自己的防御牌被击破 +1；主动消耗全部（单次≤20）每层 1 伤害 |
+| 16 | 薇斯纳 | 连续攻击第 3/4/5+ 次 ×1.5/×2/×3（保底 10/15/20）；非攻击操作/冻结中断 |
+
+### v3.5 团战
+
+- 新增 `modes/brawl.js`、`BrawlShell.vue`、`useBrawlController.js`；6 英雄 + 每队 5 塔、5 回合复活、60 回合判定、防御/陷阱支援、劣势补给。
+- 塔：必须按 1→5 拆；己方塔 ≥3 → 2 点 / <3 → 3 点，打敌方全体英雄+无人机；塔吃天气与围攻减半，不吃劣势补给。
+- AI：团战只保留简单随机 AI（用户要求暂时取消熟练/地狱）。
+
+### 回归测试索引（v3.5）
+
+| 问题 | 测试 |
+| --- | --- |
+| 天气 / 圣遗物乘区 / 新角色 / 防御与陷阱支援 | `src/game/characters/v35.test.js`、`src/game/flow/v35-flow.test.js`、`src/game/rules/rules.test.js` |
+| 世界杯名单与积分 | `src/game/worldCup.test.js` |
+| 联赛轮次/同分/附加赛 | `src/game/league.test.js`、`src/composables/useLeagueController.test.js` |
+| 团战塔/复活/60 回合 | `src/game/modes/brawl.test.js` |
+| 团战 Ban/Pick/存档 | `src/composables/useBrawlController.test.js` |
+
 ## 回归测试索引
 
 | 问题 | 测试 |
