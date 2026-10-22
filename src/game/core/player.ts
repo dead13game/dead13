@@ -11,10 +11,24 @@
 //
 // 不变量:JSON.stringify(player) 后 parse 回来,行为必须一致。
 
+import type { CharState, GameState, Player } from "../types.js";
+
+/** createPlayer 只读这几个字段，因此不要求完整的 CharacterMeta（测试可传子集） */
+export interface CreatePlayerMeta {
+  hp: number;
+  maxUses?: number;
+  loadMaxUses?: number;
+  holyWordUses?: number;
+}
+
+/** 查询函数只需要这两个字段，测试可传最小 state */
+type PlayerQueryState = Pick<GameState, "players">;
+type CurrentQueryState = Pick<GameState, "players" | "currentPlayerIndex">;
+
 export const PLAYER_VERSION = 4;
 
 /** 一份全新的 player 默认值(深拷贝,数组/对象每次新建) */
-export function createPlayerDefaults() {
+export function createPlayerDefaults(): Player {
   return {
     uid: 0,
     index: 0,
@@ -70,14 +84,10 @@ export function createPlayerDefaults() {
 
 /**
  * 创建玩家。
- * @param {object} args
- * @param {number} args.uid        稳定身份(重排/读档不变)
- * @param {number} args.index      渲染序(会按 speed 重排)
- * @param {number} args.characterId
- * @param {object} args.meta       角色静态数据 { hp, maxUses, loadMaxUses }
- * @param {string} [args.name]
- * @param {number} [args.teamId]
- * @param {object} [args.charState] 角色私有状态初值(来自角色 stateSchema)
+ * @param args.uid        稳定身份(重排/读档不变)
+ * @param args.index      渲染序(会按 speed 重排)
+ * @param args.meta       角色静态数据 { hp, maxUses, loadMaxUses }
+ * @param args.charState  角色私有状态初值(来自角色 stateSchema)
  */
 export function createPlayer({
   uid,
@@ -87,7 +97,15 @@ export function createPlayer({
   name,
   teamId,
   charState,
-}) {
+}: {
+  uid: number;
+  index: number;
+  characterId: number;
+  meta: CreatePlayerMeta;
+  name?: string;
+  teamId?: number;
+  charState?: CharState;
+}): Player {
   const p = createPlayerDefaults();
   p.uid = uid;
   p.index = index;
@@ -104,20 +122,23 @@ export function createPlayer({
 }
 
 /** 按 characterId 找玩家(注意:不是身份,uid 才是) */
-export function playerByUid(state, uid) {
+export function playerByUid(state: PlayerQueryState, uid: number): Player | null {
   return state.players.find((p) => p.uid === uid) ?? null;
 }
 
 /** 按渲染序找玩家 */
-export function playerByIndex(state, index) {
+export function playerByIndex(
+  state: PlayerQueryState,
+  index: number,
+): Player | null {
   return state.players.find((p) => p.index === index) ?? null;
 }
 
-export function alivePlayers(state) {
+export function alivePlayers(state: PlayerQueryState): Player[] {
   return state.players.filter((p) => p.alive);
 }
 
 /** 当前行动者 */
-export function currentPlayer(state) {
+export function currentPlayer(state: CurrentQueryState): Player | null {
   return state.players[state.currentPlayerIndex] ?? null;
 }

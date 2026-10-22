@@ -2,8 +2,21 @@
 // 拆出来的唯一目的：让测试能用「反例」证明护栏真的会报错——
 // 一条永远绿的护栏比没有护栏更坏，因为它会制造虚假安全感。
 
+/** 一条扫描规则 */
+export interface ScanRule {
+  name: string;
+  re: RegExp;
+}
+
+/** 命中项 */
+export interface ScanHit {
+  rule: string;
+  line: number;
+  text: string;
+}
+
 /** src/game 不得引用的前端框架包 */
-export const FRAMEWORK_IMPORTS = [
+export const FRAMEWORK_IMPORTS: ScanRule[] = [
   { name: "vue", re: /\bfrom\s+["']vue["']/ },
   { name: "pixi", re: /\bfrom\s+["']@?pixi[^"']*["']/ },
   { name: "gsap", re: /\bfrom\s+["']gsap[^"']*["']/ },
@@ -14,7 +27,7 @@ export const FRAMEWORK_IMPORTS = [
  * 例外：window.__GAME_LOG_LEVEL__（gameLogger.js 的调试开关，见 CLAUDE.md 调试工具），
  * 所以这里不拦裸 window，只拦明确属于渲染层的入口。
  */
-export const HOST_APIS = [
+export const HOST_APIS: ScanRule[] = [
   { name: "document", re: /\bdocument\./ },
   { name: "localStorage", re: /\blocalStorage\b/ },
   { name: "sessionStorage", re: /\bsessionStorage\b/ },
@@ -28,13 +41,13 @@ export const HOST_APIS = [
  * index 是渲染序、uid 是身份，两者的大小范围重叠，uid 优先就会把敌人解析成自己。
  * 唯一裁决处：src/game/core/units.js → unitByIndexOrUid()（index 优先，uid 兜底）。
  */
-export const UID_FIRST_LOOKUP = [
+export const UID_FIRST_LOOKUP: ScanRule[] = [
   { name: "uid-first-find", re: /\.find\(\s*\(?\w+\)?\s*=>\s*\w+\.uid\s*===/ },
 ];
 
 /** 逐行扫描，返回命中项（含行号，便于直接指出修复位置） */
-export function scan(source, rules) {
-  const hits = [];
+export function scan(source: string, rules: ScanRule[]): ScanHit[] {
+  const hits: ScanHit[] = [];
   source.split("\n").forEach((line, i) => {
     for (const rule of rules) {
       if (rule.re.test(line)) {

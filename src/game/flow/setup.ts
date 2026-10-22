@@ -7,9 +7,10 @@ import { CAT } from "../core/log.js";
 import { createRng } from "../core/rng.js";
 import { setupWeatherDeck } from "../rules/weather.js";
 import { characterStateFor, CHARACTERS } from "../characters/index.js";
+import type { GameState, ModeAdapter, Rng } from "../types.js";
 
 /** 全新的空局面(纯数据,可 JSON 化) */
-export function createGameState() {
+export function createGameState(): GameState {
   return {
     players: [],
     // v3.5：团战防御塔与召唤物与角色分开放，经典模式的 PIXI/AI 只看到英雄
@@ -57,22 +58,29 @@ export function createGameState() {
   };
 }
 
-/**
- * 初始化一局。
- * @param {object} state
- * @param {object} options
- * @param {number[]} options.chars     角色 id 列表(按座次)
- * @param {boolean} [options.weather]  是否启用天气
- * @param {number} [options.startRound]
- * @param {number} [options.deckCount] 牌库副数
- * @param {number[]} [options.teamIds] 与 chars 对齐的队伍 id
- * @param {object} options.mode        模式 adapter(提供 rules 与生命周期)
- * @param {object} [options.rng]
- * @param {boolean} [options.keepLog]      保留 messageLog(1v1 每条命重开用)
- * @param {boolean} [options.forcePeace]   强制从和平期开始(即使 startRound 很大)
- * @param {number} [options.peaceStartRound] 和平期起点(默认 0)
- */
-export function initGame(state, options) {
+export interface InitGameOptions {
+  /** 角色 id 列表(按座次) */
+  chars: number[];
+  /** 是否启用天气 */
+  weather?: boolean;
+  startRound?: number;
+  /** 牌库副数 */
+  deckCount?: number;
+  /** 与 chars 对齐的队伍 id */
+  teamIds?: number[] | null;
+  /** 模式 adapter(提供 rules 与生命周期) */
+  mode: ModeAdapter | null;
+  rng?: Rng;
+  /** 保留 messageLog(1v1 每条命重开用) */
+  keepLog?: boolean;
+  /** 强制从和平期开始(即使 startRound 很大) */
+  forcePeace?: boolean;
+  /** 和平期起点(默认 0) */
+  peaceStartRound?: number;
+}
+
+/** 初始化一局 */
+export function initGame(state: GameState, options: InitGameOptions): GameState {
   const {
     chars,
     weather = false,

@@ -23,7 +23,7 @@ describe("core/cards", () => {
     const deck = createDeck();
     expect(deck).toHaveLength(52);
     expect(new Set(deck.map((c) => c.id)).size).toBe(52);
-    expect(deck.find((c) => c.id === "♠-K").value).toBe(13);
+    expect(deck.find((c) => c.id === "♠-K")?.value).toBe(13);
   });
 
   it("两副牌 104 张", () => {
@@ -137,9 +137,9 @@ describe("core/player", () => {
         createPlayer({ uid: 11, index: 0, characterId: 2, meta, name: "B" }),
       ],
     };
-    expect(playerByUid(state, 11).name).toBe("B");
-    expect(playerByIndex(state, 1).uid).toBe(10);
-    expect(currentPlayer(state).uid).toBe(10);
+    expect(playerByUid(state, 11)?.name).toBe("B");
+    expect(playerByIndex(state, 1)?.uid).toBe(10);
+    expect(currentPlayer(state)?.uid).toBe(10);
     expect(alivePlayers(state)).toHaveLength(2);
   });
 });

@@ -4,7 +4,9 @@
 // UI 模板( ActionBar 的 v-if )、动画桥接( watch step )都靠这些字面量。
 // 新内核把 step 变成「pending 的派生量」(见 flow/pending.js),但对外字符串不变。
 
-export const SUITS = ["♠", "♥", "♦", "♣"];
+import type { Rank, Suit } from "../types.js";
+
+export const SUITS = ["♠", "♥", "♦", "♣"] as const satisfies readonly Suit[];
 
 export const RANKS = [
   "A",
@@ -20,9 +22,9 @@ export const RANKS = [
   "J",
   "Q",
   "K",
-];
+] as const satisfies readonly Rank[];
 
-export const RANK_VALUES = {
+export const RANK_VALUES: Record<Rank, number> = {
   A: 1,
   2: 2,
   3: 3,
@@ -43,7 +45,7 @@ export const PHASE = {
   PEACE: "peace",
   NORMAL: "normal",
   GAME_OVER: "gameOver",
-};
+} as const;
 
 export const STEP = {
   PICK_ACTION: "pickAction",
@@ -56,6 +58,6 @@ export const STEP = {
   CAIYUEANG_PICK: "caiyueangPick",
   ALLY_PICK: "allyPick",
   ANIMATING: "animating",
-};
+} as const;
 
 export const MOON_NAMES = ["弦月", "满月", "新月"];

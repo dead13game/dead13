@@ -1,0 +1,45 @@
+{
+  "compilerOptions": {
+    // ── 语言目标 ──
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+
+    // ── 类型检查强度（终点：全量 strict，禁止裸 any）──
+    "strict": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // ── 构建 / 模块语义 ──
+    // Vite 用 esbuild 逐文件转译，isolatedModules 保证每个文件的类型语法都能被单独擦除；
+    // 代价是 re-export 纯类型必须写 `export type`（迁移中会顺手补上）。
+    "isolatedModules": true,
+    // 强制 import type：类型导入必须显式标记，杜绝「类型被当成运行时导入」导致的白屏
+    "verbatimModuleSyntax": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+
+    // ── 全局环境类型 ──
+    // vite/client: import.meta.env；node: 测试里读文件与 import.meta.url
+    "types": ["vite/client", "node"],
+
+    // ── 迁移过渡开关（Phase 4 收口时置 false）──
+    // 未迁移的 .js 允许被 .ts 引用，但不对其正文做类型检查
+    "allowJs": true,
+    "checkJs": false
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts",
+    "src/**/*.vue",
+    "src/**/*.js",
+    "vite.config.js",
+    "vitest.config.js",
+    "scripts/**/*.mjs"
+  ],
+  "exclude": ["node_modules", "dist", "src-tauri", "godot", "update_log"]
+}

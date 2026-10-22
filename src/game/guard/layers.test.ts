@@ -3,23 +3,29 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { scan, FRAMEWORK_IMPORTS, HOST_APIS } from "./scan.js";
+import type { ScanHit } from "./scan.js";
 
 // 本文件位于 src/game/guard/，故 ../ 就是 src/game/
 const GAME_DIR = fileURLToPath(new URL("../", import.meta.url));
 
 /** 递归收集 src/game 下的非测试源码（跳过 guard/ 自身：它定义规则字面量） */
-function collect(dir = GAME_DIR, acc = []) {
+// JS→TS 迁移期两种扩展名并存，都必须被护栏扫到；只认 .js 会让迁移后的文件静默逃检。
+const SOURCE_EXTS = [".ts", ".js"];
+const TEST_FILE_RE = /\.test\.[jt]s$/;
+
+function collect(dir: string = GAME_DIR, acc: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) {
       if (entry === "guard") continue;
       collect(full, acc);
-    } else if (entry.endsWith(".js") && !entry.endsWith(".test.js")) acc.push(full);
+    } else if (SOURCE_EXTS.some((ext) => entry.endsWith(ext)) && !TEST_FILE_RE.test(entry))
+      acc.push(full);
   }
   return acc;
 }
 
-function assertClean(label, file, hits) {
+function assertClean(label: string, file: string, hits: ScanHit[]): void {
   if (hits.length === 0) return;
   const detail = hits
     .map((h) => `  ${file}:${h.line}  [${h.rule}]  ${h.text}`)

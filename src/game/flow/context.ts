@@ -23,14 +23,31 @@ import {
   unitByUid,
 } from "../core/units.js";
 import { clearPending, setPending } from "./pending.js";
+import type {
+  Card,
+  Ctx,
+  DrawEventMeta,
+  GameLogger,
+  GameState,
+  ModeAdapter,
+  Pending,
+  Rng,
+  TurnEngine,
+} from "../types.js";
 
 const SOUND_QUEUE_LIMIT = 32;
 
-export function createContext(state, deps = {}) {
+export interface ContextDeps {
+  rng?: Rng;
+  logger?: GameLogger | null;
+  mode?: ModeAdapter | null;
+}
+
+export function createContext(state: GameState, deps: ContextDeps = {}): Ctx {
   const rng = deps.rng ?? createRng();
   const logger = deps.logger ?? state.devLog ?? null;
 
-  const ctx = {
+  const ctx: Ctx = {
     state,
     rng,
 
@@ -212,7 +229,7 @@ export function createContext(state, deps = {}) {
   return ctx;
 }
 
-function requireEngine(ctx) {
+function requireEngine(ctx: Ctx): TurnEngine {
   if (!ctx.engine) {
     throw new Error(
       "ctx.turn 尚未接线:请在创建 context 后调用 attachEngine(flow/turn.js)",

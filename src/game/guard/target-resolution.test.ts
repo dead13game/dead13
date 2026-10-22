@@ -4,7 +4,8 @@ import { fileURLToPath } from "node:url";
 import { scan, UID_FIRST_LOOKUP } from "./scan.js";
 import { unitByIndexOrUid } from "../core/units.js";
 
-const read = (rel) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
+const read = (rel: string) =>
+  readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
 
 describe("G2 目标解析：index/uid 只有一处裁决", () => {
   it("core/units.js 导出 unitByIndexOrUid", () => {
