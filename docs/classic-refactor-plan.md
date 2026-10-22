@@ -177,7 +177,7 @@ npx vitest run src/game/testing/next-replay.test.js   # 旧基线命令回放 30
 | `src/game/flow/context.js` | 显式 ctx(日志/音效/牌堆/玩家/turn 接线) |
 | `src/game/flow/pending.js` | 决策模型 + step 派生 |
 | `src/game/flow/turn.js` | 回合引擎(pass/extra/suspend/resync) |
-| `src/game/flow/commands.js` | 全部命令(攻击/防御/赌命/技能/结盟/圣言/取消) |
+| `src/game/flow/commands/` | 命令族分包：`attack` / `defense` / `gamble` / `skill` / `ally` / `misc` / `query` + `index.js` 分发器；`commands.js` 只是 re-export 门面 |
 | `src/game/flow/setup.js` | 局面创建与初始化 |
 | `src/game/modes/*.js` | classic / match / league / worldcup / brawl 适配器 |
 | `src/game/modes/brawl.js` | 3v3 团战：塔行动/复活/劣势补给/60 回合判定 |
