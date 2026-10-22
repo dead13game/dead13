@@ -45,19 +45,31 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import TeamBadge from "./TeamBadge.vue";
 
-defineProps({
-  round: { type: Number, required: true },
-  matchResults: { type: Array, required: true },
-  // matchResults: [{ homeTeamId, homeName, awayTeamId, awayName, result: 'home'|'away'|'draw', isPlayer }]
-  isLastRound: { type: Boolean, default: false },
-});
+/** 本轮一场比赛的展示数据（由 useLeagueController.buildRoundResults 产出） */
+interface RoundMatchResult {
+  homeTeamId: number;
+  homeName: string;
+  awayTeamId: number;
+  awayName: string;
+  /** 'home' | 'draw' | 'away'；无结果时为 '?' */
+  result: string;
+  isPlayer: boolean;
+}
 
-defineEmits(["continue", "viewStandings"]);
+interface Props {
+  round: number;
+  matchResults: RoundMatchResult[];
+  isLastRound?: boolean;
+}
 
-function resultLabel(result) {
+withDefaults(defineProps<Props>(), { isLastRound: false });
+
+defineEmits<{ (e: "continue"): void; (e: "viewStandings"): void }>();
+
+function resultLabel(result: string): string {
   // 以主队视角显示：主胜=胜 / 客胜=负 / 平
   switch (result) {
     case "home":

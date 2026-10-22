@@ -9,6 +9,11 @@ import {
   getCharacter,
 } from "../game/characters/index.js";
 import { recordSound } from "../game/soundEvents.js";
+import type {
+  BrawlModeRuntime,
+  BrawlResult,
+} from "../game/modes/brawl.js";
+import type { Ctx, GameState } from "../game/types.js";
 
 export const BRAWL_CONFIG = {
   maxRounds: 60,
@@ -18,8 +23,14 @@ export const BRAWL_CONFIG = {
   towerCount: 5,
 };
 
+/** Ban/Pick 的一组操作 */
+export interface DraftStep {
+  side: 0 | 1;
+  type: "ban" | "pick";
+}
+
 /** Ban/Pick 顺序：A ban1 → B ban2 → A ban1；A pick1 → B pick2 → A pick2 → B pick1 */
-export const DRAFT_SEQUENCE = [
+export const DRAFT_SEQUENCE: DraftStep[] = [
   { side: 0, type: "ban" },
   { side: 1, type: "ban" },
   { side: 1, type: "ban" },
@@ -32,7 +43,26 @@ export const DRAFT_SEQUENCE = [
   { side: 1, type: "pick" },
 ];
 
-function defaultSetup() {
+/** 团战开局设置（UI 双向绑定） */
+export interface BrawlSetup {
+  opponentMode: "ai" | "hotseat";
+  weather: boolean;
+  playerName: string;
+  opponentName: string;
+  artifacts: {
+    player: (number | null)[];
+    opponent: (number | null)[];
+  };
+}
+
+/** Ban/Pick 进度 */
+export interface BrawlDraft {
+  stepIndex: number;
+  bans: number[];
+  picks: { 0: number[]; 1: number[] };
+}
+
+function defaultSetup(): BrawlSetup {
   return {
     opponentMode: "ai", // 'ai' | 'hotseat'
     weather: true,
@@ -45,7 +75,7 @@ function defaultSetup() {
   };
 }
 
-function defaultDraft() {
+function defaultDraft(): BrawlDraft {
   return {
     stepIndex: 0,
     bans: [],
@@ -53,14 +83,31 @@ function defaultDraft() {
   };
 }
 
+/** 外部存档是 JSON：先收窄成普通对象再用 */
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return v !== null && typeof v === "object" && !Array.isArray(v);
+}
+
+/** 从存档里取数字数组（含非数字时按迁移前的 `bans || []` 兜底） */
+function nums(v: unknown): number[] {
+  return Array.isArray(v) ? v.filter((x): x is number => typeof x === "number") : [];
+}
+
+/** 从存档里取数字（对应迁移前的 `?? 0`） */
+function num(v: unknown, fallback: number): number {
+  return typeof v === "number" ? v : fallback;
+}
+
 export function useBrawlController() {
-  const gameState = reactive(createGameState());
+  const gameState = reactive<GameState>(createGameState());
   const uiMode = ref("setup"); // setup | draft | match | result
-  const setup = reactive(defaultSetup());
-  const draft = reactive(defaultDraft());
+  const setup = reactive<BrawlSetup>(defaultSetup());
+  const draft = reactive<BrawlDraft>(defaultDraft());
   const aiDifficulty = ref("easy"); // v3.5 团战只保留简单随机 AI
 
-  let gameCtx = null;
+  let gameCtx: Ctx | null = null;
+  // 团战 adapter 的 info 运行时是数据对象（见 modes/brawl.ts 的 BrawlModeRuntime）
+  let brawlRuntime: BrawlModeRuntime | null = null;
 
   const allCharIds = computed(() => selectableIds());
   const bannedIds = computed(() => [...draft.bans]);
@@ -70,7 +117,7 @@ export function useBrawlController() {
       (id) => !bannedIds.value.includes(id) && !pickedIds.value.includes(id),
     ),
   );
-  const currentDraftStep = computed(
+  const currentDraftStep = computed<DraftStep | null>(
     () => DRAFT_SEQUENCE[draft.stepIndex] ?? null,
   );
   const draftFinished = computed(() => draft.stepIndex >= DRAFT_SEQUENCE.length);
@@ -80,15 +127,16 @@ export function useBrawlController() {
   const opponentTeamName = computed(() =>
     setup.opponentMode === "hotseat" ? "红方" : setup.opponentName || "红方",
   );
-  const result = computed(() => gameState.mode?.info?.result ?? null);
+  const result = computed<BrawlResult | null>(
+    () => brawlRuntime?.info.result ?? null,
+  );
 
   /** 当前 Ban/Pick 是否轮到 AI（AI 模式下只替对手操作） */
   const isAiDraftTurn = computed(
-    () =>
-      setup.opponentMode === "ai" && currentDraftStep.value?.side === 1,
+    () => setup.opponentMode === "ai" && currentDraftStep.value?.side === 1,
   );
 
-  function initSetup(patch = {}) {
+  function initSetup(patch: Partial<BrawlSetup> = {}) {
     Object.assign(setup, defaultSetup(), patch);
     Object.assign(draft, defaultDraft());
     uiMode.value = "setup";
@@ -100,7 +148,7 @@ export function useBrawlController() {
   }
 
   /** 执行一次 ban/pick；返回是否成功 */
-  function draftAction(charId) {
+  function draftAction(charId: number): boolean {
     const step = currentDraftStep.value;
     if (!step) return false;
     if (!availableIds.value.includes(charId)) return false;
@@ -119,7 +167,7 @@ export function useBrawlController() {
   }
 
   /** AI 自动 ban/pick（简单随机） */
-  function aiDraftAction() {
+  function aiDraftAction(): boolean {
     const step = currentDraftStep.value;
     if (!step || step.side !== 1) return false;
     const pool = availableIds.value;
@@ -129,7 +177,7 @@ export function useBrawlController() {
   }
 
   /** 选人结束 → 建立团战局面 */
-  function startMatch() {
+  function startMatch(): boolean {
     if (!draftFinished.value) return false;
     const playerPicks = draft.picks[0].slice(0, BRAWL_CONFIG.teamSize);
     const opponentPicks = draft.picks[1].slice(0, BRAWL_CONFIG.teamSize);
@@ -146,7 +194,7 @@ export function useBrawlController() {
       playerTeamId: 0,
     });
 
-    createSession({
+    const { ctx } = createSession({
       state: gameState,
       chars: [...playerPicks, ...opponentPicks],
       weather: !!setup.weather,
@@ -155,21 +203,22 @@ export function useBrawlController() {
       teamIds: [0, 0, 0, 1, 1, 1],
       mode,
     });
-    gameCtx = getCtx(gameState);
+    gameCtx = ctx;
+    brawlRuntime = mode as BrawlModeRuntime;
 
     createTowers(gameState, [0, 1]);
     gameState.towers.forEach((t) => {
       t.name = `${t.teamId === 0 ? "蓝方" : "红方"}${t.towerIndex}号塔`;
     });
 
-    const nameOf = (side, charId) => {
+    const nameOf = (side: number, charId: number) => {
       const team = side === 0 ? playerTeamName.value : opponentTeamName.value;
       return `${team}·${CHARACTERS[charId]?.name ?? "?"}`;
     };
-    const artifactOf = (side, slot) =>
+    const artifactOf = (side: number, slot: number): number | null =>
       side === 0
-        ? setup.artifacts.player[slot] ?? null
-        : setup.artifacts.opponent[slot] ?? null;
+        ? (setup.artifacts.player[slot] ?? null)
+        : (setup.artifacts.opponent[slot] ?? null);
 
     gameState.players.forEach((p) => {
       const side = p.teamId === 0 ? 0 : 1;
@@ -188,13 +237,13 @@ export function useBrawlController() {
       }
     });
 
-    initBrawlOrder(gameCtx);
+    initBrawlOrder(ctx);
     uiMode.value = "match";
     return true;
   }
 
   /** 从游戏结束状态回到结果页 */
-  function checkResult() {
+  function checkResult(): boolean {
     if (gameState.gameOver) {
       recordSound(gameState, "match_end");
       uiMode.value = "result";
@@ -227,31 +276,37 @@ export function useBrawlController() {
     };
   }
 
-  function restoreBrawl(saveData) {
+  function restoreBrawl(saveData: unknown): boolean {
     if (!saveData) return false;
-    if (saveData.brawlSetup) {
-      Object.assign(setup, defaultSetup(), saveData.brawlSetup);
+    const data = isRecord(saveData) ? saveData : {};
+
+    const setupData = data.brawlSetup;
+    if (isRecord(setupData)) {
+      Object.assign(setup, defaultSetup(), setupData);
     }
-    if (saveData.brawlDraft) {
-      draft.stepIndex = saveData.brawlDraft.stepIndex ?? 0;
-      draft.bans = [...(saveData.brawlDraft.bans || [])];
+    const draftData = data.brawlDraft;
+    if (isRecord(draftData)) {
+      draft.stepIndex = num(draftData.stepIndex, 0);
+      draft.bans = nums(draftData.bans);
+      const picks = isRecord(draftData.picks) ? draftData.picks : {};
       draft.picks = {
-        0: [...(saveData.brawlDraft.picks?.[0] || [])],
-        1: [...(saveData.brawlDraft.picks?.[1] || [])],
+        0: nums(picks[0]),
+        1: nums(picks[1]),
       };
     }
 
-    if (saveData.gameState) {
+    if (data.gameState) {
       const mode = createBrawlMode({
         maxRounds: BRAWL_CONFIG.maxRounds,
         respawnRounds: BRAWL_CONFIG.respawnRounds,
         playerTeamId: 0,
       });
-      const ok = load(gameState, saveData.gameState, {
+      const ok = load(gameState, data.gameState, {
         modeFactory: () => mode,
       });
       if (!ok) return false;
       gameCtx = getCtx(gameState);
+      brawlRuntime = mode as BrawlModeRuntime;
       // 读档后补回 AI 标记（旧档可能缺）
       if (setup.opponentMode === "ai") {
         gameState.players.forEach((p) => {
@@ -265,8 +320,7 @@ export function useBrawlController() {
       return true;
     }
 
-    uiMode.value =
-      saveData.uiMode === "draft" ? "draft" : "setup";
+    uiMode.value = data.uiMode === "draft" ? "draft" : "setup";
     return true;
   }
 

@@ -42,25 +42,45 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from "vue";
 import { MATCH_CONFIG } from "../game/worldCupConstants.js";
 
-const props = defineProps({
-  playerName: { type: String, default: "玩家" },
-  opponentName: { type: String, default: "对手" },
-  score: { type: Array, default: () => [0, 0] },
-  matchRound: { type: Number, default: 1 },
-  maxRounds: { type: Number, default: 90 },
-  isGroupStage: { type: Boolean, default: false },
-  isExtraTime: { type: Boolean, default: false },
-  subsLeft: { type: Number, default: 3 },
-  canSub: { type: Boolean, default: false },
-  stageLabel: { type: String, default: "" },
-  penalty: { type: Object, default: null },
+/** 点球大战比分（1v1 模式 match.penalty） */
+interface PenaltyScore {
+  playerScore: number;
+  opponentScore: number;
+}
+
+interface Props {
+  playerName?: string;
+  opponentName?: string;
+  score?: number[];
+  matchRound?: number;
+  maxRounds?: number;
+  isGroupStage?: boolean;
+  isExtraTime?: boolean;
+  subsLeft?: number;
+  canSub?: boolean;
+  stageLabel?: string;
+  penalty?: PenaltyScore | null;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  playerName: "玩家",
+  opponentName: "对手",
+  score: () => [0, 0],
+  matchRound: 1,
+  maxRounds: 90,
+  isGroupStage: false,
+  isExtraTime: false,
+  subsLeft: 3,
+  canSub: false,
+  stageLabel: "",
+  penalty: null,
 });
 
-defineEmits(["substitute"]);
+defineEmits<{ (e: "substitute"): void }>();
 
 const showSubBtn = computed(() => !props.isGroupStage && props.subsLeft >= 0);
 const penaltyActive = computed(() => props.penalty !== null);

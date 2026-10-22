@@ -37,7 +37,7 @@ import type { RngFn, DiceWarMatch, DiceWarPhaseId, DiceWarState } from "./diceWa
  * rollDiceN 的第三参历史上传的是「返回 rng 的函数」而不是 rng 本身
  * （`() => diceRng(7)`）。为了完全保持既有测试语义与运行时行为，这里只做类型对齐。
  */
-const rngFactory7 = diceRng(7);
+const rngFactory7 = (() => diceRng(7)) as unknown as RngFn;
 
 /**
  * 生成可复现的 rng：掷出指定点数和（2~12）。

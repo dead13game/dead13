@@ -11,15 +11,20 @@
   </span>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import { LEAGUE_TEAMS, getTeamBadge } from "../game/leagueConstants.js";
 
-const props = defineProps({
+interface Props {
   /** 球队 id（1-10），查 LEAGUE_TEAMS */
-  teamId: { type: Number, default: null },
+  teamId?: number | null;
   /** 尺寸：sm / md / lg */
-  size: { type: String, default: "md" },
+  size?: string;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  teamId: null,
+  size: "md",
 });
 
 const team = computed(() =>
@@ -27,7 +32,7 @@ const team = computed(() =>
 );
 
 // 队标路径；图片加载失败（src=null）时回退显示 emoji
-const src = ref(null);
+const src = ref<string | null>(null);
 watch(
   () => props.teamId,
   (id) => {

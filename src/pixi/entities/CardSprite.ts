@@ -5,17 +5,35 @@ import {
   CARD_RADIUS,
   COLORS,
 } from "../core/constants.js";
+import type { Card } from "../../game/types.js";
+
+/** 卡牌精灵构造选项 */
+export interface CardSpriteOptions {
+  /** 是否在牌面显示点数标签 */
+  showValue?: boolean;
+}
 
 /**
  * 卡牌精灵 — 正/背面渲染 + 翻转动画
  */
 export class CardSprite extends Container {
-  /**
-   * @param {Object|null} cardData - 牌数据 { suit, rank, value, faceUp }
-   * @param {Object} options
-   * @param {boolean} options.showValue - 是否在牌面显示点数标签
-   */
-  constructor(cardData, options = {}) {
+  cardData: Card | null;
+  faceUp: boolean;
+  showValue: boolean;
+  _isEmpty: boolean;
+
+  // 子元素在 _build() 里创建（构造期必然赋值）
+  bg!: Graphics;
+  topRank!: Text;
+  topSuit!: Text;
+  centerRank!: Text;
+  bottomRank!: Text;
+  bottomSuit!: Text;
+  valueBadge!: Graphics;
+  valueText!: Text;
+  _dashText: Text | null = null;
+
+  constructor(cardData: Card | null, options: CardSpriteOptions = {}) {
     super();
     this.cardData = cardData;
     this.faceUp = cardData?.faceUp ?? false;
@@ -26,7 +44,7 @@ export class CardSprite extends Container {
     this._updateDisplay();
   }
 
-  _build() {
+  _build(): void {
     // 卡牌背景
     this.bg = new Graphics();
     this.bg.roundRect(0, 0, CARD_WIDTH, CARD_HEIGHT, CARD_RADIUS);
@@ -91,7 +109,7 @@ export class CardSprite extends Container {
   }
 
   /** 更新卡牌数据 */
-  updateData(cardData, options = {}) {
+  updateData(cardData: Card | null, options: CardSpriteOptions = {}): void {
     this.cardData = cardData;
     this.faceUp = cardData?.faceUp ?? false;
     this.showValue = options.showValue ?? this.showValue;
@@ -99,13 +117,17 @@ export class CardSprite extends Container {
     this._updateDisplay();
   }
 
-  _updateDisplay() {
+  _updateDisplay(): void {
     if (this._isEmpty) {
       this._renderEmpty();
       return;
     }
 
-    const isRed = this.cardData.suit === "♥" || this.cardData.suit === "♦";
+    // _isEmpty 与 cardData 恒等价（构造器/updateData 同时维护），这里只做类型收窄
+    const card = this.cardData;
+    if (!card) return;
+
+    const isRed = card.suit === "♥" || card.suit === "♦";
     const textColor = isRed ? COLORS.SUIT_RED : COLORS.SUIT_BLACK;
 
     if (this.faceUp) {
@@ -115,8 +137,8 @@ export class CardSprite extends Container {
       this.bg.fill(COLORS.CARD_WHITE);
       this.bg.stroke({ width: 2, color: COLORS.CARD_BORDER });
 
-      const rank = this.cardData.rank || "?";
-      const suit = this.cardData.suit || "";
+      const rank = card.rank || "?";
+      const suit = card.suit || "";
 
       this.topRank.text = rank;
       this.topRank.style.fill = textColor;
@@ -138,7 +160,7 @@ export class CardSprite extends Container {
       this.bottomSuit.visible = true;
 
       // 点数标签（残盾 — 用 defenseValue 获取剩余防御值，fallback 到原始 value）
-      const displayValue = this.cardData.defenseValue ?? this.cardData.value;
+      const displayValue = card.defenseValue ?? card.value;
       if (this.showValue && displayValue !== undefined) {
         this._drawValueBadge(displayValue);
       } else {
@@ -166,7 +188,7 @@ export class CardSprite extends Container {
     }
   }
 
-  _renderEmpty() {
+  _renderEmpty(): void {
     this.bg.clear();
     this.bg.roundRect(0, 0, CARD_WIDTH, CARD_HEIGHT, CARD_RADIUS);
     this.bg.fill(COLORS.EMPTY_SLOT_BG);
@@ -193,7 +215,7 @@ export class CardSprite extends Container {
     this.addChild(dash);
   }
 
-  _drawValueBadge(value) {
+  _drawValueBadge(value: number): void {
     // 半透明背景
     this.valueBadge.clear();
     this.valueBadge.roundRect(
@@ -211,7 +233,7 @@ export class CardSprite extends Container {
   }
 
   /** 设置翻转状态（不带动画，由外部 GSAP 驱动） */
-  setFlipProgress(progress) {
+  setFlipProgress(progress: number): void {
     // progress: 0=正面, 1=背面, 0.5=侧面
     this.scale.x = Math.cos(progress * Math.PI);
     if (progress > 0.5 && this.faceUp !== false) {

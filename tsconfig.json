@@ -27,19 +27,15 @@
     // vite/client: import.meta.env；node: 测试里读文件与 import.meta.url
     "types": ["vite/client", "node"],
 
-    // ── 迁移过渡开关（Phase 4 收口时置 false）──
-    // 未迁移的 .js 允许被 .ts 引用，但不对其正文做类型检查
-    "allowJs": true,
-    "checkJs": false
+    // 迁移已完成：源码里不再有 .js，禁止 JS 混入（Phase 4 收口）
+    "allowJs": false
   },
   "include": [
     "src/**/*.ts",
     "src/**/*.d.ts",
     "src/**/*.vue",
-    "src/**/*.js",
-    "vite.config.js",
-    "vitest.config.js",
-    "scripts/**/*.mjs"
+    "vite.config.ts",
+    "vitest.config.ts"
   ],
   "exclude": ["node_modules", "dist", "src-tauri", "godot", "update_log"]
 }

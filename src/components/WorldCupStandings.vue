@@ -47,13 +47,21 @@
   </div>
 </template>
 
-<script setup>
-defineProps({
-  groupName: { type: String, default: "A" },
-  standings: { type: Array, default: () => [] },
-  playerRank: { type: Number, default: 1 },
+<script setup lang="ts">
+import type { GroupStandingRow } from "../game/worldCup.js";
+
+interface Props {
+  groupName?: string;
+  standings?: GroupStandingRow[];
+  playerRank?: number;
+}
+
+withDefaults(defineProps<Props>(), {
+  groupName: "A",
+  standings: () => [],
+  playerRank: 1,
 });
-defineEmits(["continue"]);
+defineEmits<{ (e: "continue"): void }>();
 </script>
 
 <style scoped>

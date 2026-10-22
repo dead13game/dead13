@@ -50,7 +50,7 @@ describe("useLeagueController — 附加赛流程", () => {
       opponentChars: [4, 5, 6],
     });
     // 直接改 winner，模拟加赛结束
-    c.matchState.value.winner = 0;
+    c.matchState.value!.winner = 0;
     // finishTiebreaker 是内部函数，通过存档/结算路径不可达；这里验证状态字段
     expect(c.leagueState._isTiebreaker).toBe(true);
     expect(c.leagueState._tiebreakerOpponent).toBe(2);

@@ -481,7 +481,7 @@
   </Transition>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, nextTick, onMounted, watch } from "vue";
 import GameShell from "./components/GameShell.vue";
 import GameSetup from "./components/GameSetup.vue";
@@ -499,6 +499,97 @@ import { createClassicMode } from "./game/modes/classic.js";
 import { AI_TEAM_NAMES } from "./game/worldCupConstants.js";
 import { EPIC_PROLOGUE } from "./data/epic.js";
 import SoundManager from "./audio/SoundManager.js";
+
+/** 顶层模式路由：null = 停留在主菜单/足球子菜单 */
+type GameMode =
+  | "normal"
+  | "football"
+  | "worldcup"
+  | "league"
+  | "solo"
+  | "brawl"
+  | "dicewar";
+
+/** 主菜单里可直接点击的模式入口 */
+type ModeChoice = "normal" | "football" | "solo" | "brawl" | "dicewar";
+
+/** 足球模式子菜单的两个入口 */
+type FootballMode = "worldcup" | "league";
+
+/** 规则弹窗页签 id（与模板里 activeRulesTab 的比较值一一对应） */
+type RulesTabId =
+  | "overview"
+  | "normal"
+  | "solo"
+  | "worldcup"
+  | "league"
+  | "brawl"
+  | "dicewar";
+
+interface RulesTab {
+  id: RulesTabId;
+  label: string;
+}
+
+/** JSON 读回的值是 unknown：先收敛到对象，再逐字段取用 */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+/** 存档字段缺失/类型不符时按空对象处理，后续字段读取各自回退到旧默认值 */
+function asRecord(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? value : {};
+}
+
+/** 从 unknown 对象里取字符串字段 */
+function pickString(
+  obj: Record<string, unknown>,
+  key: string,
+  fallback: string,
+): string {
+  const value = obj[key];
+  return typeof value === "string" ? value : fallback;
+}
+
+/** 从 unknown 对象里取布尔字段 */
+function pickBoolean(
+  obj: Record<string, unknown>,
+  key: string,
+  fallback: boolean,
+): boolean {
+  const value = obj[key];
+  return typeof value === "boolean" ? value : fallback;
+}
+
+/** 从 unknown 对象里取数字字段（不符回退 null） */
+function pickNumberOrNull(
+  obj: Record<string, unknown>,
+  key: string,
+): number | null {
+  const value = obj[key];
+  return typeof value === "number" ? value : null;
+}
+
+/** 从 unknown 对象里取选角槽位（未选是空串，与控制器约定一致） */
+function pickNumberOrEmpty(
+  obj: Record<string, unknown>,
+  key: string,
+): number | "" {
+  const value = obj[key];
+  return typeof value === "number" ? value : "";
+}
+
+/** 从 unknown 对象里取字符串数组字段（非数组/含非字符串项时回退） */
+function pickStringArray(
+  obj: Record<string, unknown>,
+  key: string,
+  fallback: string[],
+): string[] {
+  const value = obj[key];
+  if (!Array.isArray(value)) return fallback;
+  const items: unknown[] = value;
+  return items.filter((item): item is string => typeof item === "string");
+}
 
 const {
   gameState,
@@ -519,41 +610,43 @@ const {
 
 // 单机模式控制器
 const soloController = useSoloController();
-const soloHasSave = ref(false);
+const soloHasSave = ref<boolean>(false);
 
 // ---- 模式选择 ----
-const gameMode = ref(null); // null | 'normal' | 'football' | 'worldcup' | 'league' | 'solo' | 'brawl' | 'dicewar'
-const dicewarRestore = ref(false); // 进入骰子世锦赛时是否自动读档（继续）
-const dicewarHasSave = ref(false);
+const gameMode = ref<GameMode | null>(null); // null | 'normal' | 'football' | 'worldcup' | 'league' | 'solo' | 'brawl' | 'dicewar'
+const dicewarRestore = ref<boolean>(false); // 进入骰子世锦赛时是否自动读档（继续）
+const dicewarHasSave = ref<boolean>(false);
 const DICEWAR_SAVE_KEY = "dead13_dicewar_save";
-const wcStarted = ref(false);
-const wcTeamName = ref("");
-const wcSelectedChar = ref("");
-const wcAiTeamNames = ref([]);
-const wcUseAI = ref(true);
-const wcUseWeather = ref(false);
-const wcDifficulty = ref("easy");
-const wcArtifactId = ref(null);
-const wcOpponentArtifactId = ref(null);
-const wcShellRef = ref(null);
+const wcStarted = ref<boolean>(false);
+const wcTeamName = ref<string>("");
+const wcSelectedChar = ref<number | "">("");
+const wcAiTeamNames = ref<string[]>([]);
+const wcUseAI = ref<boolean>(true);
+const wcUseWeather = ref<boolean>(false);
+const wcDifficulty = ref<string>("easy");
+const wcArtifactId = ref<number | null>(null);
+const wcOpponentArtifactId = ref<number | null>(null);
+// Shell 的 defineExpose 就是 App 调用的契约：直接取组件实例类型，
+// Shell 侧暴露的方法签名一变，这里就会编译报错（存档参数由 Shell 收窄 unknown）。
+const wcShellRef = ref<InstanceType<typeof WorldCupShell> | null>(null);
 
 // 联赛模式状态
-const leagueStarted = ref(false);
-const leagueDifficulty = ref("skilled");
-const leagueShellRef = ref(null);
+const leagueStarted = ref<boolean>(false);
+const leagueDifficulty = ref<string>("skilled");
+const leagueShellRef = ref<InstanceType<typeof LeagueShell> | null>(null);
 
 // 3v3 团战
-const brawlShellRef = ref(null);
+const brawlShellRef = ref<InstanceType<typeof BrawlShell> | null>(null);
 
 // 存档检测
-const hasSave = ref(false);
+const hasSave = ref<boolean>(false);
 onMounted(() => {
   hasSave.value = !!localStorage.getItem("dead13_save");
   soloHasSave.value = soloController.hasSoloSave();
   refreshDicewarHasSave();
 
   // 主背景音乐：首次用户交互后启动（浏览器自动播放策略限制）
-  const startBgm = () => {
+  const startBgm = (): void => {
     SoundManager.playBgm("menu");
     window.removeEventListener("pointerdown", startBgm);
     window.removeEventListener("keydown", startBgm);
@@ -579,11 +672,11 @@ onMounted(() => {
 });
 
 // 主菜单点击音效（选择模式/选角，进入战斗后不播）
-function playClick() {
+function playClick(): void {
   SoundManager.play("click");
 }
 
-function selectMode(mode) {
+function selectMode(mode: ModeChoice): void {
   playClick();
   if (mode === "solo") {
     soloController.initSolo(); // 进入单机模式即开新局（默认角色）
@@ -594,12 +687,12 @@ function selectMode(mode) {
 }
 
 // 足球模式返回按钮
-function backToMenu() {
+function backToMenu(): void {
   playClick();
   gameMode.value = null;
 }
 
-function selectFootballMode(subMode) {
+function selectFootballMode(subMode: FootballMode): void {
   playClick();
   if (subMode === "worldcup") {
     gameMode.value = "worldcup";
@@ -623,7 +716,7 @@ function selectFootballMode(subMode) {
 }
 
 // 保存并退出（经典模式）
-function handleNormalSave(saveData) {
+function handleNormalSave(saveData: unknown): void {
   localStorage.setItem("dead13_save", JSON.stringify(saveData));
   hasSave.value = true;
   gameMode.value = null;
@@ -631,7 +724,7 @@ function handleNormalSave(saveData) {
 }
 
 // 继续单机（读档）
-function continueSolo() {
+function continueSolo(): void {
   playClick();
   if (soloController.loadSolo()) {
     gameMode.value = "solo";
@@ -640,18 +733,19 @@ function continueSolo() {
 
 // ---- 骰子世锦赛存档（独立键 dead13_dicewar_save） ----
 /** 是否有"进行中"的世锦赛可续（存在且有当前回合/对局） */
-function refreshDicewarHasSave() {
+function refreshDicewarHasSave(): void {
   try {
     const raw = localStorage.getItem(DICEWAR_SAVE_KEY);
     if (!raw) return;
-    const data = JSON.parse(raw);
-    dicewarHasSave.value = !!(data && data.dw && data.dw.phase);
+    const data: unknown = JSON.parse(raw);
+    dicewarHasSave.value =
+      isRecord(data) && isRecord(data.dw) && Boolean(data.dw.phase);
   } catch {
     dicewarHasSave.value = false;
   }
 }
 /** 从主菜单"继续世锦赛"读档进入 */
-function continueDiceWar() {
+function continueDiceWar(): void {
   playClick();
   refreshDicewarHasSave();
   if (!dicewarHasSave.value) return;
@@ -659,18 +753,19 @@ function continueDiceWar() {
   gameMode.value = "dicewar";
 }
 /** 从骰子世锦赛返回主菜单（退回时重新评估是否还有可续档） */
-function onDiceWarQuit() {
+function onDiceWarQuit(): void {
   gameMode.value = null;
   nextTick(refreshDicewarHasSave);
 }
 
 // 继续游戏（读档）
-function continueGame() {
+function continueGame(): void {
   playClick();
-  const raw = localStorage.getItem("dead13_save");  if (!raw) return;
-  let saveData;
+  const raw = localStorage.getItem("dead13_save");
+  if (!raw) return;
+  let parsed: unknown;
   try {
-    saveData = JSON.parse(raw);
+    parsed = JSON.parse(raw);
   } catch {
     localStorage.removeItem("dead13_save");
     hasSave.value = false;
@@ -679,6 +774,10 @@ function continueGame() {
 
   localStorage.removeItem("dead13_save");
   hasSave.value = false;
+
+  // 存档是 unknown：只接受对象，其余字段逐项收窄后再用
+  if (!isRecord(parsed)) return;
+  const saveData = parsed;
 
   if (saveData.gameMode === "normal") {
     const ok = load(gameState, saveData.gameState, {
@@ -689,23 +788,28 @@ function continueGame() {
       gameStarted.value = true;
     }
   } else if (saveData.gameMode === "worldcup" && saveData.wcSetup) {
+    const wcSetup = asRecord(saveData.wcSetup);
     // 设置世界杯模式参数
     gameMode.value = "worldcup";
-    wcTeamName.value = saveData.wcSetup.teamName || "";
-    wcSelectedChar.value = saveData.wcSetup.selectedChar || "";
-    wcAiTeamNames.value = saveData.wcSetup.opponentNames || [];
-    wcUseWeather.value = saveData.wcSetup.useWeather || false;
-    wcDifficulty.value = saveData.wcSetup.difficulty || "easy";
-    wcUseAI.value = saveData.wcSetup.useAI ?? true;
-    wcArtifactId.value = saveData.wcSetup?.artifactId ?? null;
-    wcOpponentArtifactId.value = saveData.wcSetup?.opponentArtifactId ?? null;
+    wcTeamName.value = pickString(wcSetup, "teamName", "");
+    wcSelectedChar.value = pickNumberOrEmpty(wcSetup, "selectedChar");
+    wcAiTeamNames.value = pickStringArray(wcSetup, "opponentNames", []);
+    wcUseWeather.value = pickBoolean(wcSetup, "useWeather", false);
+    wcDifficulty.value = pickString(wcSetup, "difficulty", "easy") || "easy";
+    wcUseAI.value = pickBoolean(wcSetup, "useAI", true);
+    wcArtifactId.value = pickNumberOrNull(wcSetup, "artifactId");
+    wcOpponentArtifactId.value = pickNumberOrNull(
+      wcSetup,
+      "opponentArtifactId",
+    );
     wcStarted.value = true;
 
     // 等待 WorldCupShell 挂载后恢复存档
     nextTick(() => {
       setTimeout(() => {
-        if (wcShellRef.value?.restoreFromSave) {
-          wcShellRef.value.restoreFromSave(saveData);
+        const shell = wcShellRef.value;
+        if (shell?.restoreFromSave) {
+          shell.restoreFromSave(saveData);
         }
       }, 150);
     });
@@ -714,14 +818,17 @@ function continueGame() {
     saveData.footballSubMode === "league"
   ) {
     // 恢复联赛存档
+    const leagueSetup = asRecord(saveData.leagueSetup);
     gameMode.value = "league";
     leagueStarted.value = true;
-    leagueDifficulty.value = saveData.leagueSetup?.difficulty || "skilled";
+    leagueDifficulty.value =
+      pickString(leagueSetup, "difficulty", "skilled") || "skilled";
 
     nextTick(() => {
       setTimeout(() => {
-        if (leagueShellRef.value?.restoreLeague) {
-          leagueShellRef.value.restoreLeague(saveData);
+        const shell = leagueShellRef.value;
+        if (shell?.restoreLeague) {
+          shell.restoreLeague(saveData);
         }
       }, 150);
     });
@@ -730,8 +837,9 @@ function continueGame() {
     gameMode.value = "brawl";
     nextTick(() => {
       setTimeout(() => {
-        if (brawlShellRef.value?.restoreBrawl) {
-          brawlShellRef.value.restoreBrawl(saveData);
+        const shell = brawlShellRef.value;
+        if (shell?.restoreBrawl) {
+          shell.restoreBrawl(saveData);
         }
       }, 150);
     });
@@ -739,7 +847,7 @@ function continueGame() {
 }
 
 // 联赛存档
-function handleLeagueSave(saveData) {
+function handleLeagueSave(saveData: unknown): void {
   localStorage.setItem("dead13_save", JSON.stringify(saveData));
   hasSave.value = true;
   gameMode.value = null;
@@ -747,21 +855,24 @@ function handleLeagueSave(saveData) {
 }
 
 // 3v3 团战存档
-function handleBrawlSave(saveData) {
+function handleBrawlSave(saveData: unknown): void {
   localStorage.setItem("dead13_save", JSON.stringify(saveData));
   hasSave.value = true;
   gameMode.value = null;
 }
 
-function startWorldCup() {
+function startWorldCup(): void {
   if (!wcTeamName.value.trim() || !wcSelectedChar.value) return;
+  const startingCharId = wcSelectedChar.value;
+  if (typeof startingCharId !== "number") return;
   wcStarted.value = true;
   // 等待 WorldCupShell 挂载后调用 initWorldCup
   setTimeout(() => {
-    if (wcShellRef.value?.initWorldCup) {
-      wcShellRef.value.initWorldCup(
+    const shell = wcShellRef.value;
+    if (shell?.initWorldCup) {
+      shell.initWorldCup(
         wcTeamName.value.trim(),
-        wcSelectedChar.value,
+        startingCharId,
         wcAiTeamNames.value,
         wcUseWeather.value,
         wcDifficulty.value,
@@ -773,8 +884,8 @@ function startWorldCup() {
 }
 
 // 重写 resetGame 以支持世界杯模式
-const originalResetGame = resetGame;
-function handleReset() {
+const originalResetGame: () => void = resetGame;
+function handleReset(): void {
   if (gameMode.value === "worldcup") {
     wcStarted.value = false;
     gameMode.value = null;
@@ -794,13 +905,13 @@ function handleReset() {
 }
 
 // 开场动画
-const showOpening = ref(true);
+const showOpening = ref<boolean>(true);
 
 // 彩蛋
-const showRules = ref(false);
+const showRules = ref<boolean>(false);
 
 // 规则说明弹窗：页签与史诗
-const rulesTabList = [
+const rulesTabList: RulesTab[] = [
   { id: "overview", label: "总览" },
   { id: "normal", label: "经典对战" },
   { id: "solo", label: "单机" },
@@ -809,12 +920,12 @@ const rulesTabList = [
   { id: "brawl", label: "3v3 团战" },
   { id: "dicewar", label: "骰子战争" },
 ];
-const activeRulesTab = ref("overview");
-const showEpic = ref(false);
-const easterEgg = ref(false);
-let titleClickTimer = null;
+const activeRulesTab = ref<RulesTabId>("overview");
+const showEpic = ref<boolean>(false);
+const easterEgg = ref<boolean>(false);
+let titleClickTimer: ReturnType<typeof setTimeout> | null = null;
 
-function onTitleClick() {
+function onTitleClick(): void {
   if (titleClickTimer) {
     clearTimeout(titleClickTimer);
     titleClickTimer = null;

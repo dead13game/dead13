@@ -90,13 +90,29 @@
   </article>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from "vue";
+import type { CharacterMeta } from "../game/types.js";
+import type { PlayerView } from "../game/view.js";
 
-const props = defineProps({
-  unit: { type: Object, required: true },
-  charData: { type: Object, default: null },
-  current: { type: Boolean, default: false },
+/**
+ * 英雄/塔/召唤物的视图对象。
+ * `respawnRound` 是旧模板字段，当前 `buildView` 的 PlayerView 不产出它
+ * （运行时恒 undefined，模板原样保留），故在此以可选字段声明。
+ */
+interface BrawlUnitView extends PlayerView {
+  respawnRound?: number;
+}
+
+interface Props {
+  unit: BrawlUnitView;
+  charData?: CharacterMeta | null;
+  current?: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  charData: null,
+  current: false,
 });
 
 const hpPct = computed(() =>
@@ -130,9 +146,9 @@ const frozen = computed(() => {
 const skillUses = computed(() => props.unit.skillUses ?? 0);
 const drone = computed(() => props.unit.statusEffects?.drone ?? null);
 
-const chips = computed(() => {
+const chips = computed<string[]>(() => {
   const u = props.unit;
-  const out = [];
+  const out: string[] = [];
   if (u.chorus > 0) out.push(`领唱 ${u.chorus}`);
   if (u.attackStreak > 0) out.push(`连击 ${u.attackStreak}`);
   if (u.fightingSpirit > 0) out.push(`斗志 ${u.fightingSpirit}`);

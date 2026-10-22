@@ -1,6 +1,8 @@
 import { watch, ref } from "vue";
 import gsap from "gsap";
 import { Graphics } from "pixi.js";
+import type { Container } from "pixi.js";
+import type { GameState, Player } from "../game/types.js";
 
 /**
  * 动画流 — 集中管理所有游戏动画
@@ -18,7 +20,65 @@ import { Graphics } from "pixi.js";
  *   defenseDraw(idx) → 防御牌飞到防御区
  *   gambleDraw() → 赌命牌飞到中央展示
  */
-export function useAnimationFlow(state, getManager) {
+
+/** 二维坐标（TableLayout / PIXIManager 的布局输出） */
+interface LayoutPoint {
+  x: number;
+  y: number;
+}
+
+/** 牌桌布局里动画用到的部分（TableLayout 的稳定 getter 集） */
+interface AnimLayout {
+  deckPos?: LayoutPoint | null;
+  centerPos?: LayoutPoint | null;
+  gravePos?: LayoutPoint | null;
+  playerTableSize?: { width: number; height: number } | null;
+  getPlayerPos(index: number): LayoutPoint;
+}
+
+/** PIXIManager 在桥接层用到的部分 */
+interface PixiManagerLike {
+  app?: { stage: Container } | null;
+  layout?: AnimLayout | null;
+  centerContainer?: Container | null;
+  getPlayerCenter(index: number): LayoutPoint | undefined;
+  getPlayerTable(index: number): Container | undefined;
+  emitParticles(
+    x: number,
+    y: number,
+    effectKey: string,
+    characterId?: number | null,
+  ): void;
+}
+
+/** 中央区的牌精灵：CardSprite 的翻转接口（结构收窄，不 import pixi 实体） */
+interface AnimatedCardSprite extends Container {
+  faceUp?: boolean;
+  _updateDisplay?: () => void;
+}
+
+/**
+ * 动画桥接读的局面字段。
+ *
+ * `players[].skillUses` 是迁移前的顶层旧字段（内核 v3.5 起次数在
+ * `resources.skillUses`）；这里保留旧读取路径，见下方 watcher 的说明。
+ */
+interface AnimationPlayer
+  extends Pick<Player, "characterId" | "hp" | "defensePile"> {
+  skillUses?: number;
+}
+
+/** 动画桥接消费的 state 形状（GameState 可直接传入） */
+interface AnimationFlowState extends Omit<GameState, "players"> {
+  players: AnimationPlayer[];
+  /** 旧实现遗留的「AI 行动跳过动画」标记，运行时可能挂在 state 上 */
+  _skipAnim?: boolean;
+}
+
+export function useAnimationFlow(
+  state: AnimationFlowState,
+  getManager: () => PixiManagerLike | null | undefined,
+) {
   const animating = ref(false);
 
   // ── 辅助 ──
@@ -38,11 +98,11 @@ export function useAnimationFlow(state, getManager) {
     const g = mgr()?.layout?.gravePos;
     return g || { x: 520, y: 380 };
   }
-  function playerWorld(idx) {
+  function playerWorld(idx: number) {
     const p = mgr()?.getPlayerCenter(idx);
     return p || { x: 200 + idx * 240, y: 180 };
   }
-  function playerTopRight(idx) {
+  function playerTopRight(idx: number) {
     // 防御区大致位置（玩家桌面右上角）
     const p = mgr()?.layout?.getPlayerPos(idx);
     const s = mgr()?.layout?.playerTableSize;
@@ -104,8 +164,11 @@ export function useAnimationFlow(state, getManager) {
   );
 
   // 技能使用
+  // 迁移前直接读顶层旧字段（v3.5 内核里次数在 resources.skillUses，顶层恒为 undefined），
+  // 这里保持同一读取路径，只把可选类型收窄成 number 以满足 watcher 的数组比较。
+  const skillUsesOf = (p: AnimationPlayer) => p.skillUses as number;
   watch(
-    () => state.players.map((p) => p.skillUses),
+    () => state.players.map(skillUsesOf),
     (a, b) => {
       if (!b) return;
       state.players.forEach((p, i) => {
@@ -128,7 +191,7 @@ export function useAnimationFlow(state, getManager) {
     const cp = centerWorld();
     const children = [...(m.centerContainer?.children || [])];
     for (let i = 0; i < children.length; i++) {
-      const s = children[i];
+      const s: AnimatedCardSprite = children[i];
       const delay = i * 0.08;
       // 弹出
       gsap.to(s, { alpha: 1, duration: 0.35, delay, ease: "back.out(1.6)" });
@@ -147,7 +210,7 @@ export function useAnimationFlow(state, getManager) {
         ease: "power2.in",
         onComplete() {
           s.faceUp = true;
-          s._updateDisplay();
+          s._updateDisplay!();
         },
       });
       gsap.to(s.scale, {
@@ -201,7 +264,7 @@ export function useAnimationFlow(state, getManager) {
   }
 
   /** 防御被击穿 */
-  function _defHit(idx) {
+  function _defHit(idx: number) {
     const m = mgr();
     if (!m) return;
     const t = m.getPlayerTable(idx);
@@ -220,7 +283,7 @@ export function useAnimationFlow(state, getManager) {
   }
 
   /** 受伤 */
-  function _hurt(idx) {
+  function _hurt(idx: number) {
     const m = mgr();
     if (!m) return;
     const t = m.getPlayerTable(idx);
@@ -235,7 +298,7 @@ export function useAnimationFlow(state, getManager) {
   }
 
   /** 死亡 */
-  function _death(idx) {
+  function _death(idx: number) {
     const m = mgr();
     if (!m) return;
     const pos = playerWorld(idx);
@@ -249,7 +312,7 @@ export function useAnimationFlow(state, getManager) {
   }
 
   /** 技能特效 */
-  function _skillFx(idx, charId) {
+  function _skillFx(idx: number, charId: number) {
     const m = mgr();
     if (!m) return;
     const pos = playerWorld(idx);
@@ -264,7 +327,7 @@ export function useAnimationFlow(state, getManager) {
    * 攻击牌飞向目标 → 完成后调用 callback 执行攻击
    * 调用时机：用户选择攻击目标后
    */
-  async function flyToTarget(targetIdx) {
+  async function flyToTarget(targetIdx: number) {
     const m = mgr();
     if (!m) return;
     animating.value = true;
@@ -293,7 +356,7 @@ export function useAnimationFlow(state, getManager) {
    * 防御抽牌 → 牌从牌库飞到防御区
    * 调用时机：用户点击防御按钮后，executeDefense 之前
    */
-  async function defenseDraw(playerIdx) {
+  async function defenseDraw(playerIdx: number) {
     const m = mgr();
     if (!m) return;
     animating.value = true;
@@ -310,7 +373,8 @@ export function useAnimationFlow(state, getManager) {
     temp.position.set(dp.x, dp.y);
     temp.scale.set(0.6);
     temp.alpha = 0.8;
-    m.app.stage.addChild(temp);
+    // 桥接层只在 manager.init() 完成后被调用（与迁移前假设一致）
+    m.app!.stage.addChild(temp);
 
     gsap
       .timeline()
@@ -326,7 +390,7 @@ export function useAnimationFlow(state, getManager) {
       );
 
     await sleep(480);
-    m.app.stage.removeChild(temp);
+    m.app!.stage.removeChild(temp);
     temp.destroy();
     animating.value = false;
   }
@@ -353,7 +417,7 @@ export function useAnimationFlow(state, getManager) {
       temp.position.set(dp.x, dp.y);
       temp.scale.set(0.4);
       temp.alpha = 0;
-      m.app.stage.addChild(temp);
+      m.app!.stage.addChild(temp);
 
       gsap
         .timeline()
@@ -395,8 +459,8 @@ export function useAnimationFlow(state, getManager) {
 }
 
 // ── 工具 ──
-function waitFrame(n = 1) {
-  return new Promise((r) => {
+function waitFrame(n = 1): Promise<void> {
+  return new Promise<void>((r) => {
     let c = 0;
     const t = () => {
       if (++c >= n) r();
@@ -405,6 +469,6 @@ function waitFrame(n = 1) {
     requestAnimationFrame(t);
   });
 }
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
+function sleep(ms: number): Promise<void> {
+  return new Promise<void>((r) => setTimeout(r, ms));
 }

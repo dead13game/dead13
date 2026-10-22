@@ -4,18 +4,21 @@
       <div class="game-over__icon"></div>
       <div class="game-over__text">
         <div class="game-over__title">游戏结束！</div>
-        <div class="game-over__winner">{{ winner.name }} 获胜！</div>
+        <div class="game-over__winner">{{ winner?.name }} 获胜！</div>
       </div>
     </div>
     <button class="ab ab--restart" @click="$emit('restart')">再来一局</button>
   </div>
 </template>
 
-<script setup>
-defineProps({
-  winner: { type: Object, default: null },
-});
-defineEmits(["restart"]);
+<script setup lang="ts">
+/** 获胜玩家（父组件在 gameOver 时传入；默认 null 保留原运行时行为） */
+interface Props {
+  winner?: { name: string } | null;
+}
+
+withDefaults(defineProps<Props>(), { winner: null });
+defineEmits<{ (e: "restart"): void }>();
 </script>
 
 <style scoped>

@@ -10,6 +10,17 @@ import {
  * 牌堆精灵 — 显示堆叠效果 + 牌数
  */
 export class DeckSprite extends Container {
+  count: number;
+  // label 是 PIXI Container（FindMixin）已声明的可选成员，直接赋值即可，无需重复声明
+
+  // 子元素在构造器里创建（必然赋值）
+  layer1!: Graphics;
+  layer2!: Graphics;
+  layer3!: Graphics;
+  emptyBox!: Graphics;
+  countText!: Text;
+  labelText!: Text;
+
   constructor(label = "牌库") {
     super();
     this.count = 0;
@@ -50,12 +61,12 @@ export class DeckSprite extends Container {
   }
 
   /** 设置牌数 */
-  setCount(n) {
+  setCount(n: number): void {
     this.count = n;
     this._render();
   }
 
-  _render() {
+  _render(): void {
     if (this.count > 0) {
       // 堆叠效果
       this._drawCardBack(this.layer1, 0, 0);
@@ -92,7 +103,7 @@ export class DeckSprite extends Container {
     }
   }
 
-  _drawCardBack(g, offsetX, offsetY) {
+  _drawCardBack(g: Graphics, offsetX: number, offsetY: number): void {
     g.clear();
     g.position.set(offsetX, offsetY);
     g.roundRect(0, 0, CARD_WIDTH, CARD_HEIGHT, CARD_RADIUS);

@@ -59,18 +59,26 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import TeamBadge from "./TeamBadge.vue";
+import type { TeamStanding } from "../game/league.js";
 
-defineProps({
-  standings: { type: Array, required: true },
-  currentRound: { type: Number, default: 1 },
-  totalRounds: { type: Number, default: 18 },
-  isFinished: { type: Boolean, default: false },
-  tiebreakerNeeded: { type: Boolean, default: false },
+interface Props {
+  standings: TeamStanding[];
+  currentRound?: number;
+  totalRounds?: number;
+  isFinished?: boolean;
+  tiebreakerNeeded?: boolean;
+}
+
+withDefaults(defineProps<Props>(), {
+  currentRound: 1,
+  totalRounds: 18,
+  isFinished: false,
+  tiebreakerNeeded: false,
 });
 
-defineEmits(["continue"]);
+defineEmits<{ (e: "continue"): void }>();
 </script>
 
 <style scoped>

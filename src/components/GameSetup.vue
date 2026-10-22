@@ -10,7 +10,12 @@
           <label>玩家人数：</label>
           <select
             :value="playerCount"
-            @change="$emit('update:playerCount', Number($event.target.value))"
+            @change="
+              $emit(
+                'update:playerCount',
+                Number(($event.target as HTMLSelectElement).value),
+              )
+            "
             class="setup-select"
           >
             <option v-for="n in 7" :key="n" :value="n + 1">
@@ -25,7 +30,9 @@
             <input
               type="checkbox"
               :checked="useWeather"
-              @change="$emit('update:useWeather', $event.target.checked)"
+              @change="
+                $emit('update:useWeather', ($event.target as HTMLInputElement).checked)
+              "
             />
             启用
           </label>
@@ -38,7 +45,13 @@
             <label>玩家 {{ i }}</label>
             <input
               :value="playerNames[i - 1]"
-              @input="$emit('update:playerName', i - 1, $event.target.value)"
+              @input="
+                $emit(
+                  'update:playerName',
+                  i - 1,
+                  ($event.target as HTMLInputElement).value,
+                )
+              "
               class="setup-input"
               :placeholder="'玩家 ' + i"
               maxlength="10"
@@ -104,7 +117,7 @@
                 $emit(
                   'update:aiDifficulties',
                   aiDifficulties.map((v, j) =>
-                    j === i - 1 ? $event.target.value : v,
+                    j === i - 1 ? ($event.target as HTMLSelectElement).value : v,
                   ),
                 )
               "
@@ -236,62 +249,92 @@
   </Transition>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, ref } from "vue";
 import SoundManager from "../audio/SoundManager.js";
 import { CHARACTERS } from "../game/characters/index.js";
-import { ARTIFACTS, getArtifactData } from "../game/rules/artifacts.js";
+import { ARTIFACTS } from "../game/rules/artifacts.js";
+import type { CharacterMeta } from "../game/types.js";
 
-const props = defineProps({
-  playerCount: { type: Number, required: true },
-  playerNames: { type: Array, required: true },
-  playerChars: { type: Array, required: true },
-  useWeather: { type: Boolean, default: false },
-  allSelected: { type: Boolean, default: false },
-  availableChars: { type: Function, required: true },
-  playerArtifacts: {
-    type: Array,
-    default: () => [null, null, null, null, null, null, null, null],
-  },
-  aiSlots: {
-    type: Array,
-    default: () => [false, false, false, false, false, false, false, false],
-  },
-  aiDifficulties: {
-    type: Array,
-    default: () => [
-      "easy",
-      "easy",
-      "easy",
-      "easy",
-      "easy",
-      "easy",
-      "easy",
-      "easy",
-    ],
-  },
+/** 角色 id：控制器里未选择时是空串，选择后是数字 id */
+type CharacterId = number | "";
+
+/**
+ * 模板卡片/弹窗读的角色视图。
+ * id 放宽到 string 是因为模板里保留了历史的 `=== "caiyueang"` 比较（按迁移约定保留恒假分支）；
+ * maxUses 收紧为必有是因为模板直接做 `maxUses + "次"` 拼接，而 15 个角色 meta 全部声明了该字段。
+ */
+interface CharacterView {
+  id: number | string;
+  name: string;
+  title?: string;
+  icon?: string;
+  hp: number;
+  skillName?: string;
+  skillType?: string;
+  skillDesc?: string;
+  maxUses: number;
+}
+
+interface Props {
+  playerCount: number;
+  playerNames: string[];
+  playerChars: CharacterId[];
+  useWeather?: boolean;
+  allSelected?: boolean;
+  availableChars: (playerIdx: number) => CharacterMeta[];
+  playerArtifacts?: (number | null)[];
+  aiSlots?: boolean[];
+  aiDifficulties?: string[];
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  useWeather: false,
+  allSelected: false,
+  playerArtifacts: () => [null, null, null, null, null, null, null, null],
+  aiSlots: () => [false, false, false, false, false, false, false, false],
+  aiDifficulties: () => [
+    "easy",
+    "easy",
+    "easy",
+    "easy",
+    "easy",
+    "easy",
+    "easy",
+    "easy",
+  ],
 });
 
-const emit = defineEmits([
-  "update:playerCount",
-  "update:useWeather",
-  "update:playerName",
-  "selectChar",
-  "startGame",
-  "update:aiSlots",
-  "update:aiDifficulties",
-  "update:playerArtifact",
-]);
+const emit = defineEmits<{
+  (e: "update:playerCount", v: number): void;
+  (e: "update:useWeather", v: boolean): void;
+  (e: "update:playerName", idx: number, name: string): void;
+  (e: "selectChar", playerIdx: number, charId: number): void;
+  (e: "startGame"): void;
+  (e: "update:aiSlots", v: boolean[]): void;
+  (e: "update:aiDifficulties", v: string[]): void;
+  (e: "update:playerArtifact", idx: number, artifactId: number): void;
+}>();
 
-const charMap = computed(() => {
-  const map = {};
-  Object.values(CHARACTERS).forEach((c) => {
-    map[c.id] = c;
-  });
-  return map;
-});
-function charById(id) {
-  return charMap.value[id];
+/** 把角色静态数据投影成模板视图（15 个角色 meta 全部声明了 maxUses，这里只补类型断言） */
+function toCharacterView(meta: CharacterMeta): CharacterView {
+  return {
+    id: meta.id,
+    name: meta.name,
+    title: meta.title,
+    icon: meta.icon,
+    hp: meta.hp,
+    skillName: meta.skillName,
+    skillType: meta.skillType,
+    skillDesc: meta.skillDesc,
+    maxUses: meta.maxUses as number,
+  };
+}
+
+function charById(id: CharacterId): CharacterView | undefined {
+  if (id === "") return undefined;
+  const meta = CHARACTERS[id];
+  return meta ? toCharacterView(meta) : undefined;
 }
 
 const artifactList = Object.values(ARTIFACTS).map((a) => ({
@@ -317,14 +360,20 @@ const allReady = computed(() => {
 });
 
 // ---- 三连击技能详情 ----
-const skillPopupCharId = ref(null);
-const clickTracker = ref({});
+interface ClickTrack {
+  count: number;
+  lastTime: number;
+}
 
-const popupChar = computed(() =>
-  skillPopupCharId.value ? charById(skillPopupCharId.value) : null,
-);
+const skillPopupCharId = ref<number | null>(null);
+const clickTracker = ref<Record<number, ClickTrack>>({});
 
-function onCharCardClick(playerIdx, charId) {
+const popupChar = computed<CharacterView | null>(() => {
+  const id = skillPopupCharId.value;
+  return id == null ? null : (charById(id) ?? null);
+});
+
+function onCharCardClick(playerIdx: number, charId: number) {
   // 三连击检测
   const now = Date.now();
   const track = clickTracker.value[charId] || { count: 0, lastTime: 0 };

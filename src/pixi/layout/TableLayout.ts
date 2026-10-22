@@ -1,5 +1,17 @@
 import { CARD_WIDTH, CARD_HEIGHT } from "../core/constants.js";
 
+/** 二维坐标（世界/舞台坐标） */
+export interface LayoutPoint {
+  x: number;
+  y: number;
+}
+
+/** 宽高尺寸 */
+export interface LayoutSize {
+  width: number;
+  height: number;
+}
+
 /**
  * 牌桌布局引擎 — 自适应 Canvas 尺寸
  *
@@ -9,7 +21,19 @@ import { CARD_WIDTH, CARD_HEIGHT } from "../core/constants.js";
  * 所有位置在 resize/构造时预计算并缓存，getter 零开销。
  */
 export class TableLayout {
-  constructor(playerCount, width = 1000, height = 650) {
+  playerCount: number;
+  width: number;
+  height: number;
+  _portrait!: boolean;
+  _doubleRow!: boolean;
+  _playerSize!: LayoutSize;
+  _playerPositions!: LayoutPoint[];
+  _deckPos!: LayoutPoint;
+  _gravePos!: LayoutPoint;
+  _centerPos!: LayoutPoint;
+  _totalHeight!: number;
+
+  constructor(playerCount: number, width = 1000, height = 650) {
     this.playerCount = playerCount;
     this.width = width;
     this.height = height;
@@ -17,26 +41,26 @@ export class TableLayout {
     this._computeAll();
   }
 
-  resize(w, h) {
+  resize(w: number, h: number): void {
     this.width = w;
     this.height = h;
     this._portrait = w < h;
     this._computeAll();
   }
 
-  setPlayerCount(n) {
+  setPlayerCount(n: number): void {
     this.playerCount = n;
     this._updateMode();
     this._computeAll();
   }
 
-  _updateMode() {
+  _updateMode(): void {
     this._portrait = this.width < this.height;
     this._doubleRow = this.playerCount >= 5; // 仅横屏使用
   }
 
   /** 一次性预计算所有布局值 */
-  _computeAll() {
+  _computeAll(): void {
     if (this._portrait) {
       this._computePortrait();
     } else {
@@ -56,7 +80,7 @@ export class TableLayout {
   //  竖屏布局（手机）
   // ════════════════════════════════════
 
-  _computePortrait() {
+  _computePortrait(): void {
     const cols = 2; // 固定 2 列
     const rows = Math.ceil(this.playerCount / cols);
     const gapX = 12;
@@ -110,7 +134,7 @@ export class TableLayout {
   //  横屏布局（电脑）— 保持现有逻辑
   // ════════════════════════════════════
 
-  _computeLandscape() {
+  _computeLandscape(): void {
     // 桌面尺寸
     if (this._doubleRow) {
       this._playerSize = { width: 230, height: 200 };
@@ -145,7 +169,7 @@ export class TableLayout {
     this._totalHeight = this.height;
   }
 
-  _calcLandscapeSingleRow(index) {
+  _calcLandscapeSingleRow(index: number): LayoutPoint {
     const size = this._playerSize;
     const gap = Math.max(
       16,
@@ -159,7 +183,7 @@ export class TableLayout {
     };
   }
 
-  _calcLandscapeGridPos(index) {
+  _calcLandscapeGridPos(index: number): LayoutPoint {
     const size = this._playerSize;
     const perRow = Math.ceil(this.playerCount / 2);
     const row = Math.floor(index / perRow);
@@ -181,23 +205,23 @@ export class TableLayout {
   //  公共 getter
   // ════════════════════════════════════
 
-  get deckPos() {
+  get deckPos(): LayoutPoint {
     return this._deckPos;
   }
-  get gravePos() {
+  get gravePos(): LayoutPoint {
     return this._gravePos;
   }
-  get centerPos() {
+  get centerPos(): LayoutPoint {
     return this._centerPos;
   }
-  get playerTableSize() {
+  get playerTableSize(): LayoutSize {
     return this._playerSize;
   }
-  get totalHeight() {
+  get totalHeight(): number {
     return this._totalHeight;
   }
 
-  getPlayerPos(index) {
+  getPlayerPos(index: number): LayoutPoint {
     return this._playerPositions[index] || { x: 0, y: 0 };
   }
 }

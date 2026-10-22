@@ -2,7 +2,18 @@ import { Container, Graphics, Text, Sprite, Texture, Rectangle } from "pixi.js";
 import gsap from "gsap";
 import { CARD_WIDTH, CARD_HEIGHT, COLORS } from "../core/constants.js";
 import { getCharData } from "../../game/characters/index.js";
+import type { Card, CharacterMeta } from "../../game/types.js";
+import type { PlayerView } from "../../game/view.js";
 import { CardSprite } from "./CardSprite.js";
+import type { TableLayout } from "../layout/TableLayout.js";
+
+/** 立绘占位矩形（相对桌面精灵的局部坐标） */
+interface PortraitRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
 
 /**
  * 玩家桌面精灵 — 角色信息 + 防御牌 + 陷阱
@@ -12,7 +23,35 @@ import { CardSprite } from "./CardSprite.js";
  *   <200px: 紧凑模式 — 防御区与陷阱区上下排列，卡牌缩小
  */
 export class PlayerTableSprite extends Container {
-  constructor(player, layout) {
+  playerIndex: number;
+  playerData: PlayerView;
+  _layout: TableLayout;
+  _defSprites: CardSprite[];
+  _trapSprite: CardSprite | null;
+  _baitSprite: CardSprite | null;
+
+  // 子元素在 _build() 里创建（构造期必然赋值）
+  bg!: Graphics;
+  nameText!: Text;
+  gambleWarnText!: Text;
+  charText!: Text;
+  statusText!: Text;
+  hpBarBg!: Graphics;
+  hpBarFill!: Graphics;
+  hpText!: Text;
+  deadMark!: Text;
+  defLabel!: Text;
+  defContainer!: Container;
+  trapLabel!: Text;
+  trapContainer!: Container;
+  highlight!: Graphics;
+
+  /** 立绘占位：_loadPortrait() 只在 _build() 里赋值之后调用 */
+  _portraitRect!: PortraitRect;
+  _hpBarWidth?: number;
+  _isCurrent?: boolean;
+
+  constructor(player: PlayerView, layout: TableLayout) {
     super();
     this.playerIndex = player.index;
     this.playerData = player;
@@ -25,11 +64,11 @@ export class PlayerTableSprite extends Container {
   }
 
   /** 是否为紧凑模式（窄桌面） */
-  get _compact() {
+  get _compact(): boolean {
     return this._layout.playerTableSize.width < 200;
   }
 
-  _build() {
+  _build(): void {
     const size = this._layout.playerTableSize;
     const compact = this._compact;
 
@@ -76,8 +115,10 @@ export class PlayerTableSprite extends Container {
     this.addChild(this.gambleWarnText);
 
     // ── 角色名 + 技能 ──
+    // getCharData 目前还是未标注的 JS 兼容签名（返回宽类型），这里显式收窄成 CharacterMeta
+    const charMeta: CharacterMeta = getCharData(this.playerData);
     this.charText = new Text({
-      text: `${getCharData(this.playerData).name} · ${getCharData(this.playerData).skillName}`,
+      text: `${charMeta.name} · ${charMeta.skillName}`,
       style: { fontSize: fsChar, fill: 0x666666, fontFamily: "sans-serif" },
     });
     this.charText.position.set(8, compact ? 13 : 20);
@@ -195,9 +236,9 @@ export class PlayerTableSprite extends Container {
     this._updateHP();
   }
 
-  _loadPortrait() {
+  _loadPortrait(): void {
     const r = this._portraitRect;
-    const path = getCharData(this.playerData).icon;
+    const path: string | undefined = getCharData(this.playerData).icon;
     if (!path) {
       this._drawPortraitPlaceholder(r);
       return;
@@ -205,7 +246,7 @@ export class PlayerTableSprite extends Container {
 
     const img = new Image();
     img.src = path;
-    const setup = () => {
+    const setup = (): void => {
       if (!img.width) {
         this._drawPortraitPlaceholder(r);
         return;
@@ -216,7 +257,14 @@ export class PlayerTableSprite extends Container {
       const tex = Texture.from(img);
       const showH = Math.min(img.height, r.h / scale); // 可见的图像高度（像素）
       const cropTop = (img.height - showH) / 2; // 从图像顶部裁掉多少
-      tex.frame = new Rectangle(0, cropTop, img.width, showH);
+      // PIXI v8 的 d.ts 把 Texture.frame 标成 readonly，但运行时是可变属性
+      //（原实现就靠改写 frame 裁剪立绘）：用局部断言保留原有赋值行为。
+      (tex as { frame: Rectangle }).frame = new Rectangle(
+        0,
+        cropTop,
+        img.width,
+        showH,
+      );
       tex.updateUvs();
 
       const sprite = new Sprite(tex);
@@ -239,7 +287,7 @@ export class PlayerTableSprite extends Container {
     }
   }
 
-  _drawPortraitPlaceholder(r) {
+  _drawPortraitPlaceholder(r: PortraitRect): void {
     const g = new Graphics();
     g.roundRect(r.x, r.y, r.w, r.h, 3);
     g.fill({ color: 0xd0d0d0, alpha: 0.5 });
@@ -248,12 +296,14 @@ export class PlayerTableSprite extends Container {
   }
 
   /** 更新整个玩家状态 */
-  sync(player) {
+  sync(player: PlayerView): void {
     const charChanged = this.playerData?.characterId !== player.characterId;
     this.playerData = player;
     // 角色变了（换人）→ 刷新立绘和文字
     if (charChanged) {
-      this.charText.text = `${getCharData(player).name} · ${getCharData(player).skillName}`;
+      // getCharData 目前还是未标注的 JS 兼容签名（返回宽类型），这里显式收窄成 CharacterMeta
+      const charMeta: CharacterMeta = getCharData(player);
+      this.charText.text = `${charMeta.name} · ${charMeta.skillName}`;
       this._loadPortrait();
     }
     this._updateHP();
@@ -263,7 +313,7 @@ export class PlayerTableSprite extends Container {
     this._updateStatus(player);
   }
 
-  _updateHP() {
+  _updateHP(): void {
     const p = this.playerData;
     const size = this._layout.playerTableSize;
     const compact = this._compact;
@@ -294,7 +344,7 @@ export class PlayerTableSprite extends Container {
     this.hpText.text = `HP ${p.hp}/${p.maxHp}`;
   }
 
-  _syncDefenses(defensePile) {
+  _syncDefenses(defensePile: Card[]): void {
     this.defContainer.removeChildren();
     this._defSprites = [];
 
@@ -324,7 +374,7 @@ export class PlayerTableSprite extends Container {
     });
   }
 
-  _syncTrap(trap, bait) {
+  _syncTrap(trap: Card | null, bait: Card | null): void {
     this.trapContainer.removeChildren();
 
     const cardS = this._compact ? 0.45 : 0.7;
@@ -342,7 +392,7 @@ export class PlayerTableSprite extends Container {
     this.trapContainer.addChild(baitCard);
   }
 
-  _updateHighlight() {
+  _updateHighlight(): void {
     const size = this._layout.playerTableSize;
     this.highlight.clear();
     if (this._isCurrent) {
@@ -356,7 +406,7 @@ export class PlayerTableSprite extends Container {
     }
   }
 
-  setCurrent(v) {
+  setCurrent(v: boolean): void {
     this._isCurrent = v;
     this._updateHighlight();
     if (v) {
@@ -375,7 +425,7 @@ export class PlayerTableSprite extends Container {
     }
   }
 
-  setAlive(v) {
+  setAlive(v: boolean): void {
     this.deadMark.visible = !v;
     if (!v) {
       this.alpha = 0.55;
@@ -386,8 +436,8 @@ export class PlayerTableSprite extends Container {
     }
   }
 
-  _updateStatus(player) {
-    const tags = [];
+  _updateStatus(player: PlayerView): void {
+    const tags: string[] = [];
     if (player.statusEffects.frozenBy !== null) tags.push("冻结");
     if (
       player.relations.allyIndex !== null &&
@@ -396,18 +446,18 @@ export class PlayerTableSprite extends Container {
       tags.push(`联盟(${player.relations.allianceTurns})`);
     if (player.relations.betrayalPenalty > 0)
       tags.push(`背刺惩罚(${player.relations.betrayalPenalty})`);
-    if (player.statusEffects.stealTarget?.turns > 0)
-      tags.push(`偷取中(${player.statusEffects.stealTarget.turns})`);
-    if (player.statusEffects.dotTarget?.turns > 0)
-      tags.push(`DoT(${player.statusEffects.dotTarget.turns})`);
+    // 原写法是 `stealTarget?.turns > 0`（undefined > 0 为 false），这里用显式判空保持等价语义
+    const stealTarget = player.statusEffects.stealTarget;
+    if (stealTarget && stealTarget.turns > 0)
+      tags.push(`偷取中(${stealTarget.turns})`);
+    const dotTarget = player.statusEffects.dotTarget;
+    if (dotTarget && dotTarget.turns > 0) tags.push(`DoT(${dotTarget.turns})`);
     if (player.statusEffects.savepoint) tags.push("已存档");
     if (player.fightingSpirit > 0) tags.push(`斗志${player.fightingSpirit}`);
     if (player.chorus > 0) tags.push(`领唱${player.chorus}`);
     if (player.attackStreak > 0) tags.push(`连击${player.attackStreak}`);
-    if (player.statusEffects.drone)
-      tags.push(
-        `无人机${player.statusEffects.drone.hp}HP/盾${player.statusEffects.drone.defCount}`,
-      );
+    const drone = player.statusEffects.drone;
+    if (drone) tags.push(`无人机${drone.hp}HP/盾${drone.defCount}`);
     if (player.statusEffects.extraAction) tags.push("+1行动");
     if (player.statusEffects.ignoreTrapThisTurn) tags.push("无视陷阱");
     if (player.relations.gamblePenalty) tags.push("赌命惩罚");
@@ -426,7 +476,7 @@ export class PlayerTableSprite extends Container {
   }
 
   /** 更新名字右侧的赌命警告/惩罚文字 */
-  _updateGambleWarn(player) {
+  _updateGambleWarn(player: PlayerView): void {
     const compact = this._compact;
     const fsWarn = compact ? 9 : 11;
 

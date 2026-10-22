@@ -19,13 +19,13 @@
   </Transition>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from "vue";
 
-const emit = defineEmits(["done"]);
-const videoRef = ref(null);
-const visible = ref(true);
-const ready = ref(false);
+const emit = defineEmits<{ (e: "done"): void }>();
+const videoRef = ref<HTMLVideoElement | null>(null);
+const visible = ref<boolean>(true);
+const ready = ref<boolean>(false);
 
 function onReady() {
   ready.value = true;

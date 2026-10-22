@@ -60,7 +60,9 @@
           <input
             type="checkbox"
             :checked="useAI"
-            @change="$emit('update:useAI', $event.target.checked)"
+            @change="
+              $emit('update:useAI', ($event.target as HTMLInputElement).checked)
+            "
           />
           AI自动（关闭=手动操控对手）
         </label>
@@ -72,7 +74,9 @@
         <select
           class="league-setup__select"
           :value="difficulty"
-          @change="$emit('update:difficulty', $event.target.value)"
+          @change="
+            $emit('update:difficulty', ($event.target as HTMLSelectElement).value)
+          "
         >
           <option value="easy">简单</option>
           <option value="skilled">熟练</option>
@@ -145,38 +149,50 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { LEAGUE_TEAMS, TIER_LABELS } from "../game/leagueConstants.js";
 import SoundManager from "../audio/SoundManager.js";
 import { ARTIFACTS } from "../game/rules/artifacts.js";
 import TeamBadge from "./TeamBadge.vue";
+import type { LeagueTeam } from "../game/leagueConstants.js";
 
-defineProps({
-  selectedTeamId: { type: Number, default: null },
-  difficulty: { type: String, default: "skilled" },
-  useAI: { type: Boolean, default: true },
-  artifactId: { type: Number, default: null },
-  opponentArtifactId: { type: Number, default: null },
+interface Props {
+  selectedTeamId?: number | null;
+  difficulty?: string;
+  useAI?: boolean;
+  artifactId?: number | null;
+  opponentArtifactId?: number | null;
+}
+
+withDefaults(defineProps<Props>(), {
+  selectedTeamId: null,
+  difficulty: "skilled",
+  useAI: true,
+  artifactId: null,
+  opponentArtifactId: null,
 });
 
-const teams = LEAGUE_TEAMS.filter(Boolean); // 去掉 null 占位
+const emit = defineEmits<{
+  (e: "update:selectedTeamId", v: number): void;
+  (e: "update:difficulty", v: string): void;
+  (e: "update:useAI", v: boolean): void;
+  (e: "update:artifactId", v: number): void;
+  (e: "update:opponent-artifact-id", v: number): void;
+  (e: "start"): void;
+}>();
+
+// 去掉 null 占位（LEAGUE_TEAMS 下标 0 是占位符）
+const teams: LeagueTeam[] = LEAGUE_TEAMS.filter(
+  (team): team is LeagueTeam => Boolean(team),
+);
 
 const artifactList = Object.values(ARTIFACTS).map((a) => ({
   ...a,
   icon: a.type === "damage_boost" ? "⚔️" : "🎵",
 }));
 
-const emit = defineEmits([
-  "update:selectedTeamId",
-  "update:difficulty",
-  "update:useAI",
-  "update:artifactId",
-  "update:opponent-artifact-id",
-  "start",
-]);
-
 // 选择球队（主菜单点击音效）
-function onSelectTeam(teamId) {
+function onSelectTeam(teamId: number) {
   SoundManager.play("click");
   emit("update:selectedTeamId", teamId);
 }
@@ -187,7 +203,7 @@ function onStart() {
   emit("start");
 }
 
-function tierLabel(tier) {
+function tierLabel(tier: number): string {
   return TIER_LABELS[tier] || "";
 }
 </script>

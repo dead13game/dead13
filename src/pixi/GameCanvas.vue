@@ -7,21 +7,31 @@
   ></canvas>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, shallowRef, computed, onMounted, onBeforeUnmount } from "vue";
 import { PIXIManager } from "./core/PIXIManager.js";
+import type { ViewModel } from "../game/view.js";
 
-const props = defineProps({
-  state: { type: Object, required: true },
-});
+interface Props {
+  /** 只读视图模型（渲染层只读 players 与 deck.length） */
+  state: ViewModel;
+}
 
-const canvasRef = ref(null);
-const manager = shallowRef(null);
-const scrollMode = ref(false);
-const scrollH = ref(0);
+const props = defineProps<Props>();
+
+const canvasRef = ref<HTMLCanvasElement | null>(null);
+const manager = shallowRef<PIXIManager | null>(null);
+const scrollMode = ref<boolean>(false);
+const scrollH = ref<number>(0);
+
+/** canvas 的 CSS 尺寸 */
+interface CanvasSize {
+  w: number;
+  h: number;
+}
 
 // 当前 canvas 应该用的尺寸
-function currentSize() {
+function currentSize(): CanvasSize {
   if (scrollMode.value) {
     return { w: window.innerWidth, h: scrollH.value };
   }
@@ -33,10 +43,11 @@ const canvasStyle = computed(() => {
   return {};
 });
 
-let resizeObserver = null;
+let resizeObserver: ResizeObserver | null = null;
 
 onMounted(async () => {
   const canvas = canvasRef.value;
+  if (!canvas) return;
   const w = window.innerWidth;
   const h = window.innerHeight;
 

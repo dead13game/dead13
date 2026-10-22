@@ -62,11 +62,11 @@
     </div>
 
     <!-- 开发日志面板（Ctrl+Shift+D 切换） -->
-    <DevLogPanel ref="devLogRef" :entries="view.devLog.entries" />
+    <DevLogPanel ref="devLogRef" :entries="view.devLog.entries ?? []" />
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, reactive, watch, onMounted, onUnmounted } from "vue";
 import GameCanvas from "../pixi/GameCanvas.vue";
 import ActionBar from "./ActionBar.vue";
@@ -88,16 +88,35 @@ import {
 import { dispatch, save } from "../game/api.js";
 import { buildView } from "../game/view.js";
 import { unitByIndexOrUid } from "../game/core/units.js";
+import type { Command } from "../game/api.js";
+import type { AiTargetContext } from "../game/ai/index.js";
+import type { GameState } from "../game/types.js";
+import type { PIXIManager } from "../pixi/core/PIXIManager.js";
 
-const props = defineProps({
-  state: { type: Object, required: true },
-  worldCupMode: { type: Boolean, default: false },
-  leagueMode: { type: Boolean, default: false },
+interface Props {
+  state: GameState;
+  worldCupMode?: boolean;
+  leagueMode?: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  worldCupMode: false,
+  leagueMode: false,
 });
-const emit = defineEmits(["restart", "saveAndQuit"]);
 
-const gameCanvasRef = ref(null);
-const devLogRef = ref(null);
+/** 保存并退出时交给 App.vue 的载荷 */
+interface SaveAndQuitPayload {
+  gameState: ReturnType<typeof save>;
+  gameMode: "worldcup" | "normal";
+}
+
+const emit = defineEmits<{
+  (e: "restart"): void;
+  (e: "saveAndQuit", payload: SaveAndQuitPayload): void;
+}>();
+
+const gameCanvasRef = ref<InstanceType<typeof GameCanvas> | null>(null);
+const devLogRef = ref<InstanceType<typeof DevLogPanel> | null>(null);
 
 /**
  * 只读 view-model:UI/子组件/PIXI 都读它,写操作统一走 dispatch。
@@ -110,7 +129,7 @@ watch(
   { deep: true },
 );
 
-function getManager() {
+function getManager(): PIXIManager | null {
   return gameCanvasRef.value?.manager ?? null;
 }
 
@@ -152,46 +171,54 @@ const { animating, flyToTarget, defenseDraw, gambleDraw } = useAnimationFlow(
  * 必须先按 index 查找。uid 只在兜底时匹配，否则玩家的 uid=1/2/3… 会与
  * 其他玩家的 index 撞号，导致攻击目标被错误解析成自己/队友。
  */
-const findUnit = (indexOrUid) =>
+const findUnit = (indexOrUid: number | null) =>
   unitByIndexOrUid(props.state, indexOrUid);
-const uidAt = (index) => findUnit(index)?.uid ?? null;
-const cast = (cmd) => dispatch(props.state, cmd);
+/**
+ * index → uid。查不到时返回 null：旧实现把这个 null 直接交给 dispatch，
+ * 内核（`unitByUid(state, null)` → null）按「无目标」判否，
+ * 所以下面各处在 null 时干脆不发命令 —— 结果一致，少一次空转。
+ */
+const uidAt = (index: number | null): number | null =>
+  findUnit(index)?.uid ?? null;
+const cast = (cmd: Command): boolean => dispatch(props.state, cmd);
 
-function onAttack() {
+function onAttack(): void {
   if (animating.value) return;
   cast({ type: "attack" });
 }
 
-async function onDefense() {
+async function onDefense(): Promise<void> {
   if (animating.value) return;
   const pIdx = props.state.currentPlayerIndex;
   await defenseDraw(pIdx);
   cast({ type: "defense" });
 }
 
-async function onGamble() {
+async function onGamble(): Promise<void> {
   if (animating.value) return;
   await gambleDraw();
   cast({ type: "gamble" });
 }
 
-function onSkill() {
+function onSkill(): void {
   if (animating.value) return;
   cast({ type: "skill" });
 }
 
-function onHolyWord() {
+function onHolyWord(): void {
   if (animating.value) return;
   cast({ type: "holyWord" });
 }
 
-async function onTarget(idx) {
+async function onTarget(idx: number): Promise<void> {
   if (animating.value) return;
   if (findUnit(idx)?.kind === "hero") await flyToTarget(idx);
-  cast({ type: "attackTarget", targetUid: uidAt(idx) });
+  const uid = uidAt(idx);
+  if (uid == null) return;
+  cast({ type: "attackTarget", targetUid: uid });
 }
 
-async function onSkillTarget(idx) {
+async function onSkillTarget(idx: number): Promise<void> {
   if (animating.value) return;
   const purpose = view.pending?.purpose ?? "";
   // 调查猜点数：idx 就是 1-13
@@ -201,11 +228,15 @@ async function onSkillTarget(idx) {
   }
   // 团战：防御/陷阱支援目标
   if (purpose === "defense.support") {
-    cast({ type: "defenseTarget", targetUid: uidAt(idx) });
+    const uid = uidAt(idx);
+    if (uid == null) return;
+    cast({ type: "defenseTarget", targetUid: uid });
     return;
   }
   if (purpose === "gamble:trap") {
-    cast({ type: "gambleTarget", targetUid: uidAt(idx) });
+    const uid = uidAt(idx);
+    if (uid == null) return;
+    cast({ type: "gambleTarget", targetUid: uid });
     return;
   }
   // 与旧行为一致:只有风堇/雷神的技能目标会飞牌
@@ -215,7 +246,7 @@ async function onSkillTarget(idx) {
   cast({ type: "skillAnswer", answer: uidAt(idx) });
 }
 
-function onLiniyaSkill(idx, sub) {
+function onLiniyaSkill(idx: number, sub: number): void {
   if (animating.value) return;
   cast({
     type: "skillAnswer",
@@ -223,49 +254,51 @@ function onLiniyaSkill(idx, sub) {
   });
 }
 
-function onCaiyueangSave() {
+function onCaiyueangSave(): void {
   if (animating.value) return;
   cast({ type: "skillAnswer", answer: { choice: "save" } });
 }
 
-function onCaiyueangLoad() {
+function onCaiyueangLoad(): void {
   if (animating.value) return;
   cast({ type: "skillAnswer", answer: { choice: "load" } });
 }
 
-function onAlly() {
+function onAlly(): void {
   if (animating.value) return;
   cast({ type: "ally" });
 }
 
-function onBetray() {
+function onBetray(): void {
   if (animating.value) return;
   cast({ type: "betray" });
 }
 
-function onAllyInvite(idx) {
+function onAllyInvite(idx: number): void {
   if (animating.value) return;
-  cast({ type: "allyTarget", targetUid: uidAt(idx) });
+  const uid = uidAt(idx);
+  if (uid == null) return;
+  cast({ type: "allyTarget", targetUid: uid });
 }
 
-function onGambleSubmit(trapIdx, baitIdx) {
+function onGambleSubmit(trapIdx: number, baitIdx: number): void {
   if (animating.value) return;
   cast({ type: "gambleSubmit", trapIdx, baitIdx });
 }
 
-function onNahidaOrder(order) {
+function onNahidaOrder(order: number[]): void {
   if (animating.value) return;
   cast({ type: "skillAnswer", answer: order });
 }
 
 /** 取消待决:走内核命令,不再手改 step 与私有 flag(顺带修掉 KB-2) */
-function cancelPick() {
+function cancelPick(): void {
   cast({ type: "cancel" });
 }
 
-function onSaveAndQuit() {
+function onSaveAndQuit(): void {
   const gameData = save(props.state);
-  const saveData = {
+  const saveData: SaveAndQuitPayload = {
     gameState: gameData,
     gameMode: props.worldCupMode ? "worldcup" : "normal",
   };
@@ -290,25 +323,25 @@ function onRelayout() {
 }
 
 let relayoutClickCount = 0;
-let relayoutClickTimer = null;
+let relayoutClickTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** 暴露给 WorldCupShell 的 toggleDevLog */
-function toggleDevLog() {
+function toggleDevLog(): void {
   devLogRef.value?.toggleDevLog();
 }
 
 defineExpose({ toggleDevLog });
 
 // ── AI 调度 ──
-let aiTimer = null;
+let aiTimer: ReturnType<typeof setTimeout> | null = null;
 
-function isAITurn() {
+function isAITurn(): boolean {
   if (!props.state || props.state.gameOver) return false;
   const p = view.players[props.state.currentPlayerIndex];
   return !!p?.alive && !!p.isAI;
 }
 
-function scheduleAI() {
+function scheduleAI(): void {
   if (props.worldCupMode || props.leagueMode) return; // 世界杯/联赛模式由上层 Shell 自行调度
   if (aiTimer) clearTimeout(aiTimer);
   const state = props.state;
@@ -318,7 +351,7 @@ function scheduleAI() {
   aiTimer = setTimeout(aiAct, 600 + Math.random() * 600);
 }
 
-function aiAct() {
+function aiAct(): void {
   const state = props.state;
   if (view.step === "pickAction") {
     if (!isAITurn()) return;
@@ -337,7 +370,7 @@ function aiAct() {
   }, 300);
 }
 
-function executeTopAction(decision) {
+function executeTopAction(decision: ReturnType<typeof decideTopAction>): void {
   const state = props.state;
   switch (decision.action) {
     case "attack": {
@@ -345,7 +378,8 @@ function executeTopAction(decision) {
       aiTimer = setTimeout(() => {
         if (view.step === "attackShowCard") {
           const t = decideTarget(view, { action: "attack" });
-          cast({ type: "attackTarget", targetUid: uidAt(t.targetIndex) });
+          const uid = uidAt(t.targetIndex);
+          if (uid != null) cast({ type: "attackTarget", targetUid: uid });
         }
       }, 500);
       break;
@@ -357,7 +391,7 @@ function executeTopAction(decision) {
       cast({ type: "gamble" });
       aiTimer = setTimeout(() => {
         if (view.step === "gamblePick" && view.pendingGamble) {
-          const g = decideGamblePick(view, view.pendingGamble.drawnCards);
+          const g = decideGamblePick(view, view.pendingGamble.drawnCards ?? []);
           cast({
             type: "gambleSubmit",
             trapIdx: g.trapIdx,
@@ -384,23 +418,24 @@ function executeTopAction(decision) {
 }
 
 /** pending.purpose → 旧 AI 认识的技能标签 */
-function skillTagOf(purpose) {
+function skillTagOf(purpose: string): string {
   if (purpose === "skill:furina") return "furina";
   if (purpose === "skill:aimiliya.freeze") return "aimiliya";
   if (purpose === "skill:fenjin") return "fenjin";
   return "raiden";
 }
 
-function executeMiddleStep() {
+function executeMiddleStep(): void {
   const s = view.step;
   if (s === "pickAction") return;
 
   if (s === "attackShowCard") {
     const t = decideTarget(view, { action: "attack" });
-    cast({ type: "attackTarget", targetUid: uidAt(t.targetIndex) });
+    const uid = uidAt(t.targetIndex);
+    if (uid != null) cast({ type: "attackTarget", targetUid: uid });
   } else if (s === "gamblePick") {
     if (view.pendingGamble) {
-      const g = decideGamblePick(view, view.pendingGamble.drawnCards);
+      const g = decideGamblePick(view, view.pendingGamble.drawnCards ?? []);
       cast({ type: "gambleSubmit", trapIdx: g.trapIdx, baitIdx: g.baitIdx });
     }
   } else if (s === "skillPickTarget") {
@@ -413,14 +448,28 @@ function executeMiddleStep() {
     const purpose = view.pending?.purpose ?? "";
     if (purpose === "defense.support" || purpose === "gamble:trap") {
       const me = view.players[view.currentPlayerIndex];
-      cast({ type: purpose === "defense.support" ? "defenseTarget" : "gambleTarget", targetUid: me?.uid ?? null });
+      const uid = me?.uid ?? null;
+      if (uid != null) {
+        if (purpose === "defense.support") {
+          cast({ type: "defenseTarget", targetUid: uid });
+        } else {
+          cast({ type: "gambleTarget", targetUid: uid });
+        }
+      }
       return;
     }
     const kind = skillTagOf(purpose);
-    const t = decideTarget(view, { action: "skill", characterId: kind });
+    // 历史错位（P6a 起）：旧实现把「技能标签字符串」塞进 AI 的 characterId，
+    // 而 AI 的 mapContext 按数字比对，于是恒落默认分支 "attack"。
+    // 这是既有行为，迁移不改语义 —— AiTargetContext.characterId 已放宽为 number | string 如实承载它。
+    const aiContext: AiTargetContext = {
+      action: "skill",
+      characterId: kind,
+    };
+    const t = decideTarget(view, aiContext);
     cast({ type: "skillAnswer", answer: uidAt(t.targetIndex) });
   } else if (s === "skillNahida") {
-    const order = decideNahidaOrder(view, view.scryCards);
+    const order = decideNahidaOrder(view, view.scryCards ?? []);
     cast({ type: "skillAnswer", answer: order });
   } else if (s === "liniyaPick") {
     const d = decideLiniyaChoice(view);
@@ -433,7 +482,8 @@ function executeMiddleStep() {
     cast({ type: "skillAnswer", answer: { choice: d.choice } });
   } else if (s === "allyPick") {
     const t = decideTarget(view, { action: "ally" });
-    cast({ type: "allyTarget", targetUid: uidAt(t.targetIndex) });
+    const uid = uidAt(t.targetIndex);
+    if (uid != null) cast({ type: "allyTarget", targetUid: uid });
   } else {
     cast({ type: "cancel" });
     cast({ type: "defense" });

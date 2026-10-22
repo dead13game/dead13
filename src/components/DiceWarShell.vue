@@ -318,8 +318,9 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { reactive, ref, computed, watch, nextTick, onMounted } from "vue";
+import type { ComputedRef } from "vue";
 import {
   ROSTER,
   PHASE_META,
@@ -341,88 +342,186 @@ import {
   describeSeries,
   describeGap,
 } from "../game/diceWar.js";
+import type {
+  DiceWarMatch,
+  DiceWarPhaseId,
+  DiceWarState,
+  RosterMember,
+  SegmentSummary,
+  SeriesScoreView,
+} from "../game/diceWar.js";
 import { KIND, buildCommentaryRequest } from "../game/diceWarCommentator.js";
+import type { CommentaryKind } from "../game/diceWarCommentator.js";
 import SoundManager from "../audio/SoundManager.js";
 
-const props = defineProps({
-  restore: { type: Boolean, default: false },
-});
-const emit = defineEmits(["quit"]);
+const props = withDefaults(
+  defineProps<{
+    restore?: boolean;
+  }>(),
+  {
+    restore: false, // 进入世锦赛时是否自动读档（继续）
+  },
+);
+const emit = defineEmits<{ (e: "quit"): void }>();
+
+/**
+ * 类型层收窄：模板已按 uiMode 分支 / v-if 保证非空，
+ * 运行时该值仍可能为 null（与迁移前的 JS 行为一致）。
+ */
+function nonNullRef<T>(value: ComputedRef<T | null>): ComputedRef<T> {
+  return value as ComputedRef<T>;
+}
+
+/** JSON 读回的值是 unknown：先收敛到对象，再逐字段取用 */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+/** 从 unknown 对象里取字符串字段（类型不符回退默认值） */
+function pickString(obj: Record<string, unknown>, key: string, fallback: string): string {
+  const value = obj[key];
+  return typeof value === "string" ? value : fallback;
+}
+
+/** catch 到的是 unknown，统一转成展示文案 */
+function errorText(e: unknown): string {
+  if (e instanceof Error && e.message) return e.message;
+  return String(e);
+}
+
+/** 从 OpenAI 兼容响应（unknown）里取第一条 choice 的文本 */
+function readChatContent(data: unknown): string | null {
+  if (!isRecord(data)) return null;
+  const choices = data.choices;
+  if (!Array.isArray(choices)) return null;
+  const first: unknown = choices[0];
+  if (!isRecord(first)) return null;
+  const message = first.message;
+  if (!isRecord(message)) return null;
+  const content = message.content;
+  return typeof content === "string" ? content : null;
+}
+
+/** 从接口错误响应（unknown）里取 error.message */
+function readApiErrorMessage(data: unknown): string {
+  if (!isRecord(data)) return "";
+  const error = data.error;
+  if (!isRecord(error)) return "";
+  const message = error.message;
+  return typeof message === "string" ? message : "";
+}
 
 // 骰子世锦赛存档键（独立于经典/单机/模拟宇宙存档）
 const SAVE_KEY = "dead13_dicewar_save";
 
+/** 界面状态：setup | matchups | match | phaseDone | champion */
+type DiceWarUiMode = "setup" | "matchups" | "match" | "phaseDone" | "champion";
+
+/** 存档里的 uiMode 是 unknown，逐值收窄（新增界面时记得同步这里） */
+function isUiMode(value: unknown): value is DiceWarUiMode {
+  switch (value) {
+    case "setup":
+    case "matchups":
+    case "match":
+    case "phaseDone":
+    case "champion":
+      return true;
+    default:
+      return false;
+  }
+}
+
 // ---- 状态 ----
-const dw = reactive(createDiceWar());
-const uiMode = ref("setup"); // setup | matchups | match | phaseDone | champion
-const advancersList = ref([]); // 上一阶段晋级名单快照
-const prevPhaseName = ref("");
-const rollFlash = ref(0); // 骰子弹跳动画 key
+const dw = reactive<DiceWarState>(createDiceWar());
+const uiMode = ref<DiceWarUiMode>("setup"); // setup | matchups | match | phaseDone | champion
+const advancersList = ref<RosterMember[]>([]); // 上一阶段晋级名单快照
+const prevPhaseName = ref<string>("");
+const rollFlash = ref<number>(0); // 骰子弹跳动画 key
 
 // 读档/初始化期间抑制解说统计 watch 的自动触发，改由装载逻辑按需触发
-const isRestoring = ref(false);
+const isRestoring = ref<boolean>(false);
 
 // ---- 世锦赛存档 ----
-function captureIndices() {
+/** 存档结构（写读都走这个形状；dw 是深拷贝后的纯数据） */
+interface DiceWarSaveData {
+  uiMode: DiceWarUiMode;
+  advList: number[];
+  prevPhaseName: string;
+  dw: unknown;
+}
+
+function captureIndices(): number[] {
   return advancersList.value.map((p) => ROSTER.indexOf(p));
 }
-function gatherState() {
+/** 存档里的晋级名单是 unknown：只接受合法的 roster 下标 */
+function toRosterMembers(value: unknown): RosterMember[] {
+  if (!Array.isArray(value)) return [];
+  const members: RosterMember[] = [];
+  for (const idx of value) {
+    if (typeof idx === "number" && ROSTER[idx]) members.push(ROSTER[idx]);
+  }
+  return members;
+}
+function gatherState(): DiceWarSaveData {
+  const snapshot: unknown = JSON.parse(JSON.stringify(dw));
   return {
     uiMode: uiMode.value,
     advList: captureIndices(),
     prevPhaseName: prevPhaseName.value,
-    dw: JSON.parse(JSON.stringify(dw)),
+    dw: snapshot,
   };
 }
-function persistSave() {
+function persistSave(): void {
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(gatherState()));
   } catch {
     /* 存储满/不可用：忽略，不阻断游玩 */
   }
 }
-function clearSave() {
+function clearSave(): void {
   localStorage.removeItem(SAVE_KEY);
 }
-function hasSave() {
+function hasSave(): boolean {
   return !!localStorage.getItem(SAVE_KEY);
 }
 /** 载入存档，若找不到档或解析失败返回 false */
-function loadPersisted() {
+function loadPersisted(): boolean {
   const raw = localStorage.getItem(SAVE_KEY);
   if (!raw) return false;
   try {
-    const data = JSON.parse(raw);
-    if (data && data.dw) {
-      // 重建整棵状态，直接展开回 reactive dw（未知/旧档回退经典赛制）
-      const fresh = createDiceWar(data.dw.format || "classic");
-      Object.assign(fresh, data.dw);
-      // 归一化旧存档：系列赛对象补齐局分字段，series 重新指向当前对阵
-      fresh.matchups = (fresh.matchups || []).map((s) => ({
-        a: s.a,
-        b: s.b,
-        aWins: s.aWins || 0,
-        bWins: s.bWins || 0,
-      }));
-      fresh.series =
-        fresh.matchIndex >= 0 && fresh.matchups[fresh.matchIndex]
-          ? fresh.matchups[fresh.matchIndex]
-          : null;
-      isRestoring.value = true;
-      Object.assign(dw, fresh);
-      uiMode.value = data.uiMode || "setup";
-      advancersList.value = (data.advList || []).map((i) => (ROSTER[i] ? ROSTER[i] : null)).filter(Boolean);
-      prevPhaseName.value = data.prevPhaseName || "";
-      isRestoring.value = false;
-      return true;
-    }
+    const data: unknown = JSON.parse(raw);
+    if (!isRecord(data) || !isRecord(data.dw)) return false;
+    const saved = data.dw;
+    // 重建整棵状态，直接展开回 reactive dw（未知/旧档回退经典赛制）
+    const fresh = createDiceWar(
+      typeof saved.format === "string" && saved.format ? saved.format : "classic",
+    );
+    Object.assign(fresh, saved);
+    // 归一化旧存档：系列赛对象补齐局分字段，series 重新指向当前对阵
+    fresh.matchups = (fresh.matchups || []).map((s) => ({
+      a: s.a,
+      b: s.b,
+      aWins: s.aWins || 0,
+      bWins: s.bWins || 0,
+    }));
+    fresh.series =
+      fresh.matchIndex >= 0 && fresh.matchups[fresh.matchIndex]
+        ? fresh.matchups[fresh.matchIndex]
+        : null;
+    isRestoring.value = true;
+    Object.assign(dw, fresh);
+    uiMode.value = isUiMode(data.uiMode) ? data.uiMode : "setup";
+    advancersList.value = toRosterMembers(data.advList);
+    prevPhaseName.value = typeof data.prevPhaseName === "string" ? data.prevPhaseName : "";
+    isRestoring.value = false;
+    return true;
   } catch {
     /* 坏档：当作不存在 */
   }
   return false;
 }
 /** 载入后按挂起状态触发一次解说（读档恢复观感），成功后可从外部刷新 */
-function refreshCommentaryIfHanging() {
+function refreshCommentaryIfHanging(): CommentaryKind | null {
   const m = dw.currentMatch;
   if (dw.champion != null && uiMode.value === "champion") {
     return KIND.CHAMPION;
@@ -440,34 +539,62 @@ function refreshCommentaryIfHanging() {
 }
 
 // ---- AI 解说 ----
-const AI_DEFAULTS = {
+/** AI 解说设置（浏览器直连 OpenAI 兼容接口） */
+interface AISettings {
+  endpoint: string;
+  apiKey: string;
+  model: string;
+}
+
+const AI_DEFAULTS: AISettings = {
   endpoint: "https://api.deepseek.com/v1/chat/completions",
   apiKey: "",
   model: "deepseek-chat",
 };
-const showAISettings = ref(false);
-const aiSettings = ref(loadAISettings());
-const aiTestResult = ref(null);
-const commentary = ref({ status: "idle", kind: "", text: "", error: "" });
+const showAISettings = ref<boolean>(false);
+const aiSettings = ref<AISettings>(loadAISettings());
+const aiTestResult = ref<string | null>(null);
+
+/** 解说状态（模板按 status 分支渲染） */
+type CommentaryStatus = "idle" | "loading" | "done" | "error";
+interface CommentaryState {
+  status: CommentaryStatus;
+  /** 解说时机；idle 时为空串 */
+  kind: CommentaryKind | "";
+  text: string;
+  error: string;
+}
+
+const commentary = ref<CommentaryState>({ status: "idle", kind: "", text: "", error: "" });
 let reqSeq = 0; // 解说请求序号，防止旧响应覆盖新请求
 
-function loadAISettings() {
+/** 读回 localStorage 的解说设置（JSON 是 unknown，逐字段收窄） */
+function loadAISettings(): AISettings {
   try {
     const raw = localStorage.getItem("dead13_ai_settings");
-    if (raw) return { ...AI_DEFAULTS, ...JSON.parse(raw) };
+    if (raw) {
+      const parsed: unknown = JSON.parse(raw);
+      if (isRecord(parsed)) {
+        return {
+          endpoint: pickString(parsed, "endpoint", AI_DEFAULTS.endpoint),
+          apiKey: pickString(parsed, "apiKey", AI_DEFAULTS.apiKey),
+          model: pickString(parsed, "model", AI_DEFAULTS.model),
+        };
+      }
+    }
   } catch {
     /* ignore */
   }
   return { ...AI_DEFAULTS };
 }
 
-function saveAISettings() {
+function saveAISettings(): void {
   localStorage.setItem("dead13_ai_settings", JSON.stringify(aiSettings.value));
   showAISettings.value = false;
   aiTestResult.value = null;
 }
 
-async function testAI() {
+async function testAI(): Promise<void> {
   aiTestResult.value = null;
   const s = aiSettings.value;
   if (!s.apiKey) {
@@ -488,15 +615,15 @@ async function testAI() {
       }),
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    const text = data?.choices?.[0]?.message?.content;
+    const data: unknown = await res.json();
+    const text = readChatContent(data);
     aiTestResult.value = text ? `✅ ${text}` : "✅ 连接成功（无返回内容）";
   } catch (e) {
-    aiTestResult.value = `❌ ${e.message || e}`;
+    aiTestResult.value = `❌ ${errorText(e)}`;
   }
 }
 
-async function triggerCommentary(kind) {
+async function triggerCommentary(kind: CommentaryKind): Promise<void> {
   const m = dw.currentMatch;
   if (!m) return;
   const seq = ++reqSeq;
@@ -534,9 +661,9 @@ async function triggerCommentary(kind) {
       const errText = await res.text().catch(() => "");
       throw new Error(`HTTP ${res.status} ${errText.slice(0, 120)}`);
     }
-    const data = await res.json();
-    const text = data?.choices?.[0]?.message?.content;
-    if (!text) throw new Error(data?.error?.message || "接口无返回内容");
+    const data: unknown = await res.json();
+    const text = readChatContent(data);
+    if (!text) throw new Error(readApiErrorMessage(data) || "接口无返回内容");
     if (seq !== reqSeq) return;
     commentary.value = { status: "done", kind, text: text.trim(), error: "" };
   } catch (e) {
@@ -545,35 +672,39 @@ async function triggerCommentary(kind) {
       status: "error",
       kind,
       text: "",
-      error: `AI 解说失败：${e.message || e}`,
+      error: `AI 解说失败：${errorText(e)}`,
     };
   }
 }
 
 // ---- 派生数据 ----
 const phaseMeta = computed(() => (dw.phase ? PHASE_META[dw.phase] : null));
-const match = computed(() => dw.currentMatch);
-const seriesScore = computed(() => getSeriesScore(dw));
+const match = nonNullRef(computed(() => dw.currentMatch));
+const seriesScore = nonNullRef<SeriesScoreView>(computed(() => getSeriesScore(dw)));
 const matchupLabel = computed(() => getMatchupLabel(dw));
 const isFinal = computed(() => dw.phase === "final");
 const formatName = computed(() => (FORMATS[dw.format] || FORMATS.classic).name);
 const seriesRuleText = computed(() => describeSeries(getWinTarget(dw)));
 const isSeriesPhase = computed(() => getWinTarget(dw) > 1);
-const champion = computed(() =>
-  dw.champion != null ? ROSTER[dw.champion] : null,
+const champion = nonNullRef(
+  computed(() => (dw.champion != null ? ROSTER[dw.champion] : null)),
 );
 const currentRound = computed(() => (match.value ? match.value.round + 1 : 1));
 
-const segSummary = computed(() => {
-  const m = match.value;
-  if (!m || m.phase !== "segment") return null;
-  const seg = m.round / SEGMENT_LEN;
-  return getSegmentSummary(m, seg);
-});
-const seg3 = computed(() => {
-  const m = match.value;
-  return m ? getSegmentSummary(m, 3) : null;
-});
+const segSummary = nonNullRef(
+  computed((): SegmentSummary | null => {
+    const m = match.value;
+    if (!m || m.phase !== "segment") return null;
+    const seg = m.round / SEGMENT_LEN;
+    return getSegmentSummary(m, seg);
+  }),
+);
+const seg3 = nonNullRef(
+  computed((): SegmentSummary | null => {
+    const m = match.value;
+    return m ? getSegmentSummary(m, 3) : null;
+  }),
+);
 const segTitle = computed(() => {
   const m = match.value;
   if (!m) return "";
@@ -599,9 +730,11 @@ const nextButtonText = computed(() => {
   if (isSeriesPhase.value) return "下一局 →";
   return "下一场 →";
 });
-const gapText = (m) => describeGap(m.a.name, m.a.score, m.b.name, m.b.score);
+function gapText(m: DiceWarMatch): string {
+  return describeGap(m.a.name, m.a.score, m.b.name, m.b.score);
+}
 
-const KIND_LABELS = {
+const KIND_LABELS: Record<string, string> = {
   [KIND.PRE]: "前段解说",
   [KIND.MID]: "中段解说",
   [KIND.FINAL]: "末段解说",
@@ -611,19 +744,19 @@ const KIND_LABELS = {
 const commentaryKindLabel = computed(() => KIND_LABELS[commentary.value.kind] || "");
 
 // ---- 动作 ----
-function onStartTournament(format = "classic") {
+function onStartTournament(format: string = "classic"): void {
   startTournament(dw, Math.random, format);
   commentary.value = { status: "idle", kind: "", text: "", error: "" };
   uiMode.value = "matchups";
   clearSave(); // 新一届取代旧档
 }
 
-function onStartFirstMatch() {
+function onStartFirstMatch(): void {
   startNextMatch(dw);
   uiMode.value = "match";
 }
 
-function onRoll() {
+function onRoll(): void {
   const r = rollDice(dw);
   if (!r) return;
   SoundManager.play("click");
@@ -631,19 +764,19 @@ function onRoll() {
   persistSave(); // 每掷一步留档，刷新/误退都不丢
 }
 
-function onRollTen() {
+function onRollTen(): void {
   SoundManager.play("click");
   const rolled = rollDiceN(dw, SEGMENT_LEN * 2); // 20 次掷 = 10 轮（10连）
   if (rolled > 0) rollFlash.value++;
   persistSave();
 }
 
-function onContinueSegment() {
+function onContinueSegment(): void {
   continueAfterSegment(dw);
 }
 
-function onNextMatch() {
-  const prevPhase = dw.phase;
+function onNextMatch(): void {
+  const prevPhase: DiceWarPhaseId | null = dw.phase;
   const adv = [...dw.advancers];
   const next = startNextMatch(dw);
   if (next) {
@@ -658,19 +791,19 @@ function onNextMatch() {
   }
   // 阶段已推进：展示上一阶段晋级名单 + 新一轮对阵，开赛由「开始新一轮」触发
   advancersList.value = adv.map((i) => ROSTER[i]);
-  prevPhaseName.value = PHASE_META[prevPhase].listTitle;
+  prevPhaseName.value = prevPhase ? PHASE_META[prevPhase].listTitle : "";
   uiMode.value = "phaseDone";
   persistSave();
 }
 
-function onRestart() {
+function onRestart(): void {
   startTournament(dw);
   commentary.value = { status: "idle", kind: "", text: "", error: "" };
   uiMode.value = "matchups";
   clearSave();
 }
 
-function onQuit() {
+function onQuit(): void {
   // 开场前无进度 → 清档；中途退出 → 自动留档；夺冠收官 → 清档（完成无需续）
   if (dw.phase) {
     if (dw.champion != null) clearSave();
@@ -685,14 +818,15 @@ function onQuit() {
 watch(
   () => dw.currentMatch?.phase,
   (ph) => {
-    if (!ph) return;
+    const m = dw.currentMatch;
+    if (!ph || !m) return;
     if (isRestoring.value) return; // 读档阶段，避免重复触发解/音效
     if (ph === "segment") {
-      const seg = dw.currentMatch.round / SEGMENT_LEN;
+      const seg = m.round / SEGMENT_LEN;
       triggerCommentary(seg === 1 ? KIND.PRE : KIND.MID);
     } else if (ph === "over") {
       SoundManager.play("match_end");
-      triggerCommentary(dw.currentMatch.overtime ? KIND.OVERTIME : KIND.FINAL);
+      triggerCommentary(m.overtime ? KIND.OVERTIME : KIND.FINAL);
     }
   },
 );
@@ -715,7 +849,6 @@ onMounted(() => {
     if (kind) triggerCommentary(kind);
   });
 });
-
 </script>
 
 <style scoped src="./dicewar/dicewar-shell.css"></style>

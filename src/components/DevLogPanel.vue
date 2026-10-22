@@ -81,15 +81,21 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
+import type { LogEntry } from "../game/gameLogger.js";
 
-const props = defineProps({
-  entries: { type: Array, required: true },
-  open: { type: Boolean, default: false }, // 外部受控打开（连点「模拟宇宙」标题 3 次等）
+interface Props {
+  entries: LogEntry[];
+  /** 外部受控打开（连点「模拟宇宙」标题 3 次等） */
+  open?: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  open: false, // 外部受控打开（连点「模拟宇宙」标题 3 次等）
 });
 
-const visible = ref(false);
+const visible = ref<boolean>(false);
 // 外部受控打开：open 变 true 时显示
 watch(
   () => props.open,
@@ -97,15 +103,15 @@ watch(
     if (v) visible.value = true;
   },
 );
-const filterLevel = ref("");
-const filterCat = ref("");
-const searchText = ref("");
-const expandedIdx = ref(-1);
-const entriesRef = ref(null);
+const filterLevel = ref<string>("");
+const filterCat = ref<string>("");
+const searchText = ref<string>("");
+const expandedIdx = ref<number>(-1);
+const entriesRef = ref<HTMLDivElement | null>(null);
 
 // 从条目中提取所有出现过的分类
-const categories = computed(() => {
-  const set = new Set();
+const categories = computed<string[]>(() => {
+  const set = new Set<string>();
   for (const e of props.entries) {
     if (e.cat) set.add(e.cat);
   }
@@ -113,7 +119,7 @@ const categories = computed(() => {
 });
 
 // 过滤后的条目（最新在底部）
-const filteredEntries = computed(() => {
+const filteredEntries = computed<LogEntry[]>(() => {
   let result = [...props.entries];
   if (filterLevel.value) {
     result = result.filter((e) => e.level === filterLevel.value);
@@ -145,7 +151,7 @@ watch(
 );
 
 /** 格式化时间 */
-function formatTime(ts) {
+function formatTime(ts: number): string {
   const d = new Date(ts);
   const h = String(d.getHours()).padStart(2, "0");
   const m = String(d.getMinutes()).padStart(2, "0");
@@ -155,7 +161,7 @@ function formatTime(ts) {
 }
 
 /** 级别图标 */
-function levelIcon(level) {
+function levelIcon(level: string): string {
   switch (level) {
     case "ERROR":
       return "✖";
@@ -171,12 +177,12 @@ function levelIcon(level) {
 }
 
 /** 展开/收起条目 */
-function toggleExpand(idx) {
+function toggleExpand(idx: number): void {
   expandedIdx.value = expandedIdx.value === idx ? -1 : idx;
 }
 
 /** 导出日志 */
-function exportLog() {
+function exportLog(): void {
   // 生成格式化文本
   const header = [
     "═══════════════════════════════════════════",
@@ -187,13 +193,20 @@ function exportLog() {
     "",
   ].join("\n");
 
-  const levelIcons = { DEBUG: "●", INFO: "ℹ", WARN: "⚠", ERROR: "✖" };
+  const levelIcons: Record<string, string> = {
+    DEBUG: "●",
+    INFO: "ℹ",
+    WARN: "⚠",
+    ERROR: "✖",
+  };
   const body = props.entries
     .map((e) => {
       const time = formatTime(e.ts);
       const icon = levelIcons[e.level] || "·";
       let line = `${icon} [${time}] [${e.level}] [${e.cat}] [回合${e.round}] ${e.turn ? e.turn + " " : ""}${e.msg}`;
-      if (e.data && Object.keys(e.data).length > 0) {
+      const data = e.data;
+      // data 的类型是 unknown；Object(data) 只是把它装箱，让 Object.keys 保持原先对任意值的语义
+      if (data && Object.keys(Object(data)).length > 0) {
         line +=
           "\n" +
           JSON.stringify(e.data, null, 2)
@@ -217,17 +230,17 @@ function exportLog() {
 }
 
 /** 清空日志 */
-function clearLog() {
+function clearLog(): void {
   props.entries.length = 0;
 }
 
 /** 切换面板（供外部 5 连击调用） */
-function toggleDevLog() {
+function toggleDevLog(): void {
   visible.value = !visible.value;
 }
 
 /** 快捷键 */
-function onKeyDown(e) {
+function onKeyDown(e: KeyboardEvent): void {
   if (e.ctrlKey && e.shiftKey && e.key === "D") {
     e.preventDefault();
     visible.value = !visible.value;

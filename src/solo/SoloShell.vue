@@ -403,25 +403,49 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch, onMounted } from "vue";
+import type { ComputedRef } from "vue";
 import { SOLO_CARDS, SOLO_ENEMIES, SHOP_PRICE, CARD_RARITY, DEFAULT_CHAR_ID, NODE_META } from "./logic/soloConstants.js";
 import { rollCardCandidates, shopCatalog } from "./logic/solo.js";
 import { SOLO_EVENTS } from "./logic/soloEvents.js";
+import type {
+  SoloCheckResult,
+  SoloCombatState,
+  SoloMapNode,
+  SoloPlayedCard,
+  SoloState,
+} from "./logic/types.js";
+import type { SoloController } from "./useSoloController.js";
 import DevLogPanel from "../components/DevLogPanel.vue";
 import { useSoundSync } from "../bridge/useSoundSync.js";
+
+declare global {
+  interface Window {
+    /** 调试钩子：浏览器控制台可查单机状态 */
+    __SOLO_STATE__?: SoloState;
+  }
+}
+
+/**
+ * 类型层收窄：模板已按 uiMode 分支 / v-if 保证非空，
+ * 运行时该值仍可能为 null（与迁移前的 JS 行为一致）。
+ */
+function nonNullRef<T>(value: ComputedRef<T | null>): ComputedRef<T> {
+  return value as ComputedRef<T>;
+}
 
 onMounted(() => {
   // 调试钩子：浏览器控制台可查 solo 状态（window.__SOLO_STATE__）
   window.__SOLO_STATE__ = soloState;
 });
 
-const props = defineProps({ solo: { type: Object, required: true } });
-const emit = defineEmits(["quit"]);
+const props = defineProps<{ solo: SoloController }>();
+const emit = defineEmits<{ (e: "quit"): void }>();
 const solo = props.solo;
 
 const player = computed(() => soloState.player);
-const combat = computed(() => soloState.combat);
+const combat = nonNullRef<SoloCombatState>(computed(() => soloState.combat));
 // 顶层解构 ref/reactive：嵌套在 props 对象里的 ref 模板不会自动解包，必须提为顶层变量
 const uiMode = solo.uiMode;
 const battleMsg = solo.battleMsg;
@@ -436,37 +460,42 @@ useSoundSync(soloState);
 
 // 下一节点标签 + 前往
 const nextNodeLabel = computed(() => solo.nextNodeInfo()?.label || "？");
-function goNext() {
+function goNext(): void {
   solo.goNext();
 }
 
 // 事件结算文案
-const eventResultText = computed(() => {
+const eventResultText = computed<string>(() => {
   const r = eventResult.value;
   if (!r) return "";
   if (r.outcome?.dead) return "💀 你在事件中倒下了…";
-  const parts = [];
+  const parts: string[] = [];
   if (r.outcome?.note) parts.push(r.outcome.note);
   if (r.outcome?.gold) parts.push(`金币 ${r.outcome.gold > 0 ? "+" : ""}${r.outcome.gold}`);
   if (r.outcome?.hp) parts.push(`HP ${r.outcome.hp > 0 ? "+" : ""}${r.outcome.hp}`);
   if (r.outcome?.gainedCard) parts.push(`获得卡牌「${cardName(r.outcome.gainedCard)}」`);
   if (r.outcome?.removedCard) parts.push(`失去卡牌「${cardName(r.outcome.removedCard)}」`);
-  if (r.check && !r.check.success) parts.push(`（检定失败：${r.check.total} vs DC${r.check.dc}）`);
+  if (r.check && !r.check.success) {
+    // 历史实现从 check 上读 dc（SoloCheckResult 未声明该字段、运行时也不存在），
+    // 迁移时保持文案原样，仅对该旧字段做一次显式收窄读取
+    const legacy = r.check as SoloCheckResult & { dc?: number };
+    parts.push(`（检定失败：${r.check.total} vs DC${legacy.dc}）`);
+  }
   return parts.join("，") || "事件完成";
 });
 
 // 已领卡牌名
-const lastClaimedCard = computed(() => {
+const lastClaimedCard = computed<string>(() => {
   const c = combat.value;
   return c?.lastReward?.claimedCard || "";
 });
 
 // 出牌详情弹层
-const selectedPlayed = ref(null);
+const selectedPlayed = ref<SoloPlayedCard | null>(null);
 // 手牌详情弹层（点「📖 详情」查看）
-const viewingCard = ref(null);
+const viewingCard = ref<string | null>(null);
 /** 完整卡牌效果描述（详情弹层用） */
-function cardFullDesc(id) {
+function cardFullDesc(id: string): string {
   const c = SOLO_CARDS[id];
   if (!c) return "";
   const typeName = {
@@ -475,7 +504,7 @@ function cardFullDesc(id) {
     defense: "防御",
     utility: "功能",
   }[c.type];
-  const parts = [`【${typeName}】`, `行动力 ${c.cost}`];
+  const parts: string[] = [`【${typeName}】`, `行动力 ${c.cost}`];
   if (c.hits) parts.push(`${c.base} 伤害×${c.hits} 段 + 力量修正`);
   else if (c.type === "physical") parts.push(`${c.base} 伤害 + 力量修正`);
   else if (c.type === "magic" && c.heal) parts.push(`回复 ${c.base} HP + 法力修正`);
@@ -489,8 +518,15 @@ function cardFullDesc(id) {
   return parts.join(" · ");
 }
 
+/** 伤害飘字（敌方攻击时 -X 红，治疗 +X 绿） */
+interface HpFlash {
+  dmg: number;
+  key: number;
+  type?: "damage" | "heal";
+}
+
 // 玩家 HP 伤害飘字（敌方攻击时显示 -X，治疗 +绿）
-const hpFlash = ref(null);
+const hpFlash = ref<HpFlash | null>(null);
 watch(
   () => player.value.hp,
   (now, prev) => {
@@ -505,7 +541,7 @@ watch(
 );
 
 // 敌方 HP 飘字（受击显示 -X）
-const enemyHpFlash = ref(null);
+const enemyHpFlash = ref<HpFlash | null>(null);
 watch(
   () => combat.value?.enemyHp,
   (now, prev) => {
@@ -519,14 +555,14 @@ watch(
 );
 
 // 敌人头像 emoji（按敌人类型）
-const ENEMY_EMOJIS = { normal: "👺", elite: "😈", boss: "👹" };
-function enemyEmoji(key) {
+const ENEMY_EMOJIS: Record<string, string> = { normal: "👺", elite: "😈", boss: "👹" };
+function enemyEmoji(key: string): string {
   return ENEMY_EMOJIS[key] || "👹";
 }
 
 // 扑克选择（选 2 张 → 预览 → 确认）
-const selectedActs = ref([]);
-function onPickPoker(i) {
+const selectedActs = ref<number[]>([]);
+function onPickPoker(i: number): void {
   const c = combat.value;
   if (!c) return;
   const picked = selectedActs.value;
@@ -539,7 +575,7 @@ function onPickPoker(i) {
   }
   // 选满 2 张后等待玩家点「确认」（第 3 张自动为抽牌数）
 }
-function resetPokerPick() {
+function resetPokerPick(): void {
   selectedActs.value = [];
 }
 /** 选牌数值预览（选满 2 张时显示） */
@@ -551,7 +587,8 @@ const pokerPreview = computed(() => {
   const poker = c.pendingPoker;
   if (!poker || poker.length !== 3) return null;
   const [a, b] = selectedActs.value;
-  const drawIdx = [0, 1, 2].find((i) => !selectedActs.value.includes(i));
+  // 3 张里选 2 张，剩余那张必然是抽牌数
+  const drawIdx = [0, 1, 2].find((i) => !selectedActs.value.includes(i)) ?? 0;
   const base = poker[a].value + poker[b].value;
   const spiritBonus = Math.floor(c.fightingSpirit / 5); // 每 5 层斗志 +1 行动力
   return {
@@ -563,32 +600,35 @@ const pokerPreview = computed(() => {
     drawSuit: poker[drawIdx].suit,
   };
 });
-function confirmPokerPick() {
+function confirmPokerPick(): void {
   const c = combat.value;
   const picked = selectedActs.value;
   if (!c || picked.length !== 2) return;
-  const drawIdx = [0, 1, 2].find((i) => !picked.includes(i));
+  // 3 张里选 2 张，剩余那张必然是抽牌数
+  const drawIdx = [0, 1, 2].find((i) => !picked.includes(i)) ?? 0;
   solo.doPickPoker(picked[0], picked[1], drawIdx);
   selectedActs.value = [];
 }
 
 // 出牌数量选择
-const pickingId = ref(null);
-const pickCount = ref(1);
-function onPickCard(id) {
+const pickingId = ref<string | null>(null);
+const pickCount = ref<number>(1);
+function onPickCard(id: string): void {
   pickingId.value = pickingId.value === id ? null : id;
   pickCount.value = 1;
 }
-function confirmPlay() {
-  solo.doPlayCard(pickingId.value, pickCount.value);
+function confirmPlay(): void {
+  const id = pickingId.value;
+  if (!id) return; // 未选中手牌时按钮不渲染，这里只是类型收窄
+  solo.doPlayCard(id, pickCount.value);
   pickingId.value = null;
 }
-function cancelPick() {
+function cancelPick(): void {
   pickingId.value = null;
 }
 
 // 奖励候选
-const rewardCandidates = ref([]);
+const rewardCandidates = ref<string[]>([]);
 watch(
   () => uiMode.value,
   (m) => {
@@ -599,81 +639,81 @@ watch(
     if (m === "map" || m === "battle") selectedActs.value = [];
   },
 );
-function claim(id) {
+function claim(id: string): void {
   solo.claimReward(id);
 }
 
 // 事件
 const eventData = computed(() => {
   const node = soloState.mapNodes[soloState.nodeIndex];
-  return node?.type === "event" ? SOLO_EVENTS[node.eventId] : null;
+  return node?.type === "event" ? SOLO_EVENTS[node.eventId ?? ""] : null;
 });
-function resolveEvent(i) {
+function resolveEvent(i: number): void {
   solo.resolveEventOption(i);
 }
 
 // 商店
-const shopList = computed(() => shopCatalog(soloState));
-const shopMsg = ref("");
-function buyCard(id) {
+const shopList = computed<string[]>(() => shopCatalog(soloState));
+const shopMsg = ref<string>("");
+function buyCard(id: string): void {
   const r = solo.doShopBuy(id);
   shopMsg.value = r.ok ? `买了 ${cardName(id)}` : r.reason || "";
 }
-const removePrice = computed(() => {
+const removePrice = computed<number>(() => {
   return (
     SHOP_PRICE.removeBase +
     soloState.player.removedCount * SHOP_PRICE.removeIncrement
   );
 });
 // 删卡选择弹层
-const removePicker = ref(false);
-function removeCardPick(id) {
+const removePicker = ref<boolean>(false);
+function removeCardPick(id: string): void {
   const r = solo.doShopRemove(id);
   shopMsg.value = r.ok ? `删掉了 ${cardName(id)}` : r.reason || "";
   removePicker.value = false;
 }
-const healPrice = computed(() => {
+const healPrice = computed<number>(() => {
   const need = player.value.maxHp - player.value.hp;
   return Math.ceil(need / SHOP_PRICE.healPer5) * SHOP_PRICE.healPer5;
 });
-function heal() {
+function heal(): void {
   const r = solo.doShopHeal();
   shopMsg.value = r.ok ? `回复 ${r.healed} HP` : r.reason || "";
 }
 
 // 营地
-function campHeal() {
+function campHeal(): void {
   const r = solo.doCampHeal();
   shopMsg.value = r.ok ? `回复 ${r.healed} HP` : r.reason || "";
 }
-function campUpgrade(id) {
+function campUpgrade(id: string): void {
   const r = solo.doCampUpgrade(id);
   shopMsg.value = r.ok ? `升级了 ${cardName(id)}` : r.reason || "";
 }
 
 // 结算
-const deckTotal = computed(() =>
+const deckTotal = computed<number>(() =>
   Object.values(player.value.deck).reduce((a, b) => a + b, 0),
 );
-function restart() {
+function restart(): void {
   solo.initSolo(DEFAULT_CHAR_ID);
 }
-function goMenu() {
+function goMenu(): void {
   solo.quitSolo();
   emit("quit");
 }
 
 // 保存并退出（回主菜单，主菜单可「继续单机」读档）
-function saveAndQuit() {
+function saveAndQuit(): void {
   solo.saveSolo();
   goMenu();
 }
 
 // 开发日志：钱袋连点 3 下（2 秒内）打开，点击时显示进度
-const devLogRef = ref(null);
-const goldClicks = ref(0);
-let goldClickTimer = null;
-function onGoldClick() {
+const devLogRef = ref<InstanceType<typeof DevLogPanel> | null>(null);
+const goldClicks = ref<number>(0);
+let goldClickTimer: ReturnType<typeof setTimeout> | null = null;
+function onGoldClick(): void {
   goldClicks.value += 1;
   if (goldClickTimer) clearTimeout(goldClickTimer);
   if (goldClicks.value >= 3) {
@@ -687,13 +727,13 @@ function onGoldClick() {
 }
 
 // 工具
-function cardName(id) {
+function cardName(id: string): string {
   return SOLO_CARDS[id]?.name || id;
 }
-function cardCost(id) {
+function cardCost(id: string): number {
   return SOLO_CARDS[id]?.cost ?? 0;
 }
-function cardDesc(id) {
+function cardDesc(id: string): string {
   const c = SOLO_CARDS[id];
   if (!c) return "";
   if (c.heal) return `回复 ${c.base}+法力 HP`;
@@ -702,19 +742,19 @@ function cardDesc(id) {
   if (c.type === "defense") return `获得 ${c.base}+防御 护盾`;
   return "特殊效果";
 }
-function cardRarity(id) {
+function cardRarity(id: string): string {
   return CARD_RARITY[id] || "common";
 }
 /** 商店买卡价格（按稀有度表） */
-function shopBuyPrice(id) {
+function shopBuyPrice(id: string): number {
   return cardRarity(id) === "rare"
     ? SHOP_PRICE.buyRare
     : SHOP_PRICE.buyCommon;
 }
-function nodeIcon(node) {
+function nodeIcon(node: SoloMapNode): string {
   return NODE_META[node.type]?.icon || "•";
 }
-function nodeName(node) {
+function nodeName(node: SoloMapNode): string {
   return NODE_META[node.type]?.name || node.type;
 }
 </script>

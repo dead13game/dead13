@@ -119,7 +119,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, reactive, watch, nextTick, onBeforeUnmount } from "vue";
 import GameShell from "./GameShell.vue";
 import TeamBadge from "./TeamBadge.vue";
@@ -141,13 +141,22 @@ import {
   decideTarget,
   decideGamblePick,
 } from "../game/ai/index.js";
+import type { Command } from "../game/api.js";
+import type { PlayerView } from "../game/view.js";
 
-const props = defineProps({
-  useAI: { type: Boolean, default: true },
-  difficulty: { type: String, default: "skilled" },
+/**
+ * 有默认值的 prop 必须写成可选：写成必填会让编译产物的 runtime 声明带
+ * `required: true`，父组件省略时 Vue 会在 dev 环境告警。默认值逐字保留。
+ */
+interface Props {
+  useAI?: boolean;
+  difficulty?: string;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  useAI: true,
+  difficulty: "skilled",
 });
-
-const emit = defineEmits(["restart", "saveAndQuit"]);
 
 const {
   leagueState,
@@ -172,13 +181,33 @@ const {
   rebuildLeagueContext,
 } = useLeagueController();
 
-const draftRef = ref(null);
-const gameShellRef = ref(null);
-const _selectedTeamId = ref(null);
-const _difficulty = ref("skilled");
-const _useAI = ref(props.useAI ?? true);
-const _artifactId = ref(null);
-const _opponentArtifactId = ref(null);
+/** LeagueDraft 抛出的选人结果（与控制器里的 LeagueDraftResult 同形） */
+interface DraftPayload {
+  playerChars: number[];
+  opponentChars: number[];
+}
+
+/** GameShell 保存并退出时回传的载荷（与 GameShell.vue 里的 SaveAndQuitPayload 同形） */
+interface GameShellSavePayload {
+  gameState: ReturnType<typeof saveGame>;
+  gameMode: "worldcup" | "normal";
+}
+
+/** 对外发的存档载荷：GameShell 透传的，或本组件自己序列化的联赛存档 */
+type SaveAndQuitPayload = GameShellSavePayload | ReturnType<typeof saveLeague>;
+
+const emit = defineEmits<{
+  (e: "restart"): void;
+  (e: "saveAndQuit", payload: SaveAndQuitPayload): void;
+}>();
+
+const draftRef = ref<InstanceType<typeof LeagueDraft> | null>(null);
+const gameShellRef = ref<InstanceType<typeof GameShell> | null>(null);
+const _selectedTeamId = ref<number | null>(null);
+const _difficulty = ref<string>("skilled");
+const _useAI = ref<boolean>(props.useAI ?? true);
+const _artifactId = ref<number | null>(null);
+const _opponentArtifactId = ref<number | null>(null);
 
 /** 只读视图:AI 与子组件都读它 */
 const view = reactive(buildView(gameState));
@@ -189,24 +218,24 @@ watch(
 );
 
 /** view 的 index → 内核 uid */
-const uidAt = (index) =>
+const uidAt = (index: number): number | null =>
   gameState.players.find((p) => p.index === index)?.uid ?? null;
-const cast = (cmd) => dispatch(gameState, cmd);
+const cast = (cmd: Command): boolean => dispatch(gameState, cmd);
 
 // ---- 设置事件 ----
-function onSelectTeam(teamId) {
+function onSelectTeam(teamId: number | null): void {
   _selectedTeamId.value = teamId;
 }
 
-function onSetDifficulty(diff) {
+function onSetDifficulty(diff: string): void {
   _difficulty.value = diff;
 }
 
-function onSetUseAI(val) {
+function onSetUseAI(val: boolean): void {
   _useAI.value = val;
 }
 
-function onStartSetup() {
+function onStartSetup(): void {
   if (!_selectedTeamId.value) return;
   initLeague(
     _selectedTeamId.value,
@@ -218,15 +247,15 @@ function onStartSetup() {
 }
 
 // ---- 选人完成 ----
-function onDraftComplete(draft) {
+function onDraftComplete(draft: DraftPayload): void {
   startMatchWithDraft(draft);
 }
 
 // ---- 记分牌 5 连击 → 打开 DevLogPanel（与世界杯一致） ----
 let scoreboardClicks = 0;
-let scoreboardTimer = null;
+let scoreboardTimer: ReturnType<typeof setTimeout> | null = null;
 
-function onScoreboardClick() {
+function onScoreboardClick(): void {
   scoreboardClicks++;
   if (scoreboardTimer) clearTimeout(scoreboardTimer);
   if (scoreboardClicks >= 5) {
@@ -247,7 +276,7 @@ const playedRounds = computed(() => countPlayedRounds(leagueState));
 // ---- 实时锁定积分（规则v3.0，类似世界杯记分牌）----
 // 按已阵亡顺序结算名次积分（6/5/4/3/2/1），团灭时剩余名次自动补全给存活队；
 // 双方均有人存活时只计已锁定名次，比赛结束即最终比分。
-const liveScore = computed(() => {
+const liveScore = computed<number[]>(() => {
   const ms = matchState.value;
   if (!ms) return [0, 0];
   const { playerScore, opponentScore } = calculateMatchScore(
@@ -259,7 +288,7 @@ const liveScore = computed(() => {
 });
 
 // ---- 积分榜继续 ----
-function onStandingsContinue() {
+function onStandingsContinue(): void {
   if (leagueState._currentRound > 18) {
     // 联赛已结束：有同分队 → 附加赛；否则直接回主菜单
     if (leagueState._tiebreakerNeeded) {
@@ -276,25 +305,25 @@ function onStandingsContinue() {
 }
 
 // ---- 存档 ----
-function handleLeagueSave(saveData) {
+function handleLeagueSave(saveData?: GameShellSavePayload): void {
   const data = saveData || saveLeague();
   emit("saveAndQuit", data);
 }
 
-function onSaveAndQuit() {
+function onSaveAndQuit(): void {
   const data = saveLeague();
   emit("saveAndQuit", data);
 }
 
 // ---- AI 调度（对手3个角色，参考 WorldCupShell） ----
-let aiTimer = null;
+let aiTimer: ReturnType<typeof setTimeout> | null = null;
 
-function isAITurn() {
+function isAITurn(): boolean {
   const p = view.players[view.currentPlayerIndex];
   return !!p?.alive && !!p.isAI;
 }
 
-function scheduleAI() {
+function scheduleAI(): void {
   if (aiTimer) clearTimeout(aiTimer);
   if (!_useAI.value) return;
   if (uiMode.value !== "match" || view.gameOver) return;
@@ -306,7 +335,7 @@ function scheduleAI() {
 watch(() => view.currentPlayerIndex, scheduleAI, { immediate: true });
 watch(() => view.step, scheduleAI, { immediate: true });
 
-function aiAct() {
+function aiAct(): void {
   // 双保险：即使已调度的 timer 触发，手动模式下直接退出（防止读档时序问题）
   if (!_useAI.value) return;
   if (view.step === "pickAction") {
@@ -336,8 +365,8 @@ function aiAct() {
   }, 300);
 }
 
-/** 敌对目标(经典模式排除队友) */
-function enemyTargets() {
+/** 敌对目标（经典模式排除队友）——AI 只在「有敌对目标」时才结算目标 */
+function enemyTargets(): PlayerView[] {
   const attacker = view.players[view.currentPlayerIndex];
   return view.players.filter(
     (p) =>
@@ -345,7 +374,7 @@ function enemyTargets() {
   );
 }
 
-function executeTopAction(decision) {
+function executeTopAction(decision: ReturnType<typeof decideTopAction>): void {
   if (!_useAI.value) return; // 手动模式中止链式调度
   switch (decision.action) {
     case "attack": {
@@ -354,9 +383,10 @@ function executeTopAction(decision) {
         if (view.step === "attackShowCard") {
           const targets = enemyTargets();
           if (targets.length > 0) {
-            const t = decideTarget(view, targets);
+            const t = decideTarget(view, { action: "attack" });
             if (t?.targetIndex != null) {
-              cast({ type: "attackTarget", targetUid: uidAt(t.targetIndex) });
+              const uid = uidAt(t.targetIndex);
+              if (uid != null) cast({ type: "attackTarget", targetUid: uid });
             }
           }
         }
@@ -372,7 +402,7 @@ function executeTopAction(decision) {
       aiSuppressLog(lb, "对手 执行赌命");
       aiTimer = setTimeout(() => {
         if (view.step === "gamblePick" && view.pendingGamble) {
-          const g = decideGamblePick(view, view.pendingGamble.drawnCards);
+          const g = decideGamblePick(view, view.pendingGamble.drawnCards ?? []);
           const lb2 = gameState.messageLog.length;
           cast({ type: "gambleSubmit", trapIdx: g.trapIdx, baitIdx: g.baitIdx });
           aiSuppressLog(lb2);
@@ -393,7 +423,7 @@ function executeTopAction(decision) {
   }
 }
 
-function executeMiddleStep() {
+function executeMiddleStep(): void {
   if (!_useAI.value) return; // 手动模式中止链式调度
   const s = view.step;
   if (s === "pickAction") return;
@@ -401,14 +431,15 @@ function executeMiddleStep() {
   if (s === "attackShowCard") {
     const targets = enemyTargets();
     if (targets.length > 0) {
-      const t = decideTarget(view, targets);
+      const t = decideTarget(view, { action: "attack" });
       if (t?.targetIndex != null) {
-        cast({ type: "attackTarget", targetUid: uidAt(t.targetIndex) });
+        const uid = uidAt(t.targetIndex);
+        if (uid != null) cast({ type: "attackTarget", targetUid: uid });
       }
     }
   } else if (s === "gamblePick") {
     if (view.pendingGamble) {
-      const g = decideGamblePick(view, view.pendingGamble.drawnCards);
+      const g = decideGamblePick(view, view.pendingGamble.drawnCards ?? []);
       cast({ type: "gambleSubmit", trapIdx: g.trapIdx, baitIdx: g.baitIdx });
     }
   } else if (s === "skillPickTarget") {
@@ -421,7 +452,7 @@ function executeMiddleStep() {
       (p) => p.alive && p.index !== attacker.index,
     );
     if (targets.length > 0) {
-      const t = decideTarget(view, targets);
+      const t = decideTarget(view, { action: "attack" });
       if (t?.targetIndex != null) {
         cast({ type: "skillAnswer", answer: uidAt(t.targetIndex) });
       }
@@ -429,7 +460,7 @@ function executeMiddleStep() {
   }
 }
 
-function aiSuppressLog(fromIdx, replaceMsg) {
+function aiSuppressLog(fromIdx: number, replaceMsg?: string): void {
   const log = gameState.messageLog;
   while (log.length > fromIdx) log.pop();
   if (replaceMsg) log.push(replaceMsg);
@@ -437,24 +468,38 @@ function aiSuppressLog(fromIdx, replaceMsg) {
 
 // ---- 公开方法 ----
 function initLeagueFromSetup(
-  teamId,
-  difficulty,
-  artifactId,
-  opponentArtId,
-  useAI,
-) {
+  teamId: number,
+  difficulty = "skilled",
+  artifactId: number | null = null,
+  opponentArtId: number | null = null,
+  useAI = true,
+): void {
   _selectedTeamId.value = teamId;
   _difficulty.value = difficulty;
   initLeague(teamId, difficulty, artifactId, opponentArtId, useAI);
 }
 
+/** 存档是 JSON：先收窄成普通对象，再逐字段读（拿不准的用 unknown 收窄） */
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return v !== null && typeof v === "object" && !Array.isArray(v);
+}
+
+function numberOrNull(v: unknown): number | null {
+  return typeof v === "number" ? v : null;
+}
+
 /** 读档后同步本组件的设置状态（AI开关/圣遗物） */
-function onRestoreLeague(saveData) {
+function onRestoreLeague(saveData: unknown): void {
   // 先同步设置状态，再恢复游戏（restoreLeague 内部会触发 watch → scheduleAI，
   // 此时 _useAI 已是正确值，避免手动模式被调度 AI）
-  _useAI.value = saveData.leagueSetup?.useAI ?? true;
-  _artifactId.value = saveData.leagueSetup?.artifactId ?? null;
-  _opponentArtifactId.value = saveData.leagueSetup?.opponentArtifactId ?? null;
+  const setup = isRecord(saveData) && isRecord(saveData.leagueSetup)
+    ? saveData.leagueSetup
+    : {};
+  // 迁移前的写法是 `?? true`：缺省当 true，其余按真假值判定
+  const savedUseAI = setup.useAI;
+  _useAI.value = savedUseAI == null ? true : Boolean(savedUseAI);
+  _artifactId.value = numberOrNull(setup.artifactId);
+  _opponentArtifactId.value = numberOrNull(setup.opponentArtifactId);
   restoreLeague(saveData);
   // 兜底：清除 restore 过程中可能残留的 AI 调度
   if (aiTimer) {
@@ -477,6 +522,7 @@ onBeforeUnmount(() => {
   if (scoreboardTimer) clearTimeout(scoreboardTimer);
 });
 </script>
+
 
 <style scoped>
 .league-shell {

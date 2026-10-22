@@ -3,19 +3,30 @@ import { createGameState } from "../game/flow/setup.js";
 import { createSession } from "../game/api.js";
 import { createClassicMode } from "../game/modes/classic.js";
 import { CHARACTERS } from "../game/characters/index.js";
+import type { CharacterMeta, GameState } from "../game/types.js";
 
 /**
  * 游戏控制器 — 管理选角、开始、重置等顶层游戏流程
  * 从 App.vue 提取，供 GameSetup + GameShell 共用
  */
 export function useGameController() {
-  const gameState = reactive(createGameState());
+  const gameState = reactive<GameState>(createGameState());
   const gameStarted = ref(false);
   const playerCount = ref(2);
-  const playerNames = reactive(["", "", "", "", "", "", "", ""]);
-  const playerChars = reactive(["", "", "", "", "", "", "", ""]);
+  const playerNames = reactive<string[]>(["", "", "", "", "", "", "", ""]);
+  // 选角槽位：初始是空串占位，selectChar 写入数字角色 id
+  const playerChars = reactive<Array<number | "">>([
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+    "",
+  ]);
   const useWeather = ref(false);
-  const aiSlots = reactive([
+  const aiSlots = reactive<boolean[]>([
     false,
     false,
     false,
@@ -25,7 +36,7 @@ export function useGameController() {
     false,
     false,
   ]);
-  const aiDifficulties = reactive([
+  const aiDifficulties = reactive<string[]>([
     "easy",
     "easy",
     "easy",
@@ -35,7 +46,7 @@ export function useGameController() {
     "easy",
     "easy",
   ]);
-  const playerArtifacts = reactive([
+  const playerArtifacts = reactive<Array<number | null>>([
     null,
     null,
     null,
@@ -47,15 +58,16 @@ export function useGameController() {
   ]);
 
   // 可用角色（排除已被其他玩家选的）
-  function availableChars(playerIdx) {
-    const selectedOthers = playerChars.filter((c, i) => i !== playerIdx && c);
-    return Object.values(CHARACTERS)
-      .filter(
-        (c) => !selectedOthers.includes(c.id) || c.id === playerChars[playerIdx],
-      );
+  function availableChars(playerIdx: number): CharacterMeta[] {
+    const selectedOthers = playerChars.filter(
+      (c, i) => i !== playerIdx && c,
+    );
+    return Object.values(CHARACTERS).filter(
+      (c) => !selectedOthers.includes(c.id) || c.id === playerChars[playerIdx],
+    );
   }
 
-  function selectChar(idx, charId) {
+  function selectChar(idx: number, charId: number) {
     playerChars[idx] = charId;
   }
 
@@ -71,7 +83,8 @@ export function useGameController() {
     const names = playerNames
       .slice(0, playerCount.value)
       .map((n, i) => n.trim() || `玩家 ${i + 1}`);
-    const chars = playerChars.slice(0, playerCount.value);
+    // 选角完成后槽位一定是数字 id（allSelected 已守卫），空串只存在于初始占位
+    const chars = playerChars.slice(0, playerCount.value) as number[];
 
     createSession({
       state: gameState,

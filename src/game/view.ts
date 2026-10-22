@@ -126,10 +126,23 @@ export interface PlayerView {
 /**
  * 只读视图模型 —— UI / PIXI / AI 唯一的数据来源。
  *
- * 为什么 devLog 是联合类型:`buildView` 在无 logger 时回退一个只有 entries 的空壳;
- * 真实 logger 的方法形状由 types.ts 的 GameLogger 描述(运行时它同样带 entries)。
+ * devLog 直接用 `GameLogger`（它已经覆盖 `entries` 与导出方法）；
+ * `buildView` 在无 logger 时回退一个只带 `entries` 的空壳，也满足该类型。
  */
-export type DevLogView = GameLogger | { entries: unknown[] };
+export type DevLogView = GameLogger;
+
+/**
+ * 无 logger 时的空壳（测试/未接线的 state 会走到这里）。
+ * 之所以补齐 4 个空实现：`DevLogView` 就是 `GameLogger`，
+ * 只有 `entries` 的对象不满足契约；这些方法本身不做任何事。
+ */
+const EMPTY_DEV_LOG: DevLogView = {
+  entries: [],
+  info: () => {},
+  debug: () => {},
+  warn: () => {},
+  error: () => {},
+};
 
 /** `buildView(state)` 的返回类型:局面快照 + 玩家视图 + 只读选择器 */
 export interface ViewModel {
@@ -325,7 +338,7 @@ export function buildView(raw: GameState): ViewModel {
     useWeather: raw.useWeather,
     messageLog: raw.messageLog,
     soundQueue: raw.soundQueue,
-    devLog: raw.devLog ?? { entries: [] },
+    devLog: raw.devLog ?? EMPTY_DEV_LOG,
 
     // v3.5：摸牌事件（抽牌动画）
     drawFeed: raw.drawFeed ?? [],

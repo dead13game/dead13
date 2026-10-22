@@ -3,13 +3,24 @@
 
 import { watch } from "vue";
 import SoundManager from "../audio/SoundManager.js";
+import type { SoundEvent } from "../game/types.js";
+
+/**
+ * 带音效队列的最小状态形状。
+ *
+ * 经典/团战/联赛/世界杯传的是 `buildView(state)` 的 ViewModel，
+ * 单机模式传的是 soloState —— 两者都有 `soundQueue`，这里只声明用到的那部分。
+ */
+interface SoundQueueSource {
+  soundQueue?: SoundEvent[];
+}
 
 /**
  * 监听游戏状态中的音效事件队列并播放。
  * 在 GameShell.vue 挂载（三种模式共用）。
- * @param {object} state 游戏状态（createGameState 返回）
+ * @param state 游戏状态（ViewModel / soloState 均可）
  */
-export function useSoundSync(state) {
+export function useSoundSync(state: SoundQueueSource): void {
   watch(
     () => state.soundQueue?.length ?? 0,
     () => {

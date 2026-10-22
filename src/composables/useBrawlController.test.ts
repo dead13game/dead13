@@ -3,11 +3,11 @@ import { describe, it, expect } from "vitest";
 import { useBrawlController } from "./useBrawlController.js";
 import { DRAFT_SEQUENCE } from "./useBrawlController.js";
 
-function finishDraft(c, ai = false) {
+function finishDraft(c: ReturnType<typeof useBrawlController>, ai = false) {
   let guard = 0;
   while (!c.draftFinished.value && guard++ < 40) {
     const step = c.currentDraftStep.value;
-    if (ai && step.side === 1) {
+    if (ai && step?.side === 1) {
       c.aiDraftAction();
     } else {
       c.draftAction(c.availableIds.value[0]);
@@ -47,7 +47,7 @@ describe("useBrawlController — Ban/Pick 与开局", () => {
     expect(c.uiMode.value).toBe("match");
     expect(c.gameState.players).toHaveLength(6);
     expect(c.gameState.towers).toHaveLength(10);
-    expect(c.gameState.mode.id).toBe("brawl");
+    expect(c.gameState.mode!.id).toBe("brawl");
     // 圣遗物槽位按选人顺序分配（默认不带）
     expect(c.gameState.players.every((p) => p.artifact.id === null)).toBe(true);
   });

@@ -33,7 +33,13 @@ import {
 /** 目标选择的上下文:action 来自 UI 当前步骤,characterId 只在技能步骤使用 */
 export interface AiTargetContext {
   action?: string;
-  characterId?: number;
+  /**
+   * 角色标识。宽成 `number | string` 是**如实反映现状**:
+   * UI 侧的 `skillTagOf` 一直往里塞技能标签字符串(P6a 起的错位),
+   * AI 内部按数字比较 → 恒落 `"attack"` 分支。放宽类型只是承认既有行为,
+   * 不改变任何运行时取值(要真修得改 UI 传值,那会改变 AI 选目标行为)。
+   */
+  characterId?: number | string;
 }
 
 export function getDifficulty(player: AiViewPlayer): string {

@@ -95,6 +95,7 @@ PR以及gh CLI会导致用户GitHub账户封禁，禁止使用。
 | [docs/KNOWN_BUGS.md](docs/KNOWN_BUGS.md) | 修复记录 + 回归测试索引 + **关键陷阱（改 `src/game/`、`src/pixi/`、`src/bridge/` 前先扫一眼）** + 结构债 |
 | [docs/solo-roguelike-design.md](docs/solo-roguelike-design.md) | 单机模式设计 |
 | [docs/simuniverse-design.md](docs/simuniverse-design.md) | 模拟宇宙设计（**已下线**，留作重做参考） |
+| [docs/ts-migration.md](docs/ts-migration.md) | TypeScript 迁移约定：`import type` / `.js` 后缀 / 禁止 `any` / 类型断言清单 |
 
 ## 游戏模式
 

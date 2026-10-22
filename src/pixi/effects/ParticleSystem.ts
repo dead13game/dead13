@@ -1,11 +1,41 @@
 import { Graphics, Container } from "pixi.js";
+import type { Ticker } from "pixi.js";
+
+/** 粒子发射参数（全部可选，emit 内有默认值） */
+export interface ParticleOptions {
+  color?: number;
+  count?: number;
+  speed?: number;
+  spread?: number;
+  lifetime?: number;
+  size?: number;
+  gravity?: number;
+}
+
+/** 特效注册表（SkillEffects）里的一条配置：字段写全，供 emit 直接使用 */
+export type ParticleEffectConfig = Required<ParticleOptions>;
+
+/** 一个存活中的粒子 */
+interface Particle {
+  g: Graphics;
+  vx: number;
+  vy: number;
+  life: number;
+  maxLife: number;
+  gravity: number;
+}
 
 /**
  * 轻量粒子系统 — 基于 Graphics.circle() + 逐帧更新
  * 粒子上限可控，适合卡牌游戏的特效需求
  */
 export class ParticleSystem {
-  constructor(container, maxParticles = 150) {
+  container: Container;
+  max: number;
+  particles: Particle[];
+  _ticker: Ticker | null;
+
+  constructor(container: Container, maxParticles = 150) {
     this.container = container;
     this.max = maxParticles;
     this.particles = [];
@@ -13,12 +43,12 @@ export class ParticleSystem {
   }
 
   /** 连接到 PIXI Application ticker */
-  attach(ticker) {
+  attach(ticker: Ticker): void {
     this._ticker = ticker;
     ticker.add(this._update, this);
   }
 
-  detach() {
+  detach(): void {
     if (this._ticker) {
       this._ticker.remove(this._update, this);
       this._ticker = null;
@@ -27,11 +57,11 @@ export class ParticleSystem {
 
   /**
    * 在指定位置发射粒子
-   * @param {number} x
-   * @param {number} y
-   * @param {object} opts - { color, count, speed, spread, lifetime, size, gravity }
+   * @param x 发射点 X
+   * @param y 发射点 Y
+   * @param opts { color, count, speed, spread, lifetime, size, gravity }
    */
-  emit(x, y, opts = {}) {
+  emit(x: number, y: number, opts: ParticleOptions = {}): void {
     const {
       color = 0xffd54f,
       count = 15,
@@ -46,6 +76,8 @@ export class ParticleSystem {
       if (this.particles.length >= this.max) {
         // 回收最老的粒子
         const old = this.particles.shift();
+        // shift() 的返回类型带 undefined，但此处队列长度 >= max（max > 0）必然取到粒子
+        if (!old) break;
         this.container.removeChild(old.g);
         old.g.destroy();
       }
@@ -70,7 +102,7 @@ export class ParticleSystem {
   }
 
   /** 每帧更新 */
-  _update(ticker) {
+  _update(ticker: Ticker): void {
     const dt = ticker.deltaMS / 1000;
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
@@ -88,7 +120,7 @@ export class ParticleSystem {
   }
 
   /** 清除所有粒子 */
-  clear() {
+  clear(): void {
     for (const p of this.particles) {
       this.container.removeChild(p.g);
       p.g.destroy();
@@ -96,7 +128,7 @@ export class ParticleSystem {
     this.particles = [];
   }
 
-  destroy() {
+  destroy(): void {
     this.detach();
     this.clear();
   }

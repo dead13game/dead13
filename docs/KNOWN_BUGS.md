@@ -80,6 +80,23 @@
 
 - `solo` 的「战斗胜利后领取奖励」曾偶发失败:测试直接打空敌方 HP,但没有抹平**敌方护盾**与**随机行动力**,伤害被护盾吸收或行动力不足都会失败。已在测试里显式设置 `enemyShield = 0` / `actionPoints = 50`,连续 25 次全绿。
 
+## TS 迁移期暴露并修掉的既有缺陷（2026-10-22）
+
+> 纯类型化过程不会改变运行时,但只要给函数补参数类型,就会把「读不存在的字段」「调用不存在的函数」直接照出来。以下两条是那条路径上真实存在的崩溃点。
+
+| ID | 现象 | 状态 | 修复方式 |
+| --- | --- | --- | --- |
+| TS-1 | 单机 `enforceHandLimit` 读 `state.combat.grave`（该字段不存在），手牌种类超过 6 时会 TypeError | ✅ 已修 | 改为显式接收坟场参数，三个调用点分别传 `playerGrave` / `playerGrave` / `enemyGrave`（符合原注释「爆牌进坟场」）。**无自动化测试**：触发需要构造 7 种手牌，现有用例未覆盖 |
+| TS-2 | 单机 `endTurn` 调用 `runEnemyTurn`，该函数在仓库与历史中从未定义（`endTurn` 是无人调用的死代码），一旦被调用必 ReferenceError | ✅ 已修 | 指向同义且已存在的 `startEnemyTurn`。**无自动化测试**（死代码路径） |
+| TS-3 | `WorldCupSetup.vue` 把 `CHARACTERS`（`Object.fromEntries` 产出的**对象**）当数组用：`const chars = CHARACTERS; chars.find(...)` → 点开技能弹窗必 TypeError | ✅ 已修 | 改按 key 查表 `chars[id]`；`v-for="char in chars"` 仍按对象值遍历，顺序与渲染不变。**无自动化测试**（弹窗交互，现有用例未覆盖） |
+
+### 迁移期发现但**未修**的疑似缺陷（需产品决策）
+
+| ID | 现象 | 影响 | 为什么不修 |
+| --- | --- | --- | --- |
+| TB-1 | `createMatchMode` 里两处 `mode.onAfterCheck?.(ctx)` 读的是 adapter 上从未赋值的属性，工厂收到的 `onAfterCheck` option 从未被使用 | `useWorldCupController` 传入的 `onAfterCheck`（`routeAfterCheck`）实际不触发 | 修它会改变运行时行为（世界杯赛程路由），属功能改动，需用户确认后再动 |
+| TB-2 | `diceWar.test.ts` 有 4 处 `rollDiceN(s, 20, () => diceRng(7))` 传的是 **rng 工厂**而不是 rng 实例 | `函数 < number` 恒为 false，每掷必落最后一桶 → 实际点数恒为 12，注释里的「每轮 7v7」并不成立 | 只影响测试的对手强度，修它会改变这 4 条用例的数值前提；已在测试里用 `rngFactory7` 做类型对齐，待确认后再把 4 处换成 `diceRng(7)`（实测替换后 34 条仍全绿） |
+
 ## 结构债（2026-10-22，护栏尚未覆盖）
 
 > 记录「知道该加护栏、但现在加了会立刻红」的两项。加护栏前需要先做收敛重构。

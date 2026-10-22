@@ -126,7 +126,7 @@
           <span class="lineup__label">{{ playerTeamName }}</span>
           <div class="lineup__cards">
             <div v-for="id in draft.picks[0]" :key="'p0-' + id" class="mini-card">
-              <img v-if="draftMeta(id)?.icon" :src="draftMeta(id).icon" />
+              <img v-if="draftMeta(id)?.icon" :src="draftMeta(id)?.icon" />
               <span class="mini-card__fallback">{{ charName(id).slice(0, 1) }}</span>
               <em>{{ charName(id) }}</em>
             </div>
@@ -144,7 +144,7 @@
           <span class="lineup__label">{{ opponentTeamName }}</span>
           <div class="lineup__cards">
             <div v-for="id in draft.picks[1]" :key="'p1-' + id" class="mini-card">
-              <img v-if="draftMeta(id)?.icon" :src="draftMeta(id).icon" />
+              <img v-if="draftMeta(id)?.icon" :src="draftMeta(id)?.icon" />
               <span class="mini-card__fallback">{{ charName(id).slice(0, 1) }}</span>
               <em>{{ charName(id) }}</em>
             </div>
@@ -176,7 +176,7 @@
           <div class="draft-card__art">
             <img
               v-if="draftMeta(id)?.icon"
-              :src="draftMeta(id).icon"
+              :src="draftMeta(id)?.icon"
               :alt="charName(id)"
               loading="lazy"
             />
@@ -438,7 +438,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import {
   ref,
   reactive,
@@ -459,8 +459,13 @@ import {
 import { buildView } from "../game/view.js";
 import { dispatch } from "../game/api.js";
 import { WEATHER_DATA } from "../game/rules/weather.js";
-
-const emit = defineEmits(["restart", "saveAndQuit"]);
+import type { Command } from "../game/api.js";
+import type {
+  CharacterMeta,
+  DrawFeedEntry,
+  WeatherId,
+} from "../game/types.js";
+import type { PlayerView } from "../game/view.js";
 
 const {
   gameState,
@@ -488,6 +493,12 @@ const {
   resetBrawl,
 } = useBrawlController();
 
+/** 对外 emit：存档载荷就是控制器 saveBrawl() 的返回值 */
+const emit = defineEmits<{
+  (e: "restart"): void;
+  (e: "saveAndQuit", payload: ReturnType<typeof saveBrawl>): void;
+}>();
+
 /** 只读视图 */
 const view = reactive(buildView(gameState));
 watch(
@@ -496,20 +507,20 @@ watch(
   { deep: true },
 );
 
-const cast = (cmd) => dispatch(gameState, cmd);
+const cast = (cmd: Command): boolean => dispatch(gameState, cmd);
 
 // ---- 设置 / 选人 ----
-function onStartDraft() {
+function onStartDraft(): void {
   startDraft();
 }
 
-function charName(id) {
+function charName(id: number): string {
   return getCharacter(id)?.meta?.name ?? `#${id}`;
 }
-function draftMeta(id) {
+function draftMeta(id: number): CharacterMeta | null {
   return getCharacter(id)?.meta ?? null;
 }
-function sideName(side) {
+function sideName(side: 0 | 1): string {
   return side === 0 ? playerTeamName.value : opponentTeamName.value;
 }
 
@@ -519,18 +530,18 @@ const draftStepLabel = computed(() => {
   return `${sideName(step.side)} · ${step.type === "ban" ? "禁用" : "选择"}`;
 });
 
-function onDraftClick(id) {
+function onDraftClick(id: number): void {
   if (isAiDraftTurn.value) return;
   draftAction(id);
 }
 
-function onStartMatch() {
+function onStartMatch(): void {
   startMatch();
   nextTick(() => scheduleAI());
 }
 
 /** AI 自动 Ban/Pick */
-let draftTimer = null;
+let draftTimer: ReturnType<typeof setTimeout> | null = null;
 watch(
   () => [uiMode.value, draft.stepIndex],
   () => {
@@ -552,9 +563,9 @@ const enemyHeroes = computed(() => view.players.filter((p) => p.teamId === 1));
 const currentHero = computed(() => view.currentPlayer());
 
 // ---- 战报滚动 ----
-const logRef = ref(null);
+const logRef = ref<HTMLElement | null>(null);
 const logLines = computed(() => (view.messageLog || []).slice(-200));
-function scrollLogToBottom() {
+function scrollLogToBottom(): void {
   const el = logRef.value;
   if (el) el.scrollTop = el.scrollHeight;
 }
@@ -566,8 +577,8 @@ watch(
 onMounted(scrollLogToBottom);
 
 // ---- 抽牌动画 ----
-const drawToast = ref(null);
-let drawTimer = null;
+const drawToast = ref<DrawFeedEntry | null>(null);
+let drawTimer: ReturnType<typeof setTimeout> | null = null;
 watch(
   () => view.drawSeq ?? 0,
   () => {
@@ -585,17 +596,20 @@ watch(
   },
 );
 
-function drawLabel(entry) {
+/** 摸牌类型文案（entry.kind 是运行时字符串，查不到就回退「摸牌」） */
+const DRAW_KIND_LABELS: Record<string, string> = {
+  attack: "攻击摸牌",
+  defense: "防御摸牌（暗牌）",
+  gamble: "赌命摸牌",
+  "drone-defense": "无人机防御摸牌（暗牌）",
+  venti: "千风之诗摸牌",
+};
+
+function drawLabel(entry: DrawFeedEntry): string {
   const who = entry.actorUid
     ? view.unitByUid(entry.actorUid)?.name || ""
     : "";
-  const kind = {
-    attack: "攻击摸牌",
-    defense: "防御摸牌（暗牌）",
-    gamble: "赌命摸牌",
-    "drone-defense": "无人机防御摸牌（暗牌）",
-    venti: "千风之诗摸牌",
-  }[entry.kind] ?? "摸牌";
+  const kind = DRAW_KIND_LABELS[entry.kind] ?? "摸牌";
   return who ? `${who} · ${kind}` : kind;
 }
 
@@ -607,10 +621,10 @@ const drawToastCards = computed(() =>
   })),
 );
 
-const charDataOf = (u) =>
+const charDataOf = (u: PlayerView): CharacterMeta | null =>
   view.CHARACTERS?.[u.characterId] ?? getCharacter(u.characterId)?.meta ?? null;
 
-function isCurrent(u) {
+function isCurrent(u: PlayerView): boolean {
   return u.index === view.currentPlayerIndex && uiMode.value === "match";
 }
 
@@ -627,7 +641,7 @@ const attackableTowerUid = computed(() => {
   return (
     view.towers
       .filter((t) => t.teamId === enemyTeam && t.alive)
-      .sort((a, b) => a.towerIndex - b.towerIndex)[0]?.uid ?? null
+      .sort((a, b) => (a.towerIndex ?? 0) - (b.towerIndex ?? 0))[0]?.uid ?? null
   );
 });
 
@@ -638,7 +652,7 @@ const tugPct = computed(() => {
   return Math.max(4, Math.min(96, (a / (a + b)) * 100));
 });
 
-function totalHp(team) {
+function totalHp(team: number): number {
   const heroes = team === 0 ? playerHeroes.value : enemyHeroes.value;
   const towers = team === 0 ? playerTowers.value : enemyTowers.value;
   return (
@@ -647,48 +661,48 @@ function totalHp(team) {
   );
 }
 
-function weatherName(id) {
+function weatherName(id: WeatherId | null): string {
   if (!id) return "待变";
   return WEATHER_DATA[id]?.name ?? "待变";
 }
-function weatherIcon(id) {
-  return (
-    {
-      sun: "☀️",
-      rain: "🌧️",
-      wind: "🌪️",
-      trade: "🪙",
-      arms: "⚔️",
-      calm: "🌤️",
-    }[id] ?? "🌤️"
-  );
+function weatherIcon(id: WeatherId | null): string {
+  if (!id) return "🌤️";
+  const icons: Record<WeatherId, string> = {
+    sun: "☀️",
+    rain: "🌧️",
+    wind: "🌪️",
+    trade: "🪙",
+    arms: "⚔️",
+    calm: "🌤️",
+  };
+  return icons[id] ?? "🌤️";
 }
 
 // ---- 动作 ----
-function unitIndexToUid(index) {
+function unitIndexToUid(index: number): number | null {
   return view.units.find((u) => u.index === index)?.uid ?? null;
 }
 
-function onAttack() {
+function onAttack(): void {
   cast({ type: "attack" });
 }
-function onDefense() {
+function onDefense(): void {
   cast({ type: "defense" });
 }
-function onGamble() {
+function onGamble(): void {
   cast({ type: "gamble" });
 }
-function onSkill() {
+function onSkill(): void {
   cast({ type: "skill" });
 }
-function onHolyWord() {
+function onHolyWord(): void {
   cast({ type: "holyWord" });
 }
-function onTarget(index) {
+function onTarget(index: number): void {
   const uid = unitIndexToUid(index);
   if (uid != null) cast({ type: "attackTarget", targetUid: uid });
 }
-function onSkillTarget(index) {
+function onSkillTarget(index: number): void {
   const purpose = view.pending?.purpose ?? "";
   if (purpose === "investigate:guess") {
     cast({ type: "skillAnswer", answer: index });
@@ -706,25 +720,25 @@ function onSkillTarget(index) {
   }
   cast({ type: "skillAnswer", answer: uid });
 }
-function onLiniyaSkill(index, subSkill) {
+function onLiniyaSkill(index: number, subSkill: number): void {
   const uid = unitIndexToUid(index);
   if (uid != null) {
     cast({ type: "skillAnswer", answer: { targetUid: uid, subSkill } });
   }
 }
-function onCaiyueangSave() {
+function onCaiyueangSave(): void {
   cast({ type: "skillAnswer", answer: { choice: "save" } });
 }
-function onCaiyueangLoad() {
+function onCaiyueangLoad(): void {
   cast({ type: "skillAnswer", answer: { choice: "load" } });
 }
-function onGambleSubmit(trapIdx, baitIdx) {
+function onGambleSubmit(trapIdx: number, baitIdx: number): void {
   cast({ type: "gambleSubmit", trapIdx, baitIdx });
 }
-function onNahidaOrder(order) {
+function onNahidaOrder(order: number[]): void {
   cast({ type: "skillAnswer", answer: order });
 }
-function onCancel() {
+function onCancel(): void {
   cast({ type: "cancel" });
 }
 
@@ -735,8 +749,8 @@ const isAiTurn = computed(() => {
   return !!p?.alive && p.teamId === 1;
 });
 
-let aiTimer = null;
-function scheduleAI() {
+let aiTimer: ReturnType<typeof setTimeout> | null = null;
+function scheduleAI(): void {
   if (aiTimer) clearTimeout(aiTimer);
   if (uiMode.value !== "match" || view.gameOver) return;
   if (!isAiTurn.value) return;
@@ -754,7 +768,7 @@ watch(
   },
 );
 
-function aiAct() {
+function aiAct(): void {
   if (uiMode.value !== "match" || view.gameOver) return;
   if (!isAiTurn.value) return;
   const s = view.step;
@@ -778,8 +792,10 @@ function aiAct() {
   }
 
   const opts = view.pending?.options ?? [];
-  const pickUnit = () => {
-    const uids = opts.map((uid) => view.unitByUid(uid)).filter(Boolean);
+  const pickUnit = (): PlayerView | undefined => {
+    const uids = opts
+      .map((uid) => view.unitByUid(uid))
+      .filter((u): u is PlayerView => u !== null);
     return uids[Math.floor(Math.random() * uids.length)];
   };
 
@@ -797,10 +813,12 @@ function aiAct() {
     }
     if (purpose === "defense.support" || purpose === "gamble:trap") {
       const me = view.players[view.currentPlayerIndex];
-      cast({
-        type: purpose === "defense.support" ? "defenseTarget" : "gambleTarget",
-        targetUid: me?.uid ?? null,
-      });
+      if (!me) return;
+      cast(
+        purpose === "defense.support"
+          ? { type: "defenseTarget", targetUid: me.uid }
+          : { type: "gambleTarget", targetUid: me.uid },
+      );
       return;
     }
     const t = pickUnit();
@@ -852,12 +870,12 @@ watch(
   },
 );
 
-function onSaveAndQuit() {
+function onSaveAndQuit(): void {
   const data = saveBrawl();
   emit("saveAndQuit", data);
 }
 
-function onRematch() {
+function onRematch(): void {
   resetBrawl();
   startDraft();
 }
@@ -870,6 +888,7 @@ onBeforeUnmount(() => {
   if (drawTimer) clearTimeout(drawTimer);
 });
 </script>
+
 
 <style scoped src="./brawl/brawl-shared.css"></style>
 <style scoped src="./brawl/brawl-setup.css"></style>

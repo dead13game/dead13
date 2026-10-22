@@ -1,11 +1,32 @@
 import { watch } from "vue";
+import type { Card } from "../game/types.js";
+import type { PlayerView, ViewModel } from "../game/view.js";
+
+/**
+ * `usePixiSync` 只需要 PIXIManager 的同步接口。
+ *
+ * 为什么不在桥接层直接 import PIXIManager：`src/pixi/` 与这里并行迁移，
+ * 桥接层只依赖「被调用的方法」这一稳定契约，避免两边的迁移互相阻塞。
+ */
+export interface PixiSyncManager {
+  updateDeckCount(count: number): void;
+  updateAllPlayers(players: PlayerView[], currentIndex: number): void;
+  buildScene(players: PlayerView[], deckCount: number): void;
+  showCenterCard(card: Card | null, extraCards?: Card[]): void;
+  hideCenterCard(): void;
+}
 
 /**
  * Vue reactive state → PIXI 渲染同步
+ *
+ * 消费的是 `buildView(state)` 的只读 ViewModel（UI/PIXI 的唯一数据源）。
  */
-export function usePixiSync(state, getManager) {
+export function usePixiSync(
+  state: ViewModel,
+  getManager: () => PixiSyncManager | null | undefined,
+): void {
   // 辅助：安全获取 manager
-  const safeSync = (fn) => {
+  const safeSync = (fn: (m: PixiSyncManager) => void) => {
     const m = getManager();
     if (!m) return;
     fn(m);

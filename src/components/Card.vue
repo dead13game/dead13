@@ -43,17 +43,36 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from "vue";
+import type { Card } from "../game/types.js";
 
-const props = defineProps({
-  card: { type: Object, default: null },
-  alwaysFaceUp: { type: Boolean, default: false },
-  showValue: { type: Boolean, default: false },
-  size: { type: String, default: "normal" }, // small, normal, large
+/**
+ * 牌面：内核 Card + 旧 UI 的 joker 标记。
+ * `isJoker` / `isBigJoker` 在运行时从未被写入（当前全仓库只有本组件读），
+ * 这里保留为可选字段，模板与文案不做任何改动。
+ */
+interface CardFace extends Card {
+  isJoker?: boolean;
+  isBigJoker?: boolean;
+}
+
+interface Props {
+  card?: CardFace | null;
+  alwaysFaceUp?: boolean;
+  showValue?: boolean;
+  /** 尺寸：small / normal / large */
+  size?: string;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  card: null,
+  alwaysFaceUp: false,
+  showValue: false,
+  size: "normal", // small, normal, large
 });
 
-const rankDisplay = computed(() => {
+const rankDisplay = computed<string | undefined>(() => {
   if (!props.card) return "";
   if (props.card.isBigJoker) return "君";
   if (props.card.isJoker) return "影";

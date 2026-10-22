@@ -2,6 +2,17 @@
 // 桥接：UI 组件 ↔ 纯逻辑层（solo.js / soloCombat.js / soloEvents.js）
 
 import { reactive, ref } from "vue";
+import type { Ref } from "vue";
+import type {
+  SoloActionResult,
+  SoloAttrKey,
+  SoloEventResult,
+  SoloMapNode,
+  SoloNodeType,
+  SoloPickPokerResult,
+  SoloShopResult,
+  SoloState,
+} from "./logic/types.js";
 import { createSoloState, getCurrentNode, advanceNode, isSoloFinished } from "./logic/solo.js";
 import {
   startCombat,
@@ -31,20 +42,103 @@ import {
 } from "./logic/solo.js";
 
 /**
+ * 界面状态。
+ * map(地图/节点选择) | battle(战斗) | reward(胜利领卡) | event | shop | camp | gameover
+ */
+export type SoloUiMode = "map" | "battle" | "reward" | "event" | "shop" | "camp" | "gameover";
+
+/** 「前往下一节点（类型）」按钮所需信息 */
+export interface SoloNextNodeInfo {
+  type: SoloNodeType;
+  label: string;
+}
+
+/** 回血结果（成功时附带实付价格与实际回复量） */
+export interface SoloHealResult extends SoloShopResult {
+  healed?: number;
+}
+
+/**
+ * 单机控制器对外接口。
+ * App.vue 持有本对象并作为 `:solo` 传给 SoloShell，两边都按此接口对齐。
+ */
+export interface SoloController {
+  /** 单机存档状态（reactive，UI 只读渲染） */
+  soloState: SoloState;
+  /** 是否已开始一局（false 时 App.vue 显示主菜单） */
+  soloStarted: Ref<boolean>;
+  /** 当前界面 */
+  uiMode: Ref<SoloUiMode>;
+  /** 战斗操作失败提示 */
+  battleMsg: Ref<string>;
+  /** 事件结算结果（展示后点「前往下一节点」） */
+  eventResult: Ref<SoloEventResult | null>;
+  /** 战斗奖励是否已领 */
+  rewardClaimed: Ref<boolean>;
+
+  /** 开始一局（默认角色玛薇卡） */
+  initSolo: (charId?: number) => void;
+  quitSolo: () => void;
+
+  /** 进入当前节点 */
+  enterNode: () => void;
+  /** 非战斗节点完成后推进并进入下一节点 */
+  completeNode: () => void;
+  /** 下一节点信息（null = 已是最后 / 无节点） */
+  nextNodeInfo: () => SoloNextNodeInfo | null;
+  /** 事件/奖励结算后前往下一节点 */
+  goNext: () => void;
+
+  /** 抽 3 选 2：两张行动力 + 一张抽牌数 */
+  doPickPoker: (idxA: number, idxB: number, idxC: number) => SoloPickPokerResult;
+  /** 出牌（同名牌可一次打出 count 张） */
+  doPlayCard: (cardId: string, count?: number) => SoloActionResult;
+  /** 结束回合（进入敌方慢放行动） */
+  doEndTurn: () => void;
+  /** 战斗胜利领卡（3 选 1） */
+  claimReward: (cardId: string) => SoloActionResult;
+
+  /** 结算事件选项（含扑克检定） */
+  resolveEventOption: (optionIdx: number) => SoloEventResult;
+
+  /** 商店在售卡表 */
+  shopCatalogList: () => string[];
+  doShopBuy: (cardId: string) => SoloShopResult;
+  doShopRemove: (cardId: string) => SoloShopResult;
+  doShopHeal: () => SoloHealResult;
+  doShopUpgrade: (cardId: string) => SoloShopResult;
+
+  /** 营地：回满血 / 升级一张卡 */
+  doCampHeal: () => SoloHealResult;
+  doCampUpgrade: (cardId: string) => SoloShopResult;
+
+  /** 分配 1 点属性（str / mag / def） */
+  doApplyAttr: (attr: SoloAttrKey) => boolean;
+
+  /** 存档（键名 dead13_solo_save） */
+  saveSolo: () => boolean;
+  /** 读档，返回是否成功 */
+  loadSolo: () => boolean;
+  /** 是否存在单机存档 */
+  hasSoloSave: () => boolean;
+  clearSoloSave: () => void;
+}
+
+/**
  * 单机模式控制器
  * uiMode: map(地图/节点选择) | battle(战斗) | reward(胜利领卡) | event | shop | camp | gameover
  */
-export function useSoloController() {
-  const soloState = reactive(createSoloState(DEFAULT_CHAR_ID));
-  const soloStarted = ref(false);
-  const uiMode = ref("map");
-  const battleMsg = ref("");
-  const eventResult = ref(null); // 事件结算结果（展示后点"前往下一节点"）
-  const rewardClaimed = ref(false); // 战斗奖励是否已领
+export function useSoloController(): SoloController {
+  const soloState: SoloState = reactive(createSoloState(DEFAULT_CHAR_ID));
+  const soloStarted = ref<boolean>(false);
+  const uiMode = ref<SoloUiMode>("map");
+  const battleMsg = ref<string>("");
+  const eventResult = ref<SoloEventResult | null>(null); // 事件结算结果（展示后点"前往下一节点"）
+  const rewardClaimed = ref<boolean>(false); // 战斗奖励是否已领
 
   // ---- 开始 / 退出 ----
 
-  function initSolo(charId = DEFAULT_CHAR_ID) {
+  function initSolo(charId: number = DEFAULT_CHAR_ID): void {
     Object.assign(soloState, createSoloState(charId));
     soloStarted.value = true;
     uiMode.value = "map";
@@ -53,7 +147,7 @@ export function useSoloController() {
     battleMsg.value = "";
   }
 
-  function quitSolo() {
+  function quitSolo(): void {
     soloStarted.value = false;
     uiMode.value = "map";
   }
@@ -61,7 +155,7 @@ export function useSoloController() {
   // ---- 节点流程 ----
 
   /** 进入当前节点 */
-  function enterNode() {
+  function enterNode(): void {
     if (soloState.gameOver) {
       uiMode.value = "gameover";
       return;
@@ -75,7 +169,7 @@ export function useSoloController() {
       return;
     }
     if (node.type === "battle") {
-      startCombat(soloState, node.enemy);
+      startCombat(soloState, node.enemy ?? "");
       uiMode.value = "battle";
     } else if (node.type === "event") {
       uiMode.value = "event";
@@ -87,7 +181,7 @@ export function useSoloController() {
   }
 
   /** 非战斗节点完成后推进 */
-  function completeNode() {
+  function completeNode(): void {
     eventResult.value = null;
     rewardClaimed.value = false;
     if (soloState.gameOver) {
@@ -98,33 +192,36 @@ export function useSoloController() {
     enterNode();
   }
 
-  /** 下一节点信息（"前往下一节点（类型）"按钮用） */
-  function nextNodeInfo() {
-    const n = soloState.mapNodes[soloState.nodeIndex + 1];
-    if (!n) return null;
-    return { type: n.type, label: nodeLabel(n) };
-  }
-  function nodeLabel(n) {
+  /** 节点文案（战斗节点带敌人名） */
+  function nodeLabel(n: SoloMapNode): string {
     if (n.type === "battle") {
-      const enemy = SOLO_ENEMIES[n.enemy];
+      const enemy = SOLO_ENEMIES[n.enemy ?? ""];
       return `⚔️ 战斗（${enemy?.name || "敌人"}）`;
     }
     return `${NODE_META[n.type]?.icon || ""}${NODE_META[n.type]?.name || n.type}`;
   }
+
+  /** 下一节点信息（"前往下一节点（类型）"按钮用） */
+  function nextNodeInfo(): SoloNextNodeInfo | null {
+    const n = soloState.mapNodes[soloState.nodeIndex + 1];
+    if (!n) return null;
+    return { type: n.type, label: nodeLabel(n) };
+  }
+
   /** 前往下一节点（事件/奖励结算后） */
-  function goNext() {
+  function goNext(): void {
     completeNode();
   }
 
   // ---- 战斗操作 ----
 
-  function doPickPoker(idxA, idxB, idxC) {
+  function doPickPoker(idxA: number, idxB: number, idxC: number): SoloPickPokerResult {
     const r = pickPoker(soloState, idxA, idxB, idxC);
     battleMsg.value = r.ok ? "" : r.reason || "";
     return r;
   }
 
-  function doPlayCard(cardId, count = 1) {
+  function doPlayCard(cardId: string, count = 1): SoloActionResult {
     const r = playCard(soloState, cardId, count);
     if (!r.ok) {
       battleMsg.value = r.reason || "无法出牌";
@@ -138,14 +235,14 @@ export function useSoloController() {
     return r;
   }
 
-  function doEndTurn() {
+  function doEndTurn(): void {
     startEnemyTurn(soloState);
     scheduleEnemy();
   }
 
   // AI 出牌慢放：宣布 → 延迟 1.5s → 结算 → 下一张
-  function scheduleEnemy() {
-    const step = () => {
+  function scheduleEnemy(): void {
+    const step = (): void => {
       const r = enemyAnnounce(soloState);
       const phase = soloState.combat?.phase;
       if (phase === "lost" || phase === "won") {
@@ -169,7 +266,7 @@ export function useSoloController() {
   }
 
   /** 战斗胜利领卡（3 选 1），领卡后停在奖励界面等"前往下一节点" */
-  function claimReward(cardId) {
+  function claimReward(cardId: string): SoloActionResult {
     const r = claimCardReward(soloState, cardId);
     if (!r.ok) return r;
     rewardClaimed.value = true;
@@ -181,7 +278,7 @@ export function useSoloController() {
 
   // ---- 事件 ----
 
-  function resolveEventOption(optionIdx) {
+  function resolveEventOption(optionIdx: number): SoloEventResult {
     const node = getCurrentNode(soloState);
     const eventId = node?.eventId;
     if (!eventId) return { ok: false };
@@ -197,23 +294,23 @@ export function useSoloController() {
 
   // ---- 商店 ----
 
-  function shopCatalogList() {
+  function shopCatalogList(): string[] {
     return shopCatalog(soloState);
   }
 
-  function doShopBuy(cardId) {
+  function doShopBuy(cardId: string): SoloShopResult {
     const r = shopBuy(soloState, cardId);
     return r;
   }
 
-  function doShopRemove(cardId) {
+  function doShopRemove(cardId: string): SoloShopResult {
     const price = shopRemovePrice(soloState);
     if (!spendGold(soloState, price)) return { ok: false, reason: "金币不足" };
     removeCard(soloState, cardId);
     return { ok: true, price };
   }
 
-  function doShopHeal() {
+  function doShopHeal(): SoloHealResult {
     const need = soloState.player.maxHp - soloState.player.hp;
     if (need <= 0) return { ok: false, reason: "HP 已满" };
     const price = shopHealPrice(need);
@@ -222,7 +319,7 @@ export function useSoloController() {
     return { ok: true, price, healed: need };
   }
 
-  function doShopUpgrade(cardId) {
+  function doShopUpgrade(cardId: string): SoloShopResult {
     const price = shopUpgradePrice();
     if (!spendGold(soloState, price)) return { ok: false, reason: "金币不足" };
     upgradeCard(soloState, cardId);
@@ -231,7 +328,7 @@ export function useSoloController() {
 
   // ---- 营地 ----
 
-  function doCampHeal() {
+  function doCampHeal(): SoloHealResult {
     const need = soloState.player.maxHp - soloState.player.hp;
     if (need <= 0) return { ok: false, reason: "HP 已满" };
     const price = shopHealPrice(need);
@@ -240,7 +337,7 @@ export function useSoloController() {
     return { ok: true, price, healed: need };
   }
 
-  function doCampUpgrade(cardId) {
+  function doCampUpgrade(cardId: string): SoloShopResult {
     const price = shopUpgradePrice();
     if (!spendGold(soloState, price)) return { ok: false, reason: "金币不足" };
     upgradeCard(soloState, cardId);
@@ -249,28 +346,28 @@ export function useSoloController() {
 
   // ---- 属性点 ----
 
-  function doApplyAttr(attr) {
+  function doApplyAttr(attr: SoloAttrKey): boolean {
     return applyAttrPoints(soloState, attr, 1);
   }
 
   // ---- 存档 ----
 
-  function saveSolo() {
+  function saveSolo(): boolean {
     const data = serializeSolo(soloState);
     localStorage.setItem("dead13_solo_save", JSON.stringify(data));
     return true;
   }
 
   /** 是否存在单机存档 */
-  function hasSoloSave() {
+  function hasSoloSave(): boolean {
     return !!localStorage.getItem("dead13_solo_save");
   }
 
-  function loadSolo() {
+  function loadSolo(): boolean {
     const raw = localStorage.getItem("dead13_solo_save");
     if (!raw) return false;
     try {
-      const data = JSON.parse(raw);
+      const data: unknown = JSON.parse(raw);
       deserializeSolo(soloState, data);
       soloStarted.value = true;
       battleMsg.value = "";
@@ -303,11 +400,11 @@ export function useSoloController() {
     }
   }
 
-  function clearSoloSave() {
+  function clearSoloSave(): void {
     localStorage.removeItem("dead13_solo_save");
   }
 
-  return {
+  const controller: SoloController = {
     soloState,
     soloStarted,
     uiMode,
@@ -338,4 +435,5 @@ export function useSoloController() {
     hasSoloSave,
     clearSoloSave,
   };
+  return controller;
 }

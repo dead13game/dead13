@@ -182,9 +182,9 @@ export interface DiceSeriesScore {
 }
 
 /**
- * 一场单局 —— 复用 types.ts 的 DiceMatch 契约，
- * 但 result / seriesScore 这两个字段的实际形状与 DiceMatch 里声明的不同
- * （实现写的是摘要对象 / 不含 a、b 的局分），这里按实现收窄。
+ * 一场单局 —— 复用 types.ts 的 DiceMatch 契约。
+ * （`result` / `seriesScore` 的形状已在 types.ts 里对齐为 `DiceMatchResult` / `DiceSeriesScore`，
+ *  下面的本地接口与它们结构相同，保留是为了不破坏本文件的既有导入路径。）
  */
 export interface DiceWarMatch extends Omit<DiceMatch, "result" | "seriesScore"> {
   result: DiceWarMatchResult | null;

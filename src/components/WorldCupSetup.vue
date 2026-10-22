@@ -10,7 +10,9 @@
         <label>队名：</label>
         <input
           :value="teamName"
-          @input="$emit('update:teamName', $event.target.value)"
+          @input="
+            $emit('update:teamName', ($event.target as HTMLInputElement).value)
+          "
           class="wc-setup__input"
           placeholder="输入你的队名"
           maxlength="12"
@@ -23,7 +25,9 @@
           <input
             type="checkbox"
             :checked="useAI"
-            @change="$emit('update:useAI', $event.target.checked)"
+            @change="
+              $emit('update:useAI', ($event.target as HTMLInputElement).checked)
+            "
           />
           AI自动（关闭=手动操控对手）
         </label>
@@ -34,7 +38,9 @@
         <select
           class="wc-setup__select"
           :value="difficulty"
-          @change="$emit('update:difficulty', $event.target.value)"
+          @change="
+            $emit('update:difficulty', ($event.target as HTMLSelectElement).value)
+          "
         >
           <option value="easy">简单</option>
           <option value="skilled">熟练</option>
@@ -48,7 +54,12 @@
           <input
             type="checkbox"
             :checked="useWeather"
-            @change="$emit('update:useWeather', $event.target.checked)"
+            @change="
+              $emit(
+                'update:useWeather',
+                ($event.target as HTMLInputElement).checked,
+              )
+            "
           />
           启用天气系统
         </label>
@@ -214,36 +225,68 @@
   </Transition>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, ref } from "vue";
 import SoundManager from "../audio/SoundManager.js";
 import { CHARACTERS } from "../game/characters/index.js";
 import { ARTIFACTS } from "../game/rules/artifacts.js";
 import { AI_TEAM_NAMES, TEAM_EMOJIS } from "../game/worldCupConstants.js";
+import type { CharacterMeta } from "../game/types.js";
 
-const props = defineProps({
-  teamName: { type: String, default: "" },
-  selectedChar: { type: String, default: "" },
-  aiTeamNames: { type: Array, default: () => [] },
-  useAI: { type: Boolean, default: true },
-  useWeather: { type: Boolean, default: false },
-  difficulty: { type: String, default: "easy" },
-  artifactId: { type: Number, default: null },
-  opponentArtifactId: { type: Number, default: null },
+/** 角色 id：控制器里未选择时是空串，选择后是数字 id */
+type CharacterId = number | "";
+
+/**
+ * 模板卡片/弹窗读的角色视图。
+ * id 放宽到 string 是因为模板里保留了历史的 `=== "caiyueang"` 比较（按迁移约定保留恒假分支）；
+ * maxUses 收紧为必有是因为模板直接做 `maxUses + "次"` 拼接，而 15 个角色 meta 全部声明了该字段。
+ */
+interface CharacterView {
+  id: number | string;
+  name: string;
+  title?: string;
+  icon?: string;
+  hp: number;
+  skillName?: string;
+  skillType?: string;
+  skillDesc?: string;
+  maxUses: number;
+}
+
+interface Props {
+  teamName?: string;
+  selectedChar?: CharacterId;
+  aiTeamNames?: string[];
+  useAI?: boolean;
+  useWeather?: boolean;
+  difficulty?: string;
+  artifactId?: number | null;
+  opponentArtifactId?: number | null;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  teamName: "",
+  selectedChar: "",
+  aiTeamNames: () => [],
+  useAI: true,
+  useWeather: false,
+  difficulty: "easy",
+  artifactId: null,
+  opponentArtifactId: null,
 });
 
-const emit = defineEmits([
-  "update:teamName",
-  "update:selectedChar",
-  "update:useAI",
-  "update:useWeather",
-  "update:difficulty",
-  "update:artifactId",
-  "update:opponentArtifactId",
-  "start",
-]);
+const emit = defineEmits<{
+  (e: "update:teamName", v: string): void;
+  (e: "update:selectedChar", v: number): void;
+  (e: "update:useAI", v: boolean): void;
+  (e: "update:useWeather", v: boolean): void;
+  (e: "update:difficulty", v: string): void;
+  (e: "update:artifactId", v: number): void;
+  (e: "update:opponentArtifactId", v: number): void;
+  (e: "start"): void;
+}>();
 
-const chars = CHARACTERS;
+const chars: Record<number, CharacterMeta> = CHARACTERS;
 const artifactList = Object.values(ARTIFACTS).map((a) => ({
   ...a,
   icon: a.type === "damage_boost" ? "⚔️" : "🎵",
@@ -257,16 +300,37 @@ const aiTeams = computed(() =>
 );
 
 // ---- 三连击技能详情 ----
-const skillPopupCharId = ref(null);
-const clickTracker = ref({});
+interface ClickTrack {
+  count: number;
+  lastTime: number;
+}
 
-const popupChar = computed(() =>
-  skillPopupCharId.value
-    ? chars.find((c) => c.id === skillPopupCharId.value)
-    : null,
-);
+const skillPopupCharId = ref<number | null>(null);
+const clickTracker = ref<Record<string, ClickTrack>>({});
 
-function onCharCardClick(charId) {
+/** 把角色静态数据投影成模板视图（15 个角色 meta 全部声明了 maxUses，这里只补类型断言） */
+function toCharacterView(meta: CharacterMeta): CharacterView {
+  return {
+    id: meta.id,
+    name: meta.name,
+    title: meta.title,
+    icon: meta.icon,
+    hp: meta.hp,
+    skillName: meta.skillName,
+    skillType: meta.skillType,
+    skillDesc: meta.skillDesc,
+    maxUses: meta.maxUses as number,
+  };
+}
+
+const popupChar = computed<CharacterView | null>(() => {
+  const id = skillPopupCharId.value;
+  if (id == null) return null;
+  const meta = chars[id];
+  return meta ? toCharacterView(meta) : null;
+});
+
+function onCharCardClick(charId: number) {
   // 三连击检测
   const now = Date.now();
   const track = clickTracker.value[charId] || { count: 0, lastTime: 0 };

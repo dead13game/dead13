@@ -46,13 +46,19 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed } from "vue";
+import type { PlayerView } from "../game/view.js";
 
-const props = defineProps({
-  tower: { type: Object, required: true },
-  attackable: { type: Boolean, default: false },
-  current: { type: Boolean, default: false },
+interface Props {
+  tower: PlayerView;
+  attackable?: boolean;
+  current?: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  attackable: false,
+  current: false,
 });
 
 const defenseCount = computed(

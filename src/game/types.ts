@@ -179,8 +179,9 @@ export interface Player {
   holyWordUses?: number;
   /** 旧字段：AI 读 statusEffects.savepoint */
   statusEffects?: { savepoint?: PlayerSavepoint | null };
-  /** 团战：本回合是否复活过 / 复活回合 */
-  revivedThisRound?: number;
+  /** 团战：本回合是否已复活过（boolean，不是次数） */
+  revivedThisRound?: boolean;
+  /** 团战：复活回合 */
   respawnRound?: number;
 }
 
@@ -486,13 +487,18 @@ export interface ModeAdapter {
   id: string;
   rules: ModeRules;
 
-  onNewRound?(ctx: Ctx): void;
-  onRoundEnd?(ctx: Ctx): void;
+  /** 返回 "halt" 表示暂停回合推进（团战 60 回合/联赛轮次终止用） */
+  onNewRound?(ctx: Ctx, round?: number): "halt" | void;
+  onRoundEnd?(ctx: Ctx, round?: number): "halt" | void;
   checkGameOver?(ctx: Ctx): void;
   onAfterCheck?(ctx: Ctx): void;
   onPlayerDeath?(ctx: Ctx, player: Player): void;
   filterPending?(ctx: Ctx, pending: Pending): Pending | null;
-  info?(): unknown;
+  /**
+   * 模式信息：**数据对象**不是方法（UI 读 `mode.info.result`，团战/联赛都这么挂）。
+   * 各模式在自己的 `*Runtime` 接口里给出精确形状。
+   */
+  info?: unknown;
 
   // 1v1 / 联赛 / 世界杯 / 团战的扩展点
   match?: unknown;
@@ -502,7 +508,8 @@ export interface ModeAdapter {
    */
   serialize?(): Record<string, unknown>;
   startNextLife?(ctx: Ctx): void;
-  onMatchEnd?(ctx: Ctx, ...args: unknown[]): void;
+  /** 单参：各模式与世界杯包装都是 `onMatchEnd(match)`（见 modes/match.ts 的 MatchEndHook） */
+  onMatchEnd?(match: unknown): void;
   canSubstitute?(...args: unknown[]): boolean;
   isSubstitutionValid?(...args: unknown[]): boolean;
   executeSubstitution?(ctx: Ctx, ...args: unknown[]): void;

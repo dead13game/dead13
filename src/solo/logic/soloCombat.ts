@@ -44,11 +44,11 @@ function removeFromAgg(agg: CardAgg, cardId: string, count: number): void {
 }
 
 /**
- * recordSound 只读写 state.soundQueue（单机与内核共用同一队列结构）。
- * 单机 state 不是多人内核的 GameState，这里按 GameState 视图传入（仅做结构断言）。
+ * recordSound 只读写 state.soundQueue，参数类型是 `SoundQueueHost`，
+ * 单机 SoloState 的结构天然满足（不需要断言）。
  */
 function recordSoloSound(state: SoloState, type: string): void {
-  recordSound(state as unknown as GameState, type);
+  recordSound(state, type);
 }
 
 /** 从牌堆抽 n 张并聚合进 hand；牌堆空时从 grave 洗回 */

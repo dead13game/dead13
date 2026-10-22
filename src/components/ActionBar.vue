@@ -388,7 +388,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import Card from "./Card.vue";
 import {
@@ -399,41 +399,68 @@ import {
   canUseHolyWord,
   getAllianceTargets,
 } from "../game/view.js";
+import type { PlayerView, ViewModel } from "../game/view.js";
 
-const props = defineProps({
-  state: { type: Object, required: true },
-  disabled: { type: Boolean, default: false },
-  leagueMode: { type: Boolean, default: false },
-  // 团战：摸到的攻击牌直接明牌展示（经典模式保留背面翻牌动画）
-  revealDraw: { type: Boolean, default: false },
+/**
+ * 模板里还留着三个旧 flag：`pendingFurinaTarget` / `_aimiliyaFreeze` / `_skipAnim`。
+ * 内核 v3.5 已改用 `pending.purpose` 消歧、`buildView` 不再产出它们（运行时恒 undefined），
+ * 但模板一字不改，所以这里按「可选字段」如实声明，不假装它们存在。
+ */
+interface LegacyViewFlags {
+  pendingFurinaTarget?: boolean;
+  _aimiliyaFreeze?: boolean;
+  _skipAnim?: boolean;
+}
+
+interface Props {
+  state: ViewModel & LegacyViewFlags;
+  disabled?: boolean;
+  leagueMode?: boolean;
+  /** 团战：摸到的攻击牌直接明牌展示（经典模式保留背面翻牌动画） */
+  revealDraw?: boolean;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  disabled: false,
+  leagueMode: false,
+  revealDraw: false,
 });
 
-const emit = defineEmits([
-  "attack",
-  "defense",
-  "gamble",
-  "skill",
-  "holyWord",
-  "target",
-  "skillTarget",
-  "cancel",
-  "liniyaSkill",
-  "caiyueangSave",
-  "caiyueangLoad",
-  "ally",
-  "betray",
-  "allyInvite",
-  "gambleSubmit",
-  "nahidaOrder",
-]);
+const emit = defineEmits<{
+  (e: "attack"): void;
+  (e: "defense"): void;
+  (e: "gamble"): void;
+  (e: "skill"): void;
+  (e: "holyWord"): void;
+  (e: "target", index: number): void;
+  (e: "skillTarget", index: number): void;
+  (e: "cancel"): void;
+  (e: "liniyaSkill", index: number, subSkill: number): void;
+  (e: "caiyueangSave"): void;
+  (e: "caiyueangLoad"): void;
+  (e: "ally"): void;
+  (e: "betray"): void;
+  (e: "allyInvite", index: number): void;
+  (e: "gambleSubmit", trapIdx: number, baitIdx: number): void;
+  (e: "nahidaOrder", order: number[]): void;
+}>();
 
 // 赌命选牌
-const gambleTrapIdx = ref(-1);
-const gambleBaitIdx = ref(-1);
+const gambleTrapIdx = ref<number>(-1);
+const gambleBaitIdx = ref<number>(-1);
 // 纳西妲选牌
-const nahidaOrder = ref([]);
+const nahidaOrder = ref<number[]>([]);
 
-const currentPlayerVal = computed(() => currentPlayer(props.state));
+/**
+ * 当前玩家。
+ *
+ * 模板在多个分支里直接展开它的字段（旧 JS 实现从不判空，null 时会在渲染期抛错），
+ * 而不变量是「ActionBar 只在有当前玩家的局面渲染」（pending.asker 必然存在）。
+ * 为保持模板一字不改，这里按该不变量收窄 —— 无运行时开销、无行为变化。
+ */
+const currentPlayerVal = computed<PlayerView>(
+  () => currentPlayer(props.state) as PlayerView,
+);
 const gambleWarning = computed(() => {
   const p = currentPlayerVal.value;
   return p && p.relations.consecutiveGambles >= 2 && !p.relations.gamblePenalty;
@@ -495,13 +522,13 @@ const aliveTargets = computed(() =>
 );
 
 /** pending.options → 单位（英雄/塔/召唤物），团战支援与打塔都靠它 */
-const pendingUnitTargets = computed(() => {
+const pendingUnitTargets = computed<PlayerView[]>(() => {
   const opts = props.state.pending?.options;
   if (!Array.isArray(opts) || opts.length === 0) return [];
   const pool = props.state.units ?? props.state.players;
   return opts
     .map((uid) => pool.find((u) => u.uid === uid))
-    .filter(Boolean);
+    .filter((u): u is PlayerView => u !== undefined);
 });
 
 /** 技能/莉奈娅目标：优先用内核给的可选目标（已按敌我/塔过滤） */
@@ -517,8 +544,15 @@ const isInvestigate = computed(
   () => currentPlayerVal.value?.characterId === 14,
 );
 
-const guessLabel = (n) =>
-  ({ 1: "A", 11: "J", 12: "Q", 13: "K" })[n] ?? String(n);
+/** 点数 → 牌面字母（A/J/Q/K），其余按数字显示 */
+const GUESS_LABELS: Record<number, string> = {
+  1: "A",
+  11: "J",
+  12: "Q",
+  13: "K",
+};
+
+const guessLabel = (n: number): string => GUESS_LABELS[n] ?? String(n);
 
 // 攻击目标：优先读内核给的目标（可能包含召唤物/塔），并排除盟友/队友
 const attackTargets = computed(() => {
@@ -574,7 +608,7 @@ function onGambleConfirm() {
   }
 }
 
-function onNahidaClick(idx) {
+function onNahidaClick(idx: number): void {
   if (nahidaOrder.value.includes(idx)) return;
   nahidaOrder.value.push(idx);
 }

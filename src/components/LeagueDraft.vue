@@ -84,37 +84,53 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed } from "vue";
 import SoundManager from "../audio/SoundManager.js";
 import { CHARACTERS } from "../game/characters/index.js";
 
-const props = defineProps({
-  playerTeamName: { type: String, default: "你的队伍" },
-  opponentTeamName: { type: String, default: "对手" },
+interface Props {
+  playerTeamName?: string;
+  opponentTeamName?: string;
+}
+
+withDefaults(defineProps<Props>(), {
+  playerTeamName: "你的队伍",
+  opponentTeamName: "对手",
 });
 
-const emit = defineEmits(["draftComplete"]);
+/**
+ * 原运行时声明只列了 "draftComplete"，但 onStartMatch 也会 emit("startMatch")
+ * （数组声明不做校验，运行时一直发得出去）。类型声明必须把两者都写上，
+ * 否则 emit("startMatch") 过不了类型检查；事件名与调用顺序保持不变。
+ */
+const emit = defineEmits<{
+  (
+    e: "draftComplete",
+    payload: { playerChars: number[]; opponentChars: number[] },
+  ): void;
+  (e: "startMatch"): void;
+}>();
 
 // 选人状态
-const playerPicks = ref([]);
-const opponentPicks = ref([]);
-const draftStage = ref("player"); // 'player' | 'opponent' | 'done'
+const playerPicks = ref<number[]>([]);
+const opponentPicks = ref<number[]>([]);
+const draftStage = ref<"player" | "opponent" | "done">("player"); // 'player' | 'opponent' | 'done'
 
 const allChars = Object.values(CHARACTERS);
 const availableChars = computed(() => allChars);
 
-function isCharTaken(charId) {
+function isCharTaken(charId: number): boolean {
   return (
     playerPicks.value.includes(charId) || opponentPicks.value.includes(charId)
   );
 }
 
-function getCharName(charId) {
+function getCharName(charId: number): string {
   return CHARACTERS[charId]?.name || "???";
 }
 
-function onPickChar(charId) {
+function onPickChar(charId: number): void {
   if (draftStage.value !== "player" || isCharTaken(charId)) return;
 
   SoundManager.play("click"); // 选角点击音效
@@ -139,12 +155,12 @@ function onPickChar(charId) {
 }
 
 // 开始比赛（选角点击音效）
-function onStartMatch() {
+function onStartMatch(): void {
   SoundManager.play("click");
   emit("startMatch");
 }
 
-function aiPickOne() {
+function aiPickOne(): void {
   const remaining = allChars.filter((c) => !isCharTaken(c.id));
   if (remaining.length > 0) {
     const pick = remaining[Math.floor(Math.random() * remaining.length)];

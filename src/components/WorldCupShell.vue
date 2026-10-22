@@ -233,7 +233,7 @@
 
         <div class="wc-summary__list">
           <div
-            v-for="(m, idx) in wcState.matchHistory || []"
+            v-for="(m, idx) in matchHistory"
             :key="idx"
             class="wc-summary__row"
             :class="{ 'wc-summary__row--knockout': !m.isGroup }"
@@ -271,7 +271,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, reactive, computed, watch } from "vue";
 import GameShell from "./GameShell.vue";
 import WorldCupScoreboard from "./WorldCupScoreboard.vue";
@@ -293,15 +293,29 @@ import {
   decideLiniyaChoice,
   decideCaiyueangChoice,
 } from "../game/ai/index.js";
+import type { AiTargetContext } from "../game/ai/index.js";
+import type { Command } from "../game/api.js";
+import type { PenaltyRoundResult } from "../game/modes/match.js";
+import type { WorldCupState } from "../game/worldCup.js";
 
-const props = defineProps({
-  useAI: { type: Boolean, default: true },
-  useWeather: { type: Boolean, default: false },
-  difficulty: { type: String, default: "easy" },
+interface Props {
+  useAI?: boolean;
+  useWeather?: boolean;
+  difficulty?: string;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  useAI: true,
+  useWeather: false,
+  difficulty: "easy",
 });
 
-const emit = defineEmits(["restart"]);
+const emit = defineEmits<{ (e: "restart"): void }>();
 
+/** 控制器返回形状（useWorldCupController 没有导出具名接口，这里用 ReturnType 固定契约） */
+type WorldCupController = ReturnType<typeof useWorldCupController>;
+
+const controller: WorldCupController = useWorldCupController();
 const {
   wcState,
   matchState,
@@ -331,7 +345,67 @@ const {
   markAIPlayer,
   setArtifacts,
   applyPlayerArtifact,
-} = useWorldCupController();
+} = controller;
+
+/** 控制器里的比赛状态类型（控制器没有导出具名接口，用推断结果） */
+type WorldCupMatchState = NonNullable<typeof matchState.value>;
+
+/** 整届战绩的一行（控制器 recordHistory 是唯一写入方） */
+interface MatchHistoryRow {
+  stage: string;
+  opponent: string;
+  opponentEmoji?: string;
+  score?: [number, number];
+  winner?: number | null;
+  isGroup: boolean;
+  decidedByPenalty?: boolean;
+}
+
+/** 存档里的比赛状态：_killedCharId 是控制器专用簿记，旧实现不入档 */
+type SavedMatchState = Omit<WorldCupMatchState, "_killedCharId">;
+
+/** 存档里的世界杯设置（App.vue 读回设置面板用） */
+interface WcSetupSave {
+  teamName: string;
+  selectedChar: number | undefined;
+  opponentNames: string[];
+  useWeather: boolean;
+  difficulty: string;
+  useAI: boolean;
+  artifactId: number | null;
+  opponentArtifactId: number | null;
+}
+
+/** 存档里的锦标赛状态（仅可序列化字段，旧实现如此逐字段列出） */
+type WcStateSave = Pick<
+  WorldCupState,
+  | "phase"
+  | "playerTeamName"
+  | "groupName"
+  | "groupTeams"
+  | "groupMatches"
+  | "groupStandings"
+  | "knockoutRound"
+  | "knockoutOpponent"
+  | "substitutionsLeft"
+  | "matchHistory"
+  | "_usedOpponents"
+> & {
+  _lastPlayerChar: number | undefined;
+  _groupOpponentChars: number[] | undefined;
+  _groupFinished: boolean | undefined;
+  _playerRank: number | undefined;
+  _advanced: boolean | undefined;
+};
+
+/** GameShell 的 saveAndQuit 载荷 + 世界杯附加字段 */
+interface WorldCupSaveData {
+  gameState: ReturnType<typeof saveGame>;
+  gameMode: string;
+  wcSetup?: WcSetupSave;
+  wcState?: WcStateSave;
+  matchState?: SavedMatchState;
+}
 
 /** 只读视图:AI 与子组件都读它 */
 const view = reactive(buildView(gameState));
@@ -342,14 +416,14 @@ watch(
 );
 
 /** view 的 index → 内核 uid */
-const uidAt = (index) =>
+const uidAt = (index: number): number | null =>
   gameState.players.find((p) => p.index === index)?.uid ?? null;
-const cast = (cmd) => dispatch(gameState, cmd);
+const cast = (cmd: Command): boolean => dispatch(gameState, cmd);
 
 // 世界杯模式下点击"保存并退出"按钮
-function onWCSaveAndQuit() {
+function onWCSaveAndQuit(): void {
   const gameData = saveGame(gameState);
-  const saveData = {
+  const saveData: WorldCupSaveData = {
     gameState: gameData,
     gameMode: "worldcup",
   };
@@ -357,7 +431,7 @@ function onWCSaveAndQuit() {
 }
 
 // 世界杯存档：保存并退出
-function handleWCSave(saveData) {
+function handleWCSave(saveData: WorldCupSaveData): void {
   // 附加世界杯设置信息
   saveData.wcSetup = {
     teamName: wcState.playerTeamName,
@@ -407,8 +481,14 @@ function handleWCSave(saveData) {
   emit("restart");
 }
 
+/** 外部存档（JSON ⇒ unknown）的收窄：非数组普通对象 */
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return v !== null && typeof v === "object" && !Array.isArray(v);
+}
+
 // 世界杯存档：从存档恢复
-function restoreFromSave(saveData) {
+function restoreFromSave(saveData: unknown): void {
+  if (!isRecord(saveData)) return;
   if (!saveData.wcState || !saveData.matchState) return;
   restoreWorldCup(saveData);
 }
@@ -417,13 +497,13 @@ function restoreFromSave(saveData) {
 defineExpose({ initWorldCup, wcState, uiMode, restoreFromSave });
 
 // GameShell ref（用于 DevLogPanel 5 连击 + 对手换人）
-const gameShellRef = ref(null);
+const gameShellRef = ref<InstanceType<typeof GameShell> | null>(null);
 
 // 计分板 5 连击 → 打开 DevLogPanel
 let sbClickCount = 0;
-let sbClickTimer = null;
+let sbClickTimer: ReturnType<typeof setTimeout> | null = null;
 
-function onScoreboardClick() {
+function onScoreboardClick(): void {
   sbClickCount++;
   if (sbClickTimer) clearTimeout(sbClickTimer);
   if (sbClickCount >= 5) {
@@ -437,11 +517,11 @@ function onScoreboardClick() {
 }
 
 // 点球状态
-const penaltyRound = ref(null);
-const penaltyDone = ref(false);
+const penaltyRound = ref<PenaltyRoundResult | null>(null);
+const penaltyDone = ref<boolean>(false);
 
 // 比赛阶段标签
-const stageLabel = computed(() => {
+const stageLabel = computed<string>(() => {
   if (matchState.value?.isGroupStage) {
     const played = wcState.groupMatches.filter(
       (m) => m.isPlayerMatch && m.played,
@@ -455,13 +535,14 @@ const stageLabel = computed(() => {
 });
 
 // 对手角色名（用于换人 UI）
-const opponentCharName = computed(() => {
-  const charData = CHARACTERS[matchState.value?.opponentCharId];
+const opponentCharName = computed<string>(() => {
+  const charId = matchState.value?.opponentCharId;
+  const charData = charId === undefined ? undefined : CHARACTERS[charId];
   return charData?.name || "";
 });
 
 // 是否可以换人
-const subsAvailable = computed(() => {
+const subsAvailable = computed<boolean>(() => {
   if (!matchState.value) return false;
   return (
     matchState.value.substitutionPending &&
@@ -470,18 +551,30 @@ const subsAvailable = computed(() => {
   );
 });
 
+/**
+ * 整届战绩行（模板 v-for 读）。
+ * `WorldCupState.matchHistory` 按存档口径声明为 `unknown[]`，
+ * 唯一写入方是控制器的 recordHistory，形状即 MatchHistoryRow，这里收窄一次。
+ */
+const matchHistory = computed(
+  () => (wcState.matchHistory || []) as MatchHistoryRow[],
+);
+
 // 换人确认
-function onSubConfirm(charId) {
+function onSubConfirm(charId: number | string): void {
+  // WorldCupSubstitution 的事件类型是 CharId（string | number，沿用旧运行时声明）；
+  // 实际取值来自 CHARACTERS 的 meta.id（数字），这里取回数字再交给控制器。
+  const newCharId = typeof charId === "number" ? charId : Number(charId);
   if (props.useAI) {
-    handleSubstitution(charId);
+    handleSubstitution(newCharId);
   } else if (opponentSubPending.value) {
-    handleOpponentSubstitution(charId);
+    handleOpponentSubstitution(newCharId);
   } else {
-    handlePlayerSubstitution(charId);
+    handlePlayerSubstitution(newCharId);
   }
 }
 
-function onSubSkip() {
+function onSubSkip(): void {
   if (props.useAI) {
     handleSkipSubstitution();
   } else if (opponentSubPending.value) {
@@ -493,7 +586,7 @@ function onSubSkip() {
 }
 
 // 点球
-function onPenaltyRound() {
+function onPenaltyRound(): void {
   if (penaltyDone.value) return;
   const result = doPenaltyRound();
   if (result) {
@@ -505,27 +598,27 @@ function onPenaltyRound() {
 }
 
 /** 点球结束后跳转到比赛结果 */
-function onFinishPenalty() {
+function onFinishPenalty(): void {
   finishPenalty();
 }
 
 // 继续
-function onContinueAfterResult() {
+function onContinueAfterResult(): void {
   continueAfterMatchResult();
 }
 
-function onContinueFromStandings() {
+function onContinueFromStandings(): void {
   continueFromStandings();
 }
 
-function onStartKnockout() {
+function onStartKnockout(): void {
   startKnockoutMatch();
 }
 
 // ---- AI 自动操作 ----
-let aiTimer = null;
+let aiTimer: ReturnType<typeof setTimeout> | null = null;
 
-function isAITurn() {
+function isAITurn(): boolean {
   if (!matchState.value) return false;
   const p = view.players[view.currentPlayerIndex];
   return !!p?.alive && !!p.isAI;
@@ -533,7 +626,7 @@ function isAITurn() {
 
 // ── 调度入口 ──
 
-function scheduleAI() {
+function scheduleAI(): void {
   if (aiTimer) clearTimeout(aiTimer);
   if (!props.useAI) return;
   // 不在比赛模式、游戏已结束、有人阵亡等待处理 → 都不触发
@@ -548,7 +641,7 @@ watch(() => view.step, scheduleAI, { immediate: true });
 
 // ── 主决策 ──
 
-function aiAct() {
+function aiAct(): void {
   // 双保险：手动模式下已调度的 timer 也直接退出（防止读档时序问题）
   if (!props.useAI) return;
   if (view.step === "pickAction") {
@@ -577,7 +670,9 @@ function aiAct() {
 
 // ── 顶层行动分发 ──
 
-function executeTopAction(decision) {
+function executeTopAction(
+  decision: ReturnType<typeof decideTopAction>,
+): void {
   if (!props.useAI) return; // 手动模式中止链式调度
   switch (decision.action) {
     case "attack": {
@@ -585,7 +680,8 @@ function executeTopAction(decision) {
       aiTimer = setTimeout(() => {
         if (view.step === "attackShowCard") {
           const t = decideTarget(view, { action: "attack" });
-          cast({ type: "attackTarget", targetUid: uidAt(t.targetIndex) });
+          const uid = uidAt(t.targetIndex);
+          if (uid != null) cast({ type: "attackTarget", targetUid: uid });
         }
       }, 500);
       break;
@@ -599,7 +695,7 @@ function executeTopAction(decision) {
       aiSuppressLog(lb, "对手 执行赌命");
       aiTimer = setTimeout(() => {
         if (view.step === "gamblePick" && view.pendingGamble) {
-          const g = decideGamblePick(view, view.pendingGamble.drawnCards);
+          const g = decideGamblePick(view, view.pendingGamble.drawnCards ?? []);
           const lb2 = gameState.messageLog.length;
           cast({ type: "gambleSubmit", trapIdx: g.trapIdx, baitIdx: g.baitIdx });
           aiSuppressLog(lb2);
@@ -621,7 +717,7 @@ function executeTopAction(decision) {
 }
 
 /** pending.purpose → 旧 AI 认识的技能标签 */
-function skillTagOf(purpose) {
+function skillTagOf(purpose: string): string {
   if (purpose === "skill:furina") return "furina";
   if (purpose === "skill:aimiliya.freeze") return "aimiliya";
   if (purpose === "skill:fenjin") return "fenjin";
@@ -630,17 +726,18 @@ function skillTagOf(purpose) {
 
 // ── 中间步骤自动完成 ──
 
-function executeMiddleStep() {
+function executeMiddleStep(): void {
   if (!props.useAI) return; // 手动模式中止链式调度
   const s = view.step;
   if (s === "pickAction") return;
 
   if (s === "attackShowCard") {
     const t = decideTarget(view, { action: "attack" });
-    cast({ type: "attackTarget", targetUid: uidAt(t.targetIndex) });
+    const uid = uidAt(t.targetIndex);
+    if (uid != null) cast({ type: "attackTarget", targetUid: uid });
   } else if (s === "gamblePick") {
     if (view.pendingGamble) {
-      const g = decideGamblePick(view, view.pendingGamble.drawnCards);
+      const g = decideGamblePick(view, view.pendingGamble.drawnCards ?? []);
       cast({ type: "gambleSubmit", trapIdx: g.trapIdx, baitIdx: g.baitIdx });
     }
   } else if (s === "skillPickTarget") {
@@ -649,10 +746,17 @@ function executeMiddleStep() {
       return;
     }
     const kind = skillTagOf(view.pending?.purpose ?? "");
-    const t = decideTarget(view, { action: "skill", characterId: kind });
+    // 历史错位（P6a 起）：旧实现把「技能标签字符串」塞进 AI 的 characterId，
+    // 而 AI 的 mapContext 按数字比对，于是恒落默认分支 "attack"。
+    // 这是既有行为，迁移不改语义 —— AiTargetContext.characterId 已放宽为 number | string 如实承载它。
+    const aiContext: AiTargetContext = {
+      action: "skill",
+      characterId: kind,
+    };
+    const t = decideTarget(view, aiContext);
     cast({ type: "skillAnswer", answer: uidAt(t.targetIndex) });
   } else if (s === "skillNahida") {
-    const order = decideNahidaOrder(view, view.scryCards);
+    const order = decideNahidaOrder(view, view.scryCards ?? []);
     cast({ type: "skillAnswer", answer: order });
   } else if (s === "liniyaPick") {
     const d = decideLiniyaChoice(view);
@@ -665,7 +769,8 @@ function executeMiddleStep() {
     cast({ type: "skillAnswer", answer: { choice: d.choice } });
   } else if (s === "allyPick") {
     const t = decideTarget(view, { action: "ally" });
-    cast({ type: "allyTarget", targetUid: uidAt(t.targetIndex) });
+    const uid = uidAt(t.targetIndex);
+    if (uid != null) cast({ type: "allyTarget", targetUid: uid });
   } else {
     // 未知步骤保底
     cast({ type: "cancel" });
@@ -676,7 +781,7 @@ function executeMiddleStep() {
 // ── 工具 ──
 
 /** 隐藏 AI 战报：删除从 logBefore 开始的新增条目，可选替换消息 */
-function aiSuppressLog(logBefore, replacement) {
+function aiSuppressLog(logBefore: number, replacement?: string): void {
   const added = gameState.messageLog.length - logBefore;
   if (added > 0) gameState.messageLog.splice(logBefore, added);
   if (replacement) gameState.messageLog.push(replacement);

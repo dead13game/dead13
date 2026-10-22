@@ -1,8 +1,16 @@
+import type { ParticleEffectConfig } from "./ParticleSystem.js";
+
 /**
  * 角色技能特效注册表 — 预定义各角色的粒子效果参数
  * 每个角色 id 对应一组特效配置
+ *
+ * 注意：键是角色**名字**（venti/zhongli…），而 PIXIManager.emitParticles 传进来的
+ * characterId 是数字 id，查找时会自然 miss 并回落到通用特效 —— 这是迁移前就有的行为。
  */
-export const SKILL_EFFECTS = {
+export const SKILL_EFFECTS: Record<
+  string,
+  Record<string, ParticleEffectConfig>
+> = {
   // 温迪 — 风神
   venti: {
     draw: {
@@ -247,7 +255,7 @@ export const SKILL_EFFECTS = {
 };
 
 /** 通用特效 */
-export const GENERIC_EFFECTS = {
+export const GENERIC_EFFECTS: Record<string, ParticleEffectConfig> = {
   // 攻击命中
   hit: {
     color: 0xffffff,

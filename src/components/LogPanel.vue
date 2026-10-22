@@ -9,14 +9,16 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, watch, nextTick } from "vue";
 
-const props = defineProps({
-  messages: { type: Array, required: true },
-});
+interface Props {
+  messages: string[];
+}
 
-const logRef = ref(null);
+const props = defineProps<Props>();
+
+const logRef = ref<HTMLDivElement | null>(null);
 
 watch(
   () => props.messages.length,

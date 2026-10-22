@@ -54,21 +54,34 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from "vue";
 import { CHARACTERS } from "../game/characters/index.js";
 
-const props = defineProps({
-  currentCharId: { type: String, required: true },
-  currentCharName: { type: String, default: "" },
-  opponentCharId: { type: String, default: "" },
-  subsLeft: { type: Number, default: 3 },
-  subTitle: { type: String, default: "换人" },
+/**
+ * 角色 id 运行时是数字（match 模式的 playerCharId/opponentCharId），
+ * 原运行时声明写的是 String；这里用联合类型如实描述「String 校验已消失」后的真实取值。
+ */
+type CharId = string | number;
+
+interface Props {
+  currentCharId: CharId;
+  currentCharName?: string;
+  opponentCharId?: CharId;
+  subsLeft?: number;
+  subTitle?: string;
+}
+
+withDefaults(defineProps<Props>(), {
+  currentCharName: "",
+  opponentCharId: "",
+  subsLeft: 3,
+  subTitle: "换人",
 });
 
-defineEmits(["confirm", "skip"]);
+defineEmits<{ (e: "confirm", charId: CharId): void; (e: "skip"): void }>();
 
-const picked = ref("");
+const picked = ref<CharId>("");
 
 // 所有可用角色（排除当前角色）
 const availableChars = CHARACTERS;
