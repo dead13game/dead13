@@ -1,0 +1,210 @@
+/* ════════════════ 结算 ════════════════ */
+.result-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 18px;
+  text-align: center;
+}
+.result-screen--win {
+  background: radial-gradient(ellipse 60% 50% at 50% 30%, rgba(255, 179, 0, 0.16), transparent 70%);
+}
+.result-screen--lose {
+  background: radial-gradient(ellipse 60% 50% at 50% 30%, rgba(198, 40, 40, 0.18), transparent 70%);
+}
+.result-title {
+  margin: 10px 0 4px;
+  font-size: clamp(40px, 9vw, 76px);
+  letter-spacing: 0.24em;
+  font-weight: 900;
+  background: linear-gradient(100deg, #fff, #ffd54f 45%, #ff8f00);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 60px rgba(255, 179, 0, 0.35);
+}
+.result-screen--lose .result-title {
+  background: linear-gradient(100deg, #fff, #ff8a80 45%, #c62828);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+.result-reason {
+  margin: 0 0 26px;
+  font-size: 13px;
+  color: rgba(210, 222, 255, 0.6);
+}
+.result-stats {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 28px;
+}
+.result-stat {
+  min-width: 150px;
+  padding: 16px 20px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.result-stat span {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: rgba(190, 205, 240, 0.55);
+}
+.result-stat b {
+  font-size: 26px;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.result-stat b em {
+  font-style: normal;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.35);
+  margin: 0 4px;
+}
+.result-stat small {
+  font-size: 9px;
+  color: rgba(190, 205, 240, 0.4);
+}
+.result-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+@media (max-width: 720px) {
+  .setup-card {
+    padding: 24px 20px 20px;
+  }
+  .setup-grid {
+    grid-template-columns: 1fr;
+  }
+  .draft-lineups {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .vs-lineup {
+    align-self: center;
+  }
+  .draft-grid {
+    grid-template-columns: repeat(auto-fill, minmax(98px, 1fr));
+    gap: 8px;
+  }
+  .match-screen {
+    padding: 8px 8px calc(132px + env(safe-area-inset-bottom));
+  }
+  .hud {
+    gap: 8px;
+    padding: 8px 10px;
+  }
+  .hud__weather-text em {
+    display: none;
+  }
+  .arena__center {
+    grid-template-columns: 1fr;
+  }
+  .arena__vs {
+    display: none;
+  }
+  .battle-log {
+    max-height: 58px;
+  }
+  .lane {
+    padding: 8px;
+  }
+  .heroes {
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .result-stat {
+    min-width: 120px;
+    padding: 12px 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .match-screen {
+    padding: 6px 6px calc(118px + env(safe-area-inset-bottom));
+  }
+  .hud {
+    gap: 6px;
+    padding: 7px 9px;
+  }
+  .hud__round b {
+    font-size: 18px;
+  }
+  .hud__weather-text b {
+    font-size: 10px;
+  }
+  .hud__weather-text em {
+    display: none;
+  }
+  .hud__turn {
+    margin-left: 0;
+    font-size: 10px;
+  }
+  .hud__turn em {
+    display: none;
+  }
+  .hud__save {
+    width: 34px;
+    height: 34px;
+  }
+  .lane {
+    padding: 6px;
+  }
+  .lane__label {
+    font-size: 8px;
+    margin-bottom: 4px;
+  }
+  .towers {
+    gap: 4px;
+  }
+  .heroes {
+    gap: 4px;
+    margin-top: 6px;
+  }
+  .battle-log {
+    max-height: 76px;
+    padding: 5px 8px;
+  }
+  .battle-log__line {
+    font-size: 9.5px;
+  }
+  .arena__center {
+    padding: 2px 6px;
+    gap: 6px;
+  }
+  .tug__name {
+    font-size: 8px;
+  }
+  .dock {
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+  }
+  .result-stat {
+    min-width: 100px;
+    padding: 10px 12px;
+  }
+  .result-stat b {
+    font-size: 20px;
+  }
+  .result-title {
+    letter-spacing: 0.14em;
+  }
+  .draw-toast {
+    bottom: 98px;
+    padding: 7px 12px 9px;
+    border-radius: 12px;
+  }
+  .draw-toast__card {
+    transform: scale(0.78);
+  }
+}
+

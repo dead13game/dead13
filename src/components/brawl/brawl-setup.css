@@ -1,0 +1,198 @@
+/* ════════════════ 设置 ════════════════ */
+.setup-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 28px 16px calc(28px + env(safe-area-inset-bottom));
+  overflow: hidden;
+}
+.setup-screen__glow {
+  position: absolute;
+  width: 520px;
+  height: 520px;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.35;
+  pointer-events: none;
+  animation: glowDrift 12s ease-in-out infinite alternate;
+}
+.setup-screen__glow--a {
+  background: #1e4fff;
+  top: -220px;
+  left: -160px;
+}
+.setup-screen__glow--b {
+  background: #ff3d5e;
+  bottom: -240px;
+  right: -140px;
+  animation-delay: -6s;
+}
+@keyframes glowDrift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(40px, 30px, 0) scale(1.12);
+  }
+}
+.setup-card {
+  position: relative;
+  width: min(620px, 100%);
+  padding: 34px 34px 26px;
+  border-radius: 24px;
+  background:
+    linear-gradient(
+      160deg,
+      rgba(28, 38, 72, 0.92),
+      rgba(10, 14, 28, 0.94) 65%
+    );
+  border: 1px solid rgba(140, 170, 255, 0.18);
+  box-shadow:
+    0 40px 90px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(14px);
+}
+.setup-title {
+  margin: 10px 0 6px;
+  font-size: clamp(30px, 5vw, 44px);
+  letter-spacing: 0.08em;
+  background: linear-gradient(100deg, #fff, #b9d4ff 45%, #ffd54f);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 40px rgba(120, 170, 255, 0.25);
+}
+.setup-lead {
+  margin: 0 0 22px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: rgba(210, 222, 255, 0.62);
+}
+.setup-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.setup-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 16px 16px 14px;
+  text-align: left;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #e8eeff;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+.setup-tile__icon {
+  font-size: 24px;
+}
+.setup-tile b {
+  font-size: 15px;
+}
+.setup-tile small {
+  font-size: 11px;
+  color: rgba(200, 215, 250, 0.55);
+}
+.setup-tile--active {
+  border-color: rgba(255, 213, 79, 0.7);
+  background: linear-gradient(
+    160deg,
+    rgba(255, 213, 79, 0.16),
+    rgba(255, 143, 0, 0.05)
+  );
+  box-shadow:
+    0 0 0 1px rgba(255, 213, 79, 0.25),
+    0 8px 24px rgba(255, 143, 0, 0.18);
+}
+.setup-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 18px;
+}
+.setup-line--artifacts {
+  align-items: flex-start;
+  flex-direction: column;
+}
+.setup-line__label {
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  color: rgba(180, 200, 245, 0.6);
+}
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.segmented button {
+  padding: 7px 16px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: rgba(220, 230, 255, 0.55);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.segmented button.on {
+  background: rgba(255, 213, 79, 0.16);
+  color: #ffd54f;
+  box-shadow: inset 0 0 0 1px rgba(255, 213, 79, 0.35);
+}
+.artifact-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  width: 100%;
+  margin-top: 8px;
+}
+.artifact-slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 150px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 11px;
+}
+.artifact-slot__no {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  font-weight: 800;
+  color: #0a0f1f;
+  background: rgba(255, 213, 79, 0.85);
+}
+.artifact-slot select {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #101832;
+  color: #e8eeff;
+  font-size: 11px;
+}
+.setup-foot {
+  margin: 16px 0 0;
+  text-align: center;
+  font-size: 11px;
+  color: rgba(190, 205, 240, 0.42);
+}
+.setup-card .cta {
+  width: 100%;
+  margin-top: 24px;
+}
+
