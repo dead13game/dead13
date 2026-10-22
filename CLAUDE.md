@@ -53,6 +53,24 @@ PR以及gh CLI会导致用户GitHub账户封禁，禁止使用。
 
 **善用question** — 不确定的地方不要猜测，question用户获得最准确的方向,不用担心question太多,有疑问无上限问
 
+## 改动完成前的自检（逐项确认，不允许沉默跳过）
+
+1. **修 bug → 先写一条会失败的复现测试**；完成 = 它变绿 + 全量测试全绿
+2. 修 bug → `docs/KNOWN_BUGS.md` 加一条，写明测试文件 + 用例名
+3. 新增角色/单位 → 只改 `src/game/characters/index.js` 的角色表；新代码按 `characterId` 判断，不写角色名字面量
+4. 新增内容数据 → 放 `src/data/*.json`，遵守 schema
+5. 改完跑 `npm run test`（含结构护栏 `src/game/guard/`：分层依赖 + 目标解析单一入口）
+
+## 护栏规则
+
+- 结构护栏与功能测试冲突时，**以功能测试为准 + 立即上报**；两边都不许自行改
+- 新增豁免需用户批准
+- 禁止删除 / skip / 弱化 `src/game/guard/` 下的测试
+
+## 任务结束必须报告
+
+读取 N 文件 / N 行、补读 N 次、测试 N 次（红→绿）、返工 N 次
+
 ## 架构
 
 ```mermaid
@@ -120,7 +138,7 @@ STEP:     由 pending 派生 = pickAction / attackShowCard / skillPickTarget / g
 
 | 工具                    | 用途                                                                                                                        |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `npm run test`        | 268 条 vitest 测试（21 文件：core/flow/rules/modes/persistence/api + 差分回放 + TableLayout + 角色/团战 v3.5 + solo + diceWar），< 2s |
+| `npm run test`        | 276 条 vitest 测试（23 文件：core/flow/rules/modes/persistence/api + 差分回放 + TableLayout + 角色/团战 v3.5 + solo + diceWar + guard），< 2s |
 | 手动跑 test             | 改`src/game/*` 后必须跑 `npm run test`（项目无自动 hook，靠自觉）                                                       |
 | `window.__PIXI_APP__` | 浏览器控制台访问 PIXI Application 内部状态                                                                                  |
 | `[game]` 日志         | `console.debug` 输出结构化 JSON，`window.__GAME_LOG_LEVEL__` 动态控制等级                                               |
