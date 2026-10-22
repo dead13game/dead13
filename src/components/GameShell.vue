@@ -87,6 +87,7 @@ import {
 } from "../game/ai/index.js";
 import { dispatch, save } from "../game/api.js";
 import { buildView } from "../game/view.js";
+import { unitByIndexOrUid } from "../game/core/units.js";
 
 const props = defineProps({
   state: { type: Object, required: true },
@@ -146,16 +147,14 @@ const { animating, flyToTarget, defenseDraw, gambleDraw } = useAnimationFlow(
 
 // ── 事件处理（动画 → 命令）──
 
-/** 视图里的 index/uid → 内核身份 uid(命令一律用 uid；塔/无人机也在内) */
-const findUnit = (x) => {
-  const units = [
-    ...props.state.players,
-    ...(props.state.towers ?? []),
-    ...(props.state.summons ?? []),
-  ];
-  return units.find((u) => u.uid === x) ?? units.find((u) => u.index === x) ?? null;
-};
-const uidAt = (x) => findUnit(x)?.uid ?? null;
+/**
+ * ActionBar 的 target 事件传的是 **index**（渲染序），不是 uid；
+ * 必须先按 index 查找。uid 只在兜底时匹配，否则玩家的 uid=1/2/3… 会与
+ * 其他玩家的 index 撞号，导致攻击目标被错误解析成自己/队友。
+ */
+const findUnit = (indexOrUid) =>
+  unitByIndexOrUid(props.state, indexOrUid);
+const uidAt = (index) => findUnit(index)?.uid ?? null;
 const cast = (cmd) => dispatch(props.state, cmd);
 
 function onAttack() {

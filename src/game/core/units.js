@@ -81,6 +81,21 @@ export function unitByUid(state, uid) {
   return allUnits(state).find((u) => u.uid === uid) ?? null;
 }
 
+/**
+ * UI 目标解析：ActionBar 的 target 事件传的是 index（渲染序），
+ * 不是 uid。必须先按 index 查，再兜底 uid —— 否则玩家的 uid=1/2/3…
+ * 会与其他玩家的 index 撞号，攻击目标被错误解析成自己/队友。
+ */
+export function unitByIndexOrUid(state, indexOrUid) {
+  if (indexOrUid == null) return null;
+  const units = allUnits(state);
+  return (
+    units.find((u) => u.index === indexOrUid) ??
+    units.find((u) => u.uid === indexOrUid) ??
+    null
+  );
+}
+
 export function heroes(state) {
   return state.players;
 }

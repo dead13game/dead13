@@ -122,7 +122,7 @@ STEP:     由 pending 派生 = pickAction / attackShowCard / skillPickTarget / g
 
 | 工具                    | 用途                                                                                                                        |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `npm run test`        | 445 条 vitest 测试（24 文件：core/flow/rules/modes/persistence/api + 差分回放 + TableLayout + 角色/团战 v3.5 + solo/uni×3 + diceWar），< 2s |
+| `npm run test`        | 446 条 vitest 测试（24 文件：core/flow/rules/modes/persistence/api + 差分回放 + TableLayout + 角色/团战 v3.5 + solo/uni×3 + diceWar），< 2s |
 | 手动跑 test             | 改`src/game/*` 后必须跑 `npm run test`（项目无自动 hook，靠自觉）                                                       |
 | `window.__PIXI_APP__` | 浏览器控制台访问 PIXI Application 内部状态                                                                                  |
 | `[game]` 日志         | `console.debug` 输出结构化 JSON，`window.__GAME_LOG_LEVEL__` 动态控制等级                                               |
@@ -264,6 +264,7 @@ v3.5 新增映射：`chorus`（沃雅妮莎领唱）、`attackStreak`（薇斯�
 - v3.5 团战前 4 回合应为和平期 → `peaceRounds: 4`、`attackGate: "phase"`，塔群在和平期待命
 - v3.5 团战防御区显示总护盾值 → 只显示张数；仅最新一张残盾显示剩余值（`maxDefenseValue`）；防御摸牌动画保持暗牌
 - v3.5 陷阱给队友/塔后显示「陷阱 ?」→ 陷阱牌携带 `decoyValue`，给队友/塔时仍显示施放者的诱饵点数
+- v3.5 UI 目标点击把 index 当 uid → 玩家 uid=1/2/3… 与其他玩家 index 撞号，敌人被解析成自己/队友；`unitByIndexOrUid` 改为 index 优先
 
 ## 开发日志系统
 

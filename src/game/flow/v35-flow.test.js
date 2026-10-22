@@ -3,7 +3,7 @@ import { describe, it, expect } from "vitest";
 import { createSession, dispatch } from "../api.js";
 import { createClassicMode } from "../modes/classic.js";
 import { createBrawlMode, initBrawlOrder } from "../modes/brawl.js";
-import { createTowers, towersOf } from "../core/units.js";
+import { createTowers, towersOf, unitByIndexOrUid } from "../core/units.js";
 
 function classic2p() {
   const { state } = createSession({
@@ -28,6 +28,24 @@ function brawl() {
   initBrawlOrder(ctx);
   return { state, ctx };
 }
+
+describe("v3.5 UI 目标解析 — index 优先于 uid", () => {
+  it("ActionBar 传 index 时，不会被同号 uid 抢走（否则敌人会被当成自己）", () => {
+    const state = {
+      players: [
+        { uid: 1, index: 0 },
+        { uid: 3, index: 1 },
+        { uid: 2, index: 2 },
+      ],
+      towers: [],
+      summons: [],
+    };
+    // index 1 是 uid 3；如果先按 uid 查会错误命中 uid 1（自己）
+    expect(unitByIndexOrUid(state, 1).uid).toBe(3);
+    expect(unitByIndexOrUid(state, 2).uid).toBe(2);
+    expect(unitByIndexOrUid(state, 9)).toBeNull();
+  });
+});
 
 describe("v3.5 伤害乘区 — 圣遗物在陷阱判定前", () => {
   it("10 点攻击 ×1.5 后 15 > 陷阱14 → 破陷阱；若在陷阱后结算则会反弹", () => {
