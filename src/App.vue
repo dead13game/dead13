@@ -69,18 +69,6 @@
             👥 3v3 团战
             <span class="mode-btn__desc">推塔 · Ban/Pick · 60 回合</span>
           </button>
-          <button
-            v-if="uniHasSave"
-            class="mode-btn mode-btn--uni-continue"
-            @click="continueUni"
-          >
-            🌌 继续模拟宇宙
-            <span class="mode-btn__desc">继续无尽深渊</span>
-          </button>
-          <button class="mode-btn mode-btn--uni" @click="selectMode('simuniverse')">
-            🌌 模拟宇宙
-            <span class="mode-btn__desc">PVE 无尽深渊 · 位面爬塔</span>
-          </button>
           <button class="mode-btn mode-btn--dice" @click="selectMode('dicewar')">
             🎲 娱乐模式
             <span class="mode-btn__desc">骰子战争世锦赛 · 16人淘汰</span>
@@ -163,13 +151,6 @@
       <SoloShell
         v-else-if="gameMode === 'solo'"
         :solo="soloController"
-        @quit="gameMode = null"
-      />
-
-      <!-- 模拟宇宙 -->
-      <UniShell
-        v-else-if="gameMode === 'simuniverse'"
-        :uni="uniController"
         @quit="gameMode = null"
       />
 
@@ -447,33 +428,6 @@
               </ul>
             </div>
 
-            <!-- 模拟宇宙页 -->
-            <div v-else-if="activeRulesTab === 'simuniverse'" class="rules-modal__content">
-              <p class="rules-modal__summary">
-                模拟宇宙：4 人小队闯入无尽深渊，层层闯关、逐步强化，看你能走多远。
-              </p>
-              <h3 class="rules-modal__section-title">闯关结构：</h3>
-              <ul>
-                <li>开局自选 4 名角色组队，携血量与技能迎战</li>
-                <li>每层是一个区域节点：⚔️战斗、💀精英、👑首领、❓事件、🛒商店、🏕️休整等</li>
-                <li>约每 10 层遇首领；越往高层敌人越强、难度逐位面攀升，深渊没有尽头</li>
-              </ul>
-              <h3 class="rules-modal__section-title">战斗机制：</h3>
-              <ul>
-                <li>回合制三选一：从牌组出普攻 / 防御 / 角色大招，护盾抵挡伤害</li>
-                <li>角色 PVE 技能可随通关升级（等级越高效果越强）并带冷却</li>
-                <li>普通战斗常为多波次敌人，精英与首领各有特殊招数（锁定、眩晕等）</li>
-              </ul>
-              <h3 class="rules-modal__section-title">局外成长：</h3>
-              <ul>
-                <li>战斗掉落祝福（分星级）、碎片货币；精英与首领奖励更丰厚</li>
-                <li><strong>祝福 / 奇物 / 方程</strong>是核心构筑：各类增益叠加，部分奇物与方程可改变战局走向</li>
-                <li>商店购买祝福与补给，休整回血，造物调试台可强化奇物与构筑</li>
-                <li>个别角色自带特殊机制（如菜月昴的读档回溯），善加利用可扭转败局</li>
-                <li>全队阵亡即本次深渊结束，按推进进度结算</li>
-              </ul>
-            </div>
-
             <!-- 骰子战争页 -->
             <div v-else-if="activeRulesTab === 'dicewar'" class="rules-modal__content">
               <p class="rules-modal__summary">
@@ -536,12 +490,10 @@ import WorldCupShell from "./components/WorldCupShell.vue";
 import LeagueShell from "./components/LeagueShell.vue";
 import BrawlShell from "./components/BrawlShell.vue";
 import SoloShell from "./solo/SoloShell.vue";
-import UniShell from "./simuniverse/UniShell.vue";
 import DiceWarShell from "./components/DiceWarShell.vue";
 import OpeningVideo from "./components/OpeningVideo.vue";
 import { useGameController } from "./composables/useGameController.js";
 import { useSoloController } from "./solo/useSoloController.js";
-import { useUniController } from "./simuniverse/useUniController.js";
 import { load } from "./game/api.js";
 import { createClassicMode } from "./game/modes/classic.js";
 import { AI_TEAM_NAMES } from "./game/worldCupConstants.js";
@@ -569,12 +521,8 @@ const {
 const soloController = useSoloController();
 const soloHasSave = ref(false);
 
-// 模拟宇宙控制器
-const uniController = useUniController();
-const uniHasSave = ref(false);
-
 // ---- 模式选择 ----
-const gameMode = ref(null); // null | 'normal' | 'football' | 'worldcup' | 'league' | 'solo' | 'simuniverse' | 'dicewar'
+const gameMode = ref(null); // null | 'normal' | 'football' | 'worldcup' | 'league' | 'solo' | 'brawl' | 'dicewar'
 const dicewarRestore = ref(false); // 进入骰子世锦赛时是否自动读档（继续）
 const dicewarHasSave = ref(false);
 const DICEWAR_SAVE_KEY = "dead13_dicewar_save";
@@ -602,7 +550,6 @@ const hasSave = ref(false);
 onMounted(() => {
   hasSave.value = !!localStorage.getItem("dead13_save");
   soloHasSave.value = soloController.hasSoloSave();
-  uniHasSave.value = uniController.hasUniSave();
   refreshDicewarHasSave();
 
   // 主背景音乐：首次用户交互后启动（浏览器自动播放策略限制）
@@ -620,8 +567,7 @@ onMounted(() => {
       gameStarted.value ||
       wcStarted.value ||
       leagueStarted.value ||
-      soloController.soloStarted.value ||
-      uniController.uniStarted.value,
+      soloController.soloStarted.value,
     (inBattle) => {
       if (inBattle) {
         SoundManager.playBgm(Math.random() < 0.5 ? "battle1" : "battle2");
@@ -641,8 +587,6 @@ function selectMode(mode) {
   playClick();
   if (mode === "solo") {
     soloController.initSolo(); // 进入单机模式即开新局（默认角色）
-  } else if (mode === "simuniverse") {
-    uniController.initUni(); // 进入模拟宇宙即开新局
   } else if (mode === "dicewar") {
     dicewarRestore.value = false; // 从"娱乐模式"进入开新局（不从存档继续）
   }
@@ -691,14 +635,6 @@ function continueSolo() {
   playClick();
   if (soloController.loadSolo()) {
     gameMode.value = "solo";
-  }
-}
-
-// 继续模拟宇宙（读档）
-function continueUni() {
-  playClick();
-  if (uniController.loadUni()) {
-    gameMode.value = "simuniverse";
   }
 }
 
@@ -871,7 +807,6 @@ const rulesTabList = [
   { id: "worldcup", label: "世界杯" },
   { id: "league", label: "联赛" },
   { id: "brawl", label: "3v3 团战" },
-  { id: "simuniverse", label: "模拟宇宙" },
   { id: "dicewar", label: "骰子战争" },
 ];
 const activeRulesTab = ref("overview");

@@ -100,16 +100,6 @@ export const LOG_TYPE = {
   SOLO_END: "solo_end",
   SOLO_SAVE: "solo_save",
   SOLO_LOAD: "solo_load",
-  // ==== 模拟宇宙（simuniverse）====
-  UNI_INIT: "uni_init",
-  UNI_FLOOR: "uni_floor",
-  UNI_REGION: "uni_region",
-  UNI_CHOOSE: "uni_choose",
-  UNI_SHARDS: "uni_shards",
-  UNI_REVIVE: "uni_revive",
-  UNI_GAMEOVER: "uni_gameover",
-  UNI_SAVE: "uni_save",
-  UNI_LOAD: "uni_load",
 };
 
 // ===== 分类（中文标签，用于 DevLogPanel 过滤，兼容旧代码） =====
