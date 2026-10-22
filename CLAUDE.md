@@ -275,6 +275,7 @@ v3.5 新增映射：`chorus`（沃雅妮莎领唱）、`attackStreak`（薇斯�
 - v3.5 陷阱给队友/塔后显示「陷阱 ?」→ 陷阱牌携带 `decoyValue`，给队友/塔时仍显示施放者的诱饵点数
 - v3.5 UI 目标点击把 index 当 uid → 玩家 uid=1/2/3… 与其他玩家 index 撞号，敌人被解析成自己/队友；`unitByIndexOrUid` 改为 index 优先
 - v3.5 团战立绘从顶部裁切只显示 LOGO/背景 → 英雄卡/BanPick/小头像统一 `object-position: center 30%`
+- v3.5 扑克牌中央点数继承父级浅色看不清 → `card__rank-big` 按花色显式设置红/黑/棕
 
 ## 开发日志系统
 

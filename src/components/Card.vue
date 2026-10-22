@@ -104,17 +104,20 @@ const color = computed(() => {
 }
 
 .card--red .card__rank,
-.card--red .card__suit {
+.card--red .card__suit,
+.card--red .card__rank-big {
   color: #d32f2f;
 }
 
 .card--black .card__rank,
-.card--black .card__suit {
+.card--black .card__suit,
+.card--black .card__rank-big {
   color: #1a1a1a;
 }
 
 .card--joker .card__rank,
-.card--joker .card__suit {
+.card--joker .card__suit,
+.card--joker .card__rank-big {
   color: #8b4513;
 }
 
