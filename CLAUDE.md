@@ -84,7 +84,7 @@ PR以及gh CLI会导致用户GitHub账户封禁，禁止使用。
 | 音频     | `src/audio/`       | SoundManager 音效播放（由`src/game/soundEvents.js` 触发）                                                                                                                       |
 | UI       | `src/components/`  | Vue 3 组件（ActionBar、League*/WorldCup* 系列等）                                                                                                                                 |
 
-**参考文档（按需读，不要每轮全读）**
+**参考文档**
 
 | 文档 | 内容 |
 | --- | --- |
