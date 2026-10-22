@@ -1,0 +1,424 @@
+.hero-card {
+  --team: #4fc3f7;
+  --team-soft: rgba(79, 195, 247, 0.16);
+  position: relative;
+  width: 196px;
+  min-height: 246px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(160deg, #1b2342 0%, #0d1226 60%, #0a0f1f 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 10px 26px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transform: translateZ(0);
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
+}
+.hero-card--team1 {
+  --team: #ff6b6b;
+  --team-soft: rgba(255, 107, 107, 0.16);
+}
+.hero-card:hover {
+  transform: translateY(-4px);
+}
+.hero-card--current {
+  border-color: rgba(255, 213, 79, 0.9);
+  box-shadow:
+    0 0 0 1px rgba(255, 213, 79, 0.6),
+    0 0 32px rgba(255, 213, 79, 0.35),
+    0 16px 40px rgba(0, 0, 0, 0.55);
+  transform: translateY(-6px) scale(1.02);
+  animation: heroPulse 2.2s ease-in-out infinite;
+}
+@keyframes heroPulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(255, 213, 79, 0.55),
+      0 0 26px rgba(255, 213, 79, 0.28),
+      0 16px 40px rgba(0, 0, 0, 0.55);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(255, 213, 79, 0.95),
+      0 0 44px rgba(255, 213, 79, 0.45),
+      0 16px 40px rgba(0, 0, 0, 0.55);
+  }
+}
+
+.hero-card__art {
+  position: relative;
+  height: 146px;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 20%, var(--team-soft), transparent 70%);
+}
+.hero-card__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* 立绘多为竖图且顶部常带 LOGO/背景，向下取景让脸和角色主题居中 */
+  object-position: center 30%;
+  display: block;
+  filter: saturate(1.05) contrast(1.02);
+  transform: scale(1.02);
+}
+.hero-card__fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-size: 64px;
+  font-weight: 900;
+  color: var(--team);
+  background:
+    radial-gradient(circle at 30% 20%, var(--team-soft), transparent 60%),
+    linear-gradient(135deg, #182040, #0a0f1f);
+}
+.hero-card__vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(to top, #0d1226 2%, transparent 42%),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.45), transparent 35%);
+  pointer-events: none;
+}
+.hero-card__shine {
+  position: absolute;
+  inset: -40% -60%;
+  background: linear-gradient(
+    115deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.12) 48%,
+    transparent 60%
+  );
+  transform: translateX(-30%) rotate(0.001deg);
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.hero-card:hover .hero-card__shine {
+  opacity: 1;
+  animation: shineSweep 1.1s ease;
+}
+@keyframes shineSweep {
+  from {
+    transform: translateX(-45%);
+  }
+  to {
+    transform: translateX(45%);
+  }
+}
+
+.hero-card__top {
+  position: absolute;
+  top: 8px;
+  left: 10px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.hero-card__team-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--team);
+  box-shadow: 0 0 10px var(--team);
+  flex: none;
+}
+.hero-card__title {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.7);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hero-card__hp {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hero-card__hpbar {
+  position: relative;
+  flex: 1;
+  height: 9px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  overflow: hidden;
+}
+.hero-card__hpbar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  display: block;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #00c853, #69f0ae);
+  box-shadow: 0 0 10px rgba(0, 200, 83, 0.45);
+  transition: width 0.35s ease;
+}
+.hero-card__hpbar i.hp-mid {
+  background: linear-gradient(90deg, #ff8f00, #ffd54f);
+  box-shadow: 0 0 10px rgba(255, 179, 0, 0.45);
+}
+.hero-card__hpbar i.hp-low {
+  background: linear-gradient(90deg, #c62828, #ff5252);
+  box-shadow: 0 0 10px rgba(255, 82, 82, 0.55);
+}
+.hero-card__hptext {
+  font-size: 12px;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 1px 4px #000;
+  font-variant-numeric: tabular-nums;
+}
+.hero-card__hptext em {
+  font-style: normal;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.hero-card__frost {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 70px;
+  color: rgba(160, 230, 255, 0.9);
+  background: radial-gradient(circle, rgba(120, 210, 255, 0.28), transparent 65%);
+  text-shadow: 0 0 24px #7fd8ff;
+  animation: frostBreath 2.4s ease-in-out infinite;
+}
+@keyframes frostBreath {
+  0%,
+  100% {
+    opacity: 0.65;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.hero-card__turn-ribbon {
+  position: absolute;
+  top: 10px;
+  right: -28px;
+  width: 106px;
+  transform: rotate(38deg);
+  text-align: center;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: #241a00;
+  background: linear-gradient(90deg, #ffd54f, #ffb300);
+  box-shadow: 0 2px 10px rgba(255, 179, 0, 0.5);
+}
+
+.hero-card__body {
+  padding: 6px 10px 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.hero-card__name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.hero-card__name-row h3 {
+  margin: 0;
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  color: #fff;
+}
+.hero-card__artifact {
+  font-size: 12px;
+  opacity: 0.85;
+}
+.hero-card__skill {
+  margin: 2px 0 8px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hero-card__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+.chip--shield {
+  color: #90caf9;
+  background: rgba(79, 195, 247, 0.12);
+  border-color: rgba(79, 195, 247, 0.28);
+}
+.chip--cards {
+  color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.06);
+}
+.chip--residual {
+  color: #ffb74d;
+  background: rgba(255, 152, 0, 0.14);
+  border-color: rgba(255, 152, 0, 0.4);
+}
+.chip--trap {
+  color: #e1a7ff;
+  background: rgba(186, 104, 200, 0.14);
+  border-color: rgba(186, 104, 200, 0.35);
+}
+.chip--drone {
+  color: #ffd54f;
+  background: rgba(255, 213, 79, 0.12);
+  border-color: rgba(255, 213, 79, 0.3);
+}
+.chip--drone em {
+  font-style: normal;
+  opacity: 0.7;
+}
+.hero-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.tag {
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  color: #ffe082;
+  background: rgba(255, 213, 79, 0.1);
+  border: 1px solid rgba(255, 213, 79, 0.22);
+}
+
+.hero-card--dead .hero-card__art,
+.hero-card--dead .hero-card__body {
+  filter: grayscale(0.9) brightness(0.5);
+}
+.hero-card__dead {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: rgba(4, 6, 14, 0.62);
+  backdrop-filter: blur(1px);
+}
+.hero-card__dead-label {
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 0.3em;
+  color: #ff5252;
+  text-shadow: 0 0 18px rgba(255, 82, 82, 0.6);
+  transform: rotate(-6deg);
+}
+.hero-card__dead em {
+  font-style: normal;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+@media (max-width: 720px) {
+  .hero-card {
+    width: 152px;
+    min-height: 226px;
+  }
+  .hero-card__art {
+    height: 132px;
+  }
+  .hero-card__name-row h3 {
+    font-size: 13px;
+  }
+  .hero-card__skill {
+    font-size: 10px;
+  }
+  .hero-card__dead-label {
+    font-size: 19px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-card {
+    width: 116px;
+    min-height: 186px;
+    border-radius: 12px;
+  }
+  .hero-card__art {
+    height: 98px;
+  }
+  .hero-card__top {
+    top: 5px;
+    left: 6px;
+    right: 6px;
+  }
+  .hero-card__title {
+    font-size: 8px;
+  }
+  .hero-card__hp {
+    left: 6px;
+    right: 6px;
+    bottom: 5px;
+    gap: 4px;
+  }
+  .hero-card__hpbar {
+    height: 7px;
+  }
+  .hero-card__hptext {
+    font-size: 9px;
+  }
+  .hero-card__hptext em {
+    font-size: 7px;
+  }
+  .hero-card__body {
+    padding: 4px 7px 6px;
+  }
+  .hero-card__name-row h3 {
+    font-size: 11px;
+  }
+  .hero-card__skill {
+    font-size: 8px;
+    margin: 0 0 4px;
+  }
+  .chip {
+    padding: 1px 4px;
+    font-size: 8px;
+  }
+  .hero-card__tags {
+    margin-top: 3px;
+  }
+  .tag {
+    font-size: 7px;
+  }
+  .hero-card__turn-ribbon {
+    width: 78px;
+    right: -24px;
+    top: 7px;
+    font-size: 7px;
+  }
+  .hero-card__dead-label {
+    font-size: 14px;
+    letter-spacing: 0.18em;
+  }
+  .hero-card__dead em {
+    font-size: 8px;
+  }
+}
