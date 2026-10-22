@@ -91,3 +91,43 @@
 
 **现有护栏**：`src/game/guard/`（G3 分层依赖、G2 目标解析单一入口），随 `npm run test` 一起跑。
 
+## 关键陷阱（原 CLAUDE.md 常驻列表，2026-10-22 移出为按需查）
+
+> 这些是踩过且容易重犯的坑。**改 `src/game/`、`src/pixi/`、`src/bridge/` 前先扫一眼本表。**
+
+- `new Sprite()` 空纹理设 width/height → NaN scale 崩溃
+- `CardSprite._renderEmpty()` 首次调用时 `_dashText` 为 null
+- 冰封效果 `nextPlayer` 无深度保护 → 无限递归
+- 花色 `SUITS` 为空字符串（必须保持 `♠♥♦♣`）
+- `buildScene()` 传 TableLayout 尺寸**不能除以 resolution**
+- 竖屏 canvas 用 `position: absolute` → 不占文档流无法滚动
+- `_fenjinHeal = null` 永不清除 → 后续所有角色技能触发都被路由到风堇。**必须用 `= undefined` 或 `delete` 清除标记**(新内核已由 `pending.purpose` 取代,取消走 `dispatch({type:"cancel"})`)
+- `reset1v1Game` 硬编码 `useWeather: false` → 世界杯击杀后天气消失。**重置比赛前必须保存天气状态**(新内核在 `modes/match.startNextLife` 里保存/还原)
+- 联赛 `attackedThisRound` 未在回合开始清零 → **整场都被判「围攻减半」**(已修:`modes/league.onNewRound` 清零)
+- 联赛和平期依赖 context 安装时机 → 首场 4 回合、后续 0 回合(已修:每场固定 `peaceRounds: 4`)
+- `maxUses: Infinity` 经 JSON 存档变 `null`(已修:persistence/schema 把非有限数编码成字符串)
+- 世界杯点球前必须手动把 `matchOver` 改回 false 才能推进(已修:新内核 `executePenaltyRound` 不再依赖它)
+- `canUseSkill` 只看次数不看回合门槛 → AI 选中后被拒、空转(已修:拆成引擎口径 `canUseSkill` 与 UI/AI 口径 `canUseSkillNow`)
+- 「高值卡低伤害」在防御吸收时误报(已修:只在目标没有防御牌时判定)
+- 用 `characterId` 当身份判进球/恢复名字 → 换人或同角色对局算错(已修:比赛模式改用 `uid`)
+- 牌库+墓地同时为空导致抽牌崩溃(已修:`ctx.deck.ensure` 按开局副数重生成牌库)
+- 菜月昴 AI 无限存档(已修:同一回合只允许存一次档)
+- 读档清空存档点 / 读档次数永不消耗(已修:读档后挂回存档点,计数按读档前值 -1)
+- 换人后新角色继承上一个角色的斗志/月相(已修:换人时重置 `player.char`)
+- v3.5 天气随机洗牌 → **固定顺序轮换**(烈日→暴雨→狂风→黑市→军备→晴朗;`setupWeatherDeck` 不再 shuffle)
+- v3.5 圣遗物在陷阱判定之后 → **总伤害先乘圣遗物倍数再与陷阱比大小**(`ATTACK_MODIFIERS` 里 `artifact.boost`;`POST_TRAP` 只剩围攻)
+- v3.5 联赛 `currentRound` 与控制器 `_currentRound` 不同步 → `isLeagueFinished` 永远 false、第 19 轮选人后崩(已修:两个字段都认,`countPlayedRounds` 取实际已赛轮次)
+- v3.5 联赛本轮结果把所有结果都显示成「胜」→ 改为 `主队（主） 胜/负/平 客队（客）`
+- v3.5 附加赛选完人后卡死 → `startMatchWithDraft` 在 `_isTiebreaker` 时路由到 `startTiebreakerMatch`;无同分时积分榜直接返回主菜单
+- v3.5 世界杯淘汰后没有总结、还能继续下一轮 → 记录 `matchHistory`,淘汰/夺冠立即进 `tournamentSummary`,只能返回主菜单
+- v3.5 世界杯淘汰赛对手从全量池随机 → 按 R16/QF/SF/Final 名单抽取,并避开本届已交手球队
+- v3.5 新角色/单位相关:无人机、调查、领唱、风翔剑的规则实现
+- v3.5 团战战报不可滚动 / 陷阱显示真实点数 / 摸牌不显示 → 战报可滚动并自动跟随；陷阱 UI 显示诱饵点数；`drawFeed` 抽牌动画 + 攻击牌明牌（AI 摸牌不公开）
+- v3.5 团战前 4 回合应为和平期 → `peaceRounds: 4`、`attackGate: "phase"`，塔群在和平期待命
+- v3.5 团战防御区显示总护盾值 → 只显示张数；仅最新一张残盾显示剩余值（`maxDefenseValue`）；防御摸牌动画保持暗牌
+- v3.5 陷阱给队友/塔后显示「陷阱 ?」→ 陷阱牌携带 `decoyValue`，给队友/塔时仍显示施放者的诱饵点数
+- v3.5 UI 目标点击把 index 当 uid → 玩家 uid=1/2/3… 与其他玩家 index 撞号，敌人被解析成自己/队友；`unitByIndexOrUid` 改为 index 优先
+- v3.5 团战立绘从顶部裁切只显示 LOGO/背景 → 英雄卡/BanPick/小头像统一 `object-position: center 30%`
+- v3.5 扑克牌中央点数继承父级浅色看不清 → `card__rank-big` 按花色显式设置红/黑/棕（视觉类，无自动化测试）
+
+

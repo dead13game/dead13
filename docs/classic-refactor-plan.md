@@ -151,3 +151,107 @@ npx vitest run src/game/testing/next-replay.test.js   # 旧基线命令回放 30
 | P5 | schema 驱动存档 v4 |
 | P6 | 三种模式 UI 全部切到 `dispatch` + `buildView` |
 | P7 | 删除旧内核 21 个文件,更新 CLAUDE.md / KNOWN_BUGS |
+
+---
+
+> 以下 §13–§16 原在 `CLAUDE.md` 常驻（2026-10-22 移出）：属于**查表用**的参考资料，
+> 改到对应层时再来读，不必每轮注入。
+
+## 13. 关键文件地图
+
+| 文件 | 说明 |
+| --- | --- |
+| `src/game/index.js` | 门面:只导出 api / view / characters / modes |
+| `src/game/api.js` | `createSession` / `dispatch` / `save` / `load` |
+| `src/game/view.js` | 只读 view-model(`renderPlayer` 映射 + 选择器) |
+| `src/game/core/cards.js` | 牌/洗牌/抽牌(随机源显式传入) |
+| `src/game/core/rng.js` | 唯一随机入口(种子版用于回放) |
+| `src/game/core/player.js` | Player 工厂 + 字段分区默认值 |
+| `src/game/core/units.js` | 英雄/塔/无人机统一查询、可攻击目标、拆塔顺序、`unitByIndexOrUid` |
+| `src/game/rules/modifiers.js` | 有序加成管道(priority 即规则) |
+| `src/game/rules/damage.js` | 伤害结算唯一入口(返回报告) |
+| `src/game/rules/trap.js` | 陷阱三态(反弹/平局/击破) |
+| `src/game/rules/alliance.js` | 结盟/平摊/解散 |
+| `src/game/rules/artifacts.js` | 圣遗物 + 圣言自明 |
+| `src/game/characters/*.js` | 15 个角色插件(meta/stateSchema/canUse/use/onAnswer/hooks) |
+| `src/game/flow/context.js` | 显式 ctx(日志/音效/牌堆/玩家/turn 接线) |
+| `src/game/flow/pending.js` | 决策模型 + step 派生 |
+| `src/game/flow/turn.js` | 回合引擎(pass/extra/suspend/resync) |
+| `src/game/flow/commands.js` | 全部命令(攻击/防御/赌命/技能/结盟/圣言/取消) |
+| `src/game/flow/setup.js` | 局面创建与初始化 |
+| `src/game/modes/*.js` | classic / match / league / worldcup / brawl 适配器 |
+| `src/game/modes/brawl.js` | 3v3 团战：塔行动/复活/劣势补给/60 回合判定 |
+| `src/composables/useBrawlController.js` | 团战 Ban/Pick、开局、存档、简单随机 AI 调度 |
+| `src/components/BrawlShell.vue` | 团战 DOM 棋盘 UI（英雄卡/塔卡/BanPick/结算） |
+| `src/game/persistence/*.js` | 存档 schema / 读写 / 菜月昴快照 |
+| `src/game/league.js` | 联赛数据(球队/赛程/积分/加成) |
+| `src/game/worldCup.js` | 世界杯赛程编排 |
+| `src/game/ai/index.js` | AI 公共 API(读 view) |
+| `src/game/ai/skilled.js` | AI 熟练难度 |
+| `src/game/ai/hell.js` | AI 地狱难度(偷看牌库) |
+| `src/game/ai/easy.js` | AI 简单难度 |
+| `src/game/testing/next-replay.test.js` | 旧基线命令回放对拍(30 局) |
+| `src/game/gameLogger.js` | 开发日志(`[game]` JSON) |
+| `src/game/guard/` | 结构护栏(G3 分层依赖 / G2 目标解析) |
+| `src/audio/SoundManager.js` | 音效播放 |
+| `src/pixi/core/PIXIManager.js` | Application 管理 + 场景树 + 粒子 |
+| `src/pixi/layout/TableLayout.js` | 自适应布局（横屏单/双行，竖屏2列） |
+| `src/bridge/useAnimationFlow.js` | GSAP 动画触发 + 粒子调度 |
+| `src/solo/logic/solo.js` | 单机模式状态机（地图/成长/卡组/金币/存档） |
+| `src/solo/logic/soloCombat.js` | 单机战斗（抽3选2/牌堆坟场/护盾/斗志/AI） |
+| `src/solo/logic/soloConstants.js` | 技能卡池 13 张 / 敌人 / 节点链 / 数值常量 |
+| `src/solo/SoloShell.vue` | 单机 UI 主壳（地图/战斗/商店/事件/营地/结算） |
+
+## 14. PIXI ↔ Vue 桥接
+
+| 接口 | 方向 |
+| --- | --- |
+| `usePixiSync(view, getManager)` | view → PIXI |
+| `useAnimationFlow(view, getManager)` | view → PIXI |
+| `PIXIManager.buildScene(players, deckCount)` | PIXI |
+| `PIXIManager.updatePlayer(index, player, isCurrent)` | PIXI |
+| `GameShell.onRelayout()` | Vue → PIXI |
+
+`view` 由 `buildView(state)` 产出：**只读派生**，不是第二份状态；写操作一律 `dispatch`。
+
+## 15. player 渲染字段（经 view 映射）
+
+`view.js` 的 `renderPlayer()` 把内核字段映射成 UI 读的形状，`PlayerTableSprite._updateStatus()` 依赖：
+`statusEffects.frozenBy`、`relations.allyIndex`、`relations.allianceTurns`、`relations.betrayalPenalty`、
+`statusEffects.stealTarget`、`statusEffects.dotTarget`、`fightingSpirit`、`statusEffects.savepoint`、
+`statusEffects.extraAction`、`statusEffects.ignoreTrapThisTurn`、`relations.gamblePenalty`、`relations.consecutiveGambles`
+
+→ **新增状态标签的顺序**：内核算字段（`effects.xxx` / `char.xxx`）→ `view.js` 映射 → `_updateStatus()`。
+
+v3.5 新增映射：`chorus`（沃雅妮莎领唱）、`attackStreak`（薇斯纳连击）、`statusEffects.drone`（无人机 HP/盾），
+以及 `towers` / `summons` / `units` / `unitByUid`（团战塔与召唤物，不影响经典 `players`）。
+
+## 16. 开发日志事件表
+
+所有游戏逻辑操作记录结构化日志到 `console.debug`，格式 `[game] {"ts":...,"type":"...",...}`。
+
+```js
+window.__GAME_LOG_LEVEL__ = 0; // DEBUG，所有日志
+window.__GAME_LOG_LEVEL__ = 1; // INFO
+window.__GAME_LOG_LEVEL__ = 2; // WARN，只看异常
+// Chrome/Edge: Console 的 Filter 框输入 [game]
+```
+
+| type | 说明 | 关键字段 |
+| --- | --- | --- |
+| `turn_start` / `turn_end` | 回合推进 | round, playerIndex, playerName |
+| `attack_start` / `attack_draw` / `attack_execute` | 攻击流程 | attackerIndex, targetIndex, cards, totalValue |
+| `damage_calc` | 伤害计算 | rawValue, afterMinus2, allianceSplit |
+| `hp_change` | **HP 变化（统一）** | playerIndex, from, to, delta, reason |
+| `defense_start` / `defense_draw` | 防御流程 | playerIndex, cards |
+| `gamble_start` / `gamble_result` | 赌命 | drawnCards, trapIdx, baitIdx |
+| `trap_trigger` | 陷阱触发 | victimIndex, trapCard, trapValue |
+| `skill_use` / `skill_effect` | 技能 | characterId, targetIndex, effect |
+| `ally_form` / `betrayal` | 联盟/背刺 | playerA, playerB, turns |
+| `weather_change` / `weather_effect` | 天气 | from, to, effect |
+| `solo_*` 系列 | 单机（节点/抽牌/伤害/护盾/事件/结算） | nodeType, cardId, dmg, gold… |
+| `anomaly` | **异常检测** | 伤害偏差、HP 负值、高值卡低伤害等 |
+
+**排查示例**：打开游戏过 3 回合 → Console Filter 输入 `[game]` → 筛 `type:'damage_calc'` 查联盟分配，
+筛 `type:'hp_change'` 对比 from/to 找异常扣血。
+

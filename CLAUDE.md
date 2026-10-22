@@ -29,7 +29,7 @@ PR以及gh CLI会导致用户GitHub账户封禁，禁止使用。
 
 ## 核心设计原则（最重要，每次变更必须遵守）
 
-1. **`src/game/` 分层且零依赖。** `core/ rules/ characters/ flow/ modes/ persistence/` 不引用 Vue、PIXI、GSAP 或浏览器 API(控制器传进来的 `reactive` 除外)。规则全在 `rules/`,角色全在 `characters/`,状态写入全在 `flow/`。
+1. **`src/game/` 分层且零依赖。** `core/ rules/ characters/ flow/ modes/ persistence/` 不引用 Vue、PIXI、GSAP 或浏览器 API(控制器传进来的 `reactive` 除外)。规则全在 `rules/`,角色全在 `characters/`,状态写入全在 `flow/`。**由 `src/game/guard/` 机器守护。**
 2. **单向数据流：** `state`(Vue reactive)→ `buildView(state)` 只读视图 → `usePixiSync` / 组件 → 渲染。**UI 不直接写 state**,所有动作走 `dispatch(state, command)`。
 3. **新机制用 `pending` 决策对象,不用 step 字符串 + flag。** `state.step` 是 `pending` 的派生量(仅为兼容 UI 模板保留),`setPending` 是唯一写入口。
 4. **PixiJS 对象用 `shallowRef`，不用 `ref()`。** Vue 深度响应式代理会破坏纹理引用。GSAP 动画用 `sprite.scale.x` 不是 `scaleX`。
@@ -56,6 +56,7 @@ PR以及gh CLI会导致用户GitHub账户封禁，禁止使用。
 ## 改动完成前的自检（逐项确认，不允许沉默跳过）
 
 1. **修 bug → 先写一条会失败的复现测试**；完成 = 它变绿 + 全量测试全绿
+   - 例外：CSS / 视觉 / 文案类可豁免，但必须在 `docs/KNOWN_BUGS.md` 条目里注明「视觉类，无自动化测试」
 2. 修 bug → `docs/KNOWN_BUGS.md` 加一条，写明测试文件 + 用例名
 3. 新增角色/单位 → 只改 `src/game/characters/index.js` 的角色表；新代码按 `characterId` 判断，不写角色名字面量
 4. 新增内容数据 → 放 `src/data/*.json`，遵守 schema
@@ -73,22 +74,6 @@ PR以及gh CLI会导致用户GitHub账户封禁，禁止使用。
 
 ## 架构
 
-```mermaid
-graph TD
-    A[App.vue 模式选择] --> B[GameSetup.vue 选角]
-    A --> C[GameShell.vue 主壳]
-    A --> D[LeagueShell / WorldCupShell]
-    C --> E[GameCanvas.vue → PIXI]
-    C --> F[ActionBar.vue]
-    C --> G[LogPanel.vue]
-
-    H[src/game/* 纯逻辑] -. watch .-> I[usePixiSync]
-    H -. watch .-> J[useAnimationFlow]
-    I --> K[PIXIManager]
-    J --> L[GSAP + Particles]
-    H -. soundEvents .-> M[useSoundSync → SoundManager]
-```
-
 | 层       | 目录                 | 职责                                                                                                                                                                              |
 | -------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 纯逻辑   | `src/game/`        | `core`(牌/随机/玩家/单位)+`rules`(加成/伤害/陷阱/联盟/天气)+`characters`(15 角色插件)+`flow`(ctx/pending/turn/commands)+`modes`(经典/1v1/联赛/世界杯/团战)+`persistence`;零依赖 |
@@ -99,13 +84,14 @@ graph TD
 | 音频     | `src/audio/`       | SoundManager 音效播放（由`src/game/soundEvents.js` 触发）                                                                                                                       |
 | UI       | `src/components/`  | Vue 3 组件（ActionBar、League*/WorldCup* 系列等）                                                                                                                                 |
 
-**参考文档(改 `src/game/` 前先读)**
+**参考文档（按需读，不要每轮全读）**
 
 | 文档 | 内容 |
 | --- | --- |
-| [docs/classic-refactor-plan.md](docs/classic-refactor-plan.md) | 内核架构速查:分层、状态模型、加成顺序、加角色/改规则的步骤、常见坑、验证方式 |
-| [docs/KNOWN_BUGS.md](docs/KNOWN_BUGS.md) | 已知 bug 与修复记录(含回归测试索引) |
+| [docs/classic-refactor-plan.md](docs/classic-refactor-plan.md) | 内核速查：分层/状态模型/加成顺序/加角色步骤/常见坑 + **§13 文件地图 · §14 PIXI 桥接 · §15 渲染字段 · §16 日志事件表** |
+| [docs/KNOWN_BUGS.md](docs/KNOWN_BUGS.md) | 修复记录 + 回归测试索引 + **关键陷阱（改 `src/game/`、`src/pixi/`、`src/bridge/` 前先扫一眼）** + 结构债 |
 | [docs/solo-roguelike-design.md](docs/solo-roguelike-design.md) | 单机模式设计 |
+| [docs/simuniverse-design.md](docs/simuniverse-design.md) | 模拟宇宙设计（**已下线**，留作重做参考） |
 
 ## 游戏模式
 
@@ -141,7 +127,7 @@ STEP:     由 pending 派生 = pickAction / attackShowCard / skillPickTarget / g
 | `npm run test`        | 276 条 vitest 测试（23 文件：core/flow/rules/modes/persistence/api + 差分回放 + TableLayout + 角色/团战 v3.5 + solo + diceWar + guard），< 2s |
 | 手动跑 test             | 改`src/game/*` 后必须跑 `npm run test`（项目无自动 hook，靠自觉）                                                       |
 | `window.__PIXI_APP__` | 浏览器控制台访问 PIXI Application 内部状态                                                                                  |
-| `[game]` 日志         | `console.debug` 输出结构化 JSON，`window.__GAME_LOG_LEVEL__` 动态控制等级                                               |
+| `[game]` 日志         | 结构化 JSON；开关与事件表见 `docs/classic-refactor-plan.md` §16                                                          |
 
 ## 内核入口与命令(取代旧的 gameState.js 导出)
 
@@ -166,161 +152,14 @@ STEP:     由 pending 派生 = pickAction / attackShowCard / skillPickTarget / g
 | `holyWord` | — | 圣言自明 |
 | `cancel` | — | 取消待决 |
 
-## PIXI ↔ Vue 桥接
+## 历史坑与查表
 
-| 接口 | 方向 |
-| ------------------------------------------------------ | ------------ |
-| `usePixiSync(view, getManager)` | view → PIXI |
-| `useAnimationFlow(view, getManager)` | view → PIXI |
-| `PIXIManager.buildScene(players, deckCount)` | PIXI |
-| `PIXIManager.updatePlayer(index, player, isCurrent)` | PIXI |
-| `GameShell.onRelayout()` | Vue → PIXI |
+已修复的坑、PIXI 层陷阱、字段映射细节、文件地图、日志事件表**全部在 docs**（见上方参考文档）。
 
-`view` 由 `buildView(state)` 产出:它是**只读派生**,不是第二份状态;写操作一律 `dispatch`。
+- 改 `src/game/`、`src/pixi/`、`src/bridge/` 前 → 先扫 `docs/KNOWN_BUGS.md` 的「关键陷阱」
+- 改内核结构 / 加角色 / 调伤害顺序 → 读 `docs/classic-refactor-plan.md`
 
-## player 对象渲染字段(经 view 映射)
-
-`view.js` 的 `renderPlayer()` 把内核字段映射成 UI 读的形状,`PlayerTableSprite._updateStatus()` 依赖:
-`statusEffects.frozenBy`, `relations.allyIndex`, `relations.allianceTurns`, `relations.betrayalPenalty`,
-`statusEffects.stealTarget`, `statusEffects.dotTarget`, `fightingSpirit`, `statusEffects.savepoint`,
-`statusEffects.extraAction`, `statusEffects.ignoreTrapThisTurn`, `relations.gamblePenalty`, `relations.consecutiveGambles`
-
-→ 新增状态标签时:先在内核加字段(`effects.xxx` / `char.xxx`),再在 `view.js` 映射,最后改 `_updateStatus()`。
-
-v3.5 新增映射：`chorus`（沃雅妮莎领唱）、`attackStreak`（薇斯纳连击）、`statusEffects.drone`（无人机 HP/盾），以及 `towers` / `summons` / `units` / `unitByUid`（团战塔与召唤物，不影响经典 `players`）。
-
-## 构建关键点
-
-- **`codeSplitting: false`**（vite.config.js）— PixiJS v8 动态 import 在 file:// 协议会失败，必须合并单一 bundle。
-- **`resolution` 上限 2x** — `Math.min(dpr, 2)`，移动端 3x 屏 GPU 过载。
-- **分发用线上 URL** — 不要依赖 file://（iOS WKWebView 彻底禁止）。
-- **Canvas**: 默认 `position: fixed; z-index: 1`；竖屏滚动切为 `position: relative; touch-action: pan-y`。
-
-## 关键文件
-
-| 文件                                     | 说明                                                           |
-| ---------------------------------------- | -------------------------------------------------------------- |
-| `src/game/index.js`                    | 门面:只导出 api / view / characters / modes                    |
-| `src/game/api.js`                      | `createSession` / `dispatch` / `save` / `load`         |
-| `src/game/view.js`                     | 只读 view-model(`renderPlayer` 映射 + 选择器)                |
-| `src/game/core/cards.js`               | 牌/洗牌/抽牌(随机源显式传入)                                   |
-| `src/game/core/rng.js`                 | 唯一随机入口(种子版用于回放)                                   |
-| `src/game/core/player.js`              | Player 工厂 + 字段分区默认值                                   |
-| `src/game/core/units.js`               | 英雄/塔/无人机统一查询、可攻击目标、拆塔顺序                   |
-| `src/game/rules/modifiers.js`          | 有序加成管道(priority 即规则)                                  |
-| `src/game/rules/damage.js`             | 伤害结算唯一入口(返回报告)                                     |
-| `src/game/rules/trap.js`               | 陷阱三态(反弹/平局/击破)                                       |
-| `src/game/rules/alliance.js`           | 结盟/平摊/解散                                                 |
-| `src/game/rules/artifacts.js`          | 圣遗物 + 圣言自明                                              |
-| `src/game/characters/*.js`             | 15 个角色插件(meta/stateSchema/canUse/use/onAnswer/hooks)      |
-| `src/game/flow/context.js`             | 显式 ctx(日志/音效/牌堆/玩家/turn 接线)                        |
-| `src/game/flow/pending.js`             | 决策模型 + step 派生                                           |
-| `src/game/flow/turn.js`                | 回合引擎(pass/extra/suspend/resync)                            |
-| `src/game/flow/commands.js`            | 全部命令(攻击/防御/赌命/技能/结盟/圣言/取消)                   |
-| `src/game/flow/setup.js`               | 局面创建与初始化                                               |
-| `src/game/modes/*.js`                  | classic / match / league / worldcup / brawl 适配器             |
-| `src/game/modes/brawl.js`              | 3v3 团战：塔行动/复活/劣势补给/60 回合判定                     |
-| `src/composables/useBrawlController.js` | 团战 Ban/Pick、开局、存档、简单随机 AI 调度                    |
-| `src/components/BrawlShell.vue`        | 团战 DOM 棋盘 UI（英雄卡/塔卡/BanPick/结算）                  |
-| `src/game/persistence/*.js`            | 存档 schema / 读写 / 菜月昴快照                                |
-| `src/game/league.js`                   | 联赛数据(球队/赛程/积分/加成)                                  |
-| `src/game/worldCup.js`                 | 世界杯赛程编排                                                 |
-| `src/game/ai/index.js`                 | AI 公共 API(读 view)                                           |
-| `src/game/ai/skilled.js`               | AI 熟练难度                                                    |
-| `src/game/ai/hell.js`                  | AI 地狱难度(偷看牌库)                                          |
-| `src/game/ai/easy.js`                  | AI 简单难度                                                    |
-| `src/game/testing/next-replay.test.js` | 旧基线命令回放对拍(30 局)                                      |
-| `src/game/gameLogger.js`               | 开发日志(`[game]` JSON)                                      |
-| `src/audio/SoundManager.js`            | 音效播放                                                       |
-| `src/pixi/core/PIXIManager.js`         | Application 管理 + 场景树 + 粒子                               |
-| `src/pixi/layout/TableLayout.js`       | 自适应布局（横屏单/双行，竖屏2列）                             |
-| `src/bridge/useAnimationFlow.js`       | GSAP 动画触发 + 粒子调度                                       |
-| `src/solo/logic/solo.js`               | 单机模式状态机（地图/成长/卡组/金币/存档）                     |
-| `src/solo/logic/soloCombat.js`         | 单机战斗（抽3选2/牌堆坟场/护盾/斗志/AI）                       |
-| `src/solo/logic/soloConstants.js`      | 技能卡池 13 张 / 敌人 / 节点链 / 数值常量                      |
-| `src/solo/SoloShell.vue`               | 单机 UI 主壳（地图/战斗/商店/事件/营地/结算）                  |
-
-## 已修复的关键 Bug（禁止重复犯错）
-
-- `new Sprite()` 空纹理设 width/height → NaN scale 崩溃
-- `CardSprite._renderEmpty()` 首次调用时 `_dashText` 为 null
-- 冰封效果 `nextPlayer` 无深度保护 → 无限递归
-- 花色 `SUITS` 为空字符串（必须保持 `♠♥♦♣`）
-- `buildScene()` 传 TableLayout 尺寸**不能除以 resolution**
-- 竖屏 canvas 用 `position: absolute` → 不占文档流无法滚动
-- `_fenjinHeal = null` 永不清除 → 后续所有角色技能触发都被路由到风堇。**必须用 `= undefined` 或 `delete` 清除标记**(新内核已由 `pending.purpose` 取代,取消走 `dispatch({type:"cancel"})`)
-- `reset1v1Game` 硬编码 `useWeather: false` → 世界杯击杀后天气消失。**重置比赛前必须保存天气状态**(新内核在 `modes/match.startNextLife` 里保存/还原)
-- 联赛 `attackedThisRound` 未在回合开始清零 → **整场都被判「围攻减半」**(已修:`modes/league.onNewRound` 清零)
-- 联赛和平期依赖 context 安装时机 → 首场 4 回合、后续 0 回合(已修:每场固定 `peaceRounds: 4`)
-- `maxUses: Infinity` 经 JSON 存档变 `null`(已修:persistence/schema 把非有限数编码成字符串)
-- 世界杯点球前必须手动把 `matchOver` 改回 false 才能推进(已修:新内核 `executePenaltyRound` 不再依赖它)
-- `canUseSkill` 只看次数不看回合门槛 → AI 选中后被拒、空转(已修:拆成引擎口径 `canUseSkill` 与 UI/AI 口径 `canUseSkillNow`)
-- 「高值卡低伤害」在防御吸收时误报(已修:只在目标没有防御牌时判定)
-- 用 `characterId` 当身份判进球/恢复名字 → 换人或同角色对局算错(已修:比赛模式改用 `uid`)
-- 牌库+墓地同时为空导致抽牌崩溃(已修:`ctx.deck.ensure` 按开局副数重生成牌库)
-- 菜月昴 AI 无限存档(已修:同一回合只允许存一次档)
-- 读档清空存档点 / 读档次数永不消耗(已修:读档后挂回存档点,计数按读档前值 -1)
-- 换人后新角色继承上一个角色的斗志/月相(已修:换人时重置 `player.char`)
-- v3.5 天气随机洗牌 → **固定顺序轮换**(烈日→暴雨→狂风→黑市→军备→晴朗;`setupWeatherDeck` 不再 shuffle)
-- v3.5 圣遗物在陷阱判定之后 → **总伤害先乘圣遗物倍数再与陷阱比大小**(`ATTACK_MODIFIERS` 里 `artifact.boost`;`POST_TRAP` 只剩围攻)
-- v3.5 联赛 `currentRound` 与控制器 `_currentRound` 不同步 → `isLeagueFinished` 永远 false、第 19 轮选人后崩(已修:两个字段都认,`countPlayedRounds` 取实际已赛轮次)
-- v3.5 联赛本轮结果把所有结果都显示成「胜」→ 改为 `主队（主） 胜/负/平 客队（客）`
-- v3.5 附加赛选完人后卡死 → `startMatchWithDraft` 在 `_isTiebreaker` 时路由到 `startTiebreakerMatch`;无同分时积分榜直接返回主菜单
-- v3.5 世界杯淘汰后没有总结、还能继续下一轮 → 记录 `matchHistory`,淘汰/夺冠立即进 `tournamentSummary`,只能返回主菜单
-- v3.5 世界杯淘汰赛对手从全量池随机 → 按 R16/QF/SF/Final 名单抽取,并避开本届已交手球队
-- v3.5 新角色/单位相关:无人机、调查、领唱、风翔剑的规则实现(见 `docs/KNOWN_BUGS.md`)
-- v3.5 团战战报不可滚动 / 陷阱显示真实点数 / 摸牌不显示 → 战报可滚动并自动跟随；陷阱 UI 显示诱饵点数；`drawFeed` 抽牌动画 + 攻击牌明牌（AI 摸牌不公开）
-- v3.5 团战前 4 回合应为和平期 → `peaceRounds: 4`、`attackGate: "phase"`，塔群在和平期待命
-- v3.5 团战防御区显示总护盾值 → 只显示张数；仅最新一张残盾显示剩余值（`maxDefenseValue`）；防御摸牌动画保持暗牌
-- v3.5 陷阱给队友/塔后显示「陷阱 ?」→ 陷阱牌携带 `decoyValue`，给队友/塔时仍显示施放者的诱饵点数
-- v3.5 UI 目标点击把 index 当 uid → 玩家 uid=1/2/3… 与其他玩家 index 撞号，敌人被解析成自己/队友；`unitByIndexOrUid` 改为 index 优先
-- v3.5 团战立绘从顶部裁切只显示 LOGO/背景 → 英雄卡/BanPick/小头像统一 `object-position: center 30%`
-- v3.5 扑克牌中央点数继承父级浅色看不清 → `card__rank-big` 按花色显式设置红/黑/棕
-
-## 开发日志系统
-
-所有游戏逻辑操作自动记录结构化日志到 `console.debug`，格式为 `[game] {"ts":...,"type":"...",...}`。
-
-### 控制台使用
-
-```js
-window.__GAME_LOG_LEVEL__ = 0; // DEBUG，所有日志
-window.__GAME_LOG_LEVEL__ = 1; // INFO
-window.__GAME_LOG_LEVEL__ = 2; // WARN，只看异常
-
-// Chrome/Edge: 在 Console 的 Filter 框输入 [game]
-```
-
-### 关键事件类型（`src/game/gameLogger.js` → `CAT`）
-
-| type                                                    | 说明                      | 关键字段                                      |
-| ------------------------------------------------------- | ------------------------- | --------------------------------------------- |
-| `turn_start` / `turn_end`                           | 回合推进                  | round, playerIndex, playerName                |
-| `attack_start` / `attack_draw` / `attack_execute` | 攻击流程                  | attackerIndex, targetIndex, cards, totalValue |
-| `damage_calc`                                         | 伤害计算                  | rawValue, afterMinus2, allianceSplit          |
-| `hp_change`                                           | **HP 变化（统一）** | playerIndex, from, to, delta, reason          |
-| `defense_start` / `defense_draw`                    | 防御流程                  | playerIndex, cards                            |
-| `gamble_start` / `gamble_result`                    | 赌命                      | drawnCards, trapIdx, baitIdx                  |
-| `trap_trigger`                                        | 陷阱触发                  | victimIndex, trapCard, trapValue              |
-| `skill_use` / `skill_effect`                        | 技能                      | characterId, targetIndex, effect              |
-| `ally_form` / `betrayal`                            | 联盟/背刺                 | playerA, playerB, turns                       |
-| `weather_change` / `weather_effect`                 | 天气                      | from, to, effect                              |
-| `solo_node`                                           | 单机节点                  | nodeType, enemyKey, playerHp                  |
-| `solo_poker_draw` / `solo_poker_pick`               | 单机抽3选2                | actionPoints, drawCount, spirit               |
-| `solo_skill_draw` / `solo_card_play`                | 单机抽牌/出牌             | cardId, count, cost, actionPointsLeft         |
-| `solo_damage` / `solo_shield` / `solo_spirit`     | 单机伤害/护盾/斗志        | dmg, shieldDmg, hpDmg, spiritGain             |
-| `solo_enemy_turn`                                     | 单机敌方回合              | actionPoints, hand, enemyHp, enemyShield      |
-| `solo_event`                                          | 单机事件检定              | eventId, check, outcome, gold, playerHp       |
-| `solo_end` / `solo_reward`                          | 单机胜负/奖励             | result, gold, exp, rarity, attrPoint          |
-| `anomaly`                                             | **异常检测**        | 伤害偏差、HP 负值、高值卡低伤害等             |
-
-### 排查 bug 示例
-
-```
-▎ 浏览器控制台打开游戏，选4人，过3回合，读所有 [game] 日志（Console Filter 输入 [game]），
-▎ 筛选 type:'damage_calc' 检查联盟伤害分配是否正确
-▎ 筛选 type:'hp_change' 对比 from/to 找出异常扣血
-```
+代码注释里的「为什么」优先于文档；文档与代码冲突时**以代码为准，并顺手修文档**。
 
 ## Notes
 
