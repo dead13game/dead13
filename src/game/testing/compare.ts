@@ -2,30 +2,62 @@
 //
 // 目标不是"找不同",而是"给出第一个不同点的路径",便于定位。
 
-function typeOf(v) {
+/** 第一个差异点 */
+export interface TraceDiff {
+  path: string;
+  a: unknown;
+  b: unknown;
+  reason: string;
+  /** 命中的命令序号(diffStep / compareTraces 补) */
+  stepIndex?: number;
+  /** 命中的命令名(diffStep / compareTraces 补) */
+  cmd?: string | null;
+}
+
+/** 一条轨迹里的一步(回放基线录制) */
+export interface TraceStep {
+  /** 命令名(与 cmd 相同,历史字段) */
+  cmd: string;
+  snap: unknown;
+  logs: unknown;
+  sounds: unknown;
+}
+
+/** 一条完整轨迹 */
+export interface Trace {
+  steps: TraceStep[];
+  final: unknown;
+}
+
+function typeOf(v: unknown): string {
   if (v === null) return "null";
   if (Array.isArray(v)) return "array";
   return typeof v;
 }
 
+/** 普通对象收窄(数组 / null / 标量除外);与 typeOf === "object" 等价 */
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return v !== null && typeof v === "object" && !Array.isArray(v);
+}
+
 /** 深度比较,返回第一个差异 { path, a, b } 或 null */
-export function firstDiff(a, b, path = "$") {
+export function firstDiff(a: unknown, b: unknown, path = "$"): TraceDiff | null {
   const ta = typeOf(a);
   const tb = typeOf(b);
   if (ta !== tb) return { path, a, b, reason: `类型不同 ${ta} vs ${tb}` };
 
-  if (ta === "array") {
+  if (Array.isArray(a) && Array.isArray(b)) {
     if (a.length !== b.length) {
       return { path: path + ".length", a: a.length, b: b.length, reason: "长度不同" };
     }
     for (let i = 0; i < a.length; i++) {
-      const d = firstDiff(a[i], b[i], `${path}[${i}]`);
+      const d: TraceDiff | null = firstDiff(a[i], b[i], `${path}[${i}]`);
       if (d) return d;
     }
     return null;
   }
 
-  if (ta === "object") {
+  if (isPlainObject(a) && isPlainObject(b)) {
     const ka = Object.keys(a).sort();
     const kb = Object.keys(b).sort();
     const missing = ka.filter((k) => !kb.includes(k));
@@ -33,7 +65,7 @@ export function firstDiff(a, b, path = "$") {
     if (missing.length) return { path, a: missing, b: extra, reason: "键只存在于 A" };
     if (extra.length) return { path, a: missing, b: extra, reason: "键只存在于 B" };
     for (const k of ka) {
-      const d = firstDiff(a[k], b[k], `${path}.${k}`);
+      const d: TraceDiff | null = firstDiff(a[k], b[k], `${path}.${k}`);
       if (d) return d;
     }
     return null;
@@ -44,7 +76,7 @@ export function firstDiff(a, b, path = "$") {
 }
 
 /** 比较两条轨迹,返回首个差异(含命中的命令序号) */
-export function compareTraces(base, next) {
+export function compareTraces(base: Trace, next: Trace): TraceDiff | null {
   if (base.steps.length !== next.steps.length) {
     const n = Math.min(base.steps.length, next.steps.length);
     for (let i = 0; i < n; i++) {
@@ -67,7 +99,7 @@ export function compareTraces(base, next) {
   return firstDiff(base.final, next.final, "$.final");
 }
 
-function diffStep(a, b, i) {
+function diffStep(a: TraceStep, b: TraceStep, i: number): TraceDiff | null {
   if (a.cmd !== b.cmd) {
     return { path: "$.cmd", a: a.cmd, b: b.cmd, stepIndex: i, reason: "命令序列分叉" };
   }
@@ -80,9 +112,9 @@ function diffStep(a, b, i) {
   return null;
 }
 
-export function formatDiff(diff) {
+export function formatDiff(diff: TraceDiff | null): string {
   if (!diff) return "无差异";
-  const parts = [];
+  const parts: string[] = [];
   if (typeof diff.stepIndex === "number") parts.push(`第 ${diff.stepIndex} 步`);
   if (diff.cmd) parts.push(`命令 ${diff.cmd}`);
   parts.push(diff.reason || "差异");

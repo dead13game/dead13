@@ -24,8 +24,10 @@ export {
   createGameState,
   initGame,
 } from "./api.js";
+export type { CreateSessionOptions, Session, Command } from "./api.js";
 
 export { buildView, attachCtx, getCtx } from "./view.js";
+export type { ViewModel, PlayerView } from "./view.js";
 
 export {
   CHARACTERS,

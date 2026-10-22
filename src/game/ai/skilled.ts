@@ -1,6 +1,6 @@
 import { PHASE } from "../core/constants.js";
 import { getCharData } from "../characters/index.js";
-import { alivePlayers } from "../core/player.js";
+import type { AiViewPlayer, AiViewState, Card } from "../types.js";
 import {
   avgDeckValue,
   extraAttackBonus,
@@ -12,11 +12,16 @@ import {
 //  熟练难度实现
 // ════════════════════════════════════════════════════════════
 
-export function decideSkilledTop(state, player) {
-  const candidates = [];
+export function decideSkilledTop(
+  state: AiViewState,
+  player: AiViewPlayer,
+): { action: string; reason: string } {
+  const candidates: { action: string; score: number }[] = [];
 
   if (canAttackAi(state)) {
-    const targets = alivePlayers(state).filter((p) => p.index !== player.index);
+    const targets = state.players.filter(
+      (p) => p.alive && p.index !== player.index,
+    );
     const bestAtk = Math.max(
       ...targets.map((t) => scoreAttackSkilled(state, player, t)),
     );
@@ -48,7 +53,11 @@ export function decideSkilledTop(state, player) {
 
 // --- 熟练评分函数 ---
 
-function scoreAttackSkilled(state, player, target) {
+function scoreAttackSkilled(
+  state: AiViewState,
+  player: AiViewPlayer,
+  target: AiViewPlayer,
+): number {
   let score = 0;
   const hpRatio = target.hp / target.maxHp;
   score += (1 - hpRatio) * 20;
@@ -74,7 +83,10 @@ function scoreAttackSkilled(state, player, target) {
   return score;
 }
 
-function scoreDefenseSkilled(state, player) {
+function scoreDefenseSkilled(
+  state: AiViewState,
+  player: AiViewPlayer,
+): number {
   let score = 45;
   const hpRatio = player.hp / player.maxHp;
   score += (1 - hpRatio) * 35;
@@ -93,7 +105,10 @@ function scoreDefenseSkilled(state, player) {
   return score;
 }
 
-function scoreGambleSkilled(state, player) {
+function scoreGambleSkilled(
+  state: AiViewState,
+  player: AiViewPlayer,
+): number {
   let score = 20;
   if (!player.trap && !player.bait) score += 25;
   else if (!player.trap || !player.bait) score += 10;
@@ -105,7 +120,10 @@ function scoreGambleSkilled(state, player) {
   return score;
 }
 
-export function scoreSkillSkilled(state, player) {
+export function scoreSkillSkilled(
+  state: AiViewState,
+  player: AiViewPlayer,
+): number {
   if (!player.canUseSkill) return -Infinity;
 
   let score = 40;
@@ -121,8 +139,8 @@ export function scoreSkillSkilled(state, player) {
       // 雷神
       if (state.phase === PHASE.PEACE) return -Infinity;
       if (state.round < 10) return -Infinity;
-      const targets = alivePlayers(state).filter(
-        (p) => p.index !== player.index,
+      const targets = state.players.filter(
+        (p) => p.alive && p.index !== player.index,
       );
       const anyLethal = targets.some(
         (t) => 27 >= t.hp + t.defensePile.length * 4,
@@ -137,8 +155,8 @@ export function scoreSkillSkilled(state, player) {
       // 芙宁娜
       if (state.phase === PHASE.PEACE) return -Infinity;
       if (player.statusEffects.ignoreTrapThisTurn) return -Infinity;
-      const opponentsWithTrap = alivePlayers(state).filter(
-        (p) => p.index !== player.index && p.trap,
+      const opponentsWithTrap = state.players.filter(
+        (p) => p.alive && p.index !== player.index && p.trap,
       ).length;
       if (opponentsWithTrap === 0) return -Infinity;
       score += opponentsWithTrap * 8;
@@ -178,7 +196,12 @@ export function scoreSkillSkilled(state, player) {
   return score;
 }
 
-function scoreTargetSkilled(state, player, target, context) {
+function scoreTargetSkilled(
+  state: AiViewState,
+  player: AiViewPlayer,
+  target: AiViewPlayer,
+  context: string,
+): number {
   let score = 0;
   score += Math.max(0, 15 - target.hp) * 2;
   score -= target.defensePile.length * 3;
@@ -219,9 +242,14 @@ function scoreTargetSkilled(state, player, target, context) {
 
 // --- 熟练目标选择 ---
 
-export function decideSkilledTarget(state, player, context) {
-  const targets = alivePlayers(state).filter(
+export function decideSkilledTarget(
+  state: AiViewState,
+  player: AiViewPlayer,
+  context: string,
+): { targetIndex: number; reason: string } {
+  const targets = state.players.filter(
     (p) =>
+      p.alive &&
       p.index !== player.index &&
       !(player.teamId >= 0 && p.teamId === player.teamId),
   );
@@ -240,7 +268,11 @@ export function decideSkilledTarget(state, player, context) {
 
 // --- 熟练赌命选牌 ---
 
-export function decideSkilledGamble(state, player, cards) {
+export function decideSkilledGamble(
+  state: AiViewState,
+  player: AiViewPlayer,
+  cards: Card[],
+): { trapIdx: number; baitIdx: number; reason: string } {
   const indexed = cards.map((c, i) => ({ ...c, origIdx: i }));
   indexed.sort((a, b) => b.value - a.value);
 
@@ -261,7 +293,11 @@ export function decideSkilledGamble(state, player, cards) {
 
 // --- 熟练纳西妲排序 ---
 
-export function decideSkilledNahida(state, player, scryCards) {
+export function decideSkilledNahida(
+  state: AiViewState,
+  player: AiViewPlayer,
+  scryCards: Card[],
+): number[] {
   const indexed = scryCards.map((c, i) => ({ ...c, origIdx: i }));
   if (state.phase === PHASE.PEACE || state.currentWeather === "arms") {
     indexed.sort((a, b) => b.value - a.value);
@@ -273,8 +309,13 @@ export function decideSkilledNahida(state, player, scryCards) {
 
 // --- 熟练莉奈娅 ---
 
-export function decideSkilledLiniya(state, player) {
-  const targets = alivePlayers(state).filter((p) => p.index !== player.index);
+export function decideSkilledLiniya(
+  state: AiViewState,
+  player: AiViewPlayer,
+): { subSkill: number; targetIndex: number; reason: string } {
+  const targets = state.players.filter(
+    (p) => p.alive && p.index !== player.index,
+  );
   const best = targets
     .map((t) => ({
       idx: t.index,
@@ -293,7 +334,10 @@ export function decideSkilledLiniya(state, player) {
 
 // --- 熟练菜月昴 ---
 
-export function decideSkilledCaiyueang(state, player) {
+export function decideSkilledCaiyueang(
+  state: AiViewState,
+  player: AiViewPlayer,
+): { choice: string; reason: string } {
   const hpRatio = player.hp / player.maxHp;
   if (player.statusEffects.savepoint && hpRatio < 0.3) {
     return {

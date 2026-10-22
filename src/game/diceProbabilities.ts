@@ -6,8 +6,20 @@
 
 import diceCsv from "./骰子概率.csv?raw";
 
+/** 权重表的一行：点数和 → 组合数 */
+export interface DiceWeight {
+  sum: number;
+  weight: number;
+}
+
+/** 累计概率区间：[lo, hi) 内的 rng 值掷出 sum */
+export interface DiceBound extends DiceWeight {
+  lo: number;
+  hi: number;
+}
+
 /** 经典双骰权重（兜底，与 CSV 相同） */
-const FALLBACK_WEIGHTS = [
+const FALLBACK_WEIGHTS: DiceWeight[] = [
   { sum: 2, weight: 1 },
   { sum: 3, weight: 2 },
   { sum: 4, weight: 3 },
@@ -25,11 +37,11 @@ const FALLBACK_WEIGHTS = [
  * 解析 CSV 文本（列：点数和,组合数,概率,大约概率）。
  * 只取前两列；非法行跳过；结果按点数升序。
  * @param {string} csvText
- * @returns {{ sum: number, weight: number }[]}
+ * @returns {{ sum: number, weight: number }[] | null} 数据不足时返回 null（触发兜底）
  */
-export function parseDiceWeights(csvText) {
+export function parseDiceWeights(csvText: string): DiceWeight[] | null {
   const lines = csvText.replace(/^\uFEFF/, "").trim().split(/\r?\n/);
-  const weights = [];
+  const weights: DiceWeight[] = [];
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split(",");
     const sum = Number(cols[0]);
@@ -44,7 +56,8 @@ export function parseDiceWeights(csvText) {
 }
 
 /** 当前生效的权重表（来自 CSV，解析失败回退经典权重） */
-export const DICE_WEIGHTS = parseDiceWeights(diceCsv) || FALLBACK_WEIGHTS;
+export const DICE_WEIGHTS: DiceWeight[] =
+  parseDiceWeights(diceCsv) || FALLBACK_WEIGHTS;
 
 /** 权重总和（= 组合总数，经典为 36） */
 export const DICE_TOTAL = DICE_WEIGHTS.reduce((s, w) => s + w.weight, 0);
@@ -52,7 +65,10 @@ export const DICE_TOTAL = DICE_WEIGHTS.reduce((s, w) => s + w.weight, 0);
 /**
  * 累计概率区间 [{ sum, weight, lo, hi }]，rng ∈ [0,1) 落在哪个区间即掷出哪个点数。
  */
-export function cumulativeBounds(weights = DICE_WEIGHTS, total = DICE_TOTAL) {
+export function cumulativeBounds(
+  weights: readonly DiceWeight[] = DICE_WEIGHTS,
+  total: number = DICE_TOTAL,
+): DiceBound[] {
   let lo = 0;
   return weights.map((w) => {
     const hi = lo + w.weight / total;
@@ -62,10 +78,10 @@ export function cumulativeBounds(weights = DICE_WEIGHTS, total = DICE_TOTAL) {
   });
 }
 
-export const DICE_BOUNDS = cumulativeBounds();
+export const DICE_BOUNDS: DiceBound[] = cumulativeBounds();
 
 /** 按权重表掷一次骰子，返回点数和（默认 2~12） */
-export function rollWeightedDice(rng = Math.random) {
+export function rollWeightedDice(rng: () => number = Math.random): number {
   const v = rng();
   for (const b of DICE_BOUNDS) {
     if (v < b.hi) return b.sum;

@@ -7,8 +7,16 @@ import { createSeededRng } from "../core/rng.js";
 import { attack, attackTarget, defense } from "../flow/commands.js";
 import { MATCH_CONFIG } from "./constants.js";
 import { createMatchMode } from "./match.js";
+import type { MatchMode, PenaltyRoundResult } from "./match.js";
+import type { Ctx, GameState, Player } from "../types.js";
 
-function makeMatch(opts = {}) {
+interface MakeMatchOptions {
+  isGroupStage?: boolean;
+  playerCharId?: number;
+  opponentCharId?: number;
+}
+
+function makeMatch(opts: MakeMatchOptions = {}) {
   const state = createGameState();
   const mode = createMatchMode({
     isGroupStage: opts.isGroupStage ?? false,
@@ -30,20 +38,49 @@ function makeMatch(opts = {}) {
   return { state, mode, ctx };
 }
 
+/** 按条件取一名玩家；取不到说明测试局面本身坏了（让测试立即失败） */
+function requirePlayer(
+  state: GameState,
+  predicate: (p: Player) => boolean,
+  label: string,
+): Player {
+  const p = state.players.find(predicate);
+  if (!p) throw new Error(`测试局面缺少${label}`);
+  return p;
+}
+
+/** 当前行动者 */
+function currentPlayer(ctx: Ctx): Player {
+  const p = ctx.players.current();
+  if (!p) throw new Error("测试局面没有当前行动者");
+  return p;
+}
+
 /** 击杀某一方并跑结束判定;round 会同步进 matchRound */
-function eliminate(ctx, mode, who, round) {
+function eliminate(
+  ctx: Ctx,
+  mode: MatchMode,
+  who: "player" | "opponent",
+  round?: number,
+) {
   const { state } = ctx;
   if (round) state.round = round;
   const charId =
     who === "player" ? mode.match.playerCharId : mode.match.opponentCharId;
-  const victim = state.players.find((p) => p.characterId === charId);
+  const victim = requirePlayer(
+    state,
+    (p) => p.characterId === charId,
+    `角色 ${charId} 的玩家`,
+  );
   victim.alive = false;
   victim.hp = 0;
   return mode.checkGameOver(ctx);
 }
 
-const killOpponent = (ctx, mode, round) => eliminate(ctx, mode, "opponent", round);
-const killPlayer = (ctx, mode, round) => eliminate(ctx, mode, "player", round);
+const killOpponent = (ctx: Ctx, mode: MatchMode, round?: number) =>
+  eliminate(ctx, mode, "opponent", round);
+const killPlayer = (ctx: Ctx, mode: MatchMode, round?: number) =>
+  eliminate(ctx, mode, "player", round);
 
 describe("modes/match — 进球与每命重置", () => {
   it("击杀对手记玩家进球,并进入换人待处理 + 暂停", () => {
@@ -136,7 +173,7 @@ describe("modes/match — 加时与点球", () => {
     expect(mode.match.isPenaltyShootout).toBe(true);
     expect(mode.match.matchOver).toBe(true);
     expect(mode.match.penaltyDeck).toHaveLength(52);
-    expect(mode.match.penalty.round).toBe(0);
+    expect(mode.match.penalty?.round).toBe(0);
   });
 
   it("点球先到 5 分者胜,牌堆可重构", () => {
@@ -145,17 +182,16 @@ describe("modes/match — 加时与点球", () => {
     mode.match.score = [1, 0];
     killPlayer(ctx, mode, MATCH_CONFIG.totalRounds);
 
-    let last = null;
+    let last: PenaltyRoundResult | null = null;
     for (let i = 0; i < 40 && mode.match.winner === null; i++) {
       last = mode.executePenaltyRound(ctx);
     }
     expect(mode.match.winner).not.toBeNull();
     expect([0, 1]).toContain(mode.match.winner);
-    expect(last.playerCards).toHaveLength(MATCH_CONFIG.penaltyCardsPerSide);
-    const max = Math.max(
-      mode.match.penalty.playerScore,
-      mode.match.penalty.opponentScore,
-    );
+    expect(last?.playerCards).toHaveLength(MATCH_CONFIG.penaltyCardsPerSide);
+    const pen = mode.match.penalty;
+    if (!pen) throw new Error("点球状态应已创建");
+    const max = Math.max(pen.playerScore, pen.opponentScore);
     expect(max).toBeGreaterThanOrEqual(MATCH_CONFIG.penaltyFirstTo);
   });
 });
@@ -171,8 +207,12 @@ describe("modes/match — 完整一命流程(集成)", () => {
       p.maxHp = 3;
     });
 
-    const attacker = ctx.players.current();
-    const target = state.players.find((p) => p.uid !== attacker.uid);
+    const attacker = currentPlayer(ctx);
+    const target = requirePlayer(
+      state,
+      (p) => p.uid !== attacker.uid,
+      "对手玩家",
+    );
     state.deck.push({
       id: "F-K",
       rank: "K",
@@ -198,11 +238,11 @@ describe("modes/match — 完整一命流程(集成)", () => {
     expect(state.phase).toBe("peace");
 
     // 重置后的第一条命令结束时应消费 resync,而不是走完整回合结算
-    const before = ctx.players.current().uid;
+    const before = currentPlayer(ctx).uid;
     expect(defense(ctx)).toBe(true);
     expect(state.turn.resync).toBe(false);
     expect(state.round).toBe(6); // 没有触发新回合
-    expect(ctx.players.current().uid).not.toBe(before);
+    expect(currentPlayer(ctx).uid).not.toBe(before);
   });
 });
 
@@ -221,7 +261,7 @@ describe("modes/match — 换人", () => {
     killOpponent(ctx, mode, 3);
     const before = mode.match.substitutionsLeft;
     expect(mode.executeSubstitution(ctx, 9)).toBe(true);
-    const p = state.players.find((x) => x.characterId === 9);
+    const p = requirePlayer(state, (x) => x.characterId === 9, "角色 9 的玩家");
     expect(p).toBeTruthy();
     expect(p.hp).toBe(p.maxHp);
     expect(mode.match.substitutionsLeft).toBe(before - 1);
@@ -234,7 +274,11 @@ describe("modes/match — 换人", () => {
       playerCharId: 7, // 哥伦比娅有 moonPhase
       opponentCharId: 2,
     });
-    const me = state.players.find((p) => p.uid === mode.match.playerUid);
+    const me = requirePlayer(
+      state,
+      (p) => p.uid === mode.match.playerUid,
+      "玩家控制的角色",
+    );
     me.char.moonPhase = 2;
     killOpponent(ctx, mode, 3);
 
@@ -252,7 +296,12 @@ describe("modes/match — 进球归属(KB-7)", () => {
       opponentCharId: 1,
     });
     // 玩家(uid=1)阵亡,对手(uid=2)存活
-    state.players.find((p) => p.uid === mode.match.playerUid).alive = false;
+    const me = requirePlayer(
+      state,
+      (p) => p.uid === mode.match.playerUid,
+      "玩家控制的角色",
+    );
+    me.alive = false;
     mode.checkGameOver(ctx);
     expect(mode.match.score).toEqual([0, 1]);
   });
@@ -262,7 +311,12 @@ describe("modes/match — 进球归属(KB-7)", () => {
       playerCharId: 1,
       opponentCharId: 1,
     });
-    state.players.find((p) => p.uid === mode.match.opponentUid).alive = false;
+    const opponent = requirePlayer(
+      state,
+      (p) => p.uid === mode.match.opponentUid,
+      "对手控制的角色",
+    );
+    opponent.alive = false;
     mode.checkGameOver(ctx);
     expect(mode.match.score).toEqual([1, 0]);
   });

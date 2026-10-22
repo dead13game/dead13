@@ -7,9 +7,26 @@ import { CAT } from "../core/log.js";
 import { display } from "../core/cards.js";
 import { applyDamage } from "./damage.js";
 import { recordTrapBreak } from "./artifacts.js";
+import type { Ctx, Player } from "../types.js";
+
+/** 陷阱三种结局 + 未触发 */
+export type TrapOutcome = "none" | "reflect" | "tie" | "break";
+
+/** resolveTrap 返回值 */
+export interface TrapResult {
+  outcome: TrapOutcome;
+  trapValue?: number;
+}
+
+/** resolveTrap 入参 */
+export interface TrapResolveOptions {
+  attacker: Player;
+  target: Player;
+  value: number;
+}
 
 /** 陷阱被触发后,目标的赌命惩罚周期结束 */
-function clearGamblePenalty(ctx, target, reason) {
+function clearGamblePenalty(ctx: Ctx, target: Player, reason: string): void {
   if (!target.relations.gamblePenalty && target.relations.consecutiveGambles <= 0) {
     return;
   }
@@ -23,7 +40,10 @@ function clearGamblePenalty(ctx, target, reason) {
  * 结算陷阱。
  * @returns {{ outcome: 'none'|'reflect'|'tie'|'break', trapValue?: number }}
  */
-export function resolveTrap(ctx, { attacker, target, value }) {
+export function resolveTrap(
+  ctx: Ctx,
+  { attacker, target, value }: TrapResolveOptions,
+): TrapResult {
   if (!target.trap) return { outcome: "none" };
   if (attacker.effects.ignoreTrapThisTurn) return { outcome: "none" };
 
@@ -78,17 +98,25 @@ export function resolveTrap(ctx, { attacker, target, value }) {
 }
 
 /** 陷阱与诱饵一起入墓并清空 */
-function consumeTrap(ctx, target) {
+function consumeTrap(ctx: Ctx, target: Player): void {
   const state = ctx.state;
-  state.grave.push(target.trap);
+  if (target.trap) state.grave.push(target.trap);
   if (target.bait) state.grave.push(target.bait);
   target.trap = null;
   target.bait = null;
 }
 
 /** 玛薇卡斗志(上限 5) */
-function addSpirit(ctx, player, amount, reason) {
-  player.char.fightingSpirit = Math.min(5, (player.char.fightingSpirit || 0) + amount);
+function addSpirit(
+  ctx: Ctx,
+  player: Player,
+  amount: number,
+  reason: string,
+): void {
+  player.char.fightingSpirit = Math.min(
+    5,
+    (player.char.fightingSpirit || 0) + amount,
+  );
   ctx.log(`斗志 ${player.char.fightingSpirit}层`);
   ctx.devDebug(
     CAT.SKILL,

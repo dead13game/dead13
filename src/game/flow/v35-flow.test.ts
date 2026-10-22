@@ -4,8 +4,11 @@ import { createSession, dispatch } from "../api.js";
 import { createClassicMode } from "../modes/classic.js";
 import { createBrawlMode, initBrawlOrder } from "../modes/brawl.js";
 import { createTowers, towersOf, unitByIndexOrUid } from "../core/units.js";
+import { createGameState } from "./setup.js";
+import { createPlayer } from "../core/player.js";
+import type { Ctx, GameState } from "../types.js";
 
-function classic2p() {
+function classic2p(): GameState {
   const { state } = createSession({
     chars: [1, 2],
     weather: false,
@@ -16,7 +19,7 @@ function classic2p() {
   return state;
 }
 
-function brawl() {
+function brawl(): { state: GameState; ctx: Ctx } {
   const { state, ctx } = createSession({
     chars: [1, 2, 3, 4, 5, 6],
     weather: false,
@@ -31,18 +34,16 @@ function brawl() {
 
 describe("v3.5 UI 目标解析 — index 优先于 uid", () => {
   it("ActionBar 传 index 时，不会被同号 uid 抢走（否则敌人会被当成自己）", () => {
-    const state = {
-      players: [
-        { uid: 1, index: 0 },
-        { uid: 3, index: 1 },
-        { uid: 2, index: 2 },
-      ],
-      towers: [],
-      summons: [],
-    };
+    // 只关心 uid/index；用 createPlayer 补全 Player 契约（其余字段不参与本用例）
+    const state = createGameState();
+    state.players = [
+      createPlayer({ uid: 1, index: 0, characterId: 1, meta: { hp: 10 } }),
+      createPlayer({ uid: 3, index: 1, characterId: 1, meta: { hp: 10 } }),
+      createPlayer({ uid: 2, index: 2, characterId: 1, meta: { hp: 10 } }),
+    ];
     // index 1 是 uid 3；如果先按 uid 查会错误命中 uid 1（自己）
-    expect(unitByIndexOrUid(state, 1).uid).toBe(3);
-    expect(unitByIndexOrUid(state, 2).uid).toBe(2);
+    expect(unitByIndexOrUid(state, 1)?.uid).toBe(3);
+    expect(unitByIndexOrUid(state, 2)?.uid).toBe(2);
     expect(unitByIndexOrUid(state, 9)).toBeNull();
   });
 });
@@ -51,7 +52,7 @@ describe("v3.5 伤害乘区 — 圣遗物在陷阱判定前", () => {
   it("10 点攻击 ×1.5 后 15 > 陷阱14 → 破陷阱；若在陷阱后结算则会反弹", () => {
     const state = classic2p();
     const attacker = state.players[state.currentPlayerIndex];
-    const target = state.players.find((p) => p.uid !== attacker.uid);
+    const target = state.players.find((p) => p.uid !== attacker.uid)!;
 
     attacker.artifact.id = 1;
     attacker.artifact.active = true;
@@ -76,7 +77,7 @@ describe("v3.5 伤害乘区 — 圣遗物在陷阱判定前", () => {
   it("无圣遗物时 10 < 陷阱14 → 攻击者被反弹", () => {
     const state = classic2p();
     const attacker = state.players[state.currentPlayerIndex];
-    const target = state.players.find((p) => p.uid !== attacker.uid);
+    const target = state.players.find((p) => p.uid !== attacker.uid)!;
     target.trap = { id: "T14", value: 14, faceUp: false };
     state.deck = [
       { id: "ATK10", rank: "10", suit: "♠", value: 10, faceUp: false },
@@ -91,7 +92,7 @@ describe("v3.5 伤害乘区 — 圣遗物在陷阱判定前", () => {
 
 describe("v3.5 橘雪梨 — 调查流程", () => {
   it("目标没有陷阱 → 7 点普攻（无视陷阱）", () => {
-    const { state } = createSession({
+    const { state }: { state: GameState } = createSession({
       chars: [14, 1],
       weather: false,
       mode: createClassicMode(),
@@ -99,7 +100,7 @@ describe("v3.5 橘雪梨 — 调查流程", () => {
     state.phase = "normal";
     state.round = 5;
     const actor = state.players[state.currentPlayerIndex];
-    const target = state.players.find((p) => p.uid !== actor.uid);
+    const target = state.players.find((p) => p.uid !== actor.uid)!;
     expect(actor.characterId).toBe(14);
 
     expect(dispatch(state, { type: "attack" })).toBe(true);
@@ -111,7 +112,7 @@ describe("v3.5 橘雪梨 — 调查流程", () => {
   });
 
   it("猜中陷阱 → 拆陷阱并造成 20 点伤害", () => {
-    const { state } = createSession({
+    const { state }: { state: GameState } = createSession({
       chars: [14, 1],
       weather: false,
       mode: createClassicMode(),
@@ -119,7 +120,7 @@ describe("v3.5 橘雪梨 — 调查流程", () => {
     state.phase = "normal";
     state.round = 5;
     const actor = state.players[state.currentPlayerIndex];
-    const target = state.players.find((p) => p.uid !== actor.uid);
+    const target = state.players.find((p) => p.uid !== actor.uid)!;
     target.trap = { id: "T7", value: 7, faceUp: false };
 
     dispatch(state, { type: "attack" });
@@ -170,11 +171,11 @@ describe("v3.5 团战 — 防御支援 / 陷阱支援", () => {
     const actor = state.players[state.currentPlayerIndex];
     const teammate = state.players.find(
       (p) => p.teamId === actor.teamId && p.uid !== actor.uid,
-    );
+    )!;
 
     expect(dispatch(state, { type: "defense" })).toBe(true);
     expect(state.pending?.purpose).toBe("defense.support");
-    expect(state.pending.options).toContain(teammate.uid);
+    expect(state.pending!.options).toContain(teammate.uid);
 
     expect(
       dispatch(state, { type: "defenseTarget", targetUid: teammate.uid }),
@@ -201,7 +202,7 @@ describe("v3.5 团战 — 防御支援 / 陷阱支援", () => {
     expect(actor.trap).toBeNull();
     expect(actor.bait).toBeTruthy();
     // 塔上的陷阱对外显示诱饵点数，而不是真实陷阱点数
-    expect(tower.trap.decoyValue).toBe(actor.bait.value);
+    expect(tower.trap!.decoyValue).toBe(actor.bait!.value);
   });
 
   it("陷阱给队友时也保留诱饵点数（诱饵实体仍在自己这里）", () => {
@@ -209,7 +210,7 @@ describe("v3.5 团战 — 防御支援 / 陷阱支援", () => {
     const actor = state.players[state.currentPlayerIndex];
     const teammate = state.players.find(
       (p) => p.teamId === actor.teamId && p.uid !== actor.uid,
-    );
+    )!;
 
     expect(dispatch(state, { type: "gamble" })).toBe(true);
     dispatch(state, { type: "gambleSubmit", trapIdx: 0, baitIdx: 1 });
@@ -220,6 +221,6 @@ describe("v3.5 团战 — 防御支援 / 陷阱支援", () => {
     expect(teammate.trap).toBeTruthy();
     expect(teammate.bait).toBeNull();
     expect(actor.bait).toBeTruthy();
-    expect(teammate.trap.decoyValue).toBe(actor.bait.value);
+    expect(teammate.trap!.decoyValue).toBe(actor.bait!.value);
   });
 });

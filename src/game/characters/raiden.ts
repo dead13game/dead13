@@ -2,7 +2,8 @@ import { PHASE } from "../core/constants.js";
 import { PENDING } from "../flow/pending.js";
 import { applyDamage } from "../rules/damage.js";
 import { unitByUid } from "../core/units.js";
-import { baseCanUse, withTurnGate, enemyTargetUids } from "./helpers.js";
+import { baseCanUse, withTurnGate, enemyTargetUids, answerUid } from "./helpers.js";
+import type { CharacterDef } from "../types.js";
 
 // 雷电将军 · 无想的一刀:造成 27 点伤害(第 10 回合解锁)
 export default {
@@ -41,26 +42,31 @@ export default {
       purpose: "skill:raiden",
       asker: player.uid,
       options: enemyTargetUids(ctx, player),
+      data: null,
     });
     ctx.log(`${player.name} 释放无想的一刀`);
   },
 
   onAnswer(ctx, player, pending, answer) {
-    const target = unitByUid(ctx.state, answer);
+    const target = unitByUid(ctx.state, answerUid(answer));
     if (!target?.alive) return;
 
     player.resources.skillUses--;
     const baseDamage = 27;
     let damage = baseDamage;
-    const bonuses = {};
+    const bonuses: { sun?: number; spirit?: number } = {};
 
     if (ctx.state.currentWeather === "sun") {
       damage += 2;
       bonuses.sun = 2;
     }
-    if (player.characterId === 6 && player.char.fightingSpirit > 0) {
-      bonuses.spirit = player.char.fightingSpirit;
-      damage += player.char.fightingSpirit;
+    // 6 号角色的 stateSchema 把斗志初始化为 0，`!` 只做类型收窄，不改变运行时
+    if (player.characterId === 6) {
+      const spirit = player.char.fightingSpirit!;
+      if (spirit > 0) {
+        bonuses.spirit = spirit;
+        damage += spirit;
+      }
     }
 
     ctx.dev(
@@ -79,4 +85,4 @@ export default {
     player.effects.ignoreTrapThisTurn = false;
     ctx.turn.pass();
   },
-};
+} satisfies CharacterDef;

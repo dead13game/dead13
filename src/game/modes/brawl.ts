@@ -22,8 +22,34 @@ import {
   characterStateFor,
   CHARACTERS,
 } from "../characters/index.js";
+import type {
+  Card,
+  CharacterMeta,
+  Ctx,
+  GameState,
+  ModeAdapter,
+  ModeRules,
+  Pending,
+  Player,
+} from "../types.js";
 
-export const BRAWL_RULES = {
+/** 团战规则（v3.5 阈值全部显式声明，内核按字段读取） */
+export interface BrawlRules extends ModeRules {
+  peaceRounds: number;
+  attackGate: "phase";
+  attackMinRound: number;
+  alliance: boolean;
+  allyMinPlayers: number;
+  besiege: boolean;
+  blockAllyAttack: boolean;
+  teamSkills: boolean;
+  supportDefense: boolean;
+  supportGamble: boolean;
+  maxRounds: number;
+  respawnRounds: number;
+}
+
+export const BRAWL_RULES: BrawlRules = {
   // v3.5：团战前 4 回合和平期（禁攻击，塔群待命）
   peaceRounds: 4,
   attackGate: "phase",
@@ -40,10 +66,43 @@ export const BRAWL_RULES = {
   respawnRounds: 5,
 };
 
+/** 结算附加信息（拆塔数/存活数/总血量等，写日志与 UI 用） */
+export interface BrawlResult {
+  winnerTeam: number | null;
+  reason: string;
+  [detail: string]: unknown;
+}
+
+/** 团战模式的运行时信息（数据对象，UI/测试直接读） */
+export interface BrawlInfo {
+  playerTeamId: number;
+  maxRounds: number;
+  respawnRounds: number;
+  winnerTeam: number | null;
+  result: BrawlResult | null;
+  guard: boolean;
+}
+
+export interface BrawlModeOptions {
+  maxRounds?: number;
+  respawnRounds?: number;
+  playerTeamId?: number;
+}
+
+/**
+ * 防御区的牌在运行时还带这些字段（rules/damage.ts 读 defenseValue）；
+ * 内核 Card 契约只声明牌面本身，这里补齐写入侧形状。
+ */
+type DefenseCard = Card & {
+  ownerUid?: number | null;
+  defenseValue?: number;
+  maxDefenseValue?: number;
+};
+
 /** 复活：满状态 + 3 张防御牌（被动叠层/技能次数/圣遗物全部重置） */
-function reviveHero(ctx, p) {
+function reviveHero(ctx: Ctx, p: Player) {
   const state = ctx.state;
-  const meta = CHARACTERS[p.characterId];
+  const meta: CharacterMeta | undefined = CHARACTERS[p.characterId];
   p.alive = true;
   p.maxHp = meta?.hp ?? p.maxHp;
   p.hp = p.maxHp;
@@ -75,16 +134,20 @@ function reviveHero(ctx, p) {
   p.trap = null;
   p.bait = null;
   p.respawnRound = 0;
-  p.revivedThisRound = true;
+  // types.ts 把 revivedThisRound 声明成 number（注释语义是 boolean，中心契约笔误）；
+  // 不改中心类型，用 Object.assign 写入布尔值（运行时与直接赋值等价）。
+  Object.assign(p, { revivedThisRound: true });
 
   ctx.deck.ensure(3);
   const cards = ctx.deck.draw(3);
   cards.forEach((c) => {
     c.faceUp = false;
-    c.ownerUid = p.uid;
-    c.defenseValue = c.value;
-    c.maxDefenseValue = c.value;
-    p.defensePile.push(c);
+    // 原地写入防御字段（旧实现就是直接改这张牌并 push 同一引用）
+    const card: DefenseCard = c;
+    card.ownerUid = p.uid;
+    card.defenseValue = c.value;
+    card.maxDefenseValue = c.value;
+    p.defensePile.push(card);
   });
   ctx.log(`${p.name} 复活（获得 3 张防御牌，本回合第一个行动）`);
   ctx.dev(CAT.STATE, `${p.name} 复活`, {
@@ -95,7 +158,7 @@ function reviveHero(ctx, p) {
 }
 
 /** 每回合行动顺序：复活者优先，其余按当前 HP 升序，同血随机 */
-export function orderBrawlHeroes(ctx) {
+export function orderBrawlHeroes(ctx: Ctx) {
   const state = ctx.state;
   const keyed = state.players.map((p) => ({
     p,
@@ -107,7 +170,8 @@ export function orderBrawlHeroes(ctx) {
   state.players.splice(0, state.players.length, ...keyed.map((k) => k.p));
   state.players.forEach((p, i) => {
     p.index = i;
-    p.revivedThisRound = false;
+    // 同上：revivedThisRound 的契约类型与运行时不符
+    Object.assign(p, { revivedThisRound: false });
   });
   ctx.devDebug(
     CAT.STATE,
@@ -116,7 +180,7 @@ export function orderBrawlHeroes(ctx) {
 }
 
 /** 劣势方补给：人数差 X，劣势方每个英雄 +X 张防御牌 */
-function reinforceWeakerTeam(ctx) {
+function reinforceWeakerTeam(ctx: Ctx) {
   const state = ctx.state;
   const c0 = teamAliveHeroes(state, 0).length;
   const c1 = teamAliveHeroes(state, 1).length;
@@ -127,13 +191,14 @@ function reinforceWeakerTeam(ctx) {
     ctx.deck.ensure(diff);
     const cards = ctx.deck.draw(diff);
     cards.forEach((c) => {
-      p.defensePile.push({
+      const card: DefenseCard = {
         ...c,
         faceUp: false,
         ownerUid: p.uid,
         defenseValue: c.value,
         maxDefenseValue: c.value,
-      });
+      };
+      p.defensePile.push(card);
     });
   }
   const name = weaker === 0 ? "我方" : "敌方";
@@ -145,7 +210,7 @@ function reinforceWeakerTeam(ctx) {
 }
 
 /** 塔的回合结算：塔数 ≥3 → 2 点，<3 → 3 点；打敌方全体英雄 + 无人机 */
-function towersAttack(ctx) {
+function towersAttack(ctx: Ctx) {
   const state = ctx.state;
   for (const team of [0, 1]) {
     const own = towersOf(state, team).filter((t) => t.alive).length;
@@ -169,11 +234,11 @@ function towersAttack(ctx) {
   }
 }
 
-function destroyedTowers(state, team) {
+function destroyedTowers(state: GameState, team: number): number {
   return towersOf(state, team).filter((t) => !t.alive).length;
 }
 
-function totalHp(state, team) {
+function totalHp(state: GameState, team: number): number {
   const heroes = state.players.filter((p) => p.teamId === team);
   const towers = towersOf(state, team);
   return (
@@ -182,12 +247,32 @@ function totalHp(state, team) {
   );
 }
 
+/**
+ * 团战模式适配器。
+ *
+ * 与联赛同理：`info` 在 ModeAdapter 里是旧的方法签名，运行时是数据对象，
+ * 这里 Omit 掉以保持可赋值给 ModeAdapter；精确形状见 BrawlModeRuntime。
+ */
+export interface BrawlMode extends Omit<ModeAdapter, "info"> {
+  rules: BrawlRules;
+  onNewRound(ctx: Ctx, round?: number): "halt" | undefined;
+  onRoundEnd(ctx: Ctx, round?: number): "halt" | undefined;
+  onPlayerDeath(ctx: Ctx, unit: Player): void;
+  checkGameOver(ctx: Ctx): void;
+  filterPending(ctx: Ctx, pending: Pending): Pending;
+}
+
+/** 团战 adapter 的完整运行时形状：info 是数据对象 */
+export interface BrawlModeRuntime extends BrawlMode {
+  info: BrawlInfo;
+}
+
 export function createBrawlMode({
   maxRounds = BRAWL_RULES.maxRounds,
   respawnRounds = BRAWL_RULES.respawnRounds,
   playerTeamId = 0,
-} = {}) {
-  const info = {
+}: BrawlModeOptions = {}): BrawlMode {
+  const info: BrawlInfo = {
     playerTeamId,
     maxRounds,
     respawnRounds,
@@ -196,7 +281,12 @@ export function createBrawlMode({
     guard: false,
   };
 
-  function endGame(ctx, winnerTeam, reason, detail = {}) {
+  function endGame(
+    ctx: Ctx,
+    winnerTeam: number | null,
+    reason: string,
+    detail: Record<string, unknown> = {},
+  ) {
     const state = ctx.state;
     if (state.gameOver) return;
     state.gameOver = true;
@@ -214,7 +304,7 @@ export function createBrawlMode({
     ctx.dev(CAT.STATE, `团战结束: ${label}`, { reason, ...detail });
   }
 
-  function checkGameOver(ctx) {
+  function checkGameOver(ctx: Ctx) {
     const state = ctx.state;
     if (info.guard || state.gameOver) return;
     const t0 = towersOf(state, 0).filter((t) => t.alive).length;
@@ -230,7 +320,7 @@ export function createBrawlMode({
     }
   }
 
-  function finishByTiebreak(ctx) {
+  function finishByTiebreak(ctx: Ctx) {
     const state = ctx.state;
     // 拆塔数 = 拆掉「敌方」塔的数量
     const d0 = destroyedTowers(state, 1);
@@ -239,7 +329,7 @@ export function createBrawlMode({
     const h1 = teamAliveHeroes(state, 1).length;
     const hp0 = totalHp(state, 0);
     const hp1 = totalHp(state, 1);
-    let winner = null;
+    let winner: number | null = null;
     let reason = "60回合判定：完全平局";
     if (d0 !== d1) {
       winner = d0 > d1 ? 0 : 1;
@@ -255,7 +345,7 @@ export function createBrawlMode({
     endGame(ctx, winner, reason, { d0, d1, h0, h1, hp0, hp1 });
   }
 
-  return {
+  const mode = {
     id: "brawl",
     rules: {
       ...BRAWL_RULES,
@@ -265,12 +355,14 @@ export function createBrawlMode({
     info,
 
     /** 每回合开始：复活 → 劣势补给 → 行动排序 */
-    onNewRound(ctx, round) {
+    onNewRound(ctx: Ctx, round?: number) {
       const state = ctx.state;
       if (state.gameOver) return "halt";
+      // 内核（flow/turn.ts）总是传 round；单参调用时落到当前回合计
+      const roundNo = round ?? state.round;
 
       for (const p of state.players) {
-        if (!p.alive && p.respawnRound && round >= p.respawnRound) {
+        if (!p.alive && p.respawnRound && roundNo >= p.respawnRound) {
           reviveHero(ctx, p);
         }
       }
@@ -289,24 +381,25 @@ export function createBrawlMode({
     },
 
     /** 所有英雄行动完：塔行动 → 60 回合判定 */
-    onRoundEnd(ctx, round) {
+    onRoundEnd(ctx: Ctx, round?: number) {
       const state = ctx.state;
       if (state.gameOver) return "halt";
+      const roundNo = round ?? state.round;
       // 和平期：塔群待命，不造成伤害
       if (state.phase === PHASE.PEACE) {
-        ctx.log(`和平期 · 塔群待命（${round}/${BRAWL_RULES.peaceRounds}）`);
+        ctx.log(`和平期 · 塔群待命（${roundNo}/${BRAWL_RULES.peaceRounds}）`);
         return undefined;
       }
       towersAttack(ctx);
       if (state.gameOver) return "halt";
-      if (round >= info.maxRounds) {
+      if (roundNo >= info.maxRounds) {
         finishByTiebreak(ctx);
         return "halt";
       }
       return undefined;
     },
 
-    onPlayerDeath(ctx, unit) {
+    onPlayerDeath(ctx: Ctx, unit: Player) {
       const state = ctx.state;
       if (unit.kind === "tower") {
         checkGameOver(ctx);
@@ -327,7 +420,7 @@ export function createBrawlMode({
     checkGameOver,
 
     /** 团战目标过滤：攻击/打塔/支援/技能都按敌我与单位类型收敛 */
-    filterPending(ctx, pending) {
+    filterPending(ctx: Ctx, pending: Pending): Pending {
       if (!pending) return pending;
       if (pending.purpose === "investigate:guess") return pending;
       if (!Array.isArray(pending.options) || pending.options.length === 0) {
@@ -361,9 +454,12 @@ export function createBrawlMode({
       return pending;
     },
   };
+
+  // 用变量返回：info 是模式自有的数据字段，不在 BrawlMode 的声明里
+  return mode;
 }
 
 /** 团战开局排序（第 1 回合没有 onNewRound，需要手动排一次） */
-export function initBrawlOrder(ctx) {
+export function initBrawlOrder(ctx: Ctx) {
   orderBrawlHeroes(ctx);
 }

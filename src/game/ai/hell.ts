@@ -1,6 +1,6 @@
 import { PHASE } from "../core/constants.js";
 import { getCharData } from "../characters/index.js";
-import { alivePlayers } from "../core/player.js";
+import type { AiViewPlayer, AiViewState, Card } from "../types.js";
 import {
   avgDeckValue,
   extraAttackBonus,
@@ -14,12 +14,15 @@ import { scoreSkillSkilled } from "./skilled.js";
 //  地狱难度偷看工具函数
 // ════════════════════════════════════════════════════════════
 
-function peekDeckTop(state, n) {
+function peekDeckTop(state: AiViewState, n: number): Card[] {
   const depth = Math.min(n || state.aiPeekDepth || 3, state.deck.length);
   return state.deck.slice(-depth).map((c) => ({ ...c }));
 }
 
-function estimateExactDamage(attackValue, target) {
+function estimateExactDamage(
+  attackValue: number,
+  target: AiViewPlayer,
+): number {
   let remaining = attackValue;
   const defCopy = [...target.defensePile.map((c) => ({ ...c }))];
   while (remaining > 0 && defCopy.length > 0) {
@@ -34,7 +37,10 @@ function estimateExactDamage(attackValue, target) {
   return remaining;
 }
 
-function willTrapTrigger(atkVal, trapVal) {
+function willTrapTrigger(
+  atkVal: number,
+  trapVal: number,
+): "rebound" | "tie" | "break" {
   if (atkVal < trapVal) return "rebound";
   if (atkVal === trapVal) return "tie";
   return "break";
@@ -44,11 +50,16 @@ function willTrapTrigger(atkVal, trapVal) {
 //  地狱难度实现（偷看 + 增强评分）
 // ════════════════════════════════════════════════════════════
 
-export function decideHellTop(state, player) {
-  const candidates = [];
+export function decideHellTop(
+  state: AiViewState,
+  player: AiViewPlayer,
+): { action: string; reason: string } {
+  const candidates: { action: string; score: number }[] = [];
 
   if (canAttackAi(state)) {
-    const targets = alivePlayers(state).filter((p) => p.index !== player.index);
+    const targets = state.players.filter(
+      (p) => p.alive && p.index !== player.index,
+    );
     const bestAtk = Math.max(
       ...targets.map((t) => scoreAttackHell(state, player, t)),
     );
@@ -80,7 +91,11 @@ export function decideHellTop(state, player) {
 
 // --- 地狱评分函数 ---
 
-function scoreAttackHell(state, player, target) {
+function scoreAttackHell(
+  state: AiViewState,
+  player: AiViewPlayer,
+  target: AiViewPlayer,
+): number {
   let score = 0;
   const hpRatio = target.hp / target.maxHp;
   score += (1 - hpRatio) * 20;
@@ -144,7 +159,10 @@ function scoreAttackHell(state, player, target) {
   return score;
 }
 
-function scoreDefenseHell(state, player) {
+function scoreDefenseHell(
+  state: AiViewState,
+  player: AiViewPlayer,
+): number {
   let score = 45;
   const hpRatio = player.hp / player.maxHp;
   score += (1 - hpRatio) * 35;
@@ -168,7 +186,10 @@ function scoreDefenseHell(state, player) {
   return score;
 }
 
-function scoreGambleHell(state, player) {
+function scoreGambleHell(
+  state: AiViewState,
+  player: AiViewPlayer,
+): number {
   let score = 20;
   if (!player.trap && !player.bait) score += 25;
   else if (!player.trap || !player.bait) score += 10;
@@ -195,7 +216,12 @@ function scoreGambleHell(state, player) {
   return score;
 }
 
-function scoreTargetHell(state, player, target, context) {
+function scoreTargetHell(
+  state: AiViewState,
+  player: AiViewPlayer,
+  target: AiViewPlayer,
+  context: string,
+): number {
   let score = 0;
   score += Math.max(0, 15 - target.hp) * 2;
   score -= target.defensePile.length * 3;
@@ -242,9 +268,14 @@ function scoreTargetHell(state, player, target, context) {
 
 // --- 地狱目标选择 ---
 
-export function decideHellTarget(state, player, context) {
-  const targets = alivePlayers(state).filter(
+export function decideHellTarget(
+  state: AiViewState,
+  player: AiViewPlayer,
+  context: string,
+): { targetIndex: number; reason: string } {
+  const targets = state.players.filter(
     (p) =>
+      p.alive &&
       p.index !== player.index &&
       !(player.teamId >= 0 && p.teamId === player.teamId),
   );
@@ -263,7 +294,11 @@ export function decideHellTarget(state, player, context) {
 
 // --- 地狱赌命选牌 ---
 
-export function decideHellGamble(state, player, cards) {
+export function decideHellGamble(
+  state: AiViewState,
+  player: AiViewPlayer,
+  cards: Card[],
+): { trapIdx: number; baitIdx: number; reason: string } {
   const indexed = cards.map((c, i) => ({ ...c, origIdx: i }));
   indexed.sort((a, b) => b.value - a.value);
 
@@ -284,14 +319,19 @@ export function decideHellGamble(state, player, cards) {
 
 // --- 地狱纳西妲排序 ---
 
-export function decideHellNahida(state, player, scryCards) {
+export function decideHellNahida(
+  state: AiViewState,
+  player: AiViewPlayer,
+  scryCards: Card[],
+): number[] {
   const indexed = scryCards.map((c, i) => ({ ...c, origIdx: i }));
   if (state.phase === PHASE.PEACE || state.currentWeather === "arms") {
     indexed.sort((a, b) => b.value - a.value);
   } else {
     indexed.sort((a, b) => a.value - b.value);
-    if ((state.aiPeekDepth || 3) > 5) {
-      const beyond = peekDeckTop(state, state.aiPeekDepth - 5);
+    const depth = state.aiPeekDepth || 3;
+    if (depth > 5) {
+      const beyond = peekDeckTop(state, depth - 5);
       if (beyond.length > 0) {
         const beyondAvg =
           beyond.reduce((s, c) => s + c.value, 0) / beyond.length;

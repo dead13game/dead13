@@ -1,13 +1,13 @@
 // 世界杯模式常量
 
 /** 小组名称 */
-export const GROUP_NAMES = ["A", "B", "C", "D", "E", "F", "G", "H"];
+export const GROUP_NAMES: string[] = ["A", "B", "C", "D", "E", "F", "G", "H"];
 
 /** 淘汰赛轮次 */
-export const KNOCKOUT_ROUNDS = ["R16", "QF", "SF", "Final"];
+export const KNOCKOUT_ROUNDS: string[] = ["R16", "QF", "SF", "Final"];
 
 /** 淘汰赛轮次中文名 */
-export const KNOCKOUT_NAMES = {
+export const KNOCKOUT_NAMES: Record<string, string> = {
   R16: "八分之一决赛",
   QF: "四分之一决赛",
   SF: "半决赛",
@@ -18,7 +18,7 @@ export const KNOCKOUT_NAMES = {
  * v3.5：各淘汰赛轮次的对手名单（按 v3.5 前瞻原文）。
  * SF 与 Final 共用同一份「强队」名单。
  */
-export const KNOCKOUT_OPPONENT_POOLS = {
+export const KNOCKOUT_OPPONENT_POOLS: Record<string, string[]> = {
   R16: [
     "巴西",
     "德国",
@@ -101,7 +101,7 @@ export const POINTS = {
 };
 
 /** AI 队伍名称池（用于小组赛对手和淘汰赛对手） */
-export const AI_TEAM_NAMES = [
+export const AI_TEAM_NAMES: string[] = [
   "巴西",
   "德国",
   "阿根廷",
@@ -136,7 +136,7 @@ export const AI_TEAM_NAMES = [
 ];
 
 /** 队伍表情符号 */
-export const TEAM_EMOJIS = [
+export const TEAM_EMOJIS: string[] = [
   "🇧🇷",
   "🇩🇪",
   "🇦🇷",

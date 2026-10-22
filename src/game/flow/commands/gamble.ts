@@ -4,12 +4,14 @@ import { CAT } from "../../core/log.js";
 import { PENDING } from "../pending.js";
 import { friendlyTargets, isFriendly, unitByUid } from "../../core/units.js";
 import { resetAttackStreak } from "../../characters/helpers.js";
-import { isIdle } from "./query.js";
+import { currentPlayer, isIdle } from "./query.js";
+import { askPending, pendingCards } from "./pending-data.js";
+import type { Ctx, GambleSetup } from "../../types.js";
 
-export function gamble(ctx) {
+export function gamble(ctx: Ctx): boolean {
   const state = ctx.state;
   if (!isIdle(ctx)) return false;
-  const player = ctx.players.current();
+  const player = currentPlayer(ctx);
   resetAttackStreak(player);
 
   ctx.deck.ensure(1);
@@ -64,8 +66,10 @@ export function gamble(ctx) {
   }
 
   // 兼容字段(动画桥接与 ActionBar 读它)
-  state.pendingGamble = { drawnCards: drawn };
-  ctx.ask({
+  // 旧实现只挂 drawnCards；GambleSetup 的 trapIdx/baitIdx 是 gambleSubmit 阶段才赋值的
+  // 语义字段，运行时不补键（不改变 pending/兼容字段内容），故只做一次类型断言。
+  state.pendingGamble = { drawnCards: drawn } as GambleSetup;
+  askPending(ctx, {
     type: PENDING.GAMBLE,
     purpose: "gamble",
     asker: player.uid,
@@ -74,14 +78,14 @@ export function gamble(ctx) {
   return true;
 }
 
-export function gambleSubmit(ctx, trapIdx, baitIdx) {
+export function gambleSubmit(ctx: Ctx, trapIdx: number, baitIdx: number): boolean {
   const state = ctx.state;
   const pending = state.pending;
   if (!pending || pending.type !== PENDING.GAMBLE) return false;
   if (trapIdx === baitIdx) return false;
 
-  const player = ctx.players.current();
-  const cards = pending.data.cards;
+  const player = currentPlayer(ctx);
+  const cards = pendingCards(pending.data);
   const trapCard = cards[trapIdx];
   const baitCard = cards[baitIdx];
   if (!trapCard || !baitCard) return false;
@@ -122,7 +126,7 @@ export function gambleSubmit(ctx, trapIdx, baitIdx) {
       .filter((u) => u.kind !== "drone")
       .map((u) => u.uid);
     if (options.length > 1) {
-      ctx.ask({
+      askPending(ctx, {
         type: PENDING.TARGET,
         purpose: "gamble:trap",
         asker: player.uid,
@@ -138,11 +142,11 @@ export function gambleSubmit(ctx, trapIdx, baitIdx) {
 }
 
 /** 团战：把陷阱移到指定友方单位/塔 */
-export function gambleTarget(ctx, targetUid) {
+export function gambleTarget(ctx: Ctx, targetUid: number): boolean {
   const state = ctx.state;
   const pending = state.pending;
   if (!pending || pending.purpose !== "gamble:trap") return false;
-  const actor = ctx.players.current();
+  const actor = currentPlayer(ctx);
   const target = unitByUid(state, targetUid);
   if (!target?.alive) return false;
   if (!isFriendly(actor, target)) {

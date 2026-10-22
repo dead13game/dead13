@@ -14,17 +14,194 @@ import { canUseHolyWord as kernelCanHolyWord } from "./rules/artifacts.js";
 import { allianceTargets as kernelAllianceTargets } from "./rules/alliance.js";
 import { canUseSkillNow as kernelCanUseSkill } from "./flow/commands.js";
 import { getCurrentWeather, getNextWeather } from "./rules/weather.js";
+import type { WeatherInfo } from "./rules/weather.js";
+import type {
+  Card,
+  CharacterMeta,
+  Ctx,
+  DrawFeedEntry,
+  GameLogger,
+  GameState,
+  GambleSetup,
+  Pending,
+  Phase,
+  Player,
+  PlayerSavepoint,
+  SoundEvent,
+  Step,
+  UnitKind,
+  WeatherCard,
+  WeatherId,
+} from "./types.js";
 
-function indexOfUid(raw, uid) {
+/** 位移效果(偷取/持续伤害)在视图里的形状:uid 折成渲染序 index */
+export interface TimedRefView {
+  idx: number | null;
+  turns: number;
+}
+
+/** 砂狼白子无人机(视图) */
+export interface DroneView {
+  uid: number;
+  hp: number;
+  defCount: number;
+  targetIndex: number | null;
+}
+
+/** 玩家效果分区(视图) */
+export interface PlayerStatusEffectsView {
+  frozenBy: number | null;
+  ignoreTrapThisTurn: boolean;
+  /** 旧字段:从未被写入,恒 false */
+  extraAction: boolean;
+  stealTarget: TimedRefView | null;
+  dotTarget: TimedRefView | null;
+  savepoint: PlayerSavepoint | null;
+  /** 渲染序 index → 额外伤害 */
+  damageBonus: Record<number, number>;
+  drone: DroneView | null;
+}
+
+/** 玩家关系分区(视图) */
+export interface PlayerRelationsView {
+  allyIndex: number | null;
+  allianceTurns: number;
+  betrayalPenalty: number;
+  allyKillBonus: boolean;
+  consecutiveGambles: number;
+  gamblePenalty: boolean;
+  attackedThisRound: number;
+}
+
+/**
+ * 一名玩家 / 塔 / 召唤物的只读视图。
+ * 字段全部由 renderPlayer 从内核 Player 的分区字段映射而来(纯展示用)。
+ */
+export interface PlayerView {
+  uid: number;
+  index: number;
+  name: string;
+  teamId: number;
+  kind: UnitKind;
+  towerIndex: number | null;
+  ownerIndex: number | null;
+  characterId: number;
+  hp: number;
+  maxHp: number;
+  alive: boolean;
+  defensePile: Card[];
+  trap: Card | null;
+  bait: Card | null;
+
+  // 资源
+  skillUses: number;
+  loadUses: number;
+  holyWordUses: number;
+  breakCount: number;
+  fightingSpirit: number;
+  moonPhase: number;
+  chorus: number;
+  attackStreak: number;
+  droneTargetIndex: number | null;
+
+  // 效果 / 关系
+  statusEffects: PlayerStatusEffectsView;
+  relations: PlayerRelationsView;
+
+  // 圣遗物
+  artifactId: number | null;
+  artifactActive: boolean;
+  artifactRoundsLeft: number;
+
+  // AI
+  isAI: boolean;
+  aiDifficulty: string | null;
+
+  // 派生
+  charData: CharacterMeta | null;
+  canUseSkill: boolean;
+  canUseHolyWord: boolean;
+}
+
+/**
+ * 只读视图模型 —— UI / PIXI / AI 唯一的数据来源。
+ *
+ * 为什么 devLog 是联合类型:`buildView` 在无 logger 时回退一个只有 entries 的空壳;
+ * 真实 logger 的方法形状由 types.ts 的 GameLogger 描述(运行时它同样带 entries)。
+ */
+export type DevLogView = GameLogger | { entries: unknown[] };
+
+/** `buildView(state)` 的返回类型:局面快照 + 玩家视图 + 只读选择器 */
+export interface ViewModel {
+  // 局面
+  phase: Phase;
+  step: Step;
+  round: number;
+  currentPlayerIndex: number;
+  gameOver: boolean;
+  winnerIndex: number;
+  pending: Pending | null;
+  deck: Card[];
+  grave: Card[];
+  weatherDeck: WeatherCard[];
+  currentWeather: WeatherId | null;
+  nextWeather: WeatherId | null;
+  useWeather: boolean;
+  messageLog: string[];
+  soundQueue: SoundEvent[];
+  devLog: DevLogView;
+
+  // v3.5：摸牌事件（抽牌动画）
+  drawFeed: DrawFeedEntry[];
+  drawSeq: number;
+
+  // 兼容字段
+  pendingAttackCard: Card | null;
+  pendingVentiCards: Card[] | null;
+  scryCards: Card[] | null;
+  pendingGamble: GambleSetup | null;
+
+  // 模式信息(旧 UI 用 matchContext 判断 1v1)
+  matchContext: unknown;
+  modeId: string;
+
+  // 玩家 / 塔 / 召唤物
+  players: PlayerView[];
+  towers: PlayerView[];
+  summons: PlayerView[];
+  units: PlayerView[];
+
+  // ── 选择器(UI 只读调用) ──
+  currentPlayer: () => PlayerView | null;
+  alivePlayers: () => PlayerView[];
+  canUseSkill: (player?: PlayerView | null) => boolean;
+  canUseHolyWord: (player?: PlayerView | null) => boolean;
+  allianceTargets: () => Player[];
+  playerByUid: (uid: number) => PlayerView | null;
+  playerByIndex: (index: number) => PlayerView | null;
+  unitByUid: (uid: number) => PlayerView | null;
+  unitByIndex: (index: number) => PlayerView | null;
+  towersOf: (teamId: number) => PlayerView[];
+  getCurrentWeather: () => WeatherInfo | null;
+  getNextWeather: () => WeatherInfo | null;
+  getArtifactData: typeof getArtifactData;
+  getCharData: typeof kernelGetCharData;
+  CHARACTERS: typeof CHARACTERS;
+}
+
+function indexOfUid(
+  raw: GameState,
+  uid: number | null | undefined,
+): number | null {
   if (uid == null) return null;
   const p = raw.players.find((x) => x.uid === uid);
   return p ? p.index : null;
 }
 
 /** 旧 UI 读的那套字段形状(纯展示用) */
-function renderPlayer(raw, p) {
-  const idx = (uid) => indexOfUid(raw, uid);
-  const bonus = {};
+function renderPlayer(raw: GameState, p: Player): PlayerView {
+  const idx = (uid: number | null | undefined) => indexOfUid(raw, uid);
+  const bonus: Record<number, number> = {};
   for (const [uid, v] of Object.entries(p.effects.damageBonus || {})) {
     const i = idx(Number(uid));
     if (i !== null) bonus[i] = v;
@@ -106,25 +283,27 @@ function renderPlayer(raw, p) {
 
     // 派生
     charData: CHARACTERS[p.characterId] ?? null,
-    canUseSkill: kernelCanUseSkill(getCtx(raw), p),
-    canUseHolyWord: kernelCanHolyWord(getCtx(raw), p),
+    // buildView 只在内核接线后调用(ctx 由 createSession/attachCtx 注入)。
+    // `!` 只做类型收窄,运行时仍按原样把可能为 null 的 ctx 传进去。
+    canUseSkill: kernelCanUseSkill(getCtx(raw)!, p),
+    canUseHolyWord: kernelCanHolyWord(getCtx(raw)!, p),
   };
 }
 
 /** ctx 与 state 的绑定放在 WeakMap 里,避免污染 state(也不进存档) */
-const CTX = new WeakMap();
+const CTX = new WeakMap<GameState, Ctx>();
 
-export function getCtx(state) {
+export function getCtx(state: GameState): Ctx | null {
   return CTX.get(state) ?? null;
 }
 
-export function attachCtx(state, ctx) {
+export function attachCtx(state: GameState, ctx: Ctx): GameState {
   CTX.set(state, ctx);
   return state;
 }
 
 /** 构建只读视图 */
-export function buildView(raw) {
+export function buildView(raw: GameState): ViewModel {
   const players = raw.players.map((p) => renderPlayer(raw, p));
   const towers = (raw.towers ?? []).map((t) => renderPlayer(raw, t));
   const summons = (raw.summons ?? []).map((s) => renderPlayer(raw, s));
@@ -195,21 +374,27 @@ export function buildView(raw) {
 
 // ── 兼容旧 import(UI 侧函数式调用) ──
 
-export function currentPlayer(view) {
+export function currentPlayer(view: ViewModel): PlayerView | null {
   return view.currentPlayer?.() ?? null;
 }
 
-export function canUseSkill(view, player) {
+export function canUseSkill(
+  view: ViewModel,
+  player?: PlayerView | null,
+): boolean {
   if (player === undefined) return !!view?.canUseSkill;
   return !!player?.canUseSkill;
 }
 
-export function canUseHolyWord(view, player) {
+export function canUseHolyWord(
+  view: ViewModel,
+  player?: PlayerView | null,
+): boolean {
   if (player === undefined) return !!view?.canUseHolyWord;
   return !!player?.canUseHolyWord;
 }
 
-export function getAllianceTargets(view) {
+export function getAllianceTargets(view: ViewModel): Player[] {
   return view.allianceTargets?.() ?? [];
 }
 

@@ -1,6 +1,7 @@
 import { PHASE } from "../core/constants.js";
 import { getCharData } from "../characters/index.js";
 import { alivePlayers } from "../core/player.js";
+import type { AiViewPlayer, AiViewState, Card } from "../types.js";
 import {
   decideEasyTop,
   decideEasyTarget,
@@ -29,15 +30,21 @@ import {
 //  共享工具函数（所有难度共用）
 // ════════════════════════════════════════════════════════════
 
-export function getDifficulty(player) {
+/** 目标选择的上下文:action 来自 UI 当前步骤,characterId 只在技能步骤使用 */
+export interface AiTargetContext {
+  action?: string;
+  characterId?: number;
+}
+
+export function getDifficulty(player: AiViewPlayer): string {
   return player?.aiDifficulty || "easy";
 }
 
-export function currentAiPlayer(state) {
+export function currentAiPlayer(state: AiViewState): AiViewPlayer {
   return state.players[state.currentPlayerIndex];
 }
 
-export function avgDeckValue(state) {
+export function avgDeckValue(state: AiViewState): number {
   if (state.deck.length > 0) {
     const sum = state.deck.reduce((s, c) => s + c.value, 0);
     return sum / state.deck.length;
@@ -45,7 +52,10 @@ export function avgDeckValue(state) {
   return 7;
 }
 
-export function extraAttackBonus(state, player) {
+export function extraAttackBonus(
+  state: AiViewState,
+  player: AiViewPlayer,
+): number {
   let b = 0;
   if (state.currentWeather === "sun") b += 2;
   if (player.characterId === 7 && player.moonPhase === 0) b += 4; // 哥伦比娅弦月
@@ -59,14 +69,20 @@ export function extraAttackBonus(state, player) {
   return b;
 }
 
-export function getGambleDrawCount(state, player) {
+export function getGambleDrawCount(
+  state: AiViewState,
+  player: AiViewPlayer,
+): number {
   let count = 2;
   if (state.currentWeather === "wind") count += 1;
   if (player.characterId === 7 && player.moonPhase === 2) count += 1; // 哥伦比娅新月
   return count;
 }
 
-export function getNextAliveIndex(state, currentIdx) {
+export function getNextAliveIndex(
+  state: AiViewState,
+  currentIdx: number,
+): number {
   const sorted = [...state.players].sort((a, b) => a.index - b.index);
   const startIdx = sorted.findIndex((p) => p.index === currentIdx);
   for (let i = 1; i <= sorted.length; i++) {
@@ -76,7 +92,7 @@ export function getNextAliveIndex(state, currentIdx) {
   return currentIdx;
 }
 
-export function canAttackAi(state) {
+export function canAttackAi(state: AiViewState): boolean {
   if (state.matchContext) return state.phase !== PHASE.PEACE;
   return state.round >= 4;
 }
@@ -84,7 +100,9 @@ export function canAttackAi(state) {
 /**
  * 上下文映射（decideTarget 用）
  */
-export function mapContext(context) {
+export function mapContext(
+  context: AiTargetContext | null | undefined,
+): string {
   if (!context) return "attack";
   const { action, characterId } = context;
   if (action === "attack") return "attack";
@@ -105,12 +123,15 @@ export function mapContext(context) {
 // ════════════════════════════════════════════════════════════
 
 /** 判断玩家是否为 AI */
-export function isAiPlayer(player) {
+export function isAiPlayer(player: AiViewPlayer): boolean {
   return !!player.isAI;
 }
 
 /** 顶层决策：选择行动（攻击/防御/赌命/技能） */
-export function decideTopAction(state) {
+export function decideTopAction(state: AiViewState): {
+  action: string;
+  reason: string;
+} {
   const player = currentAiPlayer(state);
   const diff = getDifficulty(player);
 
@@ -120,7 +141,10 @@ export function decideTopAction(state) {
 }
 
 /** 选择目标 */
-export function decideTarget(state, context) {
+export function decideTarget(
+  state: AiViewState,
+  context: AiTargetContext | null | undefined,
+): { targetIndex: number; reason: string } {
   const player = currentAiPlayer(state);
   const diff = getDifficulty(player);
   const ctx = mapContext(context);
@@ -131,7 +155,10 @@ export function decideTarget(state, context) {
 }
 
 /** 赌命选牌（陷阱 + 诱饵） */
-export function decideGamblePick(state, drawnCards) {
+export function decideGamblePick(
+  state: AiViewState,
+  drawnCards: Card[],
+): { trapIdx: number; baitIdx: number; reason: string } {
   const player = currentAiPlayer(state);
   const diff = getDifficulty(player);
 
@@ -141,7 +168,10 @@ export function decideGamblePick(state, drawnCards) {
 }
 
 /** 纳西妲占卜牌排序 */
-export function decideNahidaOrder(state, scryCards) {
+export function decideNahidaOrder(
+  state: AiViewState,
+  scryCards: Card[],
+): number[] {
   const player = currentAiPlayer(state);
   const diff = getDifficulty(player);
 
@@ -151,7 +181,11 @@ export function decideNahidaOrder(state, scryCards) {
 }
 
 /** 莉奈娅子技能 + 目标选择 */
-export function decideLiniyaChoice(state) {
+export function decideLiniyaChoice(state: AiViewState): {
+  subSkill: number;
+  targetIndex: number;
+  reason: string;
+} {
   const player = currentAiPlayer(state);
   const diff = getDifficulty(player);
 
@@ -161,7 +195,10 @@ export function decideLiniyaChoice(state) {
 }
 
 /** 菜月昴存档/读档选择 */
-export function decideCaiyueangChoice(state) {
+export function decideCaiyueangChoice(state: AiViewState): {
+  choice: string;
+  reason: string;
+} {
   const player = currentAiPlayer(state);
   const diff = getDifficulty(player);
 

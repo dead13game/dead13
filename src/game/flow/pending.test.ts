@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 
 import { STEP } from "../core/constants.js";
+import { createGameState } from "./setup.js";
+import type { Pending, PendingType } from "../types.js";
 import {
   PENDING,
   askTarget,
@@ -12,22 +14,27 @@ import {
   stepOf,
 } from "./pending.js";
 
+/** stepOf 只看 type/purpose；这里给出完整 Pending（asker/options/data 用默认值） */
+function pendingOf(type: PendingType, purpose = ""): Pending {
+  return { type, purpose, asker: 0, options: [], data: null };
+}
+
 describe("flow/pending", () => {
   it("pending → 旧 step 字符串的映射表", () => {
     expect(stepOf(null)).toBe(STEP.PICK_ACTION);
-    expect(stepOf({ type: PENDING.ACTION })).toBe(STEP.PICK_ACTION);
-    expect(stepOf({ type: PENDING.GAMBLE })).toBe(STEP.GAMBLE_PICK);
-    expect(stepOf({ type: PENDING.SCRY })).toBe(STEP.SKILL_NAHIDA);
-    expect(stepOf({ type: PENDING.LINIYA })).toBe(STEP.LINIYA_PICK);
-    expect(stepOf({ type: PENDING.SAVE_OR_LOAD })).toBe(STEP.CAIYUEANG_PICK);
-    expect(stepOf({ type: PENDING.TARGET, purpose: "attack" })).toBe(
+    expect(stepOf(pendingOf(PENDING.ACTION))).toBe(STEP.PICK_ACTION);
+    expect(stepOf(pendingOf(PENDING.GAMBLE))).toBe(STEP.GAMBLE_PICK);
+    expect(stepOf(pendingOf(PENDING.SCRY))).toBe(STEP.SKILL_NAHIDA);
+    expect(stepOf(pendingOf(PENDING.LINIYA))).toBe(STEP.LINIYA_PICK);
+    expect(stepOf(pendingOf(PENDING.SAVE_OR_LOAD))).toBe(STEP.CAIYUEANG_PICK);
+    expect(stepOf(pendingOf(PENDING.TARGET, "attack"))).toBe(
       STEP.ATTACK_SHOW_CARD,
     );
-    expect(stepOf({ type: PENDING.TARGET, purpose: "ally" })).toBe(
+    expect(stepOf(pendingOf(PENDING.TARGET, "ally"))).toBe(
       STEP.ALLY_PICK,
     );
     expect(
-      stepOf({ type: PENDING.TARGET, purpose: "skill:aimiliya.freeze" }),
+      stepOf(pendingOf(PENDING.TARGET, "skill:aimiliya.freeze")),
     ).toBe(STEP.SKILL_PICK_TARGET);
   });
 
@@ -49,21 +56,20 @@ describe("flow/pending", () => {
   });
 
   it("setPending 同步派生 step,clearPending 复位", () => {
-    const state = { step: STEP.GAMBLE_PICK, pending: null, gameOver: false };
-    setPending(state, createPending({ type: PENDING.SCRY, purpose: "skill:nahida" }));
+    const state = createGameState();
+    setPending(
+      state,
+      createPending({ type: PENDING.SCRY, purpose: "skill:nahida", asker: 0 }),
+    );
     expect(state.step).toBe(STEP.SKILL_NAHIDA);
-    expect(state.pending.type).toBe(PENDING.SCRY);
+    expect(state.pending?.type).toBe(PENDING.SCRY);
     clearPending(state);
     expect(state.step).toBe(STEP.PICK_ACTION);
     expect(state.pending).toBeNull();
   });
 
   it("作答者与选项校验", () => {
-    const state = {
-      step: STEP.PICK_ACTION,
-      pending: null,
-      gameOver: false,
-    };
+    const state = createGameState();
     setPending(state, askTarget({ asker: 5, purpose: "attack", options: [1, 2] }));
     expect(isAsking(state, 5)).toBe(true);
     expect(isAsking(state, 1)).toBe(false);
@@ -73,7 +79,7 @@ describe("flow/pending", () => {
   });
 
   it("无选项约束时任意作答都允许(赌命/排序)", () => {
-    const state = { step: STEP.PICK_ACTION, pending: null, gameOver: false };
+    const state = createGameState();
     setPending(
       state,
       createPending({ type: PENDING.GAMBLE, purpose: "gamble", asker: 2 }),

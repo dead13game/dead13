@@ -23,7 +23,7 @@ describe("api/view — UI 接线契约", () => {
     expect(view.step).toBe("pickAction");
     expect(view.phase).toBe("peace");
     expect(view.currentPlayer()).toBeTruthy();
-    expect(view.currentPlayer().name).toMatch(/^玩家 /);
+    expect(view.currentPlayer()!.name).toMatch(/^玩家 /);
     expect(typeof view.canUseSkill(view.players[0])).toBe("boolean");
     expect(view.CHARACTERS[1].name).toBe("温迪");
   });
@@ -62,7 +62,7 @@ describe("api/view — UI 接线契约", () => {
   it("view 的玩家字段是内核字段的映射(不是第二份真相)", () => {
     const { state, view } = newSession();
     const raw = state.players[0];
-    const pv = view.players.find((p) => p.uid === raw.uid);
+    const pv = view.players.find((p) => p.uid === raw.uid)!;
     expect(pv.skillUses).toBe(raw.resources.skillUses);
     expect(pv.holyWordUses).toBe(raw.resources.holyWordUses);
     expect(pv.artifactId).toBe(raw.artifact.id);
@@ -70,7 +70,7 @@ describe("api/view — UI 接线契约", () => {
     expect(pv.statusEffects.ignoreTrapThisTurn).toBe(
       raw.effects.ignoreTrapThisTurn,
     );
-    expect(pv.charData.id).toBe(raw.characterId);
+    expect(pv.charData!.id).toBe(raw.characterId);
   });
 
   it("api.save / api.load 往返后 view 一致", () => {

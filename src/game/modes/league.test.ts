@@ -6,10 +6,29 @@ import { attachTurnEngine } from "../flow/turn.js";
 import { createSeededRng } from "../core/rng.js";
 import { ally } from "../flow/commands.js";
 import { createLeagueMatchMode, computeDefenseReinforcement } from "./league.js";
+import type {
+  LeagueCardBonusTable,
+  LeagueMode,
+  LeagueModeHooks,
+  LeagueModeRuntime,
+} from "./league.js";
 import { createWorldCupMatchMode } from "./worldcup.js";
+import type { GameState, Player } from "../types.js";
 
-function makeLeague(opts = {}) {
-  const hooks = {
+interface MakeLeagueOptions {
+  maxRounds?: number;
+  cardBonus?: LeagueCardBonusTable;
+  hooks?: LeagueModeHooks;
+  chars?: number[];
+}
+
+/** 联赛 adapter 的 info / cardBonus 是数据对象（ModeAdapter 是旧方法签名），按真实形状收窄 */
+function leagueRuntime(mode: LeagueMode): LeagueModeRuntime {
+  return mode as LeagueModeRuntime;
+}
+
+function makeLeague(opts: MakeLeagueOptions = {}) {
+  const hooks: LeagueModeHooks = {
     onPlayerDeath: vi.fn(),
     onTeamWipe: vi.fn(),
     onRoundLimit: vi.fn(),
@@ -35,6 +54,18 @@ function makeLeague(opts = {}) {
   return { state, mode, ctx, hooks };
 }
 
+/** 找到某队的第一名玩家（找不到说明测试局面本身坏了） */
+function requirePlayer(
+  state: GameState,
+  predicate: (p: Player) => boolean,
+  label: string,
+): Player {
+  const p = state.players.find(predicate);
+  if (!p) throw new Error(`测试局面缺少${label}`);
+  return p;
+}
+
+
 describe("modes/league — 规则修正 DC-1/DC-2", () => {
   it("每场都从 4 回合和平期开始(不再依赖 context 安装时机)", () => {
     const { state, mode } = makeLeague();
@@ -58,12 +89,16 @@ describe("modes/league — 规则修正 DC-1/DC-2", () => {
     const { ctx, state } = makeLeague();
     state.phase = "normal";
     state.round = 5;
-    const attacker = state.players.find((p) => p.teamId === 0);
-    const mate = state.players.find((p) => p.teamId === 0 && p.uid !== attacker.uid);
+    const attacker = requirePlayer(state, (p) => p.teamId === 0, "玩家队成员");
+    const mate = requirePlayer(
+      state,
+      (p) => p.teamId === 0 && p.uid !== attacker.uid,
+      "玩家队队友",
+    );
     state.currentPlayerIndex = attacker.index;
     // 直接把攻击 pending 摆好,验证拦截
     state.pending = { type: "target", purpose: "attack", asker: attacker.uid, options: [], data: { cards: [], total: 5 } };
-    state.pendingAttackCard = { id: "x", value: 5, rank: "5", suit: "♠" };
+    state.pendingAttackCard = { id: "x", value: 5, rank: "5", suit: "♠", faceUp: false };
     return import("../flow/commands.js").then(({ attackTarget }) => {
       const ok = attackTarget(ctx, mate.uid);
       expect(ok).toBe(false);
@@ -74,13 +109,13 @@ describe("modes/league — 规则修正 DC-1/DC-2", () => {
 
 describe("modes/league — 回合补给与结算", () => {
   it("劣势方补给:人数差 2 → 劣势方每名存活者 +2 张防御牌", () => {
-    const { ctx, state } = makeLeague();
+    const { ctx, mode, state } = makeLeague();
     // 击杀玩家队两人 → 1v3,劣势方 = 玩家队(teamId 0)
     const team0 = state.players.filter((p) => p.teamId === 0);
     team0[0].alive = false;
     team0[1].alive = false;
 
-    mode_onNewRound(ctx, state.round + 1);
+    mode.onNewRound(ctx, state.round + 1);
 
     const aliveTeam0 = state.players.filter((p) => p.teamId === 0 && p.alive);
     expect(aliveTeam0).toHaveLength(1);
@@ -106,7 +141,7 @@ describe("modes/league — 回合补给与结算", () => {
     expect(mode.onNewRound(ctx, 21)).toBe("halt");
     expect(hooks.onRoundLimit).toHaveBeenCalledOnce();
     expect(ctx.state.turn.suspend).toBe(true);
-    expect(mode.info.currentRound).toBe(20);
+    expect(leagueRuntime(mode).info.currentRound).toBe(20);
   });
 
   it("队伍团灭 → onTeamWipe(存活队) + 暂停;重复调用只触发一次", () => {
@@ -121,16 +156,17 @@ describe("modes/league — 回合补给与结算", () => {
 
   it("每次致死都记录死亡顺序", () => {
     const { ctx, mode, state, hooks } = makeLeague();
-    const victim = state.players.find((p) => p.teamId === 1);
+    const victim = requirePlayer(state, (p) => p.teamId === 1, "对手队成员");
     mode.onPlayerDeath(ctx, victim);
     expect(hooks.onPlayerDeath).toHaveBeenCalledWith(victim.index, victim);
-    expect(mode.info.deathOrder).toEqual([victim.index]);
+    expect(leagueRuntime(mode).info.deathOrder).toEqual([victim.index]);
   });
 
   it("卡牌加成按 teamId 读取(供攻击/防御管道使用)", () => {
     const { mode } = makeLeague();
-    expect(mode.cardBonus[0].attackBonus).toBe(2);
-    expect(mode.cardBonus[1].defenseBonus).toBe(0);
+    const bonus = leagueRuntime(mode).cardBonus;
+    expect(bonus?.[0]?.attackBonus).toBe(2);
+    expect(bonus?.[1]?.defenseBonus).toBe(0);
   });
 });
 
@@ -188,7 +224,8 @@ describe("modes/worldcup — 小组赛/淘汰赛差异", () => {
 
     mode.match.score = [1, 0];
     state.round = 90;
-    state.players.find((p) => p.characterId === 1).alive = false;
+    const loser = requirePlayer(state, (p) => p.characterId === 1, "角色 1 的玩家");
+    loser.alive = false;
     mode.checkGameOver(ctx);
 
     expect(mode.match.matchOver).toBe(true);
@@ -202,8 +239,3 @@ describe("modes/worldcup — 小组赛/淘汰赛差异", () => {
     ).toBe("worldcup");
   });
 });
-
-// 便于测试直接驱动回合开始
-function mode_onNewRound(ctx, round) {
-  return ctx.mode.onNewRound(ctx, round);
-}

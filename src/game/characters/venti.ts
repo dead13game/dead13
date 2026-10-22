@@ -2,6 +2,7 @@ import { PHASE } from "../core/constants.js";
 import { display } from "../core/cards.js";
 import { PENDING } from "../flow/pending.js";
 import { baseCanUse, withTurnGate, enemyTargetUids } from "./helpers.js";
+import type { CharacterDef } from "../types.js";
 
 // 温迪 · 千风之诗:攻击时抽 2 张,点数相加作为本次攻击总伤害(第 10 回合解锁)
 export default {
@@ -60,4 +61,4 @@ export default {
       data: { source: "venti", cards, total },
     });
   },
-};
+} satisfies CharacterDef;

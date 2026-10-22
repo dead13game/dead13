@@ -157,7 +157,9 @@ export function createContext(state: GameState, deps: ContextDeps = {}): Ctx {
         const next = mode.filterPending(ctx, pending);
         if (next) pending = next;
       }
-      return setPending(state, pending);
+      // setPending 返回的永远是传入的同一个对象，这里直接回传它（语义等价，且给出非空类型）
+      setPending(state, pending);
+      return pending;
     },
     clearPending() {
       clearPending(state);
@@ -165,11 +167,10 @@ export function createContext(state: GameState, deps: ContextDeps = {}): Ctx {
 
     /**
      * 记录一次摸牌（仅驱动 UI 抽牌动画，不入存档）。
-     * @param {Array} cards 实际摸到的牌
-     * @param {{kind?: string, actorUid?: number|null, source?: string}} [meta]
+     * @param cards 实际摸到的牌
      */
     drawEvent(cards, meta = {}) {
-      const list = (cards ?? []).filter(Boolean);
+      const list = (cards ?? []).filter((c): c is Card => !!c);
       if (list.length === 0) return null;
       state.drawSeq = (state.drawSeq ?? 0) + 1;
       const entry = {

@@ -3,7 +3,19 @@ import { describe, it, expect } from "vitest";
 import { createSession, dispatch } from "../api.js";
 import { createGameState } from "../flow/setup.js";
 import { createBrawlMode, initBrawlOrder } from "./brawl.js";
+import type { BrawlInfo, BrawlMode, BrawlModeRuntime } from "./brawl.js";
 import { createTowers, towersOf } from "../core/units.js";
+import type { GameState } from "../types.js";
+
+/**
+ * 团战 adapter 的 info 是数据对象，而 ModeAdapter 把 info 声明成旧的方法签名。
+ * 先收窄到工厂声明的 BrawlMode，再按运行时扩展形状拿 info（不做 any 断言）。
+ */
+function brawlInfo(state: GameState): BrawlInfo {
+  const adapter = state.mode as BrawlMode | null;
+  if (!adapter) throw new Error("局面尚未安装团战模式");
+  return (adapter as BrawlModeRuntime).info;
+}
 
 function newBrawl(chars = [13, 14, 15, 16, 1, 2]) {
   const state = createGameState();
@@ -108,7 +120,7 @@ describe("3v3 团战 — 基础局面", () => {
     });
     mode.checkGameOver(ctx);
     expect(state.gameOver).toBe(true);
-    expect(state.mode.info.result.winnerTeam).toBe(0);
+    expect(brawlInfo(state).result?.winnerTeam).toBe(0);
   });
 });
 
@@ -116,6 +128,7 @@ describe("3v3 团战 — 复活", () => {
   it("阵亡 5 回合后满状态复活，获得 3 张防御牌并第一个行动", () => {
     const { state, ctx, mode } = newBrawl();
     const hero = state.players.find((p) => p.teamId === 0);
+    if (!hero) throw new Error("测试局面缺少我方英雄");
     hero.alive = false;
     hero.hp = 0;
     hero.respawnRound = 5;
@@ -142,7 +155,7 @@ describe("3v3 团战 — 60 回合判定", () => {
     state.phase = "normal";
     mode.onRoundEnd(ctx, 60);
     expect(state.gameOver).toBe(true);
-    expect(state.mode.info.result.winnerTeam).toBe(0);
-    expect(state.mode.info.result.reason).toContain("拆塔数");
+    expect(brawlInfo(state).result?.winnerTeam).toBe(0);
+    expect(brawlInfo(state).result?.reason).toContain("拆塔数");
   });
 });

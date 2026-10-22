@@ -10,10 +10,89 @@ import {
 } from "./worldCupConstants.js";
 import { CHARACTERS } from "./characters/index.js";
 
+/** 锦标赛阶段 */
+export type WorldCupPhase = "group" | "knockout" | "champion" | "eliminated";
+
+/** 小组赛一场的结果（主队胜 / 平 / 客队胜） */
+export type GroupMatchOutcome = "home" | "draw" | "away";
+
+/** 小组里的一支球队 */
+export interface GroupTeam {
+  name: string;
+  isPlayer: boolean;
+  emoji: string;
+}
+
+/** 小组赛一场比赛 */
+export interface GroupMatchState {
+  home: number;
+  away: number;
+  played: boolean;
+  result: GroupMatchOutcome | null;
+  isPlayerMatch: boolean;
+}
+
+/** 小组积分榜一行 */
+export interface GroupStandingRow {
+  index: number;
+  name: string;
+  emoji: string;
+  isPlayer: boolean;
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  points: number;
+}
+
+/** 淘汰赛对手 */
+export interface KnockoutOpponent {
+  name: string;
+  emoji: string;
+  charId: number;
+}
+
+/** 小组出线判定 */
+export interface GroupAdvancement {
+  advanced: boolean;
+  rank: number;
+  needTiebreaker: boolean;
+  standings: GroupStandingRow[];
+}
+
+/**
+ * 世界杯锦标赛状态（独立于 GameState，由世界杯控制器持有）。
+ * `_` 前缀为 v3.5 的内部簿记；控制器还会往 reactive 对象上挂别的编排字段，
+ * 因此保留索引签名。
+ */
+export interface WorldCupState {
+  phase: WorldCupPhase;
+  playerTeamName: string;
+  // 小组
+  groupName: string;
+  groupTeams: GroupTeam[];
+  groupMatches: GroupMatchState[];
+  groupStandings: GroupStandingRow[] | null;
+  // 淘汰赛
+  knockoutRound: string | null;
+  knockoutOpponent: KnockoutOpponent | null;
+  // 换人（仅淘汰赛）
+  substitutionsLeft: number;
+  // 当前比赛引用
+  currentMatch: unknown;
+  // v3.5：整届战绩（小组赛 + 淘汰赛，用于淘汰/夺冠总结）
+  matchHistory: unknown[];
+  // v3.5：本届已交手球队（避免淘汰赛重复抽到同一对手）
+  _usedOpponents: string[];
+  [extra: string]: unknown;
+}
+
 // ---- 工具函数 ----
 
 /** 洗牌（Fisher-Yates） */
-function shuffle(arr) {
+function shuffle<T>(arr: readonly T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -23,7 +102,11 @@ function shuffle(arr) {
 }
 
 /** 从 AI 名称池中随机选取不重复的 n 个名称 */
-function pickRandomNames(pool, n, exclude = []) {
+function pickRandomNames(
+  pool: readonly string[],
+  n: number,
+  exclude: readonly string[] = [],
+): string[] {
   const available = pool.filter((name) => !exclude.includes(name));
   return shuffle(available).slice(0, n);
 }
@@ -32,9 +115,13 @@ function pickRandomNames(pool, n, exclude = []) {
 
 /**
  * 创建世界杯锦标赛状态
- * @param {string} playerTeamName - 玩家队伍名称
+ * @param playerTeamName 玩家队伍名称
+ * @param opponentNamesOverride 小组赛对手名称（可选，保持与 UI 一致）
  */
-export function createWorldCupState(playerTeamName, opponentNamesOverride) {
+export function createWorldCupState(
+  playerTeamName: string,
+  opponentNamesOverride?: string[],
+): WorldCupState {
   // 为小组赛选取3个对手名称（可通过参数传入以保持与 UI 一致）
   const opponentNames = opponentNamesOverride
     ? [...opponentNamesOverride]
@@ -73,7 +160,7 @@ export function createWorldCupState(playerTeamName, opponentNamesOverride) {
 // ---- 小组赛 ----
 
 /** 初始化小组赛赛程（6场单循环） */
-export function initGroupMatches(state) {
+export function initGroupMatches(state: WorldCupState): void {
   // 4队单循环：6场比赛
   // 顺序：玩家(0)先打完3场，然后模拟其他3场
   state.groupMatches = [
@@ -87,17 +174,17 @@ export function initGroupMatches(state) {
 }
 
 /** 获取玩家需要参与的小组赛场次 */
-export function getPlayerGroupMatches(state) {
+export function getPlayerGroupMatches(state: WorldCupState): GroupMatchState[] {
   return state.groupMatches.filter((m) => m.isPlayerMatch && !m.played);
 }
 
 /** 获取下一个玩家需要打的小组赛（返回 match 索引或 -1） */
-export function getNextPlayerGroupMatch(state) {
+export function getNextPlayerGroupMatch(state: WorldCupState): number {
   return state.groupMatches.findIndex((m) => m.isPlayerMatch && !m.played);
 }
 
 /** 自动模拟所有非玩家小组赛（随机胜负平） */
-export function simulateNonPlayerMatches(state) {
+export function simulateNonPlayerMatches(state: WorldCupState): void {
   state.groupMatches.forEach((match) => {
     if (match.isPlayerMatch || match.played) return;
 
@@ -114,7 +201,11 @@ export function simulateNonPlayerMatches(state) {
 }
 
 /** 记录玩家小组赛结果 */
-export function recordGroupMatchResult(state, matchIndex, result) {
+export function recordGroupMatchResult(
+  state: WorldCupState,
+  matchIndex: number,
+  result: GroupMatchOutcome,
+): void {
   // result: 'home'=玩家胜, 'away'=对方胜, 'draw'=平
   const match = state.groupMatches[matchIndex];
   if (!match || match.played) return;
@@ -123,7 +214,7 @@ export function recordGroupMatchResult(state, matchIndex, result) {
 }
 
 /** 计算小组积分榜 */
-export function calculateGroupStandings(state) {
+export function calculateGroupStandings(state: WorldCupState): GroupStandingRow[] {
   const teams = state.groupTeams.map((t, i) => ({
     index: i,
     name: t.name,
@@ -186,9 +277,8 @@ export function calculateGroupStandings(state) {
 
 /**
  * 检查小组出线情况
- * @returns {{ advanced: boolean, rank: number, needTiebreaker: boolean }}
  */
-export function checkGroupAdvancement(state) {
+export function checkGroupAdvancement(state: WorldCupState): GroupAdvancement {
   const standings = state.groupStandings || calculateGroupStandings(state);
   const playerIdx = standings.findIndex((t) => t.isPlayer);
   const rank = playerIdx + 1;
@@ -215,13 +305,14 @@ export function checkGroupAdvancement(state) {
 
 /**
  * 初始化淘汰赛对手（v3.5：按轮次从对应名单抽取，避开本届已交手球队）
- * @param {object} [state] 锦标赛状态（提供 knockoutRound / _usedOpponents）
- * @returns {{ name, emoji, charId }}
+ * @param state 锦标赛状态（提供 knockoutRound / _usedOpponents）
  */
-export function initKnockoutOpponent(state = null) {
+export function initKnockoutOpponent(
+  state: WorldCupState | null = null,
+): KnockoutOpponent {
   const round = state?.knockoutRound || "R16";
   const pool = KNOCKOUT_OPPONENT_POOLS[round] || AI_TEAM_NAMES;
-  const used = new Set(state?._usedOpponents ?? []);
+  const used = new Set<string>(state?._usedOpponents ?? []);
   let available = pool.filter((name) => !used.has(name));
   // 名单被抽空时退回整份名单，保证永远能开出对手
   if (available.length === 0) available = [...pool];
@@ -238,14 +329,15 @@ export function initKnockoutOpponent(state = null) {
 }
 
 /** 获取淘汰赛轮次中文名 */
-export function getKnockoutRoundName(round) {
+export function getKnockoutRoundName(round: string): string {
   return KNOCKOUT_NAMES[round] || round;
 }
 
 /** 晋级下一轮淘汰赛 */
-export function advanceKnockoutRound(state) {
+export function advanceKnockoutRound(state: WorldCupState): void {
   const order = ["R16", "QF", "SF", "Final", "champion"];
-  const currentIdx = order.indexOf(state.knockoutRound);
+  // 未进入淘汰赛(null) 时 indexOf 也是 -1 → 走「初始进入 R16」分支，与原实现一致
+  const currentIdx = order.indexOf(state.knockoutRound ?? "");
 
   if (currentIdx < 0) {
     // 初始进入淘汰赛
@@ -265,14 +357,14 @@ export function advanceKnockoutRound(state) {
 }
 
 /** 淘汰赛失利 */
-export function eliminatePlayer(state) {
+export function eliminatePlayer(state: WorldCupState): void {
   state.phase = "eliminated";
 }
 
 // ---- 小组赛对手角色 ----
 
 /** 为小组赛对手随机选取角色 */
-export function getRandomGroupOpponentChar() {
+export function getRandomGroupOpponentChar(): number {
   const chars = Object.values(CHARACTERS);
   const char = chars[Math.floor(Math.random() * chars.length)];
   return char.id;

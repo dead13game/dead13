@@ -6,31 +6,59 @@ import { createFullDeck, shuffleDeck, drawCards } from "../../game/core/cards.js
 import { LOG_TYPE } from "../../game/gameLogger.js";
 import { recordSound } from "../../game/soundEvents.js";
 import { getCardStats, awardBattleReward } from "./solo.js";
+import type { Card, GameState } from "../../game/types.js";
+import type {
+  CardAgg,
+  SoloActionResult,
+  SoloCombatState,
+  SoloEnemyAnnounce,
+  SoloPickPokerResult,
+  SoloPileCard,
+  SoloPhase,
+  SoloSide,
+  SoloState,
+} from "./types.js";
 
 // ---- 聚合工具 ----
 
-function expandDeck(agg) {
-  const arr = [];
+function expandDeck(agg: CardAgg): Card[] {
+  const arr: Card[] = [];
   for (const [id, count] of Object.entries(agg)) {
     const card = SOLO_CARDS[id];
     if (!card) continue;
-    for (let i = 0; i < count; i++) arr.push({ id, ...card });
+    // 技能牌元素运行时是 {id, ...卡定义}（没有扑克牌的 value/faceUp）；
+    // 牌堆工具只用到 id 与数组语义，故在此做一次结构性断言（编译期擦除）。
+    for (let i = 0; i < count; i++) arr.push({ ...card, id } as SoloPileCard);
   }
   return arr;
 }
 
-function addToAgg(agg, cardId, count) {
+function addToAgg(agg: CardAgg, cardId: string, count: number): void {
   agg[cardId] = (agg[cardId] || 0) + count;
 }
 
-function removeFromAgg(agg, cardId, count) {
+function removeFromAgg(agg: CardAgg, cardId: string, count: number): void {
   if (!agg[cardId]) return;
   agg[cardId] -= count;
   if (agg[cardId] <= 0) delete agg[cardId];
 }
 
+/**
+ * recordSound 只读写 state.soundQueue（单机与内核共用同一队列结构）。
+ * 单机 state 不是多人内核的 GameState，这里按 GameState 视图传入（仅做结构断言）。
+ */
+function recordSoloSound(state: SoloState, type: string): void {
+  recordSound(state as unknown as GameState, type);
+}
+
 /** 从牌堆抽 n 张并聚合进 hand；牌堆空时从 grave 洗回 */
-function drawIntoPile(state, pile, hand, grave, n) {
+function drawIntoPile(
+  state: SoloState,
+  pile: Card[],
+  hand: CardAgg,
+  grave: CardAgg,
+  n: number,
+): void {
   let left = n;
   while (left > 0) {
     const { drawn, remaining } = drawCards(pile, left);
@@ -49,7 +77,12 @@ function drawIntoPile(state, pile, hand, grave, n) {
 }
 
 /** 记录到"最近打出队列"（最多 6 种，同 cardId+side+回合 合并并置最新） */
-function pushPlayedQueue(c, cardId, count, side) {
+function pushPlayedQueue(
+  c: SoloCombatState,
+  cardId: string,
+  count: number,
+  side: SoloSide,
+): void {
   if (!c.playedQueue) c.playedQueue = [];
   const round = c.round;
   const idx = c.playedQueue.findIndex(
@@ -66,18 +99,19 @@ function pushPlayedQueue(c, cardId, count, side) {
 }
 
 /** 手牌种类上限爆牌：超种类的新牌进坟场 */
-function enforceHandLimit(state, hand) {  const kinds = Object.keys(hand);
+function enforceHandLimit(hand: CardAgg, grave: CardAgg): void {
+  const kinds = Object.keys(hand);
   while (kinds.length > SOLO_CONST.HAND_KIND_LIMIT) {
     // 移除最后一个新种类（简单策略：保留先入的种类，新种类爆牌）
     const overflowId = kinds[kinds.length - 1];
-    addToAgg(state.combat.grave, overflowId, hand[overflowId]);
+    addToAgg(grave, overflowId, hand[overflowId]);
     delete hand[overflowId];
     kinds.pop();
   }
 }
 
-function refillPoker(state) {
-  const c = state.combat;
+function refillPoker(state: SoloState): void {
+  const c = state.combat!;
   if (c.pokerDeck.length < SOLO_CONST.POKER_DRAW) {
     c.pokerDeck = shuffleDeck(createFullDeck(1));
   }
@@ -86,7 +120,7 @@ function refillPoker(state) {
 // ---- 创建战斗 ----
 
 /** 开始一场战斗 */
-export function startCombat(state, enemyKey) {
+export function startCombat(state: SoloState, enemyKey: string): void {
   const enemy = SOLO_ENEMIES[enemyKey];
   state.combat = {
     enemyKey,
@@ -115,6 +149,11 @@ export function startCombat(state, enemyKey) {
     round: 0,
     phase: "pick-poker", // pick-poker → draw-skill → play → enemy → won/lost
     log: [],
+    // 敌方回合字段（startEnemyTurn 会覆盖）
+    enemyActionPoints: 0,
+    enemyDrawCount: 0,
+    enemySpent: 0,
+    enemyPendingPlay: null,
   };
   state.devLog.info(LOG_TYPE.SOLO_NODE, `战斗开始：${enemy.name}`, {
     enemyKey,
@@ -129,7 +168,7 @@ export function startCombat(state, enemyKey) {
 // ---- 玩家回合 ----
 
 /** 回合开始：抽 3 张扑克等待玩家选 2 张 */
-export function startPlayerTurn(state) {
+export function startPlayerTurn(state: SoloState): void {
   const c = state.combat;
   if (!c || c.phase === "won" || c.phase === "lost") return;
   refillPoker(state);
@@ -144,10 +183,15 @@ export function startPlayerTurn(state) {
 
 /**
  * 玩家从 3 张扑克中选 2 张作行动力，剩 1 张作抽牌数。
- * @param {number} actionIdxA/B - 行动力扑克下标
- * @param {number} drawIdx - 抽牌数扑克下标
+ * @param actionIdxA/B - 行动力扑克下标
+ * @param drawIdx - 抽牌数扑克下标
  */
-export function pickPoker(state, actionIdxA, actionIdxB, drawIdx) {
+export function pickPoker(
+  state: SoloState,
+  actionIdxA: number,
+  actionIdxB: number,
+  drawIdx: number,
+): SoloPickPokerResult {
   const c = state.combat;
   if (!c || c.phase !== "pick-poker") return { ok: false, reason: "时机不对" };
   const poker = c.pendingPoker;
@@ -164,8 +208,8 @@ export function pickPoker(state, actionIdxA, actionIdxB, drawIdx) {
   c.pendingPoker = null;
   c.phase = "draw-skill";
   state.devLog.debug(LOG_TYPE.SOLO_POKER_PICK, "选牌：行动力+抽牌数", {
-    actionCards: [poker[actionIdxA].rank + poker[actionIdxA].suit, poker[actionIdxB].rank + poker[actionIdxB].suit],
-    drawCard: poker[drawIdx].rank + poker[drawIdx].suit,
+    actionCards: [poker[actionIdxA].rank! + poker[actionIdxA].suit!, poker[actionIdxB].rank! + poker[actionIdxB].suit!],
+    drawCard: poker[drawIdx].rank! + poker[drawIdx].suit!,
     actionPoints: ap,
     spirit: c.fightingSpirit,
     drawCount: c.drawCount,
@@ -175,11 +219,11 @@ export function pickPoker(state, actionIdxA, actionIdxB, drawIdx) {
 }
 
 /** 按抽牌数抽技能卡进手牌 */
-export function drawSkill(state) {
-  const c = state.combat;
+export function drawSkill(state: SoloState): void {
+  const c = state.combat!;
   if (c.phase !== "draw-skill") return;
   drawIntoPile(state, c.playerPile, c.playerHand, c.playerGrave, c.drawCount);
-  enforceHandLimit(state, c.playerHand);
+  enforceHandLimit(c.playerHand, c.playerGrave);
   state.devLog.debug(LOG_TYPE.SOLO_SKILL_DRAW, "抽取技能卡", {
     drawCount: c.drawCount,
     hand: { ...c.playerHand },
@@ -191,7 +235,11 @@ export function drawSkill(state) {
 /**
  * 打出技能卡（同名牌可一次打 count 张）
  */
-export function playCard(state, cardId, count = 1) {
+export function playCard(
+  state: SoloState,
+  cardId: string,
+  count = 1,
+): SoloActionResult {
   const c = state.combat;
   if (!c || c.phase !== "play") {
     state.devLog?.warn(LOG_TYPE.SOLO_CARD_PLAY, "出牌失败：非出牌阶段", {
@@ -247,18 +295,19 @@ export function playCard(state, cardId, count = 1) {
 
   if (card.type === "physical" || card.type === "magic") {
     // 攻击/治疗：攻击卡可多段（连击 hits）
-    recordSound(state, "attack");
-    const dmg = card.base + attr[card.type === "physical" ? "str" : "mag"];
+    recordSoloSound(state, "attack");
+    const dmg = card.base! + attr[card.type === "physical" ? "str" : "mag"];
     const hits = card.hits || 1;
     for (let i = 0; i < count * hits; i++) {
-      damageEnemy(state, dmg, stats.armorPen || 0);
-      if (c.phase === "won") break;
+      damageEnemy(state, dmg, stats!.armorPen || 0);
+      // 结算函数可能改写 phase（TS 控制流看不到），断言避免窄化误判
+      if ((c.phase as SoloPhase) === "won") break;
     }
-    if (card.heal) healSelf(state, card.base + attr.mag, count);
+    if (card.heal) healSelf(state, card.base! + attr.mag, count);
     if (card.actionDrain) c.enemyNextActionDrain = card.actionDrain;
   } else if (card.type === "defense") {
-    recordSound(state, "defense");
-    const shield = card.base + attr.def;
+    recordSoloSound(state, "defense");
+    const shield = card.base! + attr.def;
     c.playerShield += shield * count;
     if (card.actionRefund) c.actionPoints += card.actionRefund;
   } else if (card.type === "utility") {
@@ -274,27 +323,29 @@ export function playCard(state, cardId, count = 1) {
         c.playerGrave,
         card.drawBonus * count,
       );
-      enforceHandLimit(state, c.playerHand);
+      enforceHandLimit(c.playerHand, c.playerGrave);
     }
   }
 
-  if (c.phase !== "won" && c.phase !== "lost") checkVictory(state);
+  if ((c.phase as SoloPhase) !== "won" && (c.phase as SoloPhase) !== "lost") {
+    checkVictory(state);
+  }
   return { ok: true };
 }
 
 /** 结束玩家回合 → 敌方回合 */
-export function endTurn(state) {
+export function endTurn(state: SoloState): SoloActionResult {
   const c = state.combat;
   if (!c || c.phase !== "play") return { ok: false };
-  runEnemyTurn(state);
+  startEnemyTurn(state);
   return { ok: true };
 }
 
 // ---- 伤害结算 ----
 
 /** 对敌方造成伤害：先扣护盾（破盾量 → 斗志），剩余扣 HP */
-function damageEnemy(state, dmg, pen = 0) {
-  const c = state.combat;
+function damageEnemy(state: SoloState, dmg: number, pen = 0): void {
+  const c = state.combat!;
   if (c.phase === "won") return;
   let d = dmg;
   // 破甲：穿透 pen 点护盾（直接伤 HP）
@@ -322,7 +373,7 @@ function damageEnemy(state, dmg, pen = 0) {
   });
 }
 
-function healSelf(state, amount, count) {
+function healSelf(state: SoloState, amount: number, count: number): void {
   const c = state.combat;
   state.player.hp = Math.min(
     state.player.maxHp,
@@ -331,8 +382,8 @@ function healSelf(state, amount, count) {
 }
 
 /** 对玩家造成伤害（敌方攻击）：先扣玩家护盾，首领破盾攒斗志 */
-function damagePlayer(state, dmg) {
-  const c = state.combat;
+function damagePlayer(state: SoloState, dmg: number): void {
+  const c = state.combat!;
   if (c.phase === "lost") return;
   let d = dmg;
   const shieldDmg = Math.min(c.playerShield, d);
@@ -344,7 +395,7 @@ function damagePlayer(state, dmg) {
   }
   state.player.hp -= d;
   if (state.player.hp < 0) state.player.hp = 0;
-  if (d > 0) recordSound(state, "hit"); // 玩家受伤音效
+  if (d > 0) recordSoloSound(state, "hit"); // 玩家受伤音效
   state.devLog.debug(LOG_TYPE.SOLO_DAMAGE, `敌方攻击：${c.enemyName} -${dmg}`, {
     dmg,
     shieldDmg,
@@ -363,7 +414,7 @@ function damagePlayer(state, dmg) {
  * 敌方回合开始：抽扑克定行动力/抽牌数、抽技能卡（一次性准备）。
  * phase: play → enemy-announce
  */
-export function startEnemyTurn(state) {
+export function startEnemyTurn(state: SoloState): void {
   const c = state.combat;
   if (!c || c.phase !== "play") return;
   c.phase = "enemy-announce";
@@ -388,7 +439,7 @@ export function startEnemyTurn(state) {
 
   // 2. AI 抽技能卡
   drawIntoPile(state, c.enemyPile, c.enemyHand, c.enemyGrave, drawCount);
-  enforceHandLimit(state, c.enemyHand);
+  enforceHandLimit(c.enemyHand, c.enemyGrave);
   state.devLog.debug(LOG_TYPE.SOLO_ENEMY_TURN, `敌方回合开始：${c.enemyName}`, {
     round: c.round + 1,
     actionPoints: ap,
@@ -406,10 +457,12 @@ export function startEnemyTurn(state) {
  * 直到行动力不足或手牌打空才结束回合（无消耗上限）。
  * 返回 { playing, cardId, count }；playing=false 表示出牌结束（已回玩家回合）。
  */
-export function enemyAnnounce(state) {
+export function enemyAnnounce(state: SoloState): SoloEnemyAnnounce {
   const c = state.combat;
   if (!c || c.phase !== "enemy-announce") return { playing: false };
-  if (c.phase === "lost" || c.phase === "won") return { playing: false };
+  if ((c.phase as SoloPhase) === "lost" || (c.phase as SoloPhase) === "won") {
+    return { playing: false };
+  }
 
   // 所有可出的牌（攻击+防御，纯随机均匀选取）
   const playable = Object.keys(c.enemyHand).filter((id) => {
@@ -446,7 +499,7 @@ export function enemyAnnounce(state) {
 }
 
 /** 结算敌方宣布的牌（1.5s 延迟后调用） */
-export function enemyResolve(state) {
+export function enemyResolve(state: SoloState): void {
   const c = state.combat;
   if (!c || c.phase !== "enemy-resolve" || !c.enemyPendingPlay) return;
   const { cardId, count, cost } = c.enemyPendingPlay;
@@ -465,27 +518,27 @@ export function enemyResolve(state) {
   });
 
   if (card.type === "physical" || card.type === "magic") {
-    const dmg = card.base; // 敌方无属性修正，强度靠数值+牌组
+    const dmg = card.base!; // 敌方无属性修正，强度靠数值+牌组
     const hits = card.hits || 1;
     for (let i = 0; i < count * hits; i++) {
       damagePlayer(state, dmg);
-      if (c.phase === "lost") break;
+      if ((c.phase as SoloPhase) === "lost") break;
     }
   } else if (card.type === "defense") {
-    let shield = card.base;
+    let shield = card.base!;
     if (c.enemyNextShieldPen > 0) shield = Math.max(0, shield - c.enemyNextShieldPen);
     c.enemyShield += shield * count;
   }
   c.enemyPendingPlay = null;
   // 若结算中玩家死亡/敌方已败（phase 已切终态），保持终态，不再继续宣布
-  if (c.phase !== "lost" && c.phase !== "won") {
+  if ((c.phase as SoloPhase) !== "lost" && (c.phase as SoloPhase) !== "won") {
     c.phase = "enemy-announce"; // 继续宣布下一张
   }
 }
 
 /** 敌方回合结束：回合推进、平局判定、回玩家回合 */
-function finishEnemyTurn(state) {
-  const c = state.combat;
+function finishEnemyTurn(state: SoloState): void {
+  const c = state.combat!;
   c.enemyPendingPlay = null;
   c.round += 1;
   if (c.round >= SOLO_CONST.TURN_LIMIT) {
@@ -501,20 +554,20 @@ function finishEnemyTurn(state) {
 
 // ---- 战斗结束 ----
 
-function checkVictory(state) {
-  const c = state.combat;
+function checkVictory(state: SoloState): void {
+  const c = state.combat!;
   if (c.enemyHp <= 0) endCombat(state, "won");
 }
 
 /** 战斗结束：发放奖励 / 失败 / 推进节点 */
-function endCombat(state, result) {
+function endCombat(state: SoloState, result: "won" | "lost"): void {
   const c = state.combat;
   if (!c || c.phase === "won" || c.phase === "lost") return;
   c.phase = result;
   if (result === "won") {
-    recordSound(state, "match_end");
+    recordSoloSound(state, "match_end");
     // 奖励
-    const reward = awardBattleReward(state, c.enemyKey);
+    const reward = awardBattleReward(state, c.enemyKey)!;
     c.lastReward = reward;
     state.log.push(`击败 ${c.enemyName}，+${reward.gold} 金币 +${reward.exp} 经验`);
     state.devLog.info(LOG_TYPE.SOLO_END, `战斗胜利：${c.enemyName}`, {
@@ -529,7 +582,7 @@ function endCombat(state, result) {
       level: state.player.level,
     });
   } else {
-    recordSound(state, "lose");
+    recordSoloSound(state, "lose");
     state.gameOver = true;
     state.log.push(`败于 ${c.enemyName}，单机模式结束`);
     state.devLog.warn(LOG_TYPE.SOLO_END, `战斗失败：${c.enemyName}`, {
@@ -542,7 +595,7 @@ function endCombat(state, result) {
 }
 
 /** 战斗胜利后领取卡牌候选（3 选 1）。推进节点由控制器完成（goNext） */
-export function claimCardReward(state, cardId) {
+export function claimCardReward(state: SoloState, cardId: string): SoloActionResult {
   const c = state.combat;
   if (!c || c.phase !== "won" || !c.lastReward) return { ok: false };
   if (!SOLO_CARDS[cardId]) return { ok: false, reason: "无此卡" };
@@ -560,6 +613,6 @@ export function claimCardReward(state, cardId) {
   return { ok: true };
 }
 
-function addCardsToDeck(state, cardId) {
+function addCardsToDeck(state: SoloState, cardId: string): void {
   state.player.deck[cardId] = (state.player.deck[cardId] || 0) + 1;
 }

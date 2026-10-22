@@ -1,7 +1,25 @@
 import { PHASE } from "../core/constants.js";
 import { PENDING } from "../flow/pending.js";
 import { unitByUid } from "../core/units.js";
-import { baseCanUse, friendlyUnitUids } from "./helpers.js";
+import { baseCanUse, friendlyUnitUids, answerUid } from "./helpers.js";
+import type { Card, CharacterDef, Ctx } from "../types.js";
+
+/**
+ * 合成护盾牌：只有点数，suit/rank 是战报 `display()` 用的占位文案（迁移前就有）。
+ *
+ * Card 的 suit/rank 只描述扑克牌（见 types.ts），所以先用合法字段建牌，
+ * 再用 Object.assign 写入占位文案 —— 既保持运行时数据与迁移前一致，
+ * 又不需要放宽 Card 的类型。
+ */
+function shieldCard(ctx: Ctx, value: number): Card {
+  const card: Card = {
+    id: ctx.uniqueId("shield-zhongli"),
+    value,
+    faceUp: true,
+    isShield: true,
+  };
+  return Object.assign(card, { suit: "", rank: "盾" });
+}
 
 // 钟离 · 坚如磐石:获得 18 + 已损失生命×2 的护盾
 export default {
@@ -32,6 +50,7 @@ export default {
         purpose: "skill:zhongli",
         asker: player.uid,
         options: friendlyUnitUids(ctx, player),
+        data: null,
       });
       ctx.log(`${player.name} 释放坚如磐石，选择护盾目标`);
       return;
@@ -40,14 +59,7 @@ export default {
     // 经典/联赛：给自己
     const lostHp = player.maxHp - player.hp;
     const shieldValue = 18 + lostHp * 2;
-    player.defensePile.push({
-      id: ctx.uniqueId("shield-zhongli"),
-      suit: "",
-      rank: "盾",
-      value: shieldValue,
-      faceUp: true,
-      isShield: true,
-    });
+    player.defensePile.push(shieldCard(ctx, shieldValue));
     player.resources.skillUses--;
 
     ctx.log(`${player.name} 释放坚如磐石 护盾${shieldValue}点`);
@@ -63,19 +75,12 @@ export default {
 
   onAnswer(ctx, player, pending, answer) {
     if (pending.purpose !== "skill:zhongli") return;
-    const target = unitByUid(ctx.state, answer);
+    const target = unitByUid(ctx.state, answerUid(answer));
     if (!target?.alive) return;
 
     const lostHp = Math.max(0, target.maxHp - target.hp);
     const shieldValue = 18 + lostHp * 2;
-    target.defensePile.push({
-      id: ctx.uniqueId("shield-zhongli"),
-      suit: "",
-      rank: "盾",
-      value: shieldValue,
-      faceUp: true,
-      isShield: true,
-    });
+    target.defensePile.push(shieldCard(ctx, shieldValue));
     ctx.log(
       `${player.name} 为 ${target.name} 套上护盾 ${shieldValue} 点`,
     );
@@ -86,4 +91,4 @@ export default {
     });
     ctx.turn.pass();
   },
-};
+} satisfies CharacterDef;

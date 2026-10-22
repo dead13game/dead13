@@ -4,16 +4,37 @@
 
 import { CAT } from "../core/log.js";
 import { dissolveAlliance } from "./damage.js";
+import type { Ctx, Player } from "../types.js";
 
 export const ALLIANCE_MIN_PLAYERS = 4;
 export const ALLIANCE_TURNS = 5;
 export const BETRAYAL_PENALTY_TURNS = 10;
 
+/** canFormAlliance 返回值(reason 为要写进日志的文案) */
+export interface AllianceCheck {
+  ok: boolean;
+  reason: string | null;
+}
+
+/** splitAllianceDamage 返回值 */
+export interface AllianceSplit {
+  value: number;
+  ally: Player;
+  allyValue: number;
+}
+
+/** splitAllianceDamage 入参 */
+export interface AllianceSplitOptions {
+  attacker: Player;
+  target: Player;
+  value: number;
+}
+
 /**
  * 能否结盟。返回 { ok, reason }(reason 为要写进日志的文案)。
  * 联盟在联赛/世界杯禁用(DC-2),由 mode.rules.alliance 控制。
  */
-export function canFormAlliance(ctx, player) {
+export function canFormAlliance(ctx: Ctx, player: Player): AllianceCheck {
   const { state } = ctx;
   if (state.phase === "peace") return { ok: false, reason: null };
   if (ctx.mode?.rules?.alliance === false) return { ok: false, reason: null };
@@ -33,14 +54,14 @@ export function canFormAlliance(ctx, player) {
 }
 
 /** 可结盟目标:存活、非自己、没有盟友 */
-export function allianceTargets(ctx, player) {
+export function allianceTargets(ctx: Ctx, player: Player): Player[] {
   return ctx.state.players.filter(
     (p) => p.alive && p.uid !== player.uid && p.relations.allyUid === null,
   );
 }
 
 /** 建立双向联盟 */
-export function formAlliance(ctx, a, b) {
+export function formAlliance(ctx: Ctx, a: Player, b: Player): void {
   a.relations.allyUid = b.uid;
   a.relations.allianceTurns = ALLIANCE_TURNS;
   b.relations.allyUid = a.uid;
@@ -58,7 +79,10 @@ export function formAlliance(ctx, a, b) {
  * 联盟平摊:目标有盟友时,(伤害-2) 再按 1/3 给盟友(向下取整),余数给目标。
  * 返回 null 表示不触发。调用方负责真正扣血。
  */
-export function splitAllianceDamage(ctx, { attacker, target, value }) {
+export function splitAllianceDamage(
+  ctx: Ctx,
+  { attacker, target, value }: AllianceSplitOptions,
+): AllianceSplit | null {
   if (target.relations.allyUid === null || target.relations.allianceTurns <= 0) {
     return null;
   }

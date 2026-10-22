@@ -10,17 +10,33 @@ import { splitAllianceDamage } from "../../rules/alliance.js";
 import { recordDefenseBreak } from "../../rules/artifacts.js";
 import { attackTargets as kernelAttackTargets, isFriendly, unitByUid } from "../../core/units.js";
 import { attackModifiersOf, damageDealtHooks } from "../../characters/index.js";
-import { isIdle } from "./query.js";
+import { currentPlayer, isIdle } from "./query.js";
 import { ally } from "./ally.js";
+import { askPending, pendingCards, pendingNumber } from "./pending-data.js";
+import type { Ctx, ModeRules, Player } from "../../types.js";
+
+/**
+ * 命中后钩子的入参（角色 hooks.onDamageDealt 与「联盟击杀奖励」共用）。
+ * 与 characters/index.ts 的 damageDealtHooks() 返回值配合使用。
+ */
+export interface DamageDealtEnv {
+  attacker: Player;
+  target: Player;
+  attackValue: number;
+  defenseConsumed: number;
+  trapTriggered: boolean;
+  hadTrap: boolean;
+  actualHpLost: number;
+}
 
 // ════════════════════════════════════════
 //  攻击
 // ════════════════════════════════════════
 
-export function attack(ctx) {
+export function attack(ctx: Ctx): boolean {
   const state = ctx.state;
   if (!isIdle(ctx)) return false;
-  const player = ctx.players.current();
+  const player = currentPlayer(ctx);
 
   if (player.relations.consecutiveGambles > 0) {
     player.relations.consecutiveGambles = 0;
@@ -42,7 +58,7 @@ export function attack(ctx) {
   if (player.characterId === 14) {
     ctx.sound("attack");
     ctx.log(`${player.name} 展开调查`);
-    ctx.ask({
+    askPending(ctx, {
       type: PENDING.TARGET,
       purpose: "attack:investigate",
       asker: player.uid,
@@ -81,11 +97,11 @@ export function attack(ctx) {
 }
 
 /** 攻击/调查可选目标：敌方英雄 + 敌方召唤物 + 当前可拆的塔 */
-export function attackUids(ctx, player) {
+export function attackUids(ctx: Ctx, player: Player): number[] {
   return kernelAttackTargets(ctx.state, player).map((u) => u.uid);
 }
 
-export function attackTarget(ctx, targetUid) {
+export function attackTarget(ctx: Ctx, targetUid: number): boolean {
   const state = ctx.state;
   const pending = state.pending;
   if (!pending) return false;
@@ -93,7 +109,7 @@ export function attackTarget(ctx, targetUid) {
     return false;
   }
 
-  const attacker = ctx.players.current();
+  const attacker = currentPlayer(ctx);
   const target = unitByUid(state, targetUid);
   if (!target?.alive) return false;
 
@@ -133,9 +149,10 @@ export function attackTarget(ctx, targetUid) {
     );
   }
 
-  const cards = pending.data?.cards ?? [];
+  const cards = pendingCards(pending.data);
   const baseCardValue = state.pendingAttackCard?.value ?? cards[0]?.value ?? 0;
-  const baseValue = pending.data?.total ?? baseCardValue;
+  const pendingTotal = pendingNumber(pending.data, "total");
+  const baseValue = pendingTotal ?? baseCardValue;
 
   if (pending.data?.source === "venti") {
     ctx.log(
@@ -204,7 +221,7 @@ export function attackTarget(ctx, targetUid) {
   attackValue = post.total;
 
   // 联盟平摊:先给盟友结算,再给目标结算(顺序与旧实现一致)
-  let allyHit = null;
+  let allyHit: { ally: Player; allyValue: number } | null = null;
   if (!trapTriggered) {
     const split = splitAllianceDamage(ctx, { attacker, target, value: attackValue });
     if (split) {
@@ -288,7 +305,7 @@ export function attackTarget(ctx, targetUid) {
   return true;
 }
 
-export function resetAttackPending(ctx) {
+export function resetAttackPending(ctx: Ctx): void {
   const state = ctx.state;
   state.pendingAttackCard = null;
   state.pendingVentiCards = null;
@@ -296,7 +313,7 @@ export function resetAttackPending(ctx) {
 }
 
 /** 围攻计数：同一目标本回合第 2 次及以后受攻击 → 减半（塔也吃，无人机不吃） */
-export function countBesiege(ctx, target, rules) {
+export function countBesiege(ctx: Ctx, target: Player, rules: ModeRules): boolean {
   if (!rules.besiege) return false;
   const kind = target.kind ?? "hero";
   if (kind !== "hero" && kind !== "tower") return false;
@@ -322,7 +339,11 @@ export function countBesiege(ctx, target, rules) {
  *   - 有陷阱 → 询问猜测点数（由角色插件 onAnswer 结算）
  *   - 无陷阱 → 7 点普攻（吃天气/圣遗物，无视陷阱）
  */
-export function resolveInvestigateTarget(ctx, attacker, target) {
+export function resolveInvestigateTarget(
+  ctx: Ctx,
+  attacker: Player,
+  target: Player,
+): boolean {
   const state = ctx.state;
   const rules = state.mode?.rules ?? {};
   const isBesieged = countBesiege(ctx, target, rules);
@@ -382,13 +403,13 @@ export function resolveInvestigateTarget(ctx, attacker, target) {
 }
 
 /** 按优先级运行「命中后」钩子;联盟击杀奖励插在斗志与风堇被动之间 */
-export function runDamageDealtHooks(ctx, env) {
+export function runDamageDealtHooks(ctx: Ctx, env: DamageDealtEnv): void {
   const hooks = [
     ...damageDealtHooks(),
     {
       id: "rules.allyKillBonus",
       priority: 15,
-      run(c, e) {
+      run(c: Ctx, e: DamageDealtEnv) {
         if (e.target.alive) return;
         if (e.attacker.relations.allyUid === null) return;
         const ally = c.players.byUid(e.attacker.relations.allyUid);

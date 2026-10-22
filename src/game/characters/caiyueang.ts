@@ -1,17 +1,26 @@
 import { PENDING } from "../flow/pending.js";
 import { snapshotState, restoreState } from "../persistence/snapshot.js";
+import type { CharacterDef, Ctx, Player } from "../types.js";
+
+/**
+ * 菜月昴的作答形状（命令层写入）：`{ choice: "save" | "load" }`。
+ * 其它取值走「读档」分支判断，与迁移前一致。
+ */
+interface CaiyueangAnswer {
+  choice?: string;
+}
+
+/** 引擎口径:只看是否轮到自己(与旧 canUseSkill 对 id=11 的特判一致) */
+function defCanUse(ctx: Ctx, player: Player): boolean {
+  if (!player || !player.alive) return false;
+  return ctx.state.pending == null && !ctx.state.gameOver;
+}
 
 // 菜月昴 · 死亡回归:存档不限次,读档 3 次,均不结束回合
 //
 // 注意(与旧实现一致的边界):读档会清空该玩家自己的存档点 ——
 // 旧 deepCloneState 把 savepoint 置 null,恢复时 Object.assign 覆盖回去。
 // 这条行为已记录为 KB-10,不在本次重构中修改。
-
-/** 引擎口径:只看是否轮到自己(与旧 canUseSkill 对 id=11 的特判一致) */
-function defCanUse(ctx, player) {
-  if (!player || !player.alive) return false;
-  return ctx.state.pending == null && !ctx.state.gameOver;
-}
 
 export default {
   id: 11,
@@ -53,6 +62,7 @@ export default {
       type: PENDING.SAVE_OR_LOAD,
       purpose: "skill:caiyueang",
       asker: player.uid,
+      options: [],
       data: {
         hasSavepoint: !!player.effects.savepoint,
         loadUses: player.resources.loadUses,
@@ -64,7 +74,10 @@ export default {
   onAnswer(ctx, player, pending, answer) {
     const { state } = ctx;
 
-    if (answer.choice === "save") {
+    // 作答来自命令层（外部输入）：收窄成 `{ choice }` 后照旧比较
+    const ans = answer as CaiyueangAnswer;
+
+    if (ans.choice === "save") {
       player.effects.savepoint = snapshotState(state);
       // 标记本回合已存档(下一回合清除,见 flow/turn.js)
       state.turn.savedBy = player.uid;
@@ -98,4 +111,4 @@ export default {
     );
     ctx.turn.extra();
   },
-};
+} satisfies CharacterDef;

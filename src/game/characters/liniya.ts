@@ -4,6 +4,16 @@ import { CAT } from "../core/log.js";
 import { applyDamage } from "../rules/damage.js";
 import { unitByUid } from "../core/units.js";
 import { baseCanUse, withTurnGate, otherUnitUids } from "./helpers.js";
+import type { CharacterDef } from "../types.js";
+
+/**
+ * 莉奈娅的作答形状（命令层写入，见 docs/classic-refactor-plan.md §4.4）：
+ * `{ targetUid, subSkill }` —— subSkill 1 = 偷防御牌，2 = DoT。
+ */
+interface LiniyaAnswer {
+  targetUid: number;
+  subSkill: number;
+}
 
 // 莉奈娅 · 青春之力的馈赠
 //   子技能 1:偷取目标防御牌 3 回合,对其伤害永久 +2
@@ -46,10 +56,12 @@ export default {
   },
 
   onAnswer(ctx, player, pending, answer) {
-    const target = unitByUid(ctx.state, answer.targetUid);
+    // 作答来自命令层（外部输入）：收窄成 `{ targetUid, subSkill }` 后照旧读取
+    const ans = answer as LiniyaAnswer;
+    const target = unitByUid(ctx.state, ans.targetUid);
     if (!target?.alive) return;
 
-    if (answer.subSkill === 1) {
+    if (ans.subSkill === 1) {
       player.effects.stealTarget = { uid: target.uid, turns: 3 };
       player.effects.damageBonus[target.uid] =
         (player.effects.damageBonus[target.uid] || 0) + 2;
@@ -90,7 +102,8 @@ export default {
       if (effects.stealTarget && effects.stealTarget.turns > 0) {
         const target = unitByUid(ctx.state, effects.stealTarget.uid);
         if (target?.alive && target.defensePile.length > 0) {
-          const stolen = target.defensePile.pop();
+          // length > 0 已保证 pop() 有值，`!` 只做类型收窄
+          const stolen = target.defensePile.pop()!;
           stolen.faceUp = true;
           player.defensePile.push(stolen);
           ctx.log(`${player.name} 偷取了 ${target.name} 的防御牌`);
@@ -100,4 +113,4 @@ export default {
       }
     },
   },
-};
+} satisfies CharacterDef;

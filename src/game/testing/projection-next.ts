@@ -5,31 +5,35 @@
 // 一切为了能和旧实现录制的基线逐字段比较。
 
 import { normId, projCard, projDeck, normalizeNumbers } from "./projection.js";
+import type { Card, GameState } from "../types.js";
 
 /** uid → 该玩家当前渲染序(= 旧实现的 index) */
-function indexOfUid(state, uid) {
+function indexOfUid(state: GameState, uid: number | null | undefined): number | null {
   if (uid == null) return null;
   const p = state.players.find((x) => x.uid === uid);
   return p ? p.index : null;
 }
 
 /** 旧实现用 index 当键,且对象整型键自动升序;这里保持一致 */
-function damageBonusJson(map, state) {
+function damageBonusJson(
+  map: Record<string, number> | null | undefined,
+  state: GameState,
+): string {
   const entries = Object.entries(map || {})
-    .map(([uid, v]) => [indexOfUid(state, Number(uid)), v])
-    .filter(([i]) => i !== null)
+    .map(([uid, v]): [number | null, number] => [indexOfUid(state, Number(uid)), v])
+    .filter((entry): entry is [number, number] => entry[0] !== null)
     .sort((a, b) => a[0] - b[0]);
-  const obj = {};
+  const obj: Record<string, number> = {};
   for (const [i, v] of entries) obj[i] = v;
   return JSON.stringify(obj);
 }
 
-function mapCards(cards) {
+function mapCards(cards: Card[] | null | undefined): unknown[][] | null {
   return cards ? cards.map((c) => [normId(c.id), c.value]) : null;
 }
 
-export function projectNext(state) {
-  const idx = (uid) => indexOfUid(state, uid);
+export function projectNext(state: GameState): unknown {
+  const idx = (uid: number | null | undefined) => indexOfUid(state, uid);
 
   return normalizeNumbers({
     round: state.round,

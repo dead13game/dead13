@@ -5,6 +5,14 @@ import { createFullDeck, shuffleDeck, drawCards } from "../../game/core/cards.js
 import { LOG_TYPE } from "../../game/gameLogger.js";
 import { addGold, healPlayer, removeRandomCard, addCards } from "./solo.js";
 import { SOLO_CARDS } from "./soloConstants.js";
+import type {
+  SoloAttrKey,
+  SoloCheckResult,
+  SoloEventDef,
+  SoloEventEffect,
+  SoloEventResult,
+  SoloState,
+} from "./types.js";
 
 /**
  * 事件定义：
@@ -12,7 +20,7 @@ import { SOLO_CARDS } from "./soloConstants.js";
  * check 项: attr(str/mag/def) + dc；success/fail 为各自结果
  * 结果字段: gold(±) / hp(±) / removeRandom(1) / addRareCard(1) / addCard(cardId)
  */
-export const SOLO_EVENTS = {
+export const SOLO_EVENTS: Record<string, SoloEventDef> = {
   hunter: {
     id: "hunter",
     title: "岔路猎手",
@@ -74,7 +82,11 @@ export const SOLO_EVENTS = {
  * 扑克检定：抽 1 张扑克（点数 1-13）+ 属性修正 vs DC；
  * ♥ 花色检定失败时可重抽 1 次（§3.1）。
  */
-export function rollCheck(state, attr, dc) {
+export function rollCheck(
+  state: SoloState,
+  attr: SoloAttrKey,
+  dc: number,
+): SoloCheckResult {
   const deck = shuffleDeck(createFullDeck(1));
   const card = drawCards(deck, 1).drawn[0];
   let total = card.value + state.player.attrs[attr];
@@ -90,13 +102,17 @@ export function rollCheck(state, attr, dc) {
 }
 
 /** 应用事件选项结果（含检定），返回结果摘要 */
-export function applyEventOption(state, eventId, optionIdx) {
+export function applyEventOption(
+  state: SoloState,
+  eventId: string,
+  optionIdx: number,
+): SoloEventResult {
   const ev = SOLO_EVENTS[eventId];
   if (!ev || !ev.options[optionIdx]) return { ok: false };
   const opt = ev.options[optionIdx];
 
-  let outcome = opt;
-  let check = null;
+  let outcome: SoloEventEffect = opt;
+  let check: SoloCheckResult | null = null;
   if (opt.type === "check") {
     check = rollCheck(state, opt.attr, opt.dc);
     outcome = check.success ? opt.success : opt.fail;
@@ -139,8 +155,8 @@ export function applyEventOption(state, eventId, optionIdx) {
   state.devLog.info(LOG_TYPE.SOLO_EVENT, `事件：${ev.title} → ${opt.text}`, {
     eventId,
     optionIdx,
-    check: check
-      ? { attr: opt.attr, dc: opt.dc, total: check.total, success: check.success, rerolled: check.rerolled, card: check.card?.rank + check.card?.suit }
+    check: check && opt.type === "check"
+      ? { attr: opt.attr, dc: opt.dc, total: check.total, success: check.success, rerolled: check.rerolled, card: check.card?.rank! + check.card?.suit! }
       : null,
     outcome: {
       gold: outcome.gold || 0,

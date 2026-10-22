@@ -1,4 +1,5 @@
 import { CAT } from "../core/log.js";
+import type { CharacterDef } from "../types.js";
 
 // 玛薇卡 · 焚焰(被动):每破除陷阱/击穿防御 +1 斗志,下次攻击 +斗志层数(上限 5)
 //
@@ -33,10 +34,9 @@ export default {
       if (attacker.characterId !== 6) return;
       if (defenseConsumed <= 0 || trapTriggered) return;
 
-      attacker.char.fightingSpirit = Math.min(
-        5,
-        attacker.char.fightingSpirit + defenseConsumed,
-      );
+      // stateSchema 把斗志初始化为 0；`!` 只做类型收窄，不改变运行时
+      const spirit = attacker.char.fightingSpirit!;
+      attacker.char.fightingSpirit = Math.min(5, spirit + defenseConsumed);
       ctx.log(`斗志 ${attacker.char.fightingSpirit}层`);
       ctx.devDebug(
         CAT.SKILL,
@@ -44,4 +44,4 @@ export default {
       );
     },
   },
-};
+} satisfies CharacterDef;

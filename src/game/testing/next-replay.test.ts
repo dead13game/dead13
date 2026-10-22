@@ -34,22 +34,101 @@ import {
 } from "../flow/commands.js";
 import { installReplayRandom } from "./seededRandom.js";
 import { projectNext } from "./projection-next.js";
-import { firstDiff, formatDiff } from "./compare.js";
+import { firstDiff } from "./compare.js";
 import { buildScriptedCases, nextScenarioApi } from "./scenarios.js";
+import type { Ctx } from "../types.js";
+
+// ── 回放基线(fixtures/classic-v1.json.gz)的形状 ──────────────
+// 基线是旧适配器录制的 JSON:外部输入,先声明形状再逐字段读。
+
+/** 一条命令的参数(基线里出现过这些键,值都是标量/数组) */
+interface FixtureArgs {
+  targetIndex?: number;
+  kind?: string;
+  trapIdx?: number;
+  baitIdx?: number;
+  subSkill?: number;
+  order?: number[];
+  choice?: string;
+}
+
+interface FixtureStep {
+  cmd: string;
+  type: string;
+  args: FixtureArgs;
+  /** 该步执行后的投影(projectLegacy 产物) */
+  snap: unknown;
+  logs: string[];
+  sounds: string[];
+  rngBefore: number;
+  rngAfter: number;
+}
+
+interface FixtureConfig {
+  id: string;
+  seed: number;
+  count: number;
+  weather: boolean;
+  difficulty?: string;
+  chars: number[];
+  /** 记录时使用的起始回合(可缺省,回放按 1 处理) */
+  startRound?: number;
+}
+
+interface FixtureTrace {
+  id: string;
+  config: FixtureConfig;
+  initial: unknown;
+  steps: FixtureStep[];
+  notes: unknown;
+  final: unknown;
+  finished: boolean;
+  truncated: boolean;
+  stepCount: number;
+  logCount: number;
+  /** 录制的随机数序列(回放时逐位取用) */
+  rng: number[];
+}
+
+interface FixtureCase {
+  id: string;
+  config: FixtureConfig;
+  trace: FixtureTrace;
+}
+
+interface Fixture {
+  version: number;
+  adapter: string;
+  recordedAt: string;
+  cases: FixtureCase[];
+}
+
+/** 回放失败点 */
+interface ReplayFailure {
+  stepIndex: number;
+  cmd: string;
+  reason: string;
+  path: string;
+  base: unknown;
+  next: unknown;
+}
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE = path.join(HERE, "fixtures", "classic-v1.json.gz");
 
+// 不变量:基线文件由 tests/record 脚本产出,结构见上方 Fixture 声明
 const fixture = JSON.parse(
   zlib.gunzipSync(fs.readFileSync(FIXTURE)).toString("utf8"),
-);
+) as Fixture;
 const scenarioById = new Map(buildScriptedCases().map((c) => [c.id, c]));
 
-const uidByIndex = (ctx, index) =>
+const uidByIndex = (ctx: Ctx, index: number | undefined): number | null =>
   ctx.state.players.find((p) => p.index === index)?.uid ?? null;
 
-function runCommand(ctx, step) {
+function runCommand(ctx: Ctx, step: FixtureStep): unknown {
   const a = step.args ?? {};
+  // 基线不变量:录制时带 targetIndex 的命令一定有对应玩家、gambleSubmit 一定带齐
+  // trapIdx/baitIdx;`!` 只擦类型,运行期仍是原值(与旧回放逐位一致)。
   switch (step.type) {
     case "attack":
       return attack(ctx);
@@ -58,9 +137,9 @@ function runCommand(ctx, step) {
     case "gamble":
       return gamble(ctx);
     case "gambleSubmit":
-      return gambleSubmit(ctx, a.trapIdx, a.baitIdx);
+      return gambleSubmit(ctx, a.trapIdx!, a.baitIdx!);
     case "attackTarget":
-      return attackTarget(ctx, uidByIndex(ctx, a.targetIndex));
+      return attackTarget(ctx, uidByIndex(ctx, a.targetIndex)!);
     case "skill":
       return skill(ctx);
     case "skillTarget":
@@ -77,7 +156,7 @@ function runCommand(ctx, step) {
     case "ally":
       return ally(ctx);
     case "allyTarget":
-      return allyTarget(ctx, uidByIndex(ctx, a.targetIndex));
+      return allyTarget(ctx, uidByIndex(ctx, a.targetIndex)!);
     case "betray":
       return betray(ctx);
     case "holyWord":
@@ -90,7 +169,7 @@ function runCommand(ctx, step) {
   }
 }
 
-function replayCase(entry) {
+function replayCase(entry: FixtureCase): ReplayFailure | null {
   const config = entry.config;
   const origin = scenarioById.get(entry.id);
   const rng = installReplayRandom(entry.trace.rng);

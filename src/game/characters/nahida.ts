@@ -1,6 +1,7 @@
 import { PENDING } from "../flow/pending.js";
 import { CAT } from "../core/log.js";
 import { baseCanUse } from "./helpers.js";
+import type { Card, CharacterDef } from "../types.js";
 
 // 纳西妲 · 智慧之殿堂:查看牌库顶 5 张任意重排,随后再行动一次
 export default {
@@ -32,6 +33,7 @@ export default {
       type: PENDING.SCRY,
       purpose: "skill:nahida",
       asker: player.uid,
+      options: [],
       data: { cards },
     });
     ctx.log(`${player.name} 释放智慧之殿堂`);
@@ -39,7 +41,12 @@ export default {
 
   onAnswer(ctx, player, pending, order) {
     if (!Array.isArray(order)) return;
-    const cards = order.map((i) => pending.data.cards[i]).filter(Boolean);
+    // 作答与 pending.data 都是命令层写入的外部形状（types.ts 的约定）：
+    // 纳西妲的作答是「牌序索引数组」，data.cards 是本次查看的 5 张牌。
+    // 收窄后直接索引，与迁移前 `pending.data.cards[i]` 的取值完全一致。
+    const orderIds = order as number[];
+    const data = pending.data as { cards: Card[] };
+    const cards = orderIds.map((i) => data.cards[i]).filter(Boolean);
     cards.reverse();
     cards.forEach((c) => {
       c.faceUp = false;
@@ -53,4 +60,4 @@ export default {
     });
     ctx.turn.extra();
   },
-};
+} satisfies CharacterDef;

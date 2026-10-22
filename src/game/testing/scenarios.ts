@@ -5,17 +5,55 @@
 //
 // 牌堆顶控制:drawCards 用 pop,所以 forceDraw(a, b) 先抽 a 再抽 b。
 
-export function makeCard(value, id) {
+import type { Card, GameState, Rank } from "../types.js";
+
+/** 场景脚本里的一条命令(args 原样喂给回放器) */
+export interface ScriptStep {
+  type: string;
+  args?: {
+    targetIndex?: number;
+    kind?: string;
+    choice?: string;
+    subSkill?: number;
+    order?: number[];
+  };
+}
+
+/** 场景 api:新旧适配器各实现一份,场景只依赖这份接口 */
+export interface ScenarioApi {
+  forceDraw(...values: number[]): void;
+  setTrap(playerIndex: number, value: number, id: string): void;
+  addDefense(playerIndex: number, value: number, id: string): void;
+  setHp(playerIndex: number, hp: number): void;
+  setArtifactAll(id: number): void;
+  setBreakAll(n: number): void;
+  setHolyWordAll(n: number): void;
+}
+
+/** 一个脚本化场景 */
+export interface ScriptedCase {
+  id: string;
+  seed: number;
+  chars: number[];
+  weather: boolean;
+  startRound: number;
+  limit: number;
+  script: ScriptStep[];
+  applyPlan(api: ScenarioApi): void;
+}
+
+export function makeCard(value: number, id?: string): Card {
   return {
     id: id ?? `X-${value}`,
     suit: "♠",
-    rank: String(value),
+    // 合成牌的 rank 直接取点数字符串("13"/"9"),仅供对拍基线使用,不在 Rank 枚举内
+    rank: String(value) as Rank,
     value,
     faceUp: false,
   };
 }
 
-export function buildScriptedCases() {
+export function buildScriptedCases(): ScriptedCase[] {
   return [
     {
       id: "script-ally-betray",
@@ -239,8 +277,26 @@ export function buildScriptedCases() {
   ];
 }
 
+/**
+ * 旧实现的局面形状(顶层 resources/statusEffects 时代)。
+ * 旧适配器已下线,这里只保留字段声明给 legacyScenarioApi 用。
+ */
+export interface LegacyScenarioPlayer {
+  hp: number;
+  trap: Card | null;
+  defensePile: Card[];
+  artifactId: number | null;
+  breakCount: number;
+  holyWordUses: number;
+}
+
+export interface LegacyScenarioState {
+  deck: Card[];
+  players: LegacyScenarioPlayer[];
+}
+
 /** 旧实现的场景 api(给 adapters/legacy.js 用) */
-export function legacyScenarioApi(state) {
+export function legacyScenarioApi(state: LegacyScenarioState): ScenarioApi {
   return {
     forceDraw(...values) {
       for (let i = values.length - 1; i >= 0; i--) {
@@ -272,7 +328,7 @@ export function legacyScenarioApi(state) {
 }
 
 /** 新内核的场景 api(给 next-replay 测试用) */
-export function nextScenarioApi(state) {
+export function nextScenarioApi(state: GameState): ScenarioApi {
   return {
     forceDraw(...values) {
       for (let i = values.length - 1; i >= 0; i--) {
@@ -292,7 +348,12 @@ export function nextScenarioApi(state) {
       state.players[playerIndex].hp = hp;
     },
     setArtifactAll(id) {
-      for (const p of state.players) p.artifact.id = id;
+      for (const p of state.players) {
+        // 圣遗物表用数字 id;PlayerArtifact.id 声明为 string|null,
+        // 这里借一个宽类型视图赋值,不改运行期(仍是同一个 artifact 对象)。
+        const artifact: { id: number | string | null } = p.artifact;
+        artifact.id = id;
+      }
     },
     setBreakAll(n) {
       for (const p of state.players) p.resources.breakCount = n;

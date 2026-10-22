@@ -31,34 +31,46 @@ import {
   parseDiceWeights,
   rollWeightedDice,
 } from "./diceProbabilities.js";
+import type { RngFn, DiceWarMatch, DiceWarPhaseId, DiceWarState } from "./diceWar.js";
+
+/**
+ * rollDiceN 的第三参历史上传的是「返回 rng 的函数」而不是 rng 本身
+ * （`() => diceRng(7)`）。为了完全保持既有测试语义与运行时行为，这里只做类型对齐。
+ */
+const rngFactory7 = diceRng(7);
 
 /**
  * 生成可复现的 rng：掷出指定点数和（2~12）。
  * 基于 骰子概率.csv 的累计权重区间，取桶中点，与 rollWeightedDice 完全一致。
  */
-function diceRng(sum) {
+function diceRng(sum: number): () => number {
   const b = DICE_BOUNDS.find((x) => x.sum === sum);
   if (!b) throw new Error(`非法骰子点数: ${sum}`);
   return () => (b.lo + b.hi) / 2;
 }
 
 /** 打一轮：先手 aSum，后手 bSum（可复现） */
-function playRound(state, aSum, bSum) {
+function playRound(state: DiceWarState, aSum: number, bSum: number): void {
   rollDice(state, diceRng(aSum));
   rollDice(state, diceRng(bSum));
 }
 
 /** 连续打 count 轮，段间自动继续（最后一轮若进入段间则保留，供断言） */
-function playRounds(state, count, aSum, bSum) {
+function playRounds(
+  state: DiceWarState,
+  count: number,
+  aSum: number,
+  bSum: number,
+): void {
   for (let i = 0; i < count; i++) {
     playRound(state, aSum, bSum);
-    const m = state.currentMatch;
+    const m = state.currentMatch!;
     if (i < count - 1 && m.phase === "segment") continueAfterSegment(state);
   }
 }
 
 /** 模拟打完当前单局（随机骰子） */
-function simulateMatch(state) {
+function simulateMatch(state: DiceWarState): void {
   let guard = 0;
   while (state.currentMatch && state.currentMatch.phase !== "over" && guard < 300) {
     const m = state.currentMatch;
@@ -69,7 +81,7 @@ function simulateMatch(state) {
 }
 
 /** 构造一个指定阶段的对阵（默认双方 roster[0] vs roster[1]） */
-function craftPhase(phase, format = "classic", a = 0, b = 1) {
+function craftPhase(phase: DiceWarPhaseId, format = "classic", a = 0, b = 1): DiceWarState {
   const s = createDiceWar(format);
   startTournament(s, () => 0.5, format);
   s.phase = phase;
@@ -82,7 +94,7 @@ function craftPhase(phase, format = "classic", a = 0, b = 1) {
 }
 
 /** 构造一个"决赛阶段"状态（A=roster[0]，B=roster[1]） */
-function craftFinal(format = "classic") {
+function craftFinal(format = "classic"): DiceWarState {
   return craftPhase("final", format, 0, 1);
 }
 
@@ -114,11 +126,16 @@ describe("骰子", () => {
   });
 
   it("diceRng 能精确控制骰子总和", () => {
-    expect(rollDice({ currentMatch: { phase: "rollA", aRoll: null } }, diceRng(12))).toEqual({
+    // rollDice 只读 currentMatch，这里按最小状态构造（断言仅补齐未用到的字段）
+    expect(
+      rollDice({ currentMatch: { phase: "rollA", aRoll: null } } as unknown as DiceWarState, diceRng(12)),
+    ).toEqual({
       player: "a",
       value: 12,
     });
-    expect(rollDice({ currentMatch: { phase: "rollA", aRoll: null } }, diceRng(2))).toEqual({
+    expect(
+      rollDice({ currentMatch: { phase: "rollA", aRoll: null } } as unknown as DiceWarState, diceRng(2)),
+    ).toEqual({
       player: "a",
       value: 2,
     });
@@ -128,7 +145,7 @@ describe("骰子", () => {
 describe("骰子概率表（src/game/骰子概率.csv）", () => {
   it("CSV 解析出 2~12 的权重并升序排列", () => {
     const csv = "点数和,组合数,概率,大约概率\n2,1,1/36,2.78%\n3,2,2/36,5.56%\n12,1,1/36,2.78%\n7,6,6/36,16.67%\n";
-    const w = parseDiceWeights(csv);
+    const w = parseDiceWeights(csv)!;
     expect(w.map((x) => x.sum)).toEqual([2, 3, 7, 12]);
     expect(w.map((x) => x.weight)).toEqual([1, 2, 6, 1]);
   });
@@ -173,16 +190,16 @@ describe("锦标赛结构", () => {
     const s = createDiceWar();
     startTournament(s, () => 0.5);
     startNextMatch(s);
-    const m = s.currentMatch;
+    const m = s.currentMatch!;
     expect(m.phase).toBe("rollA");
     expect(getMatchupLabel(s)).toBe("第1场");
 
     const ra = rollDice(s, diceRng(8));
-    expect(ra.player).toBe("a");
+    expect(ra!.player).toBe("a");
     expect(m.phase).toBe("rollB");
 
     const rb = rollDice(s, diceRng(5));
-    expect(rb.player).toBe("b");
+    expect(rb!.player).toBe("b");
     expect(m.phase).toBe("rollA");
     expect(m.round).toBe(1);
     expect(m.a.score).toBe(8);
@@ -194,7 +211,7 @@ describe("锦标赛结构", () => {
     const s = createDiceWar();
     startTournament(s, () => 0.5);
     startNextMatch(s);
-    const m = s.currentMatch;
+    const m = s.currentMatch!;
     playRounds(s, 9, 8, 4);
     expect(m.round).toBe(9);
     expect(m.phase).toBe("rollA");
@@ -215,7 +232,7 @@ describe("锦标赛结构", () => {
     const s = createDiceWar();
     startTournament(s, () => 0.5);
     startNextMatch(s);
-    const m = s.currentMatch;
+    const m = s.currentMatch!;
     playRounds(s, 30, 7, 7); // 双方 210:210
     expect(m.round).toBe(30);
     expect(m.overtime).toBe(true);
@@ -226,7 +243,7 @@ describe("锦标赛结构", () => {
     expect(m.round).toBe(31);
     expect(m.phase).toBe("over");
     expect(m.winner).toBe("a");
-    expect(m.result.overtime).toBe(true);
+    expect(m.result!.overtime).toBe(true);
     expect(m.a.score).toBe(222);
     expect(m.b.score).toBe(212);
   });
@@ -268,8 +285,8 @@ describe("锦标赛结构", () => {
     const first = startNextMatch(s);
     expect(first).not.toBeNull();
     expect(s.matchIndex).toBe(0);
-    expect(first.a.name).toBe(ROSTER[s.matchups[0].a].name);
-    expect(first.b.name).toBe(ROSTER[s.matchups[0].b].name);
+    expect(first!.a.name).toBe(ROSTER[s.matchups[0].a].name);
+    expect(first!.b.name).toBe(ROSTER[s.matchups[0].b].name);
   });
 
   it("完整世锦赛：冠军产生，逐阶段场数与晋级人数正确", () => {
@@ -291,7 +308,7 @@ describe("锦标赛结构", () => {
     expect(s.champion).toBeLessThan(ROSTER.length);
 
     // 每个阶段都打满：16强 8 场 → 8强 4 场 → 半决赛 2 场 → 决赛 4~7 局
-    const byPhase = (ph) => s.finishedMatches.filter((m) => m.phase === ph);
+    const byPhase = (ph: DiceWarPhaseId) => s.finishedMatches.filter((m) => m.phase === ph);
     expect(byPhase("r16").length).toBe(8);
     expect(byPhase("qf").length).toBe(4);
     expect(byPhase("sf").length).toBe(2);
@@ -310,7 +327,7 @@ describe("锦标赛结构", () => {
     expect(finalPair.size).toBe(2);
 
     // 决赛大比分与胜场一致
-    const sc = getSeriesScore(s);
+    const sc = getSeriesScore(s)!;
     expect(sc).not.toBeNull();
     expect(Math.max(sc.aWins, sc.bWins)).toBe(FINAL_WINS);
     expect(finalMatches.length).toBe(sc.aWins + sc.bWins);
@@ -327,33 +344,33 @@ describe("连续掷骰 rollDiceN（10连）", () => {
 
   it("从第 1 轮起一枚 10 连：掷满 20 次、快进 10 轮、停在段间解说点", () => {
     const s = freshMatch();
-    const rolled = rollDiceN(s, 20, () => diceRng(7)); // 每轮 7v7（等分不触发平局）
+    const rolled = rollDiceN(s, 20, rngFactory7); // 每轮 7v7（等分不触发平局）
     expect(rolled).toBe(20);
-    expect(s.currentMatch.round).toBe(10);
+    expect(s.currentMatch!.round).toBe(10);
     // 第 10 轮整结束进入段间（解说点），10连不可越过它继续
-    expect(s.currentMatch.phase).toBe("segment");
+    expect(s.currentMatch!.phase).toBe("segment");
   });
 
   it("n 有余量时绝不越过解说点：距段末不足 20 次 → 停在段间", () => {
     const s = freshMatch();
     // 先手动掷到第 9 轮完 (round=9, phase=rollA)：还差 1 整轮(2次)就到第10轮段末
-    for (let i = 0; i < 18; i++) rollDice(s, () => diceRng(7)); // 18次 = 9轮
-    expect(s.currentMatch.round).toBe(9);
-    expect(s.currentMatch.phase).toBe("rollA");
-    const rolled = rollDiceN(s, 20, () => diceRng(7));
+    for (let i = 0; i < 18; i++) rollDice(s, rngFactory7); // 18次 = 9轮
+    expect(s.currentMatch!.round).toBe(9);
+    expect(s.currentMatch!.phase).toBe("rollA");
+    const rolled = rollDiceN(s, 20, rngFactory7);
     expect(rolled).toBe(2); // 只允许掷完第10轮即停，撞段间
-    expect(s.currentMatch.round).toBe(10);
-    expect(s.currentMatch.phase).toBe("segment");
+    expect(s.currentMatch!.round).toBe(10);
+    expect(s.currentMatch!.phase).toBe("segment");
   });
 
   it("单局结束（over）后再次 10 连无可掷、也不自动推进下一场", () => {
     const s = freshMatch();
     // A 每轮 12 分大胜 30 轮 → 干净落 over（playRounds 自动 continue 段间）
     playRounds(s, 30, 12, 2);
-    expect(s.currentMatch.phase).toBe("over");
-    const again = rollDiceN(s, 20, () => diceRng(7));
+    expect(s.currentMatch!.phase).toBe("over");
+    const again = rollDiceN(s, 20, rngFactory7);
     expect(again).toBe(0); // over 后无可掷
-    expect(s.currentMatch.phase).toBe("over"); // 未越界推进
+    expect(s.currentMatch!.phase).toBe("over"); // 未越界推进
   });
 });
 
@@ -364,12 +381,12 @@ describe("决赛七局四胜", () => {
     while (startNextMatch(s)) {
       matches++;
       playRounds(s, 30, 12, 2); // A 360 - B 60
-      expect(s.currentMatch.phase).toBe("over");
+      expect(s.currentMatch!.phase).toBe("over");
     }
     expect(matches).toBe(4);
-    expect(s.champion).toBe(s.series.a);
-    expect(s.series.aWins).toBe(4);
-    expect(s.series.bWins).toBe(0);
+    expect(s.champion).toBe(s.series!.a);
+    expect(s.series!.aWins).toBe(4);
+    expect(s.series!.bWins).toBe(0);
   });
 
   it("A 0:3 落后连扳四局：7 局打满逆转夺冠", () => {
@@ -379,12 +396,12 @@ describe("决赛七局四胜", () => {
       matches++;
       const aWins = matches <= 3;
       playRounds(s, 30, aWins ? 2 : 12, aWins ? 12 : 2);
-      expect(s.currentMatch.phase).toBe("over");
+      expect(s.currentMatch!.phase).toBe("over");
     }
     expect(matches).toBe(7);
-    expect(s.champion).toBe(s.series.a);
-    expect(s.series.aWins).toBe(4);
-    expect(s.series.bWins).toBe(3);
+    expect(s.champion).toBe(s.series!.a);
+    expect(s.series!.aWins).toBe(4);
+    expect(s.series!.bWins).toBe(3);
   });
 });
 
@@ -394,13 +411,13 @@ describe("解说员请求构造", () => {
     startTournament(s, () => 0.5);
     startNextMatch(s);
     playRounds(s, 10, 8, 6); // 前段：A 80 - B 60
-    expect(s.currentMatch.phase).toBe("segment");
+    expect(s.currentMatch!.phase).toBe("segment");
     return s;
   }
 
   it("前段：只给数据，不做胜率估算", () => {
     const s = setupAtSegment();
-    const m = s.currentMatch;
+    const m = s.currentMatch!;
     const { system, user } = buildCommentaryRequest(s, m, KIND.PRE);
     expect(system).toContain("前段");
     expect(system).toContain("不计算胜率");
@@ -416,14 +433,14 @@ describe("解说员请求构造", () => {
 
   it("中段：包含粗略胜率估算要求", () => {
     const s = setupAtSegment();
-    const { system } = buildCommentaryRequest(s, s.currentMatch, KIND.MID);
+    const { system } = buildCommentaryRequest(s, s.currentMatch!, KIND.MID);
     expect(system).toContain("中段");
     expect(system).toContain("胜率");
   });
 
   it("末段：宣布结果；一局定胜负阶段不带系列赛大比分", () => {
     const s = setupAtSegment();
-    const { system, user } = buildCommentaryRequest(s, s.currentMatch, KIND.FINAL);
+    const { system, user } = buildCommentaryRequest(s, s.currentMatch!, KIND.FINAL);
     expect(system).toContain("宣布比赛结果");
     const snap = JSON.parse(user);
     expect(snap.特殊事件).toEqual(expect.any(Array));
@@ -434,14 +451,14 @@ describe("解说员请求构造", () => {
 
   it("决赛：系列赛大比分与局制进入快照", () => {
     const s = craftFinal();
-    let lastMatch = null;
+    let lastMatch: DiceWarMatch | null = null;
     while (startNextMatch(s)) {
       playRounds(s, 30, 12, 2); // A 每局必胜
       lastMatch = s.currentMatch;
-      expect(lastMatch.phase).toBe("over");
+      expect(lastMatch!.phase).toBe("over");
     }
-    expect(s.champion).toBe(s.series.a);
-    const { system, user } = buildCommentaryRequest(s, lastMatch, KIND.CHAMPION);
+    expect(s.champion).toBe(s.series!.a);
+    const { system, user } = buildCommentaryRequest(s, lastMatch!, KIND.CHAMPION);
     expect(system).toContain("冠军");
     const snap = JSON.parse(user);
     expect(snap.冠军).toBe(ROSTER[0].name);
@@ -471,7 +488,7 @@ describe("登神长阶赛制", () => {
   it("16进8 一局定胜负：一局即定胜负晋级", () => {
     const s = craftPhase("r16", "ladder");
     startNextMatch(s);
-    const m = s.currentMatch;
+    const m = s.currentMatch!;
     playRounds(s, 30, 12, 2); // A 胜
     expect(m.phase).toBe("over");
     expect(m.seriesDone).toBe(true);
@@ -484,7 +501,7 @@ describe("登神长阶赛制", () => {
     const pairs = [];
     let games = 0;
     while (startNextMatch(s)) {
-      pairs.push(`${s.currentMatch.a.name}-${s.currentMatch.b.name}`);
+      pairs.push(`${s.currentMatch!.a.name}-${s.currentMatch!.b.name}`);
       expect(getMatchupLabel(s)).toContain("局");
       playRounds(s, 30, 12, 2); // A 每局必胜
       games++;
@@ -492,8 +509,8 @@ describe("登神长阶赛制", () => {
     }
     expect(games).toBe(3); // 3:0 直接拿下
     expect(new Set(pairs).size).toBe(1); // 全程同一对选手
-    expect(s.series.aWins).toBe(3);
-    expect(s.series.bWins).toBe(0);
+    expect(s.series!.aWins).toBe(3);
+    expect(s.series!.bWins).toBe(0);
     expect(s.advancers).toEqual([0]);
   });
 
@@ -504,13 +521,13 @@ describe("登神长阶赛制", () => {
     while (startNextMatch(s)) {
       const aWin = seq[games];
       playRounds(s, 30, aWin ? 12 : 2, aWin ? 2 : 12);
-      expect(getSeriesScore(s).winTarget).toBe(3);
+      expect(getSeriesScore(s)!.winTarget).toBe(3);
       games++;
       if (s.advancers.length) break;
     }
     expect(games).toBe(5);
-    expect(s.series.aWins).toBe(3);
-    expect(s.series.bWins).toBe(2);
+    expect(s.series!.aWins).toBe(3);
+    expect(s.series!.bWins).toBe(2);
     expect(s.advancers).toEqual([0]);
   });
 
@@ -523,7 +540,7 @@ describe("登神长阶赛制", () => {
       if (s.advancers.length) break;
     }
     expect(games).toBe(6); // 6:0
-    expect(s.series.aWins).toBe(6);
+    expect(s.series!.aWins).toBe(6);
     expect(s.advancers).toEqual([0]);
   });
 
@@ -537,8 +554,8 @@ describe("登神长阶赛制", () => {
     }
     expect(games).toBe(10); // 10:0
     expect(s.champion).toBe(0);
-    expect(s.series.aWins).toBe(10);
-    expect(getSeriesScore(s).winTarget).toBe(10);
+    expect(s.series!.aWins).toBe(10);
+    expect(getSeriesScore(s)!.winTarget).toBe(10);
   });
 
   it("完整登神长阶：冠军产生，各阶段局数落在规则范围内", () => {
@@ -555,7 +572,7 @@ describe("登神长阶赛制", () => {
       guard++;
     }
     expect(s.champion).not.toBeNull();
-    const byPhase = (ph) => s.finishedMatches.filter((m) => m.phase === ph);
+    const byPhase = (ph: DiceWarPhaseId) => s.finishedMatches.filter((m) => m.phase === ph);
     expect(byPhase("r16").length).toBe(8); // 8 组 × 1 局
     const qf = byPhase("qf").length;
     expect(qf).toBeGreaterThanOrEqual(4 * 3); // ≥ 4 组 × 3 局

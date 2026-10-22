@@ -8,10 +8,18 @@ import { defense, attack } from "../flow/commands.js";
 import { createClassicMode } from "../modes/classic.js";
 import { createMatchMode, restoreMatchMode } from "../modes/match.js";
 import { createSeededRng } from "../core/rng.js";
+import { createPlayerDefaults } from "../core/player.js";
 import { projectNext } from "../testing/projection-next.js";
 import { firstDiff } from "../testing/compare.js";
 import { SAVE_VERSION, normalizePlayer } from "./schema.js";
 import { deserializeGameState, serializeGameState } from "./save.js";
+
+/** 存档 mode 段里 match 模式的进度数据(createMatchMode().serialize() 的产物) */
+interface SavedMatchData {
+  score: number[];
+  matchRound: number;
+  substitutionsLeft: number;
+}
 
 function makeClassic(chars = [1, 2, 6, 9]) {
   const state = createGameState();
@@ -42,7 +50,7 @@ describe("persistence/save — 存档往返", () => {
     expect(ok).toBe(true);
     const diff = firstDiff(projectNext(state), projectNext(restored), "$");
     expect(diff, diff ? `${diff.path}: 旧=${JSON.stringify(diff.a)} 新=${JSON.stringify(diff.b)}` : "").toBeNull();
-    expect(restored.mode.id).toBe("classic");
+    expect(restored.mode?.id).toBe("classic");
   });
 
   it("旧版本存档直接拒绝(不做迁移)", () => {
@@ -59,6 +67,7 @@ describe("persistence/save — 存档往返", () => {
     initGame(state, { chars: [6, 1], weather: false, startRound: 1, mode });
     state.towers = [
       {
+        ...createPlayerDefaults(),
         uid: 101,
         index: 100,
         kind: "tower",
@@ -71,11 +80,11 @@ describe("persistence/save — 存档往返", () => {
         defensePile: [],
         trap: null,
         bait: null,
-        relations: { attackedThisRound: 0 },
       },
     ];
     state.summons = [
       {
+        ...createPlayerDefaults(),
         uid: 500001,
         index: 200,
         kind: "drone",
@@ -106,7 +115,7 @@ describe("persistence/save — 存档往返", () => {
     });
     expect(ok).toBe(true);
     expect(
-      restored.players.find((p) => p.characterId === 6).resources.skillUses,
+      restored.players.find((p) => p.characterId === 6)!.resources.skillUses,
     ).toBe(Infinity);
     expect(restored.towers).toHaveLength(1);
     expect(restored.summons).toHaveLength(1);
@@ -150,8 +159,9 @@ describe("persistence/save — 存档往返", () => {
     deserializeGameState(restored, save, { modeFactory: () => createClassicMode() });
 
     expect(restored.step).toBe("attackShowCard");
-    expect(restored.pending.type).toBe("target");
-    expect(restored.pendingAttackCard.value).toBe(13);
+    expect(restored.pending).not.toBeNull();
+    expect(restored.pending?.type).toBe("target");
+    expect(restored.pendingAttackCard?.value).toBe(13);
   });
 });
 
@@ -171,23 +181,31 @@ describe("persistence/save — 比赛进度", () => {
     mode.match.matchRound = 47;
     state.round = 47;
     mode.match.substitutionsLeft = 5;
-    state.players.find((p) => p.characterId === 1).alive = false;
+    state.players.find((p) => p.characterId === 1)!.alive = false;
     mode.checkGameOver(ctx);
 
     const save = JSON.parse(JSON.stringify(serializeGameState(state)));
     expect(save.mode.id).toBe("match");
-    expect(save.mode.match.score).toEqual([3, 3]); // 对手进球后
-    expect(save.mode.match.matchRound).toBe(state.round);
+    // 存档 mode 扩展段的形状由 match 模式 serialize() 决定
+    const savedMatch = save.mode.match as SavedMatchData;
+    expect(savedMatch.score).toEqual([3, 3]); // 对手进球后
+    expect(savedMatch.matchRound).toBe(state.round);
 
     const restored = createGameState();
     const ok = deserializeGameState(restored, save, {
-      modeFactory: (md) => restoreMatchMode(md, { rng: createSeededRng(1) }),
+      // 存档 mode 段是外部 JSON;这里按 restoreMatchMode 的入参契约收窄
+      modeFactory: (md) =>
+        restoreMatchMode(md as Parameters<typeof restoreMatchMode>[0], {
+          rng: createSeededRng(1),
+        }),
     });
     expect(ok).toBe(true);
-    expect(restored.mode.id).toBe("match");
-    expect(restored.mode.match.score).toEqual([3, 3]);
-    expect(restored.mode.match.matchRound).toBe(47);
-    expect(restored.mode.match.substitutionsLeft).toBe(5);
+    const restoredMode = restored.mode;
+    expect(restoredMode?.id).toBe("match");
+    const restoredMatch = restoredMode?.match as SavedMatchData;
+    expect(restoredMatch.score).toEqual([3, 3]);
+    expect(restoredMatch.matchRound).toBe(47);
+    expect(restoredMatch.substitutionsLeft).toBe(5);
     // 读档后可以继续打
     expect(restored.turn.suspend).toBe(true);
   });

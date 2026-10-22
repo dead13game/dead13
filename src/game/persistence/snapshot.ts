@@ -7,9 +7,37 @@
 
 import { STEP } from "../core/constants.js";
 import { clonePlain } from "./schema.js";
+import type {
+  Card,
+  Ctx,
+  GameState,
+  Phase,
+  Player,
+  PlayerSavepoint,
+  WeatherId,
+} from "../types.js";
+
+/**
+ * 快照形状。
+ * 用 type 而非 interface：player.effects.savepoint 的类型是
+ * `Record<string, unknown>`,对象字面量类型才有隐式索引签名,能直接赋过去。
+ */
+export type StateSnapshot = {
+  players: Player[];
+  towers: Player[];
+  summons: Player[];
+  unitSeq: number;
+  deck: Card[];
+  grave: Card[];
+  currentPlayerIndex: number;
+  phase: Phase;
+  round: number;
+  currentWeather: WeatherId | null;
+  peaceRounds: number;
+};
 
 /** 深拷贝一份牌局快照 */
-export function snapshotState(state) {
+export function snapshotState(state: GameState): StateSnapshot {
   return {
     players: state.players.map((p) => {
       const copy = clonePlain(p);
@@ -30,30 +58,32 @@ export function snapshotState(state) {
 }
 
 /** 从快照恢复(原地覆盖,引用不变) */
-export function restoreState(ctx, snap) {
+export function restoreState(ctx: Ctx, snap: PlayerSavepoint): boolean {
   const { state } = ctx;
+  // 不变量:存档点只由 snapshotState 写入,结构即 StateSnapshot
+  const saved = snap as StateSnapshot;
   state.players.forEach((p, i) => {
-    const saved = snap.players[i];
-    if (!saved) return;
-    Object.assign(p, structuredClone(saved));
+    const savedPlayer = saved.players[i];
+    if (!savedPlayer) return;
+    Object.assign(p, structuredClone(savedPlayer));
   });
 
   // 塔 / 召唤物按 uid 恢复（数量可能变化，直接替换数组）
-  if (Array.isArray(snap.towers)) {
-    state.towers = snap.towers.map((t) => structuredClone(t));
+  if (Array.isArray(saved.towers)) {
+    state.towers = saved.towers.map((t) => structuredClone(t));
   }
-  if (Array.isArray(snap.summons)) {
-    state.summons = snap.summons.map((s) => structuredClone(s));
+  if (Array.isArray(saved.summons)) {
+    state.summons = saved.summons.map((s) => structuredClone(s));
   }
-  if (snap.unitSeq !== undefined) state.unitSeq = snap.unitSeq;
+  if (saved.unitSeq !== undefined) state.unitSeq = saved.unitSeq;
 
-  state.deck = snap.deck.map((c) => ({ ...c }));
-  state.grave = snap.grave.map((c) => ({ ...c }));
-  state.currentPlayerIndex = snap.currentPlayerIndex;
-  state.phase = snap.phase;
-  state.round = snap.round;
-  state.currentWeather = snap.currentWeather;
-  state.peaceRounds = snap.peaceRounds;
+  state.deck = saved.deck.map((c) => ({ ...c }));
+  state.grave = saved.grave.map((c) => ({ ...c }));
+  state.currentPlayerIndex = saved.currentPlayerIndex;
+  state.phase = saved.phase;
+  state.round = saved.round;
+  state.currentWeather = saved.currentWeather;
+  state.peaceRounds = saved.peaceRounds;
 
   // 读档后一定回到行动步(旧实现同样强制重置)
   state.pending = null;

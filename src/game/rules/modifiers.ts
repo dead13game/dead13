@@ -9,6 +9,7 @@
 
 import { CAT } from "../core/log.js";
 import { applyArtifactBoost } from "./artifacts.js";
+import type { Ctx, Player } from "../types.js";
 
 export const PRIORITY = {
   LEAGUE: 10,
@@ -22,17 +23,67 @@ export const PRIORITY = {
   BESIEGE: 90,
 };
 
+/**
+ * 管道 env。
+ * source 恒为「加成归属者」；target 在防御管道里可能为空
+ * （旧实现防御加成不读 target，这里保留可空以免调用方伪造一个假目标）。
+ */
+export interface ModifierEnv {
+  kind?: string;
+  source: Player;
+  target: Player | null;
+  trapTriggered?: boolean;
+  besieged?: boolean;
+}
+
+/** 攻击管道：target 必然存在（攻击/调查/无人机都有明确目标） */
+export interface AttackModifierEnv extends ModifierEnv {
+  target: Player;
+}
+
+/** 一步加成 */
+export interface RulesModifier<E extends ModifierEnv = ModifierEnv> {
+  id: string;
+  priority: number;
+  apply(ctx: Ctx, env: E, value: number): number;
+}
+
+/** reduceModifiers 的轨迹一步 */
+export interface ModifierStep {
+  id: string;
+  before: number;
+  after: number;
+}
+
+/** reduceModifiers 返回值 */
+export interface ModifierResult {
+  total: number;
+  steps: ModifierStep[];
+}
+
+/** 联赛卡牌加成表的一行 */
+interface TeamCardBonus {
+  attackBonus?: number;
+  defenseBonus?: number;
+}
+
 /** 联赛卡牌加成(优先取模式配置,兼容旧的 state.leagueContext) */
-export function teamCardBonus(ctx, teamId) {
-  const cb = ctx.mode?.cardBonus ?? ctx.state.leagueContext?.cardBonus;
-  if (!cb) return null;
-  if (cb[teamId] && typeof cb[teamId] === "object") return cb[teamId];
-  if (teamId === 0 && typeof cb.attackBonus === "number") return cb;
+export function teamCardBonus(ctx: Ctx, teamId: number): TeamCardBonus | null {
+  // mode.cardBonus 已是数据表；leagueContext.cardBonus 在共享类型里仍是 unknown，
+  // 这里按「对象 + 收窄」读取，运行时形状与旧实现完全一致。
+  const raw: unknown = ctx.mode?.cardBonus ?? ctx.state.leagueContext?.cardBonus;
+  if (!raw || typeof raw !== "object") return null;
+  const cb = raw as Record<string, unknown>;
+  const entry = cb[String(teamId)];
+  if (entry && typeof entry === "object") return entry as TeamCardBonus;
+  if (teamId === 0 && typeof cb.attackBonus === "number") {
+    return cb as TeamCardBonus;
+  }
   return null;
 }
 
 /** 联盟加成前置条件:有盟友、盟约未到期、自己不在背刺惩罚中 */
-function hasActiveAlliance(p) {
+function hasActiveAlliance(p: Player): boolean {
   return (
     p.relations.allyUid !== null &&
     p.relations.allianceTurns > 0 &&
@@ -42,7 +93,7 @@ function hasActiveAlliance(p) {
 
 // ── 攻击:加法群(顺序与旧 executeAttack 完全一致)──
 
-export const ATTACK_MODIFIERS = [
+export const ATTACK_MODIFIERS: RulesModifier<AttackModifierEnv>[] = [
   {
     id: "league.attack",
     priority: PRIORITY.LEAGUE,
@@ -134,7 +185,7 @@ export const ATTACK_MODIFIERS = [
 // v3.5：圣遗物已移到陷阱前（见 ATTACK_MODIFIERS）；这里只剩围攻减半。
 // 围攻减半对英雄与塔生效（补充说明：塔可以吃到围攻减半），主动技能伤害不在此列。
 
-export const POST_TRAP_MODIFIERS = [
+export const POST_TRAP_MODIFIERS: RulesModifier<AttackModifierEnv>[] = [
   {
     id: "besiege.halving",
     priority: PRIORITY.BESIEGE,
@@ -154,7 +205,7 @@ export const POST_TRAP_MODIFIERS = [
 
 // ── 防御:顺序与旧 executeDefense 一致 ──
 
-export const DEFENSE_MODIFIERS = [
+export const DEFENSE_MODIFIERS: RulesModifier<ModifierEnv>[] = [
   {
     id: "weather.trade",
     priority: PRIORITY.WEATHER,
@@ -196,7 +247,10 @@ export const DEFENSE_MODIFIERS = [
 ];
 
 /** 合并「基础管道 + 角色自定义管道」并按优先级排序(稳定排序) */
-export function collectModifiers(base, extra = []) {
+export function collectModifiers<E extends ModifierEnv>(
+  base: readonly RulesModifier<E>[],
+  extra: readonly RulesModifier<E>[] = [],
+): RulesModifier<E>[] {
   return [...base, ...extra].sort((a, b) => a.priority - b.priority);
 }
 
@@ -204,9 +258,14 @@ export function collectModifiers(base, extra = []) {
  * 依次应用管道。
  * @returns {{ total: number, steps: Array<{id, before, after}> }}
  */
-export function reduceModifiers(ctx, value, mods, env) {
+export function reduceModifiers<E extends ModifierEnv>(
+  ctx: Ctx,
+  value: number,
+  mods: readonly RulesModifier<E>[],
+  env: E,
+): ModifierResult {
   let current = value;
-  const steps = [];
+  const steps: ModifierStep[] = [];
   for (const mod of mods) {
     const before = current;
     current = mod.apply(ctx, env, current);

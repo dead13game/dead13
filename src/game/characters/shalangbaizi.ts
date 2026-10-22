@@ -20,7 +20,10 @@ import {
   baseCanUse,
   enemyTargetUids,
   withTurnGate,
+  answerUid,
 } from "./helpers.js";
+import type { CharacterDef, Ctx, Player } from "../types.js";
+import type { AttackModifierEnv } from "../rules/modifiers.js";
 
 // 砂狼白子 · 无人机部署（主动 2 次）
 // 指定一个目标并部署无人机：无人机 5 HP，每回合在「白子行动时」对目标造成 3 点伤害，
@@ -30,31 +33,38 @@ import {
 export const DRONE_HP = 5;
 export const DRONE_DAMAGE = 3;
 
-function ownedDrone(ctx, player) {
+function ownedDrone(ctx: Ctx, player: Player): Player | undefined {
   return (ctx.state.summons ?? []).find(
     (s) => s.ownerUid === player.uid && s.alive,
   );
 }
 
 /** 目标不可用时自动索敌：塔按序号顺延，角色取防御值最低者 */
-function resolveDroneTarget(ctx, drone, owner) {
+function resolveDroneTarget(
+  ctx: Ctx,
+  drone: Player,
+  owner: Player,
+): Player | null {
   const state = ctx.state;
-  const prev = unitByUid(state, drone.char.targetUid);
+  // targetUid 是可选槽位：缺失时 unitByUid 同样返回 null（uid == null 的分支）
+  const prev = unitByUid(state, drone.char.targetUid ?? null);
   if (prev?.alive) return prev;
 
   if (prev?.kind === "tower") {
+    // towerIndex 为 null 时旧实现的 `null > n` 等价于 `0 > n`，这里显式写出
+    const prevTowerIndex = prev.towerIndex ?? 0;
     const next = (state.towers ?? [])
       .filter(
         (t) =>
           t.alive &&
           t.teamId === prev.teamId &&
-          t.towerIndex > prev.towerIndex,
+          (t.towerIndex ?? 0) > prevTowerIndex,
       )
-      .sort((a, b) => a.towerIndex - b.towerIndex)[0];
+      .sort((a, b) => (a.towerIndex ?? 0) - (b.towerIndex ?? 0))[0];
     if (next) return next;
   }
 
-  const defenseOf = (u) =>
+  const defenseOf = (u: Player): number =>
     (u.defensePile ?? []).reduce(
       (sum, c) => sum + (c.defenseValue ?? c.value ?? 0),
       0,
@@ -68,19 +78,19 @@ function resolveDroneTarget(ctx, drone, owner) {
   return (
     (state.towers ?? [])
       .filter((t) => t.alive && isEnemy(owner, t))
-      .sort((a, b) => a.towerIndex - b.towerIndex)[0] ?? null
+      .sort((a, b) => (a.towerIndex ?? 0) - (b.towerIndex ?? 0))[0] ?? null
   );
 }
 
 /** 无人机在白子回合开始时攻击（无人机没有自己的回合） */
-function droneAttack(ctx, player) {
+function droneAttack(ctx: Ctx, player: Player): void {
   const drone = ownedDrone(ctx, player);
   if (!drone) return;
   const target = resolveDroneTarget(ctx, drone, player);
   if (!target) return;
 
   drone.char.targetUid = target.uid;
-  const env = {
+  const env: AttackModifierEnv = {
     kind: "attack",
     source: player,
     target,
@@ -146,13 +156,14 @@ export default {
       purpose: "skill:shalang.summon",
       asker: player.uid,
       options: enemyTargetUids(ctx, player),
+      data: null,
     });
     ctx.log(`${player.name} 释放无人机部署，选择目标`);
   },
 
   onAnswer(ctx, player, pending, answer) {
     if (pending.purpose !== "skill:shalang.summon") return;
-    const target = unitByUid(ctx.state, answer);
+    const target = unitByUid(ctx.state, answerUid(answer));
     if (!target?.alive) return;
     if (ownedDrone(ctx, player)) {
       ctx.log("无人机最多只能存在一架");
@@ -215,4 +226,4 @@ export default {
       ctx.log(`${drone.name} 从牌库获得防御牌 ${display(card)}（${total}）`);
     },
   },
-};
+} satisfies CharacterDef;

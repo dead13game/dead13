@@ -1,6 +1,7 @@
 import { PENDING } from "../flow/pending.js";
 import { unitByUid } from "../core/units.js";
-import { baseCanUse, enemyHeroUids } from "./helpers.js";
+import { baseCanUse, enemyHeroUids, answerUid } from "./helpers.js";
+import type { CharacterDef } from "../types.js";
 
 // 爱蜜莉雅 · 冻结:冻结一名对象,使其跳过下一次行动,一局 2 次
 export default {
@@ -29,12 +30,13 @@ export default {
       purpose: "skill:aimiliya.freeze",
       asker: player.uid,
       options: enemyHeroUids(ctx, player),
+      data: null,
     });
     ctx.log(`${player.name} 释放冻结`);
   },
 
   onAnswer(ctx, player, pending, answer) {
-    const target = unitByUid(ctx.state, answer);
+    const target = unitByUid(ctx.state, answerUid(answer));
     if (!target?.alive) return;
 
     target.effects.frozenBy = player.uid;
@@ -43,4 +45,4 @@ export default {
     ctx.log(`${target.name} 被冻结，将跳过下一次行动`);
     ctx.turn.extra();
   },
-};
+} satisfies CharacterDef;

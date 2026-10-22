@@ -1,31 +1,26 @@
 import { describe, it, expect } from "vitest";
 
 import { createContext } from "./context.js";
+import { createGameState } from "./setup.js";
 import { createSeededRng } from "../core/rng.js";
 import { createDeck } from "../core/cards.js";
 import { createPlayer } from "../core/player.js";
 import { STEP } from "../core/constants.js";
+import type { GameState } from "../types.js";
 
 const META = { hp: 11, maxUses: 3, loadMaxUses: 0 };
 
-function makeState() {
-  return {
-    players: [
-      createPlayer({ uid: 1, index: 0, characterId: 1, meta: META }),
-      createPlayer({ uid: 2, index: 1, characterId: 2, meta: META }),
-    ],
-    currentPlayerIndex: 0,
-    deck: createDeck(),
-    grave: [],
-    messageLog: [],
-    soundQueue: [],
-    soundSeq: 0,
-    round: 3,
-    step: STEP.PICK_ACTION,
-    pending: null,
-    turn: { extraAction: false, suspend: null, resync: false },
-    gameOver: false,
-  };
+function makeState(): GameState {
+  // 用完整的空局面起步：既满足 GameState 契约，又让断言与旧的最小 state 一致
+  const state = createGameState();
+  state.players = [
+    createPlayer({ uid: 1, index: 0, characterId: 1, meta: META }),
+    createPlayer({ uid: 2, index: 1, characterId: 2, meta: META }),
+  ];
+  state.currentPlayerIndex = 0;
+  state.deck = createDeck();
+  state.round = 3;
+  return state;
 }
 
 describe("flow/context", () => {
@@ -73,8 +68,9 @@ describe("flow/context", () => {
     const ctx = createContext(state, { rng: createSeededRng(5) });
     for (let i = 0; i < 40; i++) ctx.sound("hit");
     expect(state.soundQueue).toHaveLength(32);
-    expect(state.soundQueue.at(-1).seq).toBe(40);
-    expect(state.soundQueue.at(-1).type).toBe("hit");
+    const last = state.soundQueue[state.soundQueue.length - 1];
+    expect(last.seq).toBe(40);
+    expect(last.type).toBe("hit");
   });
 
   it("turn 未接线时给出明确错误,接线后可用", () => {

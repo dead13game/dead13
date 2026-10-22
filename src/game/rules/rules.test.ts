@@ -5,6 +5,16 @@ import { createPlayer } from "../core/player.js";
 import { createSeededRng } from "../core/rng.js";
 import { createContext } from "../flow/context.js";
 import { createDeck } from "../core/cards.js";
+import type {
+  CharState,
+  Ctx,
+  GameState,
+  LeagueContext,
+  ModeAdapter,
+  Player,
+  Rng,
+  WeatherId,
+} from "../types.js";
 
 import {
   ATTACK_MODIFIERS,
@@ -18,23 +28,44 @@ import { resolveTrap } from "./trap.js";
 import { formAlliance, splitAllianceDamage } from "./alliance.js";
 import { setupWeatherDeck, drawWeather } from "./weather.js";
 
-const META = (hp) => ({ hp, maxUses: 3, loadMaxUses: 0 });
+const META = (hp: number) => ({ hp, maxUses: 3, loadMaxUses: 0 });
 
-function makeCtx(opts = {}) {
-  const state = {
+interface MakeCtxOptions {
+  weather?: WeatherId | null;
+  useWeather?: boolean;
+  leagueContext?: LeagueContext | null;
+  mode?: ModeAdapter | null;
+  rng?: Rng;
+}
+
+function makeCtx(opts: MakeCtxOptions = {}): Ctx {
+  const state: GameState = {
     players: [],
+    towers: [],
+    summons: [],
+    unitSeq: 1,
+    drawFeed: [],
+    drawSeq: 0,
     currentPlayerIndex: 0,
     deck: createDeck(),
     grave: [],
     messageLog: [],
     soundQueue: [],
     soundSeq: 0,
+    idSeq: 1,
     round: 5,
+    peaceRounds: 0,
+    peaceStartRound: 0,
     phase: "normal",
     step: STEP.PICK_ACTION,
     pending: null,
-    turn: { extraAction: false, suspend: null, resync: false },
+    pendingAttackCard: null,
+    pendingVentiCards: null,
+    scryCards: null,
+    pendingGamble: null,
+    turn: { extraAction: false, suspend: null, resync: false, savedBy: null },
     gameOver: false,
+    winnerIndex: -1,
     currentWeather: opts.weather ?? null,
     nextWeather: null,
     useWeather: opts.useWeather ?? false,
@@ -45,7 +76,16 @@ function makeCtx(opts = {}) {
   return createContext(state, { rng: opts.rng ?? createSeededRng(1) });
 }
 
-function addPlayer(ctx, opts = {}) {
+interface AddPlayerOptions {
+  uid: number;
+  characterId?: number;
+  hp?: number;
+  char?: CharState;
+  teamId?: number;
+  name?: string;
+}
+
+function addPlayer(ctx: Ctx, opts: AddPlayerOptions): Player {
   const {
     uid,
     characterId = 1,
@@ -149,7 +189,10 @@ describe("rules/modifiers — 顺序即规则", () => {
   it("防御管道:黑市 +2、联赛 +4、满月 +3、联盟 +2(只有联盟写日志)", () => {
     const ctx = makeCtx({
       weather: "trade",
-      leagueContext: { cardBonus: { 0: { attackBonus: 1, defenseBonus: 4 } } },
+      leagueContext: {
+        round: 1,
+        cardBonus: { 0: { attackBonus: 1, defenseBonus: 4 } },
+      },
     });
     const p = addPlayer(ctx, { uid: 1, characterId: 7, char: { moonPhase: 1 }, teamId: 0 });
     addPlayer(ctx, { uid: 2 });
@@ -217,7 +260,9 @@ describe("rules/damage — 防御消耗与死亡", () => {
 
   it("致死触发死亡处理:入墓、解散联盟、通知模式", () => {
     const onPlayerDeath = vi.fn();
-    const ctx = makeCtx({ mode: { onPlayerDeath, checkGameOver: vi.fn() } });
+    const ctx = makeCtx({
+      mode: { id: "test", rules: {}, onPlayerDeath, checkGameOver: vi.fn() },
+    });
     const t = addPlayer(ctx, { uid: 1, hp: 3 });
     const ally = addPlayer(ctx, { uid: 2 });
     addPlayer(ctx, { uid: 3 });
@@ -310,9 +355,9 @@ describe("rules/alliance — 平摊与解散", () => {
     formAlliance(ctx, t, ally);
 
     const split = splitAllianceDamage(ctx, { attacker, target: t, value: 13 });
-    expect(split.value).toBe(8);
-    expect(split.allyValue).toBe(3);
-    expect(split.ally.uid).toBe(2);
+    expect(split?.value).toBe(8);
+    expect(split?.allyValue).toBe(3);
+    expect(split?.ally.uid).toBe(2);
     expect(ctx.state.messageLog.at(-1)).toBe("联盟平摊：玩家 2 8点, 玩家 3 3点");
   });
 
@@ -356,7 +401,7 @@ describe("rules/weather — 牌堆轮转", () => {
     expect(first).toBe("sun");
     expect(ctx.state.currentWeather).toBe("sun");
     expect(ctx.state.weatherDeck).toHaveLength(6);
-    expect(ctx.state.weatherDeck.at(-1).id).toBe(first);
+    expect(ctx.state.weatherDeck.at(-1)?.id).toBe(first);
     expect(ctx.state.nextWeather).toBe("rain");
 
     expect(drawWeather(ctx)).toBe("rain");

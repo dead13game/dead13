@@ -6,9 +6,32 @@
 //   - 不含:调试日志、纯视觉字段、时间戳/随机序号
 //   - 牌堆用 长度 + 顺序哈希 + 首尾采样,避免基线文件膨胀
 
+import type { Card } from "../types.js";
+
 const CARD_HASH_BASE = 0x811c9dc5;
 
-function fnv1a(str, h = CARD_HASH_BASE) {
+/**
+ * 可投影的牌。
+ * 合成盾牌(钟离护盾/无人机盾…)在运行期会挂 defenseValue / isShield,
+ * 它们不在 Card 契约里,但对拍基线记录了这两个字段。
+ */
+export type ProjectedCard = Card & {
+  defenseValue?: number | null;
+  isShield?: boolean;
+};
+
+/** 单张牌的投影:只保留影响判定的字段 */
+export type CardProjection = unknown[];
+
+/** 牌堆投影:长度 + 顺序哈希 + 首尾各 2 张采样 */
+export interface DeckProjection {
+  n: number;
+  h: number;
+  head: (CardProjection | null)[];
+  tail: (CardProjection | null)[];
+}
+
+function fnv1a(str: string, h = CARD_HASH_BASE): number {
   let hash = h;
   for (let i = 0; i < str.length; i++) {
     hash ^= str.charCodeAt(i);
@@ -18,7 +41,7 @@ function fnv1a(str, h = CARD_HASH_BASE) {
 }
 
 /** 归一化时间/随机 id:'shield-zhongli-1792501174918' → 'shield-zhongli' */
-function normId(id) {
+function normId(id: unknown): unknown {
   if (typeof id !== "string") return id;
   return id.replace(/-\d{9,}$/, "").replace(/\d{10,}/g, "#");
 }
@@ -27,17 +50,20 @@ function normId(id) {
  * Infinity / NaN 不能存活于 JSON(会变成 null),
  * 而 6/7 号角色 maxUses: Infinity 是合法数据 → 统一转成字符串标记。
  */
-function normalizeNumbers(v) {  if (Array.isArray(v)) return v.map(normalizeNumbers);
+function normalizeNumbers(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(normalizeNumbers);
   if (v && typeof v === "object") {
-    const out = {};
-    for (const k of Object.keys(v)) out[k] = normalizeNumbers(v[k]);
+    const out: Record<string, unknown> = {};
+    for (const k of Object.keys(v)) {
+      out[k] = normalizeNumbers((v as Record<string, unknown>)[k]);
+    }
     return out;
   }
   if (typeof v === "number" && !Number.isFinite(v)) return String(v);
   return v;
 }
 
-function projCard(card) {
+function projCard(card: ProjectedCard | null | undefined): CardProjection | null {
   if (!card) return null;
   return [
     normId(card.id),
@@ -49,7 +75,9 @@ function projCard(card) {
 }
 
 /** 牌堆投影:长度 + 顺序哈希 + 首尾各 2 张采样 */
-function projDeck(cards) {
+function projDeck(
+  cards: readonly ProjectedCard[] | null | undefined,
+): DeckProjection {
   if (!Array.isArray(cards)) return { n: 0, h: 0, head: [], tail: [] };
   let h = CARD_HASH_BASE;
   for (const c of cards) h = fnv1a(JSON.stringify(projCard(c)), h);
@@ -61,5 +89,5 @@ function projDeck(cards) {
   };
 }
 
-/** 褰掍竴鍖?鎶曞奖宸ュ叿(渚?projection-next 浣跨敤) */
+/** 归一化投影工具(供 projection-next 复用) */
 export { projCard, projDeck, normId, fnv1a, normalizeNumbers };

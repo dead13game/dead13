@@ -12,9 +12,10 @@ import {
   getRoundMatches,
 } from "./league.js";
 import { TOTAL_ROUNDS, LEAGUE_TEAMS } from "./leagueConstants.js";
+import type { LeagueState, PlayerMatchForRound } from "./league.js";
 
 /** 让 18 轮全部以平局结束：所有球队同分，必然触发附加赛 */
-function allDraws(state) {
+function allDraws(state: LeagueState): void {
   for (let round = 1; round <= TOTAL_ROUNDS; round++) {
     getRoundMatches(round).forEach((m, idx) => {
       state.results[`${round}_${idx}`] = "draw";
@@ -48,7 +49,7 @@ describe("league v3.5 轮次与附加赛", () => {
     allDraws(state);
     const standings = calculateStandings(state);
     const player = standings.find((t) => t.isPlayer);
-    expect(player.points).toBeGreaterThan(0);
+    expect(player!.points).toBeGreaterThan(0);
 
     const tb = checkTiebreakerNeeded(state);
     expect(tb.needed).toBe(true);
@@ -61,7 +62,7 @@ describe("league v3.5 轮次与附加赛", () => {
     const state = createLeagueState(1);
     // 玩家 18 胜，其余球队互相平局 → 玩家独占榜首
     for (let round = 1; round <= TOTAL_ROUNDS; round++) {
-      const pm = getPlayerMatchForRound(state, round);
+      const pm = getPlayerMatchForRound(state, round)!;
       getRoundMatches(round).forEach((m, idx) => {
         state.results[`${round}_${idx}`] =
           idx === pm.matchIdx ? (pm.isHome ? "home" : "away") : "draw";
@@ -73,7 +74,7 @@ describe("league v3.5 轮次与附加赛", () => {
     const standings = calculateStandings(state);
     const player = standings.find((t) => t.isPlayer);
     const others = standings.filter((t) => !t.isPlayer);
-    expect(player.points).toBeGreaterThan(
+    expect(player!.points).toBeGreaterThan(
       Math.max(...others.map((t) => t.points)),
     );
     const tb = checkTiebreakerNeeded(state);
@@ -83,8 +84,8 @@ describe("league v3.5 轮次与附加赛", () => {
 
   it("getMatchResult / recordMatchResult 在玩家是客队时正确翻转", () => {
     const state = createLeagueState(1);
-    let round = null;
-    let pm = null;
+    let round: number | null = null;
+    let pm: PlayerMatchForRound | null = null;
     for (let r = 1; r <= TOTAL_ROUNDS; r++) {
       const m = getPlayerMatchForRound(state, r);
       if (m && !m.isHome) {
@@ -94,18 +95,18 @@ describe("league v3.5 轮次与附加赛", () => {
       }
     }
     expect(round).not.toBeNull();
-    recordMatchResult(state, round, "home"); // 玩家视角：玩家胜
-    expect(getMatchResult(state, round, pm.matchIdx)).toBe("away");
+    recordMatchResult(state, round!, "home"); // 玩家视角：玩家胜
+    expect(getMatchResult(state, round!, pm!.matchIdx)).toBe("away");
 
-    recordMatchResult(state, round + 1, "draw");
-    expect(getMatchResult(state, round + 1, getPlayerMatchForRound(state, round + 1).matchIdx)).toBe("draw");
+    recordMatchResult(state, round! + 1, "draw");
+    expect(getMatchResult(state, round! + 1, getPlayerMatchForRound(state, round! + 1)!.matchIdx)).toBe("draw");
   });
 
   it("球队表数据完整（10 队、tier 合法）", () => {
     const teams = LEAGUE_TEAMS.filter(Boolean);
     expect(teams).toHaveLength(10);
     for (const t of teams) {
-      expect([1, 2, 3]).toContain(t.tier);
+      expect([1, 2, 3]).toContain(t!.tier);
     }
   });
 });

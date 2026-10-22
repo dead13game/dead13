@@ -19,9 +19,10 @@ import {
   getWinTarget,
   describeSeries,
 } from "./diceWar.js";
+import type { DiceWarMatch, DiceWarState } from "./diceWar.js";
 
 /** roster 索引 → 名字 */
-function rosterName(idx) {
+function rosterName(idx: number): string {
   return ROSTER[idx]?.name || "";
 }
 
@@ -32,7 +33,10 @@ export const KIND = {
   FINAL: "final", // 末段（第21-30轮/比赛结束）：宣布结果
   OVERTIME: "overtime", // 加赛结束
   CHAMPION: "champion", // 决赛结束，冠军诞生
-};
+} as const;
+
+/** 解说时机 id */
+export type CommentaryKind = (typeof KIND)[keyof typeof KIND];
 
 const SYSTEM_BASE = `你是一名"骰子战争世锦赛"官方赛场解说员。解说风格要求：
 1. 口语化、情绪化、网络化：常用"我草、拉完了、太顶了、杀疯了、背景板、名场面、差一步美满、封神、脸都不要了、小丑、狂起来了、这还玩个蛋、蛆"等。
@@ -41,7 +45,7 @@ const SYSTEM_BASE = `你是一名"骰子战争世锦赛"官方赛场解说员。
 4. 特殊事件（爆冷、破纪录）要加大情绪，突出历史意义。
 5. 只输出解说词本身（2~4 句话，60~120 字），不要输出 JSON，不要用 Markdown，不要自称 AI。`;
 
-const SEGMENT_RULES = {
+const SEGMENT_RULES: Record<CommentaryKind, string> = {
   [KIND.PRE]:
     "现在是【前段】解说（第1-10轮刚结束）：只给数据，不计算胜率，做情绪铺垫，为后面的比赛造势。",
   [KIND.MID]:
@@ -55,8 +59,12 @@ const SEGMENT_RULES = {
 };
 
 /** 特殊事件检测（爆冷/破纪录/加赛/一分之差等） */
-function detectEvents(state, match, kind) {
-  const events = [];
+function detectEvents(
+  state: DiceWarState,
+  match: DiceWarMatch,
+  kind: CommentaryKind,
+): string[] {
+  const events: string[] = [];
 
   if (kind === KIND.PRE || kind === KIND.MID) {
     const seg = kind === KIND.PRE ? 1 : 2;
@@ -96,25 +104,61 @@ function detectEvents(state, match, kind) {
   return events;
 }
 
+/** 发给 LLM 的赛场快照（JSON.stringify 前的形状） */
+export interface CommentarySnapshot {
+  赛事: string;
+  阶段: string;
+  对局: string;
+  对局标签: string;
+  当前轮数: number;
+  段位: string;
+  比分: Record<string, number>;
+  段内得分?: Record<string, number>;
+  分差: string;
+  剩余轮数: number;
+  角色标签: Record<string, string>;
+  历史纪录: typeof RECORDS;
+  特殊事件: string[];
+  局制: string;
+  系列赛大比分?: Record<string, number>;
+  历届冠军: typeof CHAMPIONS_HISTORY;
+  /** 仅冠军解说时写入 */
+  冠军?: string;
+}
+
+/** 解说请求参数（Vue 层拿去直连 LLM） */
+export interface CommentaryRequest {
+  system: string;
+  user: string;
+}
+
 /**
  * 构造 AI 解说请求参数。
- * @param {object} state 世锦赛状态
- * @param {object} match 当前单局
- * @param {string} kind KIND.*
- * @returns {{ system: string, user: string }}
+ * @param state 世锦赛状态
+ * @param match 当前单局
+ * @param kind KIND.*
  */
-export function buildCommentaryRequest(state, match, kind) {
+export function buildCommentaryRequest(
+  state: DiceWarState,
+  match: DiceWarMatch,
+  kind: CommentaryKind,
+): CommentaryRequest {
   const seg = kind === KIND.PRE ? 1 : kind === KIND.MID ? 2 : kind === KIND.FINAL ? 3 : null;
   const segSummary = seg ? getSegmentSummary(match, seg) : null;
   const winTarget = getWinTarget(state);
 
-  const snapshot = {
+  const snapshot: CommentarySnapshot = {
     赛事: "骰子战争世锦赛",
     阶段: state.phase ? PHASE_META[state.phase].name : "",
     对局: `${match.a.name} VS ${match.b.name}`,
     对局标签: getMatchupLabel(state),
     当前轮数: match.round,
-    段位: seg ? `${SEGMENT_NAMES[seg]}（第${segSummary.from}-${segSummary.to}轮）` : kind === KIND.OVERTIME ? "加赛" : "决赛",
+    段位:
+      seg && segSummary
+        ? `${SEGMENT_NAMES[seg]}（第${segSummary.from}-${segSummary.to}轮）`
+        : kind === KIND.OVERTIME
+          ? "加赛"
+          : "决赛",
     比分: {
       [match.a.name]: match.a.score,
       [match.b.name]: match.b.score,

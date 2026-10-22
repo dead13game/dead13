@@ -21,13 +21,14 @@ import {
 } from "./soloCombat.js";
 import { applyEventOption, rollCheck } from "./soloEvents.js";
 import { SOLO_CARDS } from "./soloConstants.js";
+import type { SoloState } from "./types.js";
 
 /** 同步模拟完整敌方回合（UI 层会异步慢放，测试里直接跑完） */
-function runFullEnemyTurn(s) {
+function runFullEnemyTurn(s: SoloState) {
   startEnemyTurn(s);
   let guard = 0;
   while (guard++ < 60) {
-    if (s.combat.phase === "lost" || s.combat.phase === "won") break;
+    if (s.combat!.phase === "lost" || s.combat!.phase === "won") break;
     const r = enemyAnnounce(s);
     if (!r.playing) break;
     enemyResolve(s);
@@ -82,10 +83,10 @@ describe("solo 单机模式", () => {
       const s = createSoloState();
       s.player.deck = { mengji: 30, gedang: 10 };
       startCombat(s, "normal");
-      const c = s.combat;
+      const c = s.combat!;
       const pileBefore = c.pokerDeck.length;
       expect(pileBefore).toBe(49); // 52 - 3（startCombat 已抽第一回合 3 张）
-      const firstRoundPoker = c.pendingPoker.map((p) => p.id).join(",");
+      const firstRoundPoker = c.pendingPoker!.map((p) => p.id).join(",");
       pickPoker(s, 0, 1, 2);
       // 保命后结束回合，进入敌方回合再回玩家回合
       s.player.hp = 1000;
@@ -94,17 +95,17 @@ describe("solo 单机模式", () => {
       // 敌方回合抽 3 + 玩家新回合抽 3 = 共 -6
       expect(c.pokerDeck.length).toBe(pileBefore - 6);
       // 两回合抽的扑克不应完全相同（修复前是同一批）
-      const secondRoundPoker = c.pendingPoker.map((p) => p.id).join(",");
+      const secondRoundPoker = c.pendingPoker!.map((p) => p.id).join(",");
       expect(secondRoundPoker).not.toBe(firstRoundPoker);
     });
 
     it("pickPoker 后行动力 = 选中的 2 张点数之和，抽牌数 = 剩 1 张", () => {
       const s = createSoloState();
       startCombat(s, "normal");
-      const c = s.combat;
+      const c = s.combat!;
       expect(c.phase).toBe("pick-poker");
       expect(c.pendingPoker).toHaveLength(3);
-      const poker = c.pendingPoker; // 记录后再选（pickPoker 会清空）
+      const poker = c.pendingPoker!; // 记录后再选（pickPoker 会清空）
       const r = pickPoker(s, 0, 1, 2);
       expect(r.ok).toBe(true);
       expect(c.actionPoints).toBe(poker[0].value + poker[1].value);
@@ -125,7 +126,7 @@ describe("solo 单机模式", () => {
       s.player.deck = { mengji: 30 };
       startCombat(s, "normal");
       pickPoker(s, 0, 1, 2);
-      const c = s.combat;
+      const c = s.combat!;
       expect(c.phase).toBe("play");
       const kinds = Object.keys(c.playerHand);
       expect(kinds.length).toBeGreaterThan(0);
@@ -142,7 +143,7 @@ describe("solo 单机模式", () => {
       const s = createSoloState();
       s.player.deck = { mengji: 30 };
       startCombat(s, "normal");
-      const c = s.combat;
+      const c = s.combat!;
       pickPoker(s, 0, 1, 2);
       // 确保手牌有猛击且行动力足够
       c.playerHand.mengji = 3;
@@ -162,7 +163,7 @@ describe("solo 单机模式", () => {
       const s = createSoloState();
       s.player.deck = { mengji: 30 };
       startCombat(s, "normal");
-      const c = s.combat;
+      const c = s.combat!;
       pickPoker(s, 0, 1, 2);
       c.playerHand.lianji = 2; // 12 费
       c.actionPoints = 5;
@@ -175,7 +176,7 @@ describe("solo 单机模式", () => {
       const s = createSoloState();
       s.player.deck = { mengji: 30 };
       startCombat(s, "normal");
-      const c = s.combat;
+      const c = s.combat!;
       // 敌方 10 点护盾，猛击 5 伤 → 破盾 5，斗志 +5
       c.enemyShield = 10;
       pickPoker(s, 0, 1, 2);
@@ -193,7 +194,7 @@ describe("solo 单机模式", () => {
       const s = createSoloState();
       s.player.deck = { mengji: 30, zhongji: 30 };
       startCombat(s, "normal");
-      const c = s.combat;
+      const c = s.combat!;
       pickPoker(s, 0, 1, 2);
       // 直接打空敌方 HP:护盾与行动力都要先抹平,否则会因随机抽到的行动力不足而偶发失败
       c.enemyHp = 3;
@@ -216,7 +217,7 @@ describe("solo 单机模式", () => {
       const s = createSoloState();
       s.player.deck = { mengji: 30, gedang: 10 };
       startCombat(s, "normal");
-      const c = s.combat;
+      const c = s.combat!;
       pickPoker(s, 0, 1, 2);
       // 玩家给足血和护盾保证不输
       s.player.hp = 1000;
@@ -232,7 +233,7 @@ describe("solo 单机模式", () => {
     it("敌方攻击先扣玩家护盾再扣 HP", () => {
       const s = createSoloState();
       startCombat(s, "normal");
-      const c = s.combat;
+      const c = s.combat!;
       c.playerShield = 5;
       const hpBefore = s.player.hp;
       // 敌方打 1 张猛击（base 3 伤）：护盾 5 挡住，HP 不变
@@ -253,7 +254,7 @@ describe("solo 单机模式", () => {
       const s = createSoloState();
       s.player.deck = { mengji: 30, gedang: 10 };
       startCombat(s, "normal");
-      const c = s.combat;
+      const c = s.combat!;
       pickPoker(s, 0, 1, 2);
       c.playerHand.mengji = 3;
       c.actionPoints = 50;
@@ -290,7 +291,7 @@ describe("solo 单机模式", () => {
       const s = createSoloState();
       s.player.deck = { mengji: 30, gedang: 10 };
       startCombat(s, "normal");
-      const c = s.combat;
+      const c = s.combat!;
       pickPoker(s, 0, 1, 2);
       c.playerHand.mengji = 2;
       c.actionPoints = 50;
@@ -314,7 +315,7 @@ describe("solo 单机模式", () => {
     it("AI 出牌纯随机：攻击/防御都可能被选到（均匀随机）", () => {
       const s = createSoloState();
       startCombat(s, "normal");
-      const c = s.combat;
+      const c = s.combat!;
       // 攻击+防御都可出，多次采样验证两者都会被随机选到
       c.enemyHand = { mengji: 3, gedang: 3 };
       c.enemyActionPoints = 20;
@@ -325,7 +326,7 @@ describe("solo 单机模式", () => {
         c.enemyActionPoints = 20;
         const r = enemyAnnounce(s);
         expect(r.playing).toBe(true);
-        picked.add(r.cardId);
+        picked.add(r.cardId!);
         if (picked.size >= 2) break;
       }
       expect(picked.has("mengji")).toBe(true);
@@ -341,7 +342,7 @@ describe("solo 单机模式", () => {
     it("AI 行动力或手牌打空才结束回合（无上限截断）", () => {
       const s = createSoloState();
       startCombat(s, "normal");
-      const c = s.combat;
+      const c = s.combat!;
       // 敌方大量行动力 + 少量手牌：应打空手牌才结束
       c.enemyHand = { mengji: 2 };
       c.enemyActionPoints = 30;
@@ -358,7 +359,7 @@ describe("solo 单机模式", () => {
     it("玩家死亡后 phase 保持 lost（enemyResolve 不再覆盖回 enemy-announce）", () => {
       const s = createSoloState();
       startCombat(s, "normal");
-      const c = s.combat;
+      const c = s.combat!;
       c.phase = "enemy-resolve";
       c.enemyPendingPlay = { cardId: "zhongji", count: 5, cost: 45 };
       s.player.hp = 3; // 重击 base 6 ×5 远超 3 HP
@@ -373,15 +374,15 @@ describe("solo 单机模式", () => {
       s.player.deck = { mengji: 30, gedang: 10 };
       startCombat(s, "normal");
       pickPoker(s, 0, 1, 2);
-      s.combat.playerHand.mengji = 2;
-      s.combat.actionPoints = 20;
+      s.combat!.playerHand.mengji = 2;
+      s.combat!.actionPoints = 20;
       const r = playCard(s, "mengji", 1);
       expect(r.ok).toBe(true);
-      expect(s.combat.playedQueue.length).toBe(1);
-      expect(s.combat.playedQueue[0].cardId).toBe("mengji");
-      expect(s.combat.playedQueue[0].side).toBe("player");
+      expect(s.combat!.playedQueue.length).toBe(1);
+      expect(s.combat!.playedQueue[0].cardId).toBe("mengji");
+      expect(s.combat!.playedQueue[0].side).toBe("player");
       // reactive 数组 push 后再次访问仍正常
-      expect([...s.combat.playedQueue]).toHaveLength(1);
+      expect([...s.combat!.playedQueue]).toHaveLength(1);
     });
   });
 
@@ -390,7 +391,7 @@ describe("solo 单机模式", () => {
       const s = createSoloState();
       s.player.deck = { mengji: 3 };
       startCombat(s, "normal");
-      const c = s.combat;
+      const c = s.combat!;
       // 抽空牌堆
       const before = c.playerPile.length;
       pickPoker(s, 0, 1, 2);
@@ -418,8 +419,8 @@ describe("solo 单机模式", () => {
       const r = applyEventOption(s, "merchant", 0);
       expect(r.ok).toBe(true);
       expect(s.player.gold).toBe(5);
-      expect(r.outcome.gainedCard).toBeDefined();
-      expect(SOLO_CARDS[r.outcome.gainedCard].cost).toBeGreaterThanOrEqual(8);
+      expect(r.outcome!.gainedCard).toBeDefined();
+      expect(SOLO_CARDS[r.outcome!.gainedCard!].cost).toBeGreaterThanOrEqual(8);
     });
 
     it("检定：力量 DC12，成功给金币失败扣血", () => {

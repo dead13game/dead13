@@ -4,7 +4,7 @@
 // 相对路径解析：GitHub Pages 子路径（/13street/）与 file:// 均可用。
 
 /** 音效文件表：类型 → 文件名（相对 dist 根） */
-const SFX_FILES = {
+const SFX_FILES: Record<string, string> = {
   attack: "sfx/attack.wav", // 发起攻击摸牌时
   defense: "sfx/defense.wav", // 执行防御摸防御牌时
   gamble: "sfx/gamble.wav", // 执行赌命抽牌时
@@ -21,7 +21,7 @@ const SFX_FILES = {
 };
 
 /** 背景音乐表：场景 → 文件名 */
-const BGM_FILES = {
+const BGM_FILES: Record<string, string> = {
   menu: "sfx/bgm-main.mp3", // 主菜单/选角
   battle1: "sfx/bgm-battle1.mp3", // 战斗 BGM 1
   battle2: "sfx/bgm-battle2.mp3", // 战斗 BGM 2
@@ -31,25 +31,27 @@ const BGM_FILES = {
 const THROTTLE_MS = 120;
 
 class SoundManager {
-  constructor() {
-    this._cache = new Map(); // type -> HTMLAudioElement
-    this._unavailable = new Set(); // 文件缺失/解码失败的音效，跳过
-    this._lastPlayed = new Map(); // type -> timestamp
-    this._muted = false;
-    this._volume = 0.8; // 音效音量
-    this._bgmVolume = 0.5; // BGM 音量
-    this._bgm = null;
-    this._bgmName = null; // 当前 BGM 场景名
-    this._bgmMuted = false;
-  }
+  /** type → 已创建的 Audio 元素 */
+  private readonly _cache = new Map<string, HTMLAudioElement>();
+  /** 文件缺失/解码失败的音效，跳过 */
+  private readonly _unavailable = new Set<string>();
+  /** type → 上次播放时间戳 */
+  private readonly _lastPlayed = new Map<string, number>();
+  private _muted = false;
+  private _volume = 0.8; // 音效音量
+  private _bgmVolume = 0.5; // BGM 音量
+  private _bgm: HTMLAudioElement | null = null;
+  /** 当前 BGM 场景名 */
+  private _bgmName: string | null = null;
+  private _bgmMuted = false;
 
   /** 音效类型是否存在（文件表里有键） */
-  has(type) {
+  has(type: string): boolean {
     return type in SFX_FILES;
   }
 
   /** 播放一个音效；文件缺失或未交互时静默失败 */
-  play(type) {
+  play(type: string): void {
     const file = SFX_FILES[type];
     if (!file || this._muted || this._unavailable.has(type)) return;
 
@@ -77,10 +79,10 @@ class SoundManager {
 
   /**
    * 播放/切换背景音乐（需在用户交互后调用，浏览器自动播放策略）。
-   * @param {string} name - BGM 场景名：'menu' | 'battle1' | 'battle2'
+   * @param name BGM 场景名：'menu' | 'battle1' | 'battle2'
    *   同名已在播则无操作；切换场景会停掉旧 BGM 换新源。
    */
-  playBgm(name = "menu") {
+  playBgm(name = "menu"): void {
     const file = BGM_FILES[name];
     if (!file) return;
 
@@ -110,7 +112,7 @@ class SoundManager {
   }
 
   /** 暂停背景音乐 */
-  stopBgm() {
+  stopBgm(): void {
     if (this._bgm) {
       this._bgm.pause();
       this._bgm.currentTime = 0;
@@ -119,23 +121,23 @@ class SoundManager {
   }
 
   /** 静音开关（音效+BGM） */
-  setMuted(muted) {
+  setMuted(muted: boolean): void {
     this._muted = muted;
     if (this._bgm) this._bgm.muted = muted;
   }
 
-  get muted() {
+  get muted(): boolean {
     return this._muted;
   }
 
   /** 音效音量 0-1 */
-  setVolume(v) {
+  setVolume(v: number): void {
     this._volume = v;
     this._cache.forEach((a) => (a.volume = v));
   }
 
   /** BGM 音量 0-1 */
-  setBgmVolume(v) {
+  setBgmVolume(v: number): void {
     this._bgmVolume = v;
     if (this._bgm) this._bgm.volume = v;
   }

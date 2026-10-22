@@ -5,8 +5,20 @@ import { RANK_POINTS } from "./leagueConstants.js";
 import { createSession, dispatch } from "./api.js";
 import { createClassicMode } from "./modes/classic.js";
 import { createLeagueMatchMode } from "./modes/league.js";
+import type { LeagueCardBonusTable } from "./modes/league.js";
 import { useLeagueController } from "../composables/useLeagueController.js";
 import { getCtx } from "./view.js";
+import type { Card, GameState, Rank } from "./types.js";
+
+/** 控制器 matchState 的 value（当前比赛元信息） */
+interface LeagueMatchState {
+  deathOrder: { playerIndex: number; teamId: number }[];
+  playerScore: number;
+  opponentScore: number;
+  winner: number | null;
+}
+
+type LeagueController = ReturnType<typeof useLeagueController>;
 
 // ────────────────────────────────────────
 //  纯数据层:卡牌加成 / 名次积分
@@ -86,15 +98,16 @@ describe("league 名次积分", () => {
 //  新内核:联赛加成进入攻防管道
 // ────────────────────────────────────────
 
-const CARD = (value, id) => ({
+/** 测试用卡牌（value 均为合法 Rank 点数） */
+const CARD = (value: number, id?: string): Card => ({
   id: id ?? `F-${value}`,
   suit: "♠",
-  rank: String(value),
+  rank: String(value) as Rank,
   value,
   faceUp: false,
 });
 
-function newLeagueSession({ cardBonus = null } = {}) {
+function newLeagueSession({ cardBonus = null }: { cardBonus?: LeagueCardBonusTable | null } = {}) {
   const mode = createLeagueMatchMode({
     maxRounds: 30,
     cardBonus: cardBonus ?? {
@@ -113,15 +126,15 @@ function newLeagueSession({ cardBonus = null } = {}) {
   return { state, ctx, mode };
 }
 
-function forceCard(state, value) {
+function forceCard(state: GameState, value: number): void {
   state.deck.push(CARD(value, `F-${value}-${state.deck.length}`));
 }
 
 describe("league 加成与围攻(新内核)", () => {
   it("攻击加成按模式配置生效", () => {
     const { state } = newLeagueSession();
-    const attacker = state.players.find((p) => p.teamId === 0);
-    const target = state.players.find((p) => p.teamId === 1);
+    const attacker = state.players.find((p) => p.teamId === 0)!;
+    const target = state.players.find((p) => p.teamId === 1)!;
     state.currentPlayerIndex = attacker.index;
     state.phase = "normal";
     const hpBefore = target.hp;
@@ -141,7 +154,7 @@ describe("league 加成与围攻(新内核)", () => {
         1: { attackBonus: 0, defenseBonus: 0 },
       },
     });
-    const defender = state.players.find((p) => p.teamId === 0);
+    const defender = state.players.find((p) => p.teamId === 0)!;
     state.currentPlayerIndex = defender.index;
 
     forceCard(state, 6);
@@ -153,7 +166,7 @@ describe("league 加成与围攻(新内核)", () => {
     const { state } = newLeagueSession();
     state.phase = "normal";
     const team0 = state.players.filter((p) => p.teamId === 0);
-    const target = state.players.find((p) => p.teamId === 1);
+    const target = state.players.find((p) => p.teamId === 1)!;
     const hp0 = target.hp;
 
     // 第一次攻击:3 + 攻击加成 2 = 5
@@ -204,13 +217,14 @@ describe("league 加成与围攻(新内核)", () => {
 // ────────────────────────────────────────
 
 describe("league 比赛胜负:只看积分(团灭对方不等于获胜)", () => {
-  function startLeagueMatch(lc) {
+  function startLeagueMatch(lc: LeagueController): LeagueMatchState {
     lc.initLeague(1, "easy", null, null, true);
     lc.startMatchWithDraft({
       playerChars: [1, 2, 3],
       opponentChars: [4, 5, 6],
     });
-    return lc.matchState.value;
+    // 迁移期收窄：控制器的 matchState 在 JS 侧是 ref(null)，类型未覆盖实际写入的比赛元信息
+    return lc.matchState.value as unknown as LeagueMatchState;
   }
 
   it("团灭对方但积分更低 → 判负", () => {
@@ -228,7 +242,8 @@ describe("league 比赛胜负:只看积分(团灭对方不等于获胜)", () => 
       lc.gameState.players
         .filter((p) => p.teamId === 1)
         .forEach((p) => (p.alive = false));
-      lc.gameState.mode.checkGameOver(getCtx(lc.gameState));
+      // 这些用例里模式适配器必然已挂上，故用非空断言（不改运行时行为）
+      lc.gameState.mode!.checkGameOver!(getCtx(lc.gameState)!);
       expect(ms.playerScore).toBe(9);
       expect(ms.opponentScore).toBe(12);
       expect(ms.winner).toBe(1);
@@ -252,7 +267,8 @@ describe("league 比赛胜负:只看积分(团灭对方不等于获胜)", () => 
       lc.gameState.players
         .filter((p) => p.teamId === 0)
         .forEach((p) => (p.alive = false));
-      lc.gameState.mode.checkGameOver(getCtx(lc.gameState));
+      // 这些用例里模式适配器必然已挂上，故用非空断言（不改运行时行为）
+      lc.gameState.mode!.checkGameOver!(getCtx(lc.gameState)!);
       expect(ms.playerScore).toBe(12);
       expect(ms.opponentScore).toBe(9);
       expect(ms.winner).toBe(0);
@@ -272,7 +288,7 @@ describe("league 比赛胜负:只看积分(团灭对方不等于获胜)", () => 
         playerChars: [1, 2, 3],
         opponentChars: [4, 5, 6],
       });
-      const ms = lc.matchState.value;
+      const ms = lc.matchState.value as unknown as LeagueMatchState;
       ms.deathOrder = [
         { playerIndex: 0, teamId: 0 },
         { playerIndex: 3, teamId: 1 },
@@ -282,7 +298,8 @@ describe("league 比赛胜负:只看积分(团灭对方不等于获胜)", () => 
       lc.gameState.players
         .filter((p) => p.teamId === 1)
         .forEach((p) => (p.alive = false));
-      lc.gameState.mode.checkGameOver(getCtx(lc.gameState));
+      // 这些用例里模式适配器必然已挂上，故用非空断言（不改运行时行为）
+      lc.gameState.mode!.checkGameOver!(getCtx(lc.gameState)!);
       expect(ms.playerScore).toBe(12);
       expect(ms.opponentScore).toBe(9);
       expect(ms.winner).toBe(0);

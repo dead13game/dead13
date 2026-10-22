@@ -6,12 +6,14 @@ import { PENDING } from "../pending.js";
 import { applyDamage, dissolveAlliance } from "../../rules/damage.js";
 import { allianceTargets, formAlliance } from "../../rules/alliance.js";
 import { resetAttackStreak } from "../../characters/helpers.js";
-import { isIdle } from "./query.js";
+import { currentPlayer, isIdle } from "./query.js";
+import { askPending } from "./pending-data.js";
+import type { Ctx, Player } from "../../types.js";
 
-export function ally(ctx) {
+export function ally(ctx: Ctx): boolean {
   const state = ctx.state;
   if (!isIdle(ctx)) return false;
-  const player = ctx.players.current();
+  const player = currentPlayer(ctx);
 
   if (state.phase === PHASE.PEACE) return false;
   if (state.mode?.rules?.alliance === false) return false;
@@ -34,8 +36,9 @@ export function ally(ctx) {
     return false;
   }
 
-  const options = allianceTargets(ctx, player).map((t) => t.uid);
-  ctx.ask({
+  const targets: Player[] = allianceTargets(ctx, player);
+  const options = targets.map((t) => t.uid);
+  askPending(ctx, {
     type: PENDING.TARGET,
     purpose: "ally",
     asker: player.uid,
@@ -45,12 +48,12 @@ export function ally(ctx) {
   return true;
 }
 
-export function allyTarget(ctx, targetUid) {
+export function allyTarget(ctx: Ctx, targetUid: number): boolean {
   const state = ctx.state;
   const pending = state.pending;
   if (!pending || pending.purpose !== "ally") return false;
 
-  const player = ctx.players.current();
+  const player = currentPlayer(ctx);
   const target = ctx.players.byUid(targetUid);
   if (!target?.alive) return false;
   if (target.relations.allyUid !== null) {
@@ -63,10 +66,10 @@ export function allyTarget(ctx, targetUid) {
   return true;
 }
 
-export function betray(ctx) {
+export function betray(ctx: Ctx): boolean {
   const state = ctx.state;
   if (!isIdle(ctx)) return false;
-  const player = ctx.players.current();
+  const player = currentPlayer(ctx);
 
   if (player.relations.consecutiveGambles > 0) {
     player.relations.consecutiveGambles = 0;

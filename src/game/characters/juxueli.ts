@@ -1,6 +1,7 @@
 import { CAT } from "../core/log.js";
 import { unitByUid } from "../core/units.js";
 import { applyDamage } from "../rules/damage.js";
+import type { CharacterDef } from "../types.js";
 
 // 橘雪梨 · 调查（被动）
 // 普通攻击变为「调查」：猜测目标陷阱点数。
@@ -8,6 +9,15 @@ import { applyDamage } from "../rules/damage.js";
 //   猜错 → 无事发生，陷阱保留
 //   目标没有陷阱 → 造成 7 + 烈日当空 的普攻伤害，无视陷阱，可吃圣遗物加成
 // 注意：任何日志/UI 都不能暴露对方陷阱点数。
+
+/**
+ * 调查的作答形状（命令层写入）：
+ * `answer` 是玩家猜的点数；`pending.data` 是 `{ targetUid, besieged }`。
+ */
+interface InvestigateData {
+  targetUid?: number;
+  besieged?: boolean;
+}
 
 export default {
   id: 14,
@@ -34,7 +44,9 @@ export default {
   onAnswer(ctx, player, pending, answer) {
     if (pending.purpose !== "investigate:guess") return;
     const state = ctx.state;
-    const target = unitByUid(state, pending.data?.targetUid);
+    // pending.data 是命令层写入的外部形状（types.ts 的约定），收窄后读取
+    const data = pending.data as InvestigateData | null;
+    const target = unitByUid(state, data?.targetUid ?? null);
     if (!target?.alive) {
       state.pending = null;
       if (!state.gameOver) ctx.turn.pass();
@@ -55,14 +67,14 @@ export default {
       state.grave.push(trap);
       target.trap = null;
       let damage = 20 + (state.currentWeather === "sun" ? 2 : 0);
-      if (pending.data?.besieged) {
+      if (data?.besieged) {
         damage = Math.max(1, Math.ceil(damage / 2));
       }
       ctx.log(`${player.name} 调查命中！拆除 ${target.name} 的陷阱并造成 ${damage} 点伤害`);
       ctx.dev(CAT.SKILL, `调查猜中: ${player.name} → ${target.name}`, {
         guess,
         damage,
-        besieged: !!pending.data?.besieged,
+        besieged: !!data?.besieged,
       });
       applyDamage(ctx, { target, amount: damage, cause: "investigate" });
     } else {
@@ -77,4 +89,4 @@ export default {
     state.pending = null;
     if (!state.gameOver) ctx.turn.pass();
   },
-};
+} satisfies CharacterDef;

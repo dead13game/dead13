@@ -6,49 +6,75 @@ import { createSeededRng } from "../core/rng.js";
 import { createDeck } from "../core/cards.js";
 import { STEP } from "../core/constants.js";
 import { applyDamage } from "../rules/damage.js";
-import { CHARACTERS } from "./index.js";
+import { CHARACTERS, characterStateFor } from "./index.js";
 import shalang from "./shalangbaizi.js";
 import juxueli from "./juxueli.js";
 import woyanisha from "./woyanisha.js";
 import weisina from "./weisina.js";
+import type { CharState, Ctx, GameState, Pending, Player } from "../types.js";
 
-function makeCtx() {
-  const state = {
+function makeCtx(): Ctx {
+  const state: GameState = {
     players: [],
     towers: [],
     summons: [],
     unitSeq: 0,
+    drawFeed: [],
+    drawSeq: 0,
     currentPlayerIndex: 0,
     deck: createDeck(),
     grave: [],
     messageLog: [],
     soundQueue: [],
     soundSeq: 0,
+    idSeq: 0,
     round: 5,
     phase: "normal",
     step: STEP.PICK_ACTION,
     pending: null,
-    turn: { extraAction: false, suspend: null, resync: false },
+    turn: { extraAction: false, suspend: null, resync: false, savedBy: null },
+    peaceRounds: 0,
+    peaceStartRound: 0,
     gameOver: false,
+    winnerIndex: -1,
     currentWeather: null,
     nextWeather: null,
     useWeather: false,
     weatherDeck: [],
-    mode: { rules: {} },
+    mode: { id: "test", rules: {} },
+    pendingAttackCard: null,
+    pendingVentiCards: null,
+    scryCards: null,
+    pendingGamble: null,
   };
   const ctx = createContext(state, { rng: createSeededRng(1) });
   ctx.attachEngine({ pass() {}, extra() {}, next() {} });
   return ctx;
 }
 
-function addHero(ctx, { uid, characterId, char = {} }) {
+/** 只给角色插件看 `purpose` / `data` 的最小待决对象（type/asker 按命令层惯例填） */
+function pendingOf(
+  purpose: string,
+  data: Record<string, unknown> | null = null,
+): Pending {
+  return { type: "target", purpose, asker: 1, options: [], data };
+}
+
+function addHero(
+  ctx: Ctx,
+  {
+    uid,
+    characterId,
+    char = {},
+  }: { uid: number; characterId: number; char?: CharState },
+): Player {
   const meta = CHARACTERS[characterId];
   const p = createPlayer({
     uid,
     index: ctx.state.players.length,
     characterId,
     meta,
-    charState: { ...meta.stateSchema, ...char },
+    charState: { ...characterStateFor(characterId), ...char },
   });
   ctx.state.players.push(p);
   return p;
@@ -61,12 +87,7 @@ describe("v3.5 新角色 — 砂狼白子", () => {
     const target = addHero(ctx, { uid: 2, characterId: 1 });
     target.hp = 20;
 
-    shalang.onAnswer(
-      ctx,
-      bai,
-      { purpose: "skill:shalang.summon" },
-      target.uid,
-    );
+    shalang.onAnswer(ctx, bai, pendingOf("skill:shalang.summon"), target.uid);
     expect(ctx.state.summons).toHaveLength(1);
     const drone = ctx.state.summons[0];
     expect(drone.hp).toBe(5);
@@ -87,7 +108,7 @@ describe("v3.5 新角色 — 砂狼白子", () => {
     bai.artifact.active = true;
     ctx.state.currentWeather = "sun";
 
-    shalang.onAnswer(ctx, bai, { purpose: "skill:shalang.summon" }, target.uid);
+    shalang.onAnswer(ctx, bai, pendingOf("skill:shalang.summon"), target.uid);
     shalang.hooks.onTurnStart(ctx, bai);
     expect(target.hp).toBe(22); // 30 - 8
   });
@@ -96,9 +117,15 @@ describe("v3.5 新角色 — 砂狼白子", () => {
     const ctx = makeCtx();
     const bai = addHero(ctx, { uid: 1, characterId: 13 });
     const target = addHero(ctx, { uid: 2, characterId: 1 });
-    shalang.onAnswer(ctx, bai, { purpose: "skill:shalang.summon" }, target.uid);
+    shalang.onAnswer(ctx, bai, pendingOf("skill:shalang.summon"), target.uid);
     const drone = ctx.state.summons[0];
-    ctx.state.deck.push({ id: "D-9", rank: "9", suit: "♠", value: 9 });
+    ctx.state.deck.push({
+      id: "D-9",
+      rank: "9",
+      suit: "♠",
+      value: 9,
+      faceUp: false,
+    });
 
     shalang.hooks.onDefense(ctx, bai);
     expect(drone.defensePile).toHaveLength(1);
@@ -109,7 +136,7 @@ describe("v3.5 新角色 — 砂狼白子", () => {
     const ctx = makeCtx();
     const bai = addHero(ctx, { uid: 1, characterId: 13 });
     const target = addHero(ctx, { uid: 2, characterId: 1 });
-    shalang.onAnswer(ctx, bai, { purpose: "skill:shalang.summon" }, target.uid);
+    shalang.onAnswer(ctx, bai, pendingOf("skill:shalang.summon"), target.uid);
     const drone = ctx.state.summons[0];
 
     applyDamage(ctx, { target: bai, amount: 99 });
@@ -125,7 +152,7 @@ describe("v3.5 新角色 — 砂狼白子", () => {
     lowDef.hp = 20;
     lowDef.defensePile.push({ id: "d1", value: 1, faceUp: false });
 
-    shalang.onAnswer(ctx, bai, { purpose: "skill:shalang.summon" }, first.uid);
+    shalang.onAnswer(ctx, bai, pendingOf("skill:shalang.summon"), first.uid);
     first.alive = false;
     shalang.hooks.onTurnStart(ctx, bai);
     expect(ctx.state.summons[0].char.targetUid).toBe(lowDef.uid);
@@ -144,7 +171,7 @@ describe("v3.5 新角色 — 橘雪梨", () => {
     juxueli.onAnswer(
       ctx,
       ju,
-      { purpose: "investigate:guess", data: { targetUid: target.uid } },
+      pendingOf("investigate:guess", { targetUid: target.uid }),
       7,
     );
     expect(target.hp).toBe(10);
@@ -161,7 +188,7 @@ describe("v3.5 新角色 — 橘雪梨", () => {
     juxueli.onAnswer(
       ctx,
       ju,
-      { purpose: "investigate:guess", data: { targetUid: target.uid } },
+      pendingOf("investigate:guess", { targetUid: target.uid }),
       5,
     );
     expect(target.hp).toBe(30);
@@ -179,10 +206,7 @@ describe("v3.5 新角色 — 橘雪梨", () => {
     juxueli.onAnswer(
       ctx,
       ju,
-      {
-        purpose: "investigate:guess",
-        data: { targetUid: target.uid, besieged: true },
-      },
+      pendingOf("investigate:guess", { targetUid: target.uid, besieged: true }),
       7,
     );
     expect(target.hp).toBe(19); // (20+2)/2 = 11
@@ -198,7 +222,7 @@ describe("v3.5 新角色 — 橘雪梨", () => {
     juxueli.onAnswer(
       ctx,
       ju,
-      { purpose: "investigate:guess", data: { targetUid: target.uid } },
+      pendingOf("investigate:guess", { targetUid: target.uid }),
       5,
     );
     expect(ctx.state.messageLog.join("\n")).not.toContain("7点");
@@ -239,11 +263,11 @@ describe("v3.5 新角色 — 沃雅妮莎", () => {
     target.hp = 50;
     wo.char.chorus = 30;
 
-    woyanisha.onAnswer(ctx, wo, { purpose: "skill:woyanisha" }, target.uid);
+    woyanisha.onAnswer(ctx, wo, pendingOf("skill:woyanisha"), target.uid);
     expect(target.hp).toBe(30);
     expect(wo.char.chorus).toBe(10);
 
-    woyanisha.onAnswer(ctx, wo, { purpose: "skill:woyanisha" }, target.uid);
+    woyanisha.onAnswer(ctx, wo, pendingOf("skill:woyanisha"), target.uid);
     expect(target.hp).toBe(20);
     expect(wo.char.chorus).toBe(0);
   });
@@ -251,9 +275,13 @@ describe("v3.5 新角色 — 沃雅妮莎", () => {
 
 describe("v3.5 新角色 — 薇斯纳", () => {
   const combo = weisina.attackModifiers[0];
-  const env = (streak) => {
+  const env = (streak: number) => {
     const ctx = makeCtx();
-    const p = addHero(ctx, { uid: 1, characterId: 16, char: { attackStreak: streak } });
+    const p = addHero(ctx, {
+      uid: 1,
+      characterId: 16,
+      char: { attackStreak: streak },
+    });
     const t = addHero(ctx, { uid: 2, characterId: 1 });
     return { ctx, source: p, target: t };
   };

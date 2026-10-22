@@ -1,7 +1,8 @@
 import { PHASE } from "../core/constants.js";
 import { PENDING } from "../flow/pending.js";
 import { unitByUid } from "../core/units.js";
-import { baseCanUse, withTurnGate, otherUnitUids } from "./helpers.js";
+import { baseCanUse, withTurnGate, otherUnitUids, answerUid } from "./helpers.js";
+import type { CharacterDef } from "../types.js";
 
 // 芙宁娜 · 审判:指定目标交换陷阱明暗,本回合攻击无视陷阱,获得额外行动
 export default {
@@ -43,12 +44,13 @@ export default {
       purpose: "skill:furina",
       asker: player.uid,
       options: otherUnitUids(ctx, player),
+      data: null,
     });
     ctx.log(`${player.name} 释放审判，选择要交换陷阱的目标`);
   },
 
   onAnswer(ctx, player, pending, answer) {
-    const target = unitByUid(ctx.state, answer);
+    const target = unitByUid(ctx.state, answerUid(answer));
     if (!target?.alive) return;
 
     const temp = target.trap;
@@ -65,4 +67,4 @@ export default {
     ctx.log(`${target.name}的陷阱明暗交换`);
     ctx.turn.extra();
   },
-};
+} satisfies CharacterDef;

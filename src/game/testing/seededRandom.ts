@@ -9,10 +9,20 @@
 // 随机序列会错位。基线记录「每条命令执行前后各消耗到第几个随机数」,
 // 回放时把游标拨到同一位置,这样洗牌、暴击等内部随机结果与旧实现逐位一致。
 
+/** 回放用随机源把手 */
+export interface ReplayRandomHandle {
+  /** 还原原始 Math.random */
+  restore(): void;
+  /** 把游标拨到第 n 个随机数 */
+  seek(n: number): void;
+  /** 当前游标 */
+  position(): number;
+}
+
 /** xorshift32,返回 [0,1) */
-export function createSeededRandom(seed) {
+export function createSeededRandom(seed: number): () => number {
   let s = (seed >>> 0) || 0x9e3779b9;
-  return function random() {
+  return function random(): number {
     s ^= s << 13;
     s >>>= 0;
     s ^= s >>> 17;
@@ -24,10 +34,14 @@ export function createSeededRandom(seed) {
 
 /**
  * 安装种子随机源。
- * @param {number} seed
- * @param {number[]} [sink] 传入数组则记录每次返回值(用于回放)
+ * @param seed
+ * @param sink 传入数组则记录每次返回值(用于回放)
+ * @returns 还原函数
  */
-export function installSeededRandom(seed, sink) {
+export function installSeededRandom(
+  seed: number,
+  sink?: number[],
+): () => void {
   const original = Math.random;
   const rng = createSeededRandom(seed);
   Math.random = () => {
@@ -35,16 +49,15 @@ export function installSeededRandom(seed, sink) {
     if (sink) sink.push(v);
     return v;
   };
-  return function restore() {
+  return function restore(): void {
     Math.random = original;
   };
 }
 
 /**
  * 回放用随机源:按录制序列逐位返回;可以随时拨动游标。
- * @param {number[]} recorded
  */
-export function installReplayRandom(recorded) {
+export function installReplayRandom(recorded: number[]): ReplayRandomHandle {
   const original = Math.random;
   let pos = 0;
   Math.random = () => {
@@ -70,10 +83,14 @@ export function installReplayRandom(recorded) {
 }
 
 /** 由 seed 派生角色阵容(不消耗 rng,避免适配器实现差异影响随机序列) */
-export function pickChars(seed, count, availableIds) {
+export function pickChars(
+  seed: number,
+  count: number,
+  availableIds: readonly number[],
+): number[] {
   const pool = [...availableIds];
   let s = (seed * 2654435761 + 12345) >>> 0;
-  const picks = [];
+  const picks: number[] = [];
   for (let i = 0; i < count && pool.length > 0; i++) {
     s = (s * 1664525 + 1013904223) >>> 0;
     const idx = s % pool.length;

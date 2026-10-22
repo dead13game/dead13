@@ -9,11 +9,97 @@ import {
   RANK_POINTS,
   TOTAL_ROUNDS,
 } from "./leagueConstants.js";
+import type { LeagueScheduleMatch } from "./leagueConstants.js";
+import type { Player } from "./types.js";
+
+/** 一场比赛的结果（绝对视角：赛程里的主队胜 / 客队胜 / 平） */
+export type LeagueMatchOutcome = "home" | "away" | "draw";
+
+/** 玩家视角的比赛结果 */
+export type LeaguePlayerOutcome = "home" | "away" | "draw";
+
+/** 玩家视角的最终战绩 */
+export type LeaguePlayerResult = "win" | "loss" | "draw";
+
+/** 一方球队的卡牌加成 */
+export interface CardBonus {
+  attackBonus: number;
+  defenseBonus: number;
+}
+
+/** 玩家在某轮参与的比赛定位（赛程下标 + 是否主场） */
+export interface PlayerMatchForRound {
+  matchIdx: number;
+  match: LeagueScheduleMatch;
+  isHome: boolean;
+}
+
+/** 积分榜一行 */
+export interface TeamStanding {
+  teamId: number;
+  name: string;
+  emoji: string;
+  tier: number;
+  isPlayer: boolean;
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  points: number;
+}
+
+/** 附加赛判定结果 */
+export interface TiebreakerCheck {
+  needed: boolean;
+  opponentTeamId: number | null;
+  tiedTeamIds: number[];
+}
+
+/** 3v3 单场积分结算 */
+export interface MatchScore {
+  playerScore: number;
+  opponentScore: number;
+  /** 0=玩家 1=对手 null=平局（可在 round limit 时由调用方决定） */
+  winner: 0 | 1 | null;
+}
+
+/** 死亡顺序中的一项 */
+export interface DeathOrderEntry {
+  playerIndex?: number;
+  teamId: number;
+}
+
+/** 3v3 劣势方防御补给 */
+export interface DefenseReinforcement {
+  weakerTeamId: number;
+  diff: number;
+}
+
+/** 补给计算只关心队伍与存活状态 */
+export type ReinforcementPlayer = Pick<Player, "teamId" | "alive">;
+
+/**
+ * 联赛进行中的上下文。
+ *
+ * `_` 前缀字段是控制器私有的编排状态（附加赛、抽到的角色等），
+ * 这里用索引签名容纳，避免为了类型断言而改动运行时。
+ */
+export interface LeagueState {
+  playerTeamId: number;
+  currentRound: number;
+  /** 比赛结果存储：results[round][matchIdx] = 'home' | 'away' | 'draw' */
+  results: Record<string, LeagueMatchOutcome>;
+  /** 本轮非玩家比赛是否已模拟 */
+  roundSimulated: Record<string, boolean>;
+  /** 控制器用的轮次推进字段（与 currentRound 并存，兼容旧存档） */
+  _currentRound?: number;
+  [extra: string]: unknown;
+}
 
 // ---- 工具函数 ----
 
 /** 洗牌（Fisher-Yates） */
-function shuffle(arr) {
+function shuffle<T>(arr: readonly T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -23,7 +109,7 @@ function shuffle(arr) {
 }
 
 /** 获取球队等级 */
-export function getTeamTier(teamId) {
+export function getTeamTier(teamId: number): number {
   const team = LEAGUE_TEAMS[teamId];
   return team ? team.tier : 3;
 }
@@ -33,12 +119,15 @@ export function getTeamTier(teamId) {
  * 等级差攻击加成：高一档（一流vs二流、二流vs三流）攻击+1；
  *                 高两档（一流vs三流）攻击+2、防御+2；同级/等级更低无加成。
  * 主场加成：本方是主场时攻击牌额外+1。
- * @param {number} teamId - 本方球队ID
- * @param {number} opponentTeamId - 对方球队ID
- * @param {boolean} isHome - 本方是否是主队
- * @returns {{ attackBonus: number, defenseBonus: number }}
+ * @param teamId 本方球队ID
+ * @param opponentTeamId 对方球队ID
+ * @param isHome 本方是否是主队
  */
-export function getCardBonus(teamId, opponentTeamId, isHome) {
+export function getCardBonus(
+  teamId: number,
+  opponentTeamId: number,
+  isHome: boolean,
+): CardBonus {
   const teamTier = getTeamTier(teamId);
   const opponentTier = getTeamTier(opponentTeamId);
   let attackBonus = 0;
@@ -68,12 +157,15 @@ export function getCardBonus(teamId, opponentTeamId, isHome) {
 
 /**
  * 计算一场比赛两支球队（teamId 0/1）各自的卡牌加成
- * @param {number} playerTeamId - 玩家在赛程中的球队ID
- * @param {number} opponentTeamId - 对手球队ID
- * @param {boolean} playerIsHome - 玩家（teamId=0）是否是主队
- * @returns {{ 0: { attackBonus: number, defenseBonus: number }, 1: { attackBonus: number, defenseBonus: number } }}
+ * @param playerTeamId 玩家在赛程中的球队ID
+ * @param opponentTeamId 对手球队ID
+ * @param playerIsHome 玩家（teamId=0）是否是主队
  */
-export function getTeamCardBonuses(playerTeamId, opponentTeamId, playerIsHome) {
+export function getTeamCardBonuses(
+  playerTeamId: number,
+  opponentTeamId: number,
+  playerIsHome: boolean,
+): { 0: CardBonus; 1: CardBonus } {
   return {
     0: getCardBonus(playerTeamId, opponentTeamId, playerIsHome),
     1: getCardBonus(opponentTeamId, playerTeamId, !playerIsHome),
@@ -84,9 +176,9 @@ export function getTeamCardBonuses(playerTeamId, opponentTeamId, playerIsHome) {
 
 /**
  * 创建联赛状态
- * @param {number} playerTeamId - 玩家选择的球队ID (1-10)
+ * @param playerTeamId 玩家选择的球队ID (1-10)
  */
-export function createLeagueState(playerTeamId) {
+export function createLeagueState(playerTeamId: number): LeagueState {
   return {
     playerTeamId,
     currentRound: 1,
@@ -101,18 +193,19 @@ export function createLeagueState(playerTeamId) {
 
 /**
  * 获取某一轮的所有比赛
- * @returns {Array<{home: number, away: number}>}
  */
-export function getRoundMatches(round) {
+export function getRoundMatches(round: number): LeagueScheduleMatch[] {
   if (round < 1 || round > TOTAL_ROUNDS) return [];
   return LEAGUE_SCHEDULE[round] || [];
 }
 
 /**
  * 获取玩家在某一轮参与的比赛
- * @returns {{ matchIdx: number, match: object, isHome: boolean } | null}
  */
-export function getPlayerMatchForRound(state, round) {
+export function getPlayerMatchForRound(
+  state: LeagueState,
+  round: number,
+): PlayerMatchForRound | null {
   const matches = getRoundMatches(round);
   for (let i = 0; i < matches.length; i++) {
     const m = matches[i];
@@ -129,7 +222,7 @@ export function getPlayerMatchForRound(state, round) {
 /**
  * 判断玩家在某一轮是否是主队
  */
-export function isPlayerHome(state, round) {
+export function isPlayerHome(state: LeagueState, round: number): boolean {
   const pm = getPlayerMatchForRound(state, round);
   return pm ? pm.isHome : false;
 }
@@ -137,7 +230,7 @@ export function isPlayerHome(state, round) {
 /**
  * 获取玩家在某一轮的对手球队ID
  */
-export function getPlayerOpponent(state, round) {
+export function getPlayerOpponent(state: LeagueState, round: number): number | null {
   const pm = getPlayerMatchForRound(state, round);
   if (!pm) return null;
   return pm.isHome ? pm.match.away : pm.match.home;
@@ -149,7 +242,7 @@ export function getPlayerOpponent(state, round) {
  * 自动模拟某一轮的非玩家比赛
  * 按等级差+主场优势计算概率
  */
-export function simulateNonPlayerMatches(state, round) {
+export function simulateNonPlayerMatches(state: LeagueState, round: number): void {
   if (state.roundSimulated[round]) return;
 
   const matches = getRoundMatches(round);
@@ -175,13 +268,12 @@ export function simulateNonPlayerMatches(state, round) {
  *   二流 vs 末流: 60/20/20
  *   同等级:       35/30/35
  * 反向对阵对称翻转主胜/客胜
- * @returns {'home' | 'away' | 'draw'}
  */
-export function simulateMatch(homeId, awayId) {
+export function simulateMatch(homeId: number, awayId: number): LeagueMatchOutcome {
   const homeTier = getTeamTier(homeId);
   const awayTier = getTeamTier(awayId);
 
-  let homeWinProb, drawProb, awayWinProb;
+  let homeWinProb: number, drawProb: number, awayWinProb: number;
 
   if (homeTier === awayTier) {
     // 同等级
@@ -226,7 +318,11 @@ export function simulateMatch(homeId, awayId) {
 /**
  * 记录玩家比赛结果
  */
-export function recordMatchResult(state, round, result) {
+export function recordMatchResult(
+  state: LeagueState,
+  round: number,
+  result: LeaguePlayerOutcome,
+): void {
   // result: 'home'=玩家视角的主队胜, 'away'=玩家视角的客队胜, 'draw'=平
   const pm = getPlayerMatchForRound(state, round);
   if (!pm) return;
@@ -246,17 +342,22 @@ export function recordMatchResult(state, round, result) {
 
 /**
  * 获取某轮某场比赛的结果（绝对视角）
- * @returns {'home' | 'away' | 'draw' | null}
  */
-export function getMatchResult(state, round, matchIdx) {
+export function getMatchResult(
+  state: LeagueState,
+  round: number,
+  matchIdx: number,
+): LeagueMatchOutcome | null {
   return state.results[`${round}_${matchIdx}`] || null;
 }
 
 /**
  * 获取玩家在某轮比赛的结果（玩家视角）
- * @returns {'win' | 'loss' | 'draw' | null}
  */
-export function getPlayerResult(state, round) {
+export function getPlayerResult(
+  state: LeagueState,
+  round: number,
+): LeaguePlayerResult | null {
   const pm = getPlayerMatchForRound(state, round);
   if (!pm) return null;
 
@@ -277,17 +378,20 @@ export function getPlayerResult(state, round) {
 
 /**
  * 计算积分榜
- * @returns {Array} 按积分降序排列的球队排名数组
+ * @returns 按积分降序排列的球队排名数组
  */
-export function calculateStandings(state) {
+export function calculateStandings(state: LeagueState): TeamStanding[] {
   // 初始化每队数据
-  const teams = {};
+  const teams: Record<number, TeamStanding> = {};
   for (let id = 1; id <= 10; id++) {
+    const team = LEAGUE_TEAMS[id];
+    // 下标 0 是占位（不是球队），id 1-10 都有数据；此处只做类型收窄
+    if (!team) continue;
     teams[id] = {
       teamId: id,
-      name: LEAGUE_TEAMS[id].name,
-      emoji: LEAGUE_TEAMS[id].emoji,
-      tier: LEAGUE_TEAMS[id].tier,
+      name: team.name,
+      emoji: team.emoji,
+      tier: team.tier,
       isPlayer: id === state.playerTeamId,
       played: 0,
       wins: 0,
@@ -342,13 +446,13 @@ export function calculateStandings(state) {
  * `currentRound`，两者不同步导致 isLeagueFinished 永远为 false（v3.5 修复）。
  * 这里两个字段都认，兼容旧存档。
  */
-export function isLeagueFinished(state) {
+export function isLeagueFinished(state: LeagueState): boolean {
   const round = state._currentRound ?? state.currentRound ?? 1;
   return round > TOTAL_ROUNDS;
 }
 
 /** 已完成的轮次数（积分榜「第 N / 18 轮」显示，避免差一轮） */
-export function countPlayedRounds(state) {
+export function countPlayedRounds(state: LeagueState): number {
   let count = 0;
   for (let round = 1; round <= TOTAL_ROUNDS; round++) {
     const pm = getPlayerMatchForRound(state, round);
@@ -361,9 +465,8 @@ export function countPlayedRounds(state) {
 /**
  * 检测是否需要加赛
  * 联赛结束后，玩家与某队积分并列时需要加赛。
- * @returns {{ needed: boolean, opponentTeamId: number | null, tiedTeamIds: number[] }}
  */
-export function checkTiebreakerNeeded(state) {
+export function checkTiebreakerNeeded(state: LeagueState): TiebreakerCheck {
   if (!isLeagueFinished(state)) {
     return { needed: false, opponentTeamId: null, tiedTeamIds: [] };
   }
@@ -390,14 +493,17 @@ export function checkTiebreakerNeeded(state) {
 
 /**
  * 根据死亡顺序计算两队积分
- * @param {Array} deathOrder - [{playerIndex, teamId}] 按死亡顺序排列
+ * @param deathOrder [{playerIndex, teamId}] 按死亡顺序排列
  *   索引0=第1个死=第6名，最后存活者的team里不再有新增death
- * @param {number} playerTeamId - 玩家队伍ID (0 或 1，比赛中的teamId)
- * @param {number} opponentTeamId - 对手队伍ID
- * @returns {{ playerScore: number, opponentScore: number, winner: number | null }}
+ * @param playerTeamId 玩家队伍ID (0 或 1，比赛中的teamId)
+ * @param opponentTeamId 对手队伍ID
  *   winner: 0=玩家, 1=对手, null=平局（应在round limit时用）
  */
-export function calculateMatchScore(deathOrder, playerTeamId, opponentTeamId) {
+export function calculateMatchScore(
+  deathOrder: readonly DeathOrderEntry[],
+  playerTeamId: number,
+  opponentTeamId: number,
+): MatchScore {
   const totalPlayers = 6;
   const playersPerTeam = 3;
   // 第6名到第1名的积分（规则v3.0：1/2/3/4/5/6）
@@ -430,7 +536,7 @@ export function calculateMatchScore(deathOrder, playerTeamId, opponentTeamId) {
   // 注意：存活方可能也先阵亡过人（如对手先死1人、随后玩家3人全灭），
   // 此时 deathOrder 同时含两队，不能再用"缺席于 deadTeamIds"推断存活方。
   const remainingRanks = totalPlayers - deathOrder.length;
-  let survivingTeam = null;
+  let survivingTeam: number | null = null;
   if (remainingRanks > 0) {
     let playerDeaths = 0;
     let opponentDeaths = 0;
@@ -460,7 +566,7 @@ export function calculateMatchScore(deathOrder, playerTeamId, opponentTeamId) {
   // 胜负判定：双方均有人存活时名次未定，winner 应为 null（平局），
   // 由调用方（回合上限）决定；其余情况按已确定积分比较。
   const undecided = remainingRanks > 0 && survivingTeam === null;
-  const winner = undecided
+  const winner: 0 | 1 | null = undecided
     ? null
     : playerScore > opponentScore
       ? 0
@@ -476,10 +582,11 @@ export function calculateMatchScore(deathOrder, playerTeamId, opponentTeamId) {
 /**
  * 劣势方防御补给计算：双方存活人数不等时，劣势方每人获得 X 张防御牌，X=人数差。
  * 每回合开始阶段（所有玩家行动之前）调用，双方人数相等或任一方团灭时不触发。
- * @param {Array} players - 全部玩家（含 teamId / alive）
- * @returns {{ weakerTeamId: number, diff: number } | null}
+ * @param players 全部玩家（含 teamId / alive）
  */
-export function computeDefenseReinforcement(players) {
+export function computeDefenseReinforcement(
+  players: readonly ReinforcementPlayer[] | null | undefined,
+): DefenseReinforcement | null {
   if (!Array.isArray(players)) return null;
   const alive = players.filter((p) => p && p.alive);
   const team0 = alive.filter((p) => p.teamId === 0).length;

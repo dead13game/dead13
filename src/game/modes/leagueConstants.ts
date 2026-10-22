@@ -1,8 +1,16 @@
 // 联赛模式常量 — 球队数据、赛程、配置
 // 纯逻辑层，零依赖
 
+/** 一支英超球队 */
+export interface LeagueTeam {
+  id: number;
+  name: string;
+  emoji: string;
+  tier: number;
+}
+
 /** 10支球队（按ID索引） */
-export const LEAGUE_TEAMS = [
+export const LEAGUE_TEAMS: (LeagueTeam | null)[] = [
   null, // 占位，让 teamId 从 1 开始
   { id: 1, name: "曼城", emoji: "🔵", tier: 1 },
   { id: 2, name: "利物浦", emoji: "🔴", tier: 1 },
@@ -29,7 +37,7 @@ export const TEAM_BADGE_DIR = "./team-badges";
  * 未放图片时返回 null，UI 回退显示 emoji。
  * 若要为个别球队指定不同文件名，可直接改写此函数或在此处加覆盖映射。
  */
-export function getTeamBadge(teamId) {
+export function getTeamBadge(teamId: number | null | undefined): string | null {
   if (teamId == null || !LEAGUE_TEAMS[teamId]) return null;
   return `${TEAM_BADGE_DIR}/${teamId}.png`;
 }

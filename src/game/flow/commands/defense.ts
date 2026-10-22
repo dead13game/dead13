@@ -6,14 +6,17 @@ import { DEFENSE_MODIFIERS, collectModifiers, reduceModifiers } from "../../rule
 import { friendlyTargets, isFriendly, unitByUid } from "../../core/units.js";
 import { defenseModifiersOf, defenseHooks } from "../../characters/index.js";
 import { resetAttackStreak } from "../../characters/helpers.js";
+import { currentPlayer } from "./query.js";
+import { pendingCard } from "./pending-data.js";
+import type { Card, Ctx, Player } from "../../types.js";
 
-export function defense(ctx) {
+export function defense(ctx: Ctx): boolean {
   const state = ctx.state;
   if (state.pending) {
     ctx.devWarn(CAT.ANOMALY, `防御在非预期步骤执行: ${state.step}`);
     return false;
   }
-  const player = ctx.players.current();
+  const player = currentPlayer(ctx);
   if (player.relations.consecutiveGambles > 0) {
     player.relations.consecutiveGambles = 0;
   }
@@ -55,7 +58,12 @@ export function defense(ctx) {
 }
 
 /** 把一张防御牌放进目标防御区（加成按「执行防御者」计算） */
-export function placeDefenseCard(ctx, actor, target, card) {
+export function placeDefenseCard(
+  ctx: Ctx,
+  actor: Player,
+  target: Player,
+  card: Card,
+): Card {
   const originalValue = card.value;
   const env = { kind: "defense", source: actor, target };
   const { total } = reduceModifiers(
@@ -101,11 +109,11 @@ export function placeDefenseCard(ctx, actor, target, card) {
 }
 
 /** 防御支援：把已抽到的牌放进指定友方单位/塔 */
-export function defenseTarget(ctx, targetUid) {
+export function defenseTarget(ctx: Ctx, targetUid: number): boolean {
   const state = ctx.state;
   const pending = state.pending;
   if (!pending || pending.purpose !== "defense.support") return false;
-  const actor = ctx.players.current();
+  const actor = currentPlayer(ctx);
   const target = unitByUid(state, targetUid);
   if (!target?.alive) return false;
   if (!isFriendly(actor, target)) {
@@ -113,7 +121,7 @@ export function defenseTarget(ctx, targetUid) {
     return false;
   }
 
-  const card = pending.data?.card;
+  const card = pendingCard(pending.data);
   if (!card) return false;
   placeDefenseCard(ctx, actor, target, card);
   state.pending = null;
@@ -123,7 +131,7 @@ export function defenseTarget(ctx, targetUid) {
 }
 
 /** 防御后的角色钩子（沃雅妮莎领唱 / 砂狼白子无人机拿盾） */
-export function runDefenseHooks(ctx, actor) {
+export function runDefenseHooks(ctx: Ctx, actor: Player): void {
   for (const hook of defenseHooks()) {
     if (hook.id !== actor.characterId) continue;
     hook.run(ctx, actor);

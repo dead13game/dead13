@@ -14,8 +14,11 @@ npm run dev          # Vite 开发服务器
 npm run build        # 生产构建（vite build → postbuild 内联）
 npm run preview      # 预览构建产物
 npm run test         # 运行 vitest 测试
+npm run typecheck    # 类型检查（vue-tsc --noEmit）
 npm run tauri:dev    # Tauri 桌面开发
 ```
+
+> 源码为 TypeScript。约定见 [docs/ts-migration.md](docs/ts-migration.md)：类型导入必须 `import type`，import 一律保留 `.js` 后缀，禁止裸 `any`。
 
 ## 禁用操作
 

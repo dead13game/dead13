@@ -3,8 +3,12 @@ import { describe, it, expect } from "vitest";
 import { createSession, dispatch } from "../api.js";
 import { buildView } from "../view.js";
 import { createClassicMode } from "../modes/classic.js";
+import type { GameState } from "../types.js";
 
-function session(chars, { weather = false, startRound = 5 } = {}) {
+function session(
+  chars: number[],
+  { weather = false, startRound = 5 }: { weather?: boolean; startRound?: number } = {},
+): GameState {
   const { state } = createSession({
     chars,
     weather,
@@ -15,12 +19,12 @@ function session(chars, { weather = false, startRound = 5 } = {}) {
   return state;
 }
 
-const view = (state) => buildView(state);
+const view = (state: GameState) => buildView(state);
 
 describe("KB-9 菜月昴:同一回合只能存一次档(AI/UI 口径)", () => {
   it("存档后 view.canUseSkill 变 false,新回合恢复", () => {
     const state = session([11, 11, 11, 11]);
-    const first = view(state).currentPlayer();
+    const first = view(state).currentPlayer()!;
     expect(first.canUseSkill).toBe(true);
 
     // 释放技能 → 选择存档
@@ -30,7 +34,7 @@ describe("KB-9 菜月昴:同一回合只能存一次档(AI/UI 口径)", () => {
 
     // 存档不结束回合:还是同一个人,但不能再存
     expect(state.currentPlayerIndex).toBe(first.index);
-    expect(view(state).currentPlayer().canUseSkill).toBe(false);
+    expect(view(state).currentPlayer()!.canUseSkill).toBe(false);
 
     // 引擎口径仍允许(保证差分回放);UI/AI 靠 canUseSkill 拦截
     expect(dispatch(state, { type: "skill" })).toBe(true);
@@ -41,7 +45,7 @@ describe("KB-9 菜月昴:同一回合只能存一次档(AI/UI 口径)", () => {
     dispatch(state, { type: "defense" });
     dispatch(state, { type: "defense" });
     dispatch(state, { type: "defense" });
-    const back = view(state).currentPlayer();
+    const back = view(state).currentPlayer()!;
     expect(back.uid).toBe(first.uid);
     expect(back.canUseSkill).toBe(true);
   });
@@ -88,14 +92,14 @@ describe("KB-10 读档后存档点保留", () => {
     // 第一次读档(引擎允许同回合再开技能)
     dispatch(state, { type: "skill" });
     dispatch(state, { type: "skillAnswer", answer: { choice: "load" } });
-    const after1 = state.players.find((p) => p.uid === me.uid);
+    const after1 = state.players.find((p) => p.uid === me.uid)!;
     expect(after1.resources.loadUses).toBe(2);
     expect(after1.effects.savepoint).toBeTruthy();
 
     // 第二次读档仍可用
     dispatch(state, { type: "skill" });
     dispatch(state, { type: "skillAnswer", answer: { choice: "load" } });
-    const after2 = state.players.find((p) => p.uid === me.uid);
+    const after2 = state.players.find((p) => p.uid === me.uid)!;
     expect(after2.resources.loadUses).toBe(1);
     expect(after2.effects.savepoint).toBeTruthy();
   });
@@ -104,7 +108,7 @@ describe("KB-10 读档后存档点保留", () => {
 describe("KB-3 技能门槛:UI 口径与引擎口径分离", () => {
   it("温迪第 5 回合:按钮置灰,但引擎仍会给出拒绝日志", () => {
     const state = session([1, 11, 11, 11], { startRound: 5 });
-    const p = view(state).currentPlayer();
+    const p = view(state).currentPlayer()!;
     expect(p.characterId).toBe(1);
     expect(p.canUseSkill).toBe(false); // 第 10 回合才解锁
 
@@ -117,14 +121,14 @@ describe("KB-3 技能门槛:UI 口径与引擎口径分离", () => {
 
   it("芙宁娜第 3 回合置灰,第 4 回合可用", () => {
     const early = session([5, 11, 11, 11], { startRound: 3 });
-    expect(view(early).currentPlayer().canUseSkill).toBe(false);
+    expect(view(early).currentPlayer()!.canUseSkill).toBe(false);
 
     const ok = session([5, 11, 11, 11], { startRound: 4 });
-    expect(view(ok).currentPlayer().canUseSkill).toBe(true);
+    expect(view(ok).currentPlayer()!.canUseSkill).toBe(true);
   });
 
   it("菜月昴不受回合门槛限制", () => {
     const state = session([11, 1, 2, 3], { startRound: 1 });
-    expect(view(state).currentPlayer().canUseSkill).toBe(true);
+    expect(view(state).currentPlayer()!.canUseSkill).toBe(true);
   });
 });

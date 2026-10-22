@@ -16,10 +16,19 @@
  * 动态等级：window.__GAME_LOG_LEVEL__ = 0|1|2
  */
 
+// 宿主调试开关是 src/game 里唯一被允许触碰 window 的地方（见 guard/scan.ts 注释）。
+// 只在此处声明全局形状，避免用 any 绕过类型检查。
+declare global {
+  interface Window {
+    /** 日志等级：0 调试 / 1 信息 / 2 警告（DevLogPanel 与 Playwright 可热调） */
+    __GAME_LOG_LEVEL__?: number;
+  }
+}
+
 // ===== 日志等级 =====
 export const LogLevel = { DEBUG: 0, INFO: 1, WARN: 2 };
 let currentLevel = LogLevel.DEBUG;
-export function setLogLevel(level) {
+export function setLogLevel(level: number): void {
   currentLevel = level;
 }
 
@@ -29,7 +38,7 @@ if (typeof window !== "undefined") {
     get() {
       return currentLevel;
     },
-    set(v) {
+    set(v: number) {
       currentLevel = v;
     },
     configurable: true,
@@ -118,7 +127,7 @@ export const CAT = {
 };
 
 // LOG_TYPE → CAT 映射
-const TYPE_CAT_MAP = {
+const TYPE_CAT_MAP: Record<string, string> = {
   turn_start: CAT.STATE,
   turn_end: CAT.STATE,
   phase_change: CAT.STATE,
@@ -184,7 +193,7 @@ const TYPE_CAT_MAP = {
 };
 
 // CAT → 默认 LOG_TYPE（向后兼容旧 CAT 调用）
-const CAT_DEFAULT_TYPE = {
+const CAT_DEFAULT_TYPE: Record<string, string> = {
   [CAT.STATE]: LOG_TYPE.STEP_CHANGE,
   [CAT.ATTACK]: LOG_TYPE.ATTACK_EXEC,
   [CAT.DEFENSE]: LOG_TYPE.DEFENSE_PLACE,
@@ -204,54 +213,70 @@ const PRUNE_COUNT = 500;
 
 // ===== 数据清理 =====
 // depth 5：确保事件 outcome.fx（第 3 层）等奖励数值在日志中完整可见（此前 3 层把 fx 截断为 [深度限制]）
-function sanitize(obj, depth = 5, seen = new WeakSet()) {
+function sanitize(obj: unknown, depth = 5, seen = new WeakSet<object>()): unknown {
   if (depth <= 0) return "[深度限制]";
   if (obj === null || obj === undefined) return obj;
   if (typeof obj !== "object") return obj;
   if (seen.has(obj)) return "[循环引用]";
   seen.add(obj);
   if (Array.isArray(obj)) return obj.map((i) => sanitize(i, depth - 1, seen));
+  // 快照里是任意运行时形状（卡牌 / 玩家 / 普通对象），统一按 Record 读取；
+  // 这里只放宽「读」的类型，输出字段与顺序与迁移前完全一致。
+  const rec = obj as Record<string, unknown>;
   // 卡牌对象
-  if (obj.suit !== undefined && obj.rank !== undefined) {
+  if (rec.suit !== undefined && rec.rank !== undefined) {
     return {
-      id: obj.id,
-      display: `${obj.rank}${obj.suit}`,
-      value: obj.value,
-      faceUp: obj.faceUp,
-      isShield: obj.isShield || false,
+      id: rec.id,
+      display: `${rec.rank}${rec.suit}`,
+      value: rec.value,
+      faceUp: rec.faceUp,
+      isShield: rec.isShield || false,
     };
   }
   // 玩家对象
-  if (obj.characterId !== undefined && obj.index !== undefined) {
+  if (rec.characterId !== undefined && rec.index !== undefined) {
+    const trap = readObject(rec.trap);
+    const relations = readObject(rec.relations);
     return {
-      index: obj.index,
-      name: obj.name,
-      characterId: obj.characterId,
-      hp: obj.hp,
-      maxHp: obj.maxHp,
-      alive: obj.alive,
-      defCount: obj.defensePile?.length ?? 0,
-      trapValue: obj.trap?.value ?? null,
-      allyIndex: obj.relations?.allyIndex,
-      allianceTurns: obj.relations?.allianceTurns,
+      index: rec.index,
+      name: rec.name,
+      characterId: rec.characterId,
+      hp: rec.hp,
+      maxHp: rec.maxHp,
+      alive: rec.alive,
+      defCount: Array.isArray(rec.defensePile) ? rec.defensePile.length : 0,
+      trapValue: trap ? (trap.value ?? null) : null,
+      allyIndex: relations?.allyIndex,
+      allianceTurns: relations?.allianceTurns,
     };
   }
-  const result = {};
-  for (const key of Object.keys(obj)) {
-    if (typeof obj[key] !== "function")
-      result[key] = sanitize(obj[key], depth - 1, seen);
+  const result: Record<string, unknown> = {};
+  for (const key of Object.keys(rec)) {
+    if (typeof rec[key] !== "function")
+      result[key] = sanitize(rec[key], depth - 1, seen);
   }
   return result;
 }
 
+/** 把 unknown 收窄成可读对象；非对象返回 null（保持原 `a?.b ?? x` 的兜底语义） */
+function readObject(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
 // ===== 格式化 =====
-function formatTime(ts) {
+function formatTime(ts: number): string {
   const d = new Date(ts);
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}.${String(d.getMilliseconds()).padStart(3, "0")}`;
 }
 
 // ===== 核心函数：gameLog（方案定义） =====
-export function gameLog(type, data = {}, level = LogLevel.DEBUG) {
+export function gameLog(
+  type: string,
+  data: Record<string, unknown> = {},
+  level: number = LogLevel.DEBUG,
+): void {
   if (level < currentLevel) return;
   const entry = { ts: Date.now(), type, ...data };
   if (typeof console !== "undefined") {
@@ -263,10 +288,43 @@ export function gameLog(type, data = {}, level = LogLevel.DEBUG) {
 }
 
 // ===== 上层工厂：createGameLogger =====
-export function createGameLogger(getState) {
-  const entries = [];
 
-  function _ctx() {
+/**
+ * 日志上下文的只读视图（getState 的返回值）。
+ * 全部字段可选：经典 / 联赛 / 世界杯 / 单机各有自己的 state 结构，
+ * 日志器只按需读取这几个字段，缺省时用与原实现一致的兜底值。
+ */
+export interface LogContext {
+  round?: number;
+  currentPlayerIndex?: number;
+  players?: { name?: string }[];
+  phase?: string;
+  step?: string;
+}
+
+/** DevLogPanel 消费的结构化条目 */
+export interface LogEntry {
+  ts: number;
+  level: string;
+  type: string;
+  cat: string;
+  round: number;
+  turn: string;
+  msg: string;
+  data?: unknown;
+}
+
+/** 级别对象（LEVEL 的成员） */
+interface LevelInfo {
+  id: string;
+  label: string;
+  priority: number;
+}
+
+export function createGameLogger(getState?: (() => LogContext | null) | null) {
+  const entries: LogEntry[] = [];
+
+  function _ctx(): LogContext | null {
     try {
       return getState ? getState() : null;
     } catch {
@@ -275,7 +333,7 @@ export function createGameLogger(getState) {
   }
 
   /** 解析 typeOrCat → { type, cat } */
-  function resolve(typeOrCat) {
+  function resolve(typeOrCat: string): { type: string; cat: string } {
     if (TYPE_CAT_MAP[typeOrCat])
       return { type: typeOrCat, cat: TYPE_CAT_MAP[typeOrCat] };
     if (CAT_DEFAULT_TYPE[typeOrCat])
@@ -283,18 +341,24 @@ export function createGameLogger(getState) {
     return { type: typeOrCat, cat: "其他" };
   }
 
-  function _log(levelObj, typeOrCat, msg, data) {
+  function _log(
+    levelObj: LevelInfo,
+    typeOrCat: string,
+    msg: string,
+    data?: Record<string, unknown>,
+  ): void {
     const s = _ctx();
     const ts = Date.now();
     const { type, cat } = resolve(typeOrCat);
+    const playerIndex = s?.currentPlayerIndex ?? -1;
 
     // → 控制台：[game] JSON（Playwright 可抓取）
     gameLog(
       type,
       {
         round: s?.round ?? 0,
-        playerIndex: s?.currentPlayerIndex ?? -1,
-        playerName: s?.players?.[s?.currentPlayerIndex]?.name ?? "",
+        playerIndex,
+        playerName: s?.players?.[playerIndex]?.name ?? "",
         phase: s?.phase ?? "",
         step: s?.step ?? "",
         ...data,
@@ -303,13 +367,13 @@ export function createGameLogger(getState) {
     );
 
     // → UI 面板：结构化条目
-    const entry = {
+    const entry: LogEntry = {
       ts,
       level: levelObj.id,
       type,
       cat,
       round: s?.round ?? 0,
-      turn: s?.players?.[s?.currentPlayerIndex]?.name ?? "",
+      turn: s?.players?.[playerIndex]?.name ?? "",
       msg,
       data: data !== undefined ? sanitize(data) : undefined,
     };
@@ -320,21 +384,29 @@ export function createGameLogger(getState) {
 
   return {
     entries,
-    debug(typeOrCat, msg, data) {
+    debug(typeOrCat: string, msg: string, data?: Record<string, unknown>): void {
       _log(LEVEL.DEBUG, typeOrCat, msg, data);
     },
-    info(typeOrCat, msg, data) {
+    info(typeOrCat: string, msg: string, data?: Record<string, unknown>): void {
       _log(LEVEL.INFO, typeOrCat, msg, data);
     },
-    warn(typeOrCat, msg, data) {
+    warn(typeOrCat: string, msg: string, data?: Record<string, unknown>): void {
       _log(LEVEL.WARN, typeOrCat, msg, data);
     },
-    error(typeOrCat, msg, data) {
+    error(typeOrCat: string, msg: string, data?: Record<string, unknown>): void {
       _log(LEVEL.ERROR, typeOrCat, msg, data);
     },
 
     /** HP 变化（统一事件） */
-    hpChange(pi, pn, from, to, delta, reason, extra = {}) {
+    hpChange(
+      pi: number,
+      pn: string,
+      from: number,
+      to: number,
+      delta: number,
+      reason: string,
+      extra: Record<string, unknown> = {},
+    ): void {
       _log(
         LEVEL.DEBUG,
         LOG_TYPE.HP_CHANGE,
@@ -344,7 +416,7 @@ export function createGameLogger(getState) {
     },
 
     /** 步骤切换 */
-    stepChange(from, to, extra = {}) {
+    stepChange(from: string, to: string, extra: Record<string, unknown> = {}): void {
       _log(LEVEL.DEBUG, LOG_TYPE.STEP_CHANGE, `步骤: ${from} → ${to}`, {
         from,
         to,
@@ -352,22 +424,22 @@ export function createGameLogger(getState) {
       });
     },
 
-    exportText() {
+    exportText(): string {
       return _formatExport(entries);
     },
-    getEntries() {
+    getEntries(): LogEntry[] {
       return entries;
     },
-    clear() {
+    clear(): void {
       entries.length = 0;
     },
   };
 }
 
 // ===== 导出文本 =====
-function _formatExport(entries) {
+function _formatExport(entries: LogEntry[]): string {
   if (entries.length === 0) return "(日志为空)";
-  const counts = {};
+  const counts: Record<string, number> = {};
   for (const e of entries) counts[e.level] = (counts[e.level] || 0) + 1;
   const countStr = Object.entries(counts)
     .map(([k, v]) => `${k}:${v}`)
@@ -389,12 +461,18 @@ function _formatExport(entries) {
     "",
   ].join("\n");
 
-  const icons = { DEBUG: "●", INFO: "ℹ", WARN: "⚠", ERROR: "✖" };
+  const icons: Record<string, string> = {
+    DEBUG: "●",
+    INFO: "ℹ",
+    WARN: "⚠",
+    ERROR: "✖",
+  };
   const body = entries
     .map((e) => {
       const icon = icons[e.level] || "·";
       let line = `${icon} [${formatTime(e.ts)}] [${e.level}] [${e.type}] [${e.cat}] [回合${e.round}] ${e.turn ? e.turn + " " : ""}${e.msg}`;
-      if (e.data && Object.keys(e.data).length > 0) {
+      // sanitize 的返回值在结构上可能是对象也可能是原始值，Object.keys 的判定语义与迁移前一致
+      if (e.data && Object.keys(e.data as Record<string, unknown>).length > 0) {
         line +=
           "\n" +
           JSON.stringify(e.data, null, 2)

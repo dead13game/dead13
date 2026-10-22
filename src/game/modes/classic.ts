@@ -4,8 +4,9 @@
 // 规则字段必须显式声明,禁止再靠「context 是否存在」隐式切换(旧实现就这么干)。
 
 import { PHASE } from "../core/constants.js";
+import type { Ctx, ModeAdapter } from "../types.js";
 
-export function createClassicMode() {
+export function createClassicMode(): ModeAdapter {
   return {
     id: "classic",
     rules: {
@@ -21,7 +22,7 @@ export function createClassicMode() {
     },
 
     /** 结束判定:存活 ≤ 1(与旧 checkGameOver 的 classic 分支逐行对齐) */
-    checkGameOver(ctx) {
+    checkGameOver(ctx: Ctx) {
       const { state } = ctx;
       const alive = ctx.players.alive();
       if (alive.length > 1) return;

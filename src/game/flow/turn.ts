@@ -13,11 +13,29 @@ import { drawWeather, getCurrentWeather } from "../rules/weather.js";
 import { tickArtifactRounds } from "../rules/artifacts.js";
 import { dissolveAlliance } from "../rules/damage.js";
 import { roundStartHooks, turnStartHooks } from "../characters/index.js";
+import type { Ctx, GameState, ModeAdapter } from "../types.js";
 
 /** 钩子分带:小于此优先级 = 结算前(月相),大于等于 = 结算后(DoT/偷牌) */
 const EARLY_HOOKS = 50;
 
-export function attachTurnEngine(ctx) {
+/**
+ * 模式扩展点的「回合」形态。
+ *
+ * types.ts 的 ModeAdapter 只声明了单参回调（内核最早只需要 ctx），
+ * 但 brawl / league / match 的实际实现都是 (ctx, round)，league 还返回 "halt"。
+ * 这里按真实调用约定收窄一次，运行时调用方式不变。
+ */
+type ModeTurnHooks = ModeAdapter & {
+  onNewRound?(ctx: Ctx, round: number): void | "halt";
+  onRoundEnd?(ctx: Ctx, round: number): void | "halt";
+};
+
+/** state.mode 的回合回调视图（理由见 ModeTurnHooks） */
+function turnHooksOf(state: GameState): ModeTurnHooks | null {
+  return state.mode as ModeTurnHooks | null;
+}
+
+export function attachTurnEngine(ctx: Ctx): Ctx {
   ctx.attachEngine({
     pass: (c) => pass(c),
     extra: (c) => extra(c),
@@ -26,7 +44,7 @@ export function attachTurnEngine(ctx) {
   return ctx;
 }
 
-function pass(ctx) {
+function pass(ctx: Ctx): void {
   const turn = ctx.state.turn;
   if (turn.suspend) {
     turn.suspend = null;
@@ -45,7 +63,7 @@ function pass(ctx) {
   nextPlayer(ctx, 0);
 }
 
-function extra(ctx) {
+function extra(ctx: Ctx): void {
   const state = ctx.state;
   state.pending = null;
   state.step = STEP.PICK_ACTION;
@@ -56,7 +74,7 @@ function extra(ctx) {
 }
 
 /** 旧 _gameJustReset 分支:跳过新回合逻辑,只把指针移到下一位存活者 */
-function resyncToNextAlive(ctx) {
+function resyncToNextAlive(ctx: Ctx): void {
   const state = ctx.state;
   let next = state.currentPlayerIndex + 1;
   while (next < state.players.length && !state.players[next].alive) next++;
@@ -69,7 +87,7 @@ function resyncToNextAlive(ctx) {
   }
 }
 
-function nextPlayer(ctx, depth) {
+function nextPlayer(ctx: Ctx, depth: number): void {
   const state = ctx.state;
   if (depth > state.players.length) return;
 
@@ -78,7 +96,7 @@ function nextPlayer(ctx, depth) {
 
   if (next >= state.players.length || !state.players[next]?.alive) {
     // 一回合结束（所有英雄行动完）→ 模式回合结束钩子（团战塔行动 / 60 回合判定）
-    const ended = ctx.mode?.onRoundEnd?.(ctx, state.round);
+    const ended = turnHooksOf(state)?.onRoundEnd?.(ctx, state.round);
     if (ended === "halt" || state.gameOver) return;
 
     state.round++;
@@ -95,6 +113,8 @@ function nextPlayer(ctx, depth) {
   if (!state.gameOver && state.players[next]?.alive) {
     state.currentPlayerIndex = next;
     const p = ctx.players.current();
+    // currentPlayerIndex 刚指向存活玩家，current() 必然存在；这里只做类型收窄
+    if (!p) return;
 
     if (p.effects.frozenBy !== null) {
       ctx.log(`${p.name} 被冻结，跳过行动`);
@@ -130,7 +150,7 @@ function nextPlayer(ctx, depth) {
 /**
  * 新回合开始。返回 true 表示模式要求立即中断(例如联赛回合上限),不再选中当前玩家。
  */
-function roundStart(ctx) {
+function roundStart(ctx: Ctx): boolean {
   const state = ctx.state;
 
   // 1) 阶段切换
@@ -168,6 +188,8 @@ function roundStart(ctx) {
       ]) {
         if (p.alive && p.defensePile.length > 0) {
           const discarded = p.defensePile.pop();
+          // 上面已判 length > 0，pop 必然有值；这里只做类型收窄
+          if (!discarded) continue;
           if (!discarded.isShield) state.grave.push(discarded);
           ctx.log(`${p.name} 防御牌被暴雨冲走`);
           ctx.devDebug(CAT.WEATHER, `${p.name} 防御牌被暴雨冲走`, {
@@ -179,7 +201,7 @@ function roundStart(ctx) {
   }
 
   const hooks = roundStartHooks();
-  const runBand = (predicate) => {
+  const runBand = (predicate: (hook: (typeof hooks)[number]) => boolean) => {
     for (const hook of hooks) {
       if (!predicate(hook)) continue;
       for (const p of state.players) {
@@ -197,7 +219,7 @@ function roundStart(ctx) {
   tickArtifactRounds(ctx);
 
   // 5) 模式回调(联赛回合上限会在此中断)
-  const modeResult = ctx.mode?.onNewRound?.(ctx, state.round);
+  const modeResult = turnHooksOf(state)?.onNewRound?.(ctx, state.round);
   if (modeResult === "halt") return true;
 
   // 6) 联盟 / 背刺倒计时

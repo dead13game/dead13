@@ -6,9 +6,10 @@
 
 import { CAT } from "../core/log.js";
 import { display } from "../core/cards.js";
+import type { Card, Ctx, Player } from "../types.js";
 
 /** 解除双方联盟关系(双向冗余,两边都要清) */
-export function dissolveAlliance(ctx, player) {
+export function dissolveAlliance(ctx: Ctx, player: Player): void {
   if (player.relations.allyUid !== null) {
     const ally = ctx.players.byUid(player.relations.allyUid);
     if (ally) {
@@ -20,11 +21,29 @@ export function dissolveAlliance(ctx, player) {
   player.relations.allianceTurns = 0;
 }
 
+/** applyDamage 入参 */
+export interface DamageOptions {
+  target: Player;
+  amount: number;
+  cause?: string;
+}
+
+/** applyDamage 返回值 */
+export interface DamageResult {
+  remaining: number;
+  absorbed: number;
+  hpDelta: number;
+  died: boolean;
+}
+
 /**
  * 对一名玩家造成伤害。
  * @returns {{ remaining: number, absorbed: number, hpDelta: number, died: boolean }}
  */
-export function applyDamage(ctx, { target, amount, cause = "damage" }) {
+export function applyDamage(
+  ctx: Ctx,
+  { target, amount, cause = "damage" }: DamageOptions,
+): DamageResult {
   const state = ctx.state;
   const hpBefore = target.hp;
   const defCountBefore = target.defensePile.length;
@@ -135,7 +154,7 @@ export function applyDamage(ctx, { target, amount, cause = "damage" }) {
 }
 
 /** 防御牌被击穿 → 通知牌的归属者（沃雅妮莎「领唱」） */
-function notifyDefenseBroken(ctx, target, card) {
+function notifyDefenseBroken(ctx: Ctx, target: Player, card: Card): void {
   if (card.isShield) return; // 护盾牌不是「防御牌」，不计入领唱
   const ownerUid = card.ownerUid ?? target.uid;
   const owner = ctx.units?.byUid(ownerUid) ?? ctx.players.byUid(ownerUid);
@@ -143,11 +162,18 @@ function notifyDefenseBroken(ctx, target, card) {
   if (owner.characterId !== 15) return;
   owner.char.chorus = (owner.char.chorus ?? 0) + 1;
   ctx.log(`${owner.name} 领唱 ${owner.char.chorus}层`);
-  ctx.devDebug(CAT.SKILL, `沃雅妮莎领唱 +1 → ${owner.char.chorus}（自己的防御牌被击破）`);
+  ctx.devDebug(
+    CAT.SKILL,
+    `沃雅妮莎领唱 +1 → ${owner.char.chorus}（自己的防御牌被击破）`,
+  );
 }
 
 /** 死亡处理:标记、入墓、解散联盟、通知模式 */
-function kill(ctx, player, { hpBefore }) {
+function kill(
+  ctx: Ctx,
+  player: Player,
+  { hpBefore }: { hpBefore: number },
+): void {
   const state = ctx.state;
   player.alive = false;
   player.hp = 0;
@@ -163,7 +189,7 @@ function kill(ctx, player, { hpBefore }) {
 
   // 丢弃所有牌入墓地(护盾牌除外)
   [...player.defensePile, player.trap, player.bait]
-    .filter(Boolean)
+    .filter((c): c is Card => !!c)
     .filter((c) => !c.isShield)
     .forEach((c) => state.grave.push(c));
   player.defensePile = [];

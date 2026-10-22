@@ -1,6 +1,15 @@
 // 单机模式常量 — 技能卡池 / 敌人数据 / 节点链 / 数值常量
 // 纯逻辑层，零依赖（设计文档 docs/solo-roguelike-design.md v0.8）
 
+import type {
+  SoloAttrs,
+  SoloBattleRewardConfig,
+  SoloCard,
+  SoloEnemy,
+  SoloMapNode,
+  SoloRarity,
+} from "./types.js";
+
 // ---- 数值常量（12.1 玩家基准）----
 export const SOLO_CONST = {
   INIT_ATTRS: { str: 2, mag: 2, def: 2 }, // 初始属性
@@ -18,7 +27,7 @@ export const SOLO_CONST = {
 export const DEFAULT_CHAR_ID = 6;
 
 /** 节点类型元信息（图标 + 名称，避免 UI 层硬编码映射） */
-export const NODE_META = {
+export const NODE_META: Record<string, { icon: string; name: string }> = {
   battle: { icon: "⚔️", name: "战斗" },
   event: { icon: "❓", name: "事件" },
   shop: { icon: "🛒", name: "商店" },
@@ -28,7 +37,7 @@ export const NODE_META = {
 // ---- 技能卡池（12.2，13 张）----
 // type: physical=力量修正 / magic=法力修正 / defense=防御修正 / utility=功能
 // cost: 行动力消耗；base: 基础数值（+对应属性修正）
-export const SOLO_CARDS = {
+export const SOLO_CARDS: Record<string, SoloCard> = {
   mengji: { id: "mengji", name: "猛击", type: "physical", cost: 5, base: 3 },
   zhongji: { id: "zhongji", name: "重击", type: "physical", cost: 9, base: 6 },
   lianji: { id: "lianji", name: "连击", type: "physical", cost: 12, base: 3, hits: 2 },
@@ -45,7 +54,7 @@ export const SOLO_CARDS = {
 };
 
 /** 卡牌稀有度（商店/奖励定价用） */
-export const CARD_RARITY = {
+export const CARD_RARITY: Record<string, SoloRarity> = {
   mengji: "common",
   zhongji: "common",
   lianji: "rare",
@@ -63,7 +72,7 @@ export const CARD_RARITY = {
 
 // ---- 敌人数据（12.3）----
 // deck: 预设技能卡牌组 {cardId: count}；buff: 专属 BUFF（复用角色特殊效果，如 fightingSpirit=斗志）
-export const SOLO_ENEMIES = {
+export const SOLO_ENEMIES: Record<string, SoloEnemy> = {
   normal: {
     name: "普通敌人",
     hp: 20,
@@ -85,7 +94,7 @@ export const SOLO_ENEMIES = {
 };
 
 // ---- 最小闭环节点链（6.1，7 节点固定链）----
-export const SOLO_CHAPTER = [
+export const SOLO_CHAPTER: SoloMapNode[] = [
   { type: "battle", enemy: "normal" },
   { type: "event", eventId: "hunter" },
   { type: "shop" },
@@ -100,7 +109,7 @@ export const EXP_CURVE = [10, 14, 19, 25, 32, 40, 49, 59, 70];
 
 // ---- 战斗奖励（12.5）----
 // rarity: common=普通卡池 / mix=普通+稀有 / rare=稀有卡池
-export const BATTLE_REWARD = {
+export const BATTLE_REWARD: Record<string, SoloBattleRewardConfig> = {
   normal: { gold: [8, 15], exp: 10, rarity: "common" },
   elite: { gold: [15, 25], exp: 20, rarity: "mix" },
   boss: { gold: [30, 45], exp: 40, rarity: "rare", attrPoint: 1 },
@@ -117,6 +126,6 @@ export const SHOP_PRICE = {
 };
 
 /** 最大 HP = 20 + 防御 × 2 */
-export function calcMaxHp(attrs) {
+export function calcMaxHp(attrs?: Partial<SoloAttrs> | null): number {
   return SOLO_CONST.HP_BASE + (attrs?.def ?? 0) * SOLO_CONST.HP_PER_DEF;
 }
