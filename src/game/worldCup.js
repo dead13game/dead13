@@ -231,7 +231,7 @@ export function initKnockoutOpponent(state = null) {
   if (state) state._usedOpponents = [...used, name];
 
   // 随机选角色
-  const chars = Object.values(CHARACTERS).filter((c) => c.id !== 12); // 开发者角色仅模拟宇宙可选
+  const chars = Object.values(CHARACTERS);
   const char = chars[Math.floor(Math.random() * chars.length)];
 
   return { name, emoji, charId: char.id };
@@ -273,7 +273,7 @@ export function eliminatePlayer(state) {
 
 /** 为小组赛对手随机选取角色 */
 export function getRandomGroupOpponentChar() {
-  const chars = Object.values(CHARACTERS).filter((c) => c.id !== 12); // 开发者角色仅模拟宇宙可选
+  const chars = Object.values(CHARACTERS);
   const char = chars[Math.floor(Math.random() * chars.length)];
   return char.id;
 }

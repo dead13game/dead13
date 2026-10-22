@@ -50,7 +50,6 @@ export function useGameController() {
   function availableChars(playerIdx) {
     const selectedOthers = playerChars.filter((c, i) => i !== playerIdx && c);
     return Object.values(CHARACTERS)
-      .filter((c) => c.id !== 12) // 开发者角色仅模拟宇宙可选
       .filter(
         (c) => !selectedOthers.includes(c.id) || c.id === playerChars[playerIdx],
       );

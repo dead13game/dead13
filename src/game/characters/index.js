@@ -2,8 +2,6 @@
 //
 // 依赖方向:characters → rules/core,characters 不直接 import flow 的实现
 // (只用 ctx 提供的接口形状),因此不会与 flow 形成环。
-//
-// 12 号「myracler(开发者)」只属于模拟宇宙,不进本注册表。
 
 import venti from "./venti.js";
 import zhongli from "./zhongli.js";
@@ -20,7 +18,6 @@ import shalangbaizi from "./shalangbaizi.js";
 import juxueli from "./juxueli.js";
 import woyanisha from "./woyanisha.js";
 import weisina from "./weisina.js";
-import dev from "./dev.js";
 
 /** 回合开始钩子的执行优先级(数值小先执行) */
 export const ROUND_START_PRIORITY = {
@@ -57,11 +54,6 @@ export function getCharacter(id) {
 export const CHARACTERS = Object.fromEntries(
   CHARACTER_DEFS.map((d) => [d.id, d.meta]),
 );
-
-/** 含开发者角色(12)的全量字典 — 仅模拟宇宙使用 */
-export const SIM_CHARACTERS = { ...CHARACTERS, [dev.id]: dev.meta };
-
-export const DEV_CHARACTER = dev;
 
 /** 旧 API:根据 player 取静态数据 */
 export function getCharData(player) {
