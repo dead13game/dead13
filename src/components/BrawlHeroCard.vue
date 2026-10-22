@@ -208,7 +208,8 @@ const chips = computed(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: top center;
+  /* 立绘多为竖图且顶部常带 LOGO/背景，向下取景让脸和角色主题居中 */
+  object-position: center 30%;
   display: block;
   filter: saturate(1.05) contrast(1.02);
   transform: scale(1.02);
