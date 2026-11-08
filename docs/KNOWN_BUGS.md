@@ -22,7 +22,7 @@
 
 | ID | 现象 | 状态 | 修复方式 |
 | --- | --- | --- | --- |
-| VB-1 | 经典/世界杯天气随机洗牌，无法预期 | ✅ 已修 | 固定 6 天气循环：烈日→暴雨→狂风→黑市→军备→晴朗；联赛同步开启 |
+| VB-1 | 经典/世界杯天气随机洗牌，无法预期 | ✅ 已修（2026-11 按需求反转，见 VB-21） | 曾改为固定 6 天气循环：烈日→暴雨→狂风→黑市→军备→晴朗；联赛同步开启 |
 | VB-2 | 世界杯淘汰赛对手从全量池随机 | ✅ 已修 | R16/QF/SF+Final 三份名单；避开本届已交手球队 |
 | VB-3 | 世界杯淘汰后没有总结，总结后还能继续下一轮 | ✅ 已修 | `matchHistory` 记录整届战绩；出局/夺冠立即进 `tournamentSummary`，仅返回主菜单 |
 | VB-4 | 联赛本轮结果全部显示「胜」，没有主客场 | ✅ 已修 | `主队（主） 胜/负/平 客队（客）` |
@@ -42,6 +42,7 @@
 | VB-18 | 团战英雄卡/BanPick 立绘从顶部裁切，只看到 LOGO/背景 | ✅ 已修 | `object-position` 由 `top center` 改为 `center 30%`（英雄卡 / BanPick 大卡 / 小头像），让脸和角色主题进入取景框 |
 | VB-19 | 团战扑克牌中央点数发灰、白底上看不清 | ✅ 已修 | `card__rank-big` 之前继承父级浅色；按花色显式设置红/黑/棕，与角标一致 |
 | VB-20 | 世界杯击杀对手后卡死：界面停在比赛桌，进不了换人面板，也不能结算 | ✅ 已修 | `createMatchMode` 解构了 `onAfterCheck` 却从未挂到 adapter 上，`routeAfterCheck` 永不触发、`uiMode` 停在 `match`（TB-1）。工厂补挂 `onAfterCheck: onAfterCheck ?? undefined`；回归 `src/game/modes/match.test.ts` ›「modes/match — onAfterCheck(世界杯赛程路由,VB-20)」3 条 + `src/composables/useWorldCupController.test.ts` ›「小组赛击杀对手 → 进入换人界面」/「跳过换人 → 新一命继续比赛」2 条 |
+| VB-21 | 天气固定循环可被背板，用户要求所有模式改回随机顺序 | ✅ 已改 | `drawWeather` 每回合从天气池独立随机抽（可连续重复，不保证 6 回合各来一次）；「下一位」在上一回合就已掷好，预览即结果。天气池只作取值来源，不再 shift/push。回归 `src/game/rules/rules.test.ts` ›「rules/weather — 每回合完全随机」6 条；回放基线 `fixtures/classic-v1.json.gz` 的 9 条 weather 用例按新规则重录快照（21 条无天气用例逐位一致，已在校验脚本里断言） |
 
 ### v3.5 新角色
 
@@ -65,6 +66,7 @@
 | 天气 / 圣遗物乘区 / 新角色 / 防御与陷阱支援 | `src/game/characters/v35.test.js`、`src/game/flow/v35-flow.test.js`、`src/game/rules/rules.test.js` |
 | 世界杯名单与积分 | `src/game/worldCup.test.js` |
 | VB-20 世界杯击杀后换人/结算路由 | `src/game/modes/match.test.ts`（`modes/match — onAfterCheck` 3 条）、`src/composables/useWorldCupController.test.ts`（2 条） |
+| VB-21 天气每回合完全随机 | `src/game/rules/rules.test.ts`（`rules/weather — 每回合完全随机` 6 条） |
 | 联赛轮次/同分/附加赛 | `src/game/league.test.js`、`src/composables/useLeagueController.test.js` |
 | 团战塔/复活/60 回合 | `src/game/modes/brawl.test.js` |
 | 团战 Ban/Pick/存档 | `src/composables/useBrawlController.test.js` |
@@ -135,7 +137,7 @@
 - 菜月昴 AI 无限存档(已修:同一回合只允许存一次档)
 - 读档清空存档点 / 读档次数永不消耗(已修:读档后挂回存档点,计数按读档前值 -1)
 - 换人后新角色继承上一个角色的斗志/月相(已修:换人时重置 `player.char`)
-- v3.5 天气随机洗牌 → **固定顺序轮换**(烈日→暴雨→狂风→黑市→军备→晴朗;`setupWeatherDeck` 不再 shuffle)
+- 天气顺序：v3.5 曾改固定轮换，2026-11 按需求改回**每回合完全随机**（VB-21）；`drawWeather` 不再消费牌堆，`nextWeather` 是上一回合预掷的结果（预览即结果）
 - v3.5 圣遗物在陷阱判定之后 → **总伤害先乘圣遗物倍数再与陷阱比大小**(`ATTACK_MODIFIERS` 里 `artifact.boost`;`POST_TRAP` 只剩围攻)
 - v3.5 联赛 `currentRound` 与控制器 `_currentRound` 不同步 → `isLeagueFinished` 永远 false、第 19 轮选人后崩(已修:两个字段都认,`countPlayedRounds` 取实际已赛轮次)
 - v3.5 联赛本轮结果把所有结果都显示成「胜」→ 改为 `主队（主） 胜/负/平 客队（客）`

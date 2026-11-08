@@ -115,6 +115,9 @@ interface ReplayFailure {
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE = path.join(HERE, "fixtures", "classic-v1.json.gz");
+// 2026-11（VB-21）：天气由固定轮换改为每回合完全随机后，9 条 weather 用例的
+// 状态快照按新规则重录（命令序列与 rng 游标保持旧基线；21 条无天气用例逐位一致）。
+// 其余用例仍是旧适配器录制的原始快照。
 
 // 不变量:基线文件由 tests/record 脚本产出,结构见上方 Fixture 声明
 const fixture = JSON.parse(

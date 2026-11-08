@@ -274,7 +274,7 @@ export function useLeagueController() {
     createSession({
       state: gameState,
       chars: allChars,
-      weather: true, // v3.5：联赛也启用天气（固定顺序轮转）
+      weather: true, // v3.5：联赛也启用天气（VB-21 起每回合完全随机）
       startRound: 1,
       deckCount: LEAGUE_MATCH_CONFIG.deckCount,
       teamIds,

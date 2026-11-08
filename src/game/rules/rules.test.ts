@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 
 import { STEP } from "../core/constants.js";
 import { createPlayer } from "../core/player.js";
-import { createSeededRng } from "../core/rng.js";
+import { createRng, createSeededRng } from "../core/rng.js";
 import { createContext } from "../flow/context.js";
 import { createDeck } from "../core/cards.js";
 import type {
@@ -26,7 +26,7 @@ import {
 import { applyDamage, dissolveAlliance } from "./damage.js";
 import { resolveTrap } from "./trap.js";
 import { formAlliance, splitAllianceDamage } from "./alliance.js";
-import { setupWeatherDeck, drawWeather } from "./weather.js";
+import { setupWeatherDeck, drawWeather, WEATHER_CYCLE } from "./weather.js";
 
 const META = (hp: number) => ({ hp, maxUses: 3, loadMaxUses: 0 });
 
@@ -383,33 +383,65 @@ describe("rules/alliance — 平摊与解散", () => {
   });
 });
 
-describe("rules/weather — 牌堆轮转", () => {
-  it("v3.5 固定顺序：6 张循环，抽取后轮转到牌底", () => {
-    const ctx = makeCtx({ useWeather: true });
+describe("rules/weather — 每回合完全随机", () => {
+  /** 按给定 [0,1) 序列出值的 rng：测试「随机」时结果仍可断言 */
+  function scriptedRng(values: number[]): Rng {
+    let i = 0;
+    return createRng(() => values[i++ % values.length]);
+  }
+
+  it("开局铺好天气池并预先掷好下一位，但当前天气仍为空", () => {
+    const ctx = makeCtx({ useWeather: true, rng: scriptedRng([0]) });
     setupWeatherDeck(ctx);
-    expect(ctx.state.weatherDeck).toHaveLength(6);
-    expect(ctx.state.weatherDeck.map((w) => w.id)).toEqual([
-      "sun",
-      "rain",
-      "wind",
-      "trade",
-      "arms",
-      "calm",
-    ]);
+    expect(ctx.state.weatherDeck.map((w) => w.id)).toEqual(WEATHER_CYCLE);
+    expect(ctx.state.nextWeather).toBe(WEATHER_CYCLE[0]);
+    expect(ctx.state.currentWeather).toBeNull();
+  });
 
-    const first = drawWeather(ctx);
-    expect(first).toBe("sun");
-    expect(ctx.state.currentWeather).toBe("sun");
-    expect(ctx.state.weatherDeck).toHaveLength(6);
-    expect(ctx.state.weatherDeck.at(-1)?.id).toBe(first);
-    expect(ctx.state.nextWeather).toBe("rain");
+  it("同一天气可以连续出现（不再是固定循环）", () => {
+    const ctx = makeCtx({ useWeather: true, rng: scriptedRng([0.99]) });
+    setupWeatherDeck(ctx);
 
-    expect(drawWeather(ctx)).toBe("rain");
-    expect(drawWeather(ctx)).toBe("wind");
-    expect(drawWeather(ctx)).toBe("trade");
-    expect(drawWeather(ctx)).toBe("arms");
     expect(drawWeather(ctx)).toBe("calm");
+    expect(drawWeather(ctx)).toBe("calm");
+    expect(drawWeather(ctx)).toBe("calm");
+  });
+
+  it("抽取顺序跟着 rng 走：sun → trade → calm（固定循环会是 sun → rain → wind）", () => {
+    // setup 掷下一位用第 1 个值，之后每次抽取再掷一个
+    const ctx = makeCtx({
+      useWeather: true,
+      rng: scriptedRng([0, 0.5, 0.99]),
+    });
+    setupWeatherDeck(ctx);
+
     expect(drawWeather(ctx)).toBe("sun");
+    expect(drawWeather(ctx)).toBe("trade");
+    expect(drawWeather(ctx)).toBe("calm");
+  });
+
+  it("预览即结果：本轮天气在上一轮就已掷好", () => {
+    const ctx = makeCtx({
+      useWeather: true,
+      rng: scriptedRng([0.99, 0.1, 0.5]),
+    });
+    setupWeatherDeck(ctx);
+    expect(ctx.state.nextWeather).toBe("calm");
+
+    expect(drawWeather(ctx)).toBe("calm"); // 用掉预览
+    expect(ctx.state.currentWeather).toBe("calm");
+    expect(ctx.state.nextWeather).toBe("sun"); // 0.1 → 池内第 0 个
+    expect(drawWeather(ctx)).toBe("sun");
+    expect(ctx.state.nextWeather).toBe("trade");
+  });
+
+  it("天气池不被消费：每次抽取都基于完整池", () => {
+    const ctx = makeCtx({ useWeather: true, rng: scriptedRng([0.99]) });
+    setupWeatherDeck(ctx);
+
+    for (let i = 0; i < 7; i++) drawWeather(ctx);
+    expect(ctx.state.weatherDeck).toHaveLength(WEATHER_CYCLE.length);
+    expect(ctx.state.weatherDeck.map((w) => w.id)).toEqual(WEATHER_CYCLE);
   });
 
   it("未启用天气时不抽牌", () => {
@@ -417,5 +449,7 @@ describe("rules/weather — 牌堆轮转", () => {
     setupWeatherDeck(ctx);
     expect(drawWeather(ctx)).toBeNull();
     expect(ctx.state.currentWeather).toBeNull();
+    expect(ctx.state.nextWeather).toBeNull();
   });
 });
+
