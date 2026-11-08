@@ -41,6 +41,7 @@
 | VB-17 | 经典/世界杯/联赛里所有单位被识别为队友、无法攻击 | ✅ 已修 | UI 目标事件传的是 index 不是 uid；`unitByIndexOrUid` 先按 index 查，避免 uid 与 index 撞号把敌人解析成自己 |
 | VB-18 | 团战英雄卡/BanPick 立绘从顶部裁切，只看到 LOGO/背景 | ✅ 已修 | `object-position` 由 `top center` 改为 `center 30%`（英雄卡 / BanPick 大卡 / 小头像），让脸和角色主题进入取景框 |
 | VB-19 | 团战扑克牌中央点数发灰、白底上看不清 | ✅ 已修 | `card__rank-big` 之前继承父级浅色；按花色显式设置红/黑/棕，与角标一致 |
+| VB-20 | 世界杯击杀对手后卡死：界面停在比赛桌，进不了换人面板，也不能结算 | ✅ 已修 | `createMatchMode` 解构了 `onAfterCheck` 却从未挂到 adapter 上，`routeAfterCheck` 永不触发、`uiMode` 停在 `match`（TB-1）。工厂补挂 `onAfterCheck: onAfterCheck ?? undefined`；回归 `src/game/modes/match.test.ts` ›「modes/match — onAfterCheck(世界杯赛程路由,VB-20)」3 条 + `src/composables/useWorldCupController.test.ts` ›「小组赛击杀对手 → 进入换人界面」/「跳过换人 → 新一命继续比赛」2 条 |
 
 ### v3.5 新角色
 
@@ -63,6 +64,7 @@
 | --- | --- |
 | 天气 / 圣遗物乘区 / 新角色 / 防御与陷阱支援 | `src/game/characters/v35.test.js`、`src/game/flow/v35-flow.test.js`、`src/game/rules/rules.test.js` |
 | 世界杯名单与积分 | `src/game/worldCup.test.js` |
+| VB-20 世界杯击杀后换人/结算路由 | `src/game/modes/match.test.ts`（`modes/match — onAfterCheck` 3 条）、`src/composables/useWorldCupController.test.ts`（2 条） |
 | 联赛轮次/同分/附加赛 | `src/game/league.test.js`、`src/composables/useLeagueController.test.js` |
 | 团战塔/复活/60 回合 | `src/game/modes/brawl.test.js` |
 | 团战 Ban/Pick/存档 | `src/composables/useBrawlController.test.js` |
@@ -94,8 +96,10 @@
 
 | ID | 现象 | 影响 | 为什么不修 |
 | --- | --- | --- | --- |
-| TB-1 | `createMatchMode` 里两处 `mode.onAfterCheck?.(ctx)` 读的是 adapter 上从未赋值的属性，工厂收到的 `onAfterCheck` option 从未被使用 | `useWorldCupController` 传入的 `onAfterCheck`（`routeAfterCheck`）实际不触发 | 修它会改变运行时行为（世界杯赛程路由），属功能改动，需用户确认后再动 |
 | TB-2 | `diceWar.test.ts` 有 4 处 `rollDiceN(s, 20, () => diceRng(7))` 传的是 **rng 工厂**而不是 rng 实例 | `函数 < number` 恒为 false，每掷必落最后一桶 → 实际点数恒为 12，注释里的「每轮 7v7」并不成立 | 只影响测试的对手强度，修它会改变这 4 条用例的数值前提；已在测试里用 `rngFactory7` 做类型对齐，待确认后再把 4 处换成 `diceRng(7)`（实测替换后 34 条仍全绿） |
+
+> TB-1（`createMatchMode` 的 `onAfterCheck` 未挂到 adapter）已于 2026-11-08 由 VB-20 修复——用户确认「世界杯击杀后卡死」后动。
+
 
 ## 结构债（2026-10-22，护栏尚未覆盖）
 

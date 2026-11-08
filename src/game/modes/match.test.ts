@@ -7,6 +7,7 @@ import { createSeededRng } from "../core/rng.js";
 import { attack, attackTarget, defense } from "../flow/commands.js";
 import { MATCH_CONFIG } from "./constants.js";
 import { createMatchMode } from "./match.js";
+import { createWorldCupMatchMode } from "./worldcup.js";
 import type { MatchMode, PenaltyRoundResult } from "./match.js";
 import type { Ctx, GameState, Player } from "../types.js";
 
@@ -14,16 +15,24 @@ interface MakeMatchOptions {
   isGroupStage?: boolean;
   playerCharId?: number;
   opponentCharId?: number;
+  /** 内核每次结算后回调（世界杯用它驱动赛程路由） */
+  onAfterCheck?: ((ctx: Ctx) => void) | null;
+  /** true = 用世界杯单场适配器建房（验证回调透传） */
+  worldCup?: boolean;
 }
 
 function makeMatch(opts: MakeMatchOptions = {}) {
   const state = createGameState();
-  const mode = createMatchMode({
+  const options = {
     isGroupStage: opts.isGroupStage ?? false,
     playerCharId: opts.playerCharId ?? 1,
     opponentCharId: opts.opponentCharId ?? 2,
     rng: createSeededRng(7),
-  });
+    onAfterCheck: opts.onAfterCheck ?? null,
+  };
+  const mode = opts.worldCup
+    ? createWorldCupMatchMode(options)
+    : createMatchMode(options);
   initGame(state, {
     chars: [mode.match.playerCharId, mode.match.opponentCharId],
     weather: false,
@@ -319,5 +328,42 @@ describe("modes/match — 进球归属(KB-7)", () => {
     opponent.alive = false;
     mode.checkGameOver(ctx);
     expect(mode.match.score).toEqual([1, 0]);
+  });
+});
+
+describe("modes/match — onAfterCheck(世界杯赛程路由,VB-20)", () => {
+  it("击杀结算后调用 onAfterCheck,控制器才能切到换人界面", () => {
+    const rounds: number[] = [];
+    const { ctx, mode } = makeMatch({
+      onAfterCheck: (c) => rounds.push(c.state.round),
+    });
+    expect(rounds).toHaveLength(0);
+
+    killOpponent(ctx, mode, 5);
+
+    expect(rounds).toEqual([5]);
+    expect(mode.match.substitutionPending).toBe(true);
+  });
+
+  it("回合上限结算(onNewRound)也调用 onAfterCheck", () => {
+    let calls = 0;
+    const { ctx, mode } = makeMatch({ onAfterCheck: () => calls++ });
+
+    const halted = mode.onNewRound(ctx, MATCH_CONFIG.knockoutRounds + 1);
+
+    expect(halted).toBe("halt");
+    expect(calls).toBe(1);
+  });
+
+  it("世界杯单场适配器把 onAfterCheck 透传给内核", () => {
+    let calls = 0;
+    const { ctx, mode } = makeMatch({
+      worldCup: true,
+      onAfterCheck: () => calls++,
+    });
+
+    killOpponent(ctx, mode, 3);
+
+    expect(calls).toBe(1);
   });
 });

@@ -171,6 +171,9 @@ export function createMatchMode({
     id: "match",
     match,
     onMatchEnd,
+    // 必须挂到 adapter 上:onNewRound / checkGameOver 都通过 mode.onAfterCheck 回调,
+    // 之前漏了这一行,世界杯的 routeAfterCheck 从不触发 → 击杀后卡死在比赛界面(TB-1/VB-20)
+    onAfterCheck: onAfterCheck ?? undefined,
     rules: {
       peaceRounds: 4, // 每条命都重新给 4 回合和平(有意设计)
       attackGate: "phase", // 1v1 只看阶段,不看回合数
